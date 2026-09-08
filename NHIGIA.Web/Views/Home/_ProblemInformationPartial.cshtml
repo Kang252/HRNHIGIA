@@ -1,0 +1,173 @@
+﻿<script src="@Url.Content("~/Scripts/app/controller/ProblemInformationController.js")"></script>
+<div class="container-fluid" ng-controller="ProblemInformationController">
+    <div class="row clearfix">
+        <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 p-r-0 p-l-0">
+            <div class="card box-shadow-none">
+                <button type="button" class="btn add-action-text m-r-0 m-b-10 float-right" ng-if="HideButton" ng-click="ShowPopupProblem('ADD_PROBLEM')"><i class="material-icons">add_circle</i><span class="icon-name">Thêm</span></button>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th style="max-width:200px;">Tên sự cố</th>
+                            <th style="max-width:180px;">Ngày xảy ra</th>
+                            <th style="max-width:120px;">Loại sự cố</th>
+                            <th style="max-width:180px;">Tổng GT thiệt hại</th>
+                            <th style="max-width:180px;">Tổng GT trị bồi thường</th>
+                            <th style="max-width: 100px;">Trạng thái</th>
+                            <th ng-if="GetAllProblemInformation.length > 0" style="width:85px; min-width:85px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr ng-if="GetAllProblemInformation.length > 0" ng-repeat="item in GetAllProblemInformation">
+                            <td>{{item.ProblemName}}</td>
+                            <td>{{item.HappenDayString}}</td>
+                            <td>{{item.TypeOfIncidentName}}</td>
+                            <td>{{item.TotalValueOfDamage}}</td>
+                            <td>{{item.TotalCompensationValue}}</td>
+                            <td>
+                                <div class="statusIconGreen" ng-if="item.CompensationStatusName === 'Đã xử lý'"></div>
+                                <div class="statusIconYellow" ng-if="item.CompensationStatusName === 'Chưa xử lý'"></div>
+                                {{item.CompensationStatusName}}
+                            </td>
+                            <td>
+                                <a ng-click="ShowPopupProblem('EDIT_PROBLEM',item.Id)">
+                                    <i class="material-icons" ng-if="HideButton" style="color:#0c68b4;">mode_edit</i>
+                                    <i class="material-icons" ng-if="ShowButton" style="color:#0c68b4;">remove_red_eye</i>
+                                </a>
+                                <a ng-if="HideButton" ng-click="ShowPopupProblem('DELETE_PROBLEM',item.Id)"><i class="material-icons" style="color:#E55B5C;">close</i></a>
+                            </td>
+                        </tr>
+                        <tr ng-if="GetAllProblemInformation.length === 0">
+                            <td colspan="6" align="center">Không có dữ liệu</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    @using (Ajax.BeginForm("ProblemInformation", "Home", null, new AjaxOptions { HttpMethod = "POST" }, new { @name = "ValidProblem", @id = "ValidProblem", @novalidate = "novalidate" }))
+    {
+        <div id="KenWindownProblem" class="k-window-content KenWindownPopup" style="display:none;">
+            <div class="content" style="margin: 0 0 15px 0;">
+                <div class="row m-t--10">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                        <label>
+                            Ngày xảy ra
+                        </label>
+                        <input kendo-date-picker
+                               class="form-control date-picker-style"
+                               k-format="'dd/MM/yyyy'"
+                               onkeydown="return true;"
+                               k-ng-model="modelProblem.HappenDay"
+                               id="HappenDay"
+                               name="HappenDay"
+                               ng-model="modelProblem.HappenDay"
+                               placeholder="dd/MM/yyyy">
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 p-r-0">
+                        <label>
+                            Tên sự cố <span class="asterisk">*</span>
+                        </label>
+                        <input class="form-control"
+                               name="ProblemName"
+                               id="ProblemName"
+                               ng-model="modelProblem.ProblemName"
+                               maxlength="100"
+                               ng-class="{'has-error': showHasErrorProblemName}"
+                               title="{{MessageErrorForInput}}"
+                               ng-change="onChangeValueProblem('ProblemName')" />
+                    </div>
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6">
+                        <label>
+                            Loại sự cố <span class="asterisk">*</span>
+                        </label>
+                        <select kendo-drop-down-list
+                                id="TypeOfIncidentId"
+                                name="TypeOfIncidentId"
+                                ng-model="modelProblem.TypeOfIncidentId"
+                                k-data-source="TypeOfIncidentDropdownlist"
+                                k-data-text-field="'Name'"
+                                k-data-value-field="'Id'"
+                                k-filter="'contains'"
+                                class="Dropdownlist-Custom"
+                                ng-class="{'has-error': showHasErrorTypeOfIncidentId}"
+                                title="{{MessageErrorForSelect}}"
+                                ng-change="onChangeValueProblem('TypeOfIncidentId')"></select>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 p-r-0">
+                        <label>
+                            Tổng GT thiệt hại
+                        </label>
+                        <input class="form-control"
+                               name="TotalValueOfDamage"
+                               id="TotalValueOfDamage"
+                               ng-model="modelProblem.TotalValueOfDamage"
+                               min="0"
+                               max="999999999999999"
+                               number-format
+                               maxlength="15"
+                               autocomplete="off" />
+                    </div>
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6">
+                        <label>
+                            Tổng GT bồi thường
+                        </label>
+                        <input class="form-control"
+                               name="TotalCompensationValue"
+                               id="TotalCompensationValue"
+                               ng-model="modelProblem.TotalCompensationValue"
+                               min="0"
+                               max="999999999999999"
+                               number-format
+                               maxlength="15"
+                               autocomplete="off" />
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                        <label>
+                            Trạng thái <span class="asterisk">*</span>
+                        </label>
+                        <select kendo-drop-down-list
+                                id="CompensationStatusId"
+                                name="CompensationStatusId"
+                                ng-model="modelProblem.CompensationStatusId"
+                                k-data-source="CompensationStatusDropdownlist"
+                                k-data-text-field="'Name'"
+                                k-data-value-field="'Id'"
+                                k-filter="'contains'"
+                                class="Dropdownlist-Custom"
+                                ng-class="{'has-error': showHasErrorCompensationStatusId}"
+                                title="{{MessageErrorForSelect}}"
+                                ng-change="onChangeValueProblem('CompensationStatusId')"></select>
+                    </div>
+                </div>
+            </div>
+            <hr />
+            <div class="footer">
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                        <button type="button"
+                                id="btnSaveProblem"
+                                class="btn btn-primary waves-effect float-right m-l-5"
+                                ng-if="HideButton"
+                                ng-click="SaveProblem()"
+                                disabled>
+                            <i class="material-icons">save</i><span class="icon-name">Lưu</span>
+                        </button>
+                        <button type="button"
+                                class="btn bg-grey waves-effect float-right m-l-5"
+                                id="btnCloseProblem"
+                                ng-click="CloseProblem()"
+                                disabled>
+                            <i class="material-icons">close</i><span class="icon-name">Đóng</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>

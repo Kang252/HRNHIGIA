@@ -1,0 +1,230 @@
+﻿<script src="@Url.Content("~/Scripts/app/controller/DegreeInformationController.js")"></script>
+<div class="container-fluid" ng-controller="DegreeInformationController">
+    <div class="row clearfix">
+        <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 p-r-0 p-l-0">
+            <div class="card box-shadow-none">
+                <button type="button" class="btn add-action-text m-r-0 m-b-10 float-right" ng-if="HideButton" ng-click="ShowPopupDegree('ADD_DEGREE')"><i class="material-icons">add_circle</i><span class="icon-name">Thêm</span></button>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th style="max-width:200px;">Thời gian đào tạo</th>
+                            <th style="max-width:180px;">Nơi đào tạo</th>
+                            <th style="max-width:120px;">Chuyên ngành</th>
+                            <th style="max-width:180px;">Trình độ đào tạo</th>
+                            <th style="max-width: 100px;">Xếp loại</th>
+                            <th ng-if="GetAllDegreeInformation.length > 0" style="width:85px; min-width:85px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr ng-if="GetAllDegreeInformation.length > 0" ng-repeat="item in GetAllDegreeInformation">
+                            <td>{{item.TrainingTime}}</td>
+                            <td>{{item.TrainingPlacesName}}</td>
+                            <td>{{item.SpecializedName}}</td>
+                            <td>{{item.DegreeTrainingName}}</td>
+                            <td>{{item.ClassificationName}}</td>
+                            <td>
+                                <a ng-click="ShowPopupDegree('EDIT_DEGREE',item.Id)">
+                                    <i class="material-icons" ng-if="HideButton" style="color:#0c68b4;">mode_edit</i>
+                                    <i class="material-icons" ng-if="ShowButton" style="color:#0c68b4;">remove_red_eye</i>
+                                </a>
+                                <a ng-click="ShowPopupDegree('DELETE_DEGREE',item.Id)" ng-if="GetAllDegreeInformation.length > 1 && HideButton"><i class="material-icons" style="color:#E55B5C;">close</i></a>
+                            </td>
+                        </tr>
+                        <tr ng-if="GetAllDegreeInformation.length === 0">
+                            <td colspan="5" align="center">Không có dữ liệu</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    @using (Ajax.BeginForm("DegreeInformation", "Home", null, new AjaxOptions { HttpMethod = "POST" }, new { @name = "ValidDegree", @id = "ValidDegree", @novalidate = "novalidate" }))
+    {
+        <div id="KenWindownDegree" class="k-window-content KenWindownPopup" style="display:none;">
+            <div class="content" style="height: 400px; margin: 0 -15px 15px 0; overflow: auto; overflow-x: hidden;">
+                <div class="row m-t--10">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 p-r-30">
+                        <label>
+                            Nơi đào tạo <span class="asterisk">*</span>
+                        </label>
+                        <select kendo-drop-down-list
+                                id="TrainingPlacesIdDegree"
+                                name="TrainingPlacesIdDegree"
+                                k-filter="'contains'"
+                                ng-model="modelDegree.TrainingPlacesId"
+                                k-data-source="TrainingPlacesDropdownlist"
+                                k-data-text-field="'Name'"
+                                k-data-value-field="'Id'"
+                                class="Dropdownlist-Custom"
+                                ng-class="{'has-error': showHasErrorTrainingPlacesIdDegree}"
+                                title="{{MessageErrorForSelect}}"
+                                ng-change="onChangeValueDegree('TrainingPlacesIdDegree')"></select>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 p-r-0">
+                        <label>
+                            Từ năm
+                        </label>
+                        <input class="form-control"
+                               name="FromYear"
+                               id="FromYear"
+                               maxlength="4"
+                               ng-model="modelDegree.FromYear"
+                               numbers-Only
+                               autocomplete="off" />
+                    </div>
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 p-r-30">
+                        <label>
+                            Đến năm
+                        </label>
+                        <input class="form-control"
+                               name="ToYear"
+                               id="ToYear"
+                               maxlength="4"
+                               ng-model="modelDegree.ToYear"
+                               ng-class="{'has-error': CheckToYear}"
+                               title="{{MessageCheckToYear}}"
+                               numbers-Only
+                               autocomplete="off" />
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 p-r-0">
+                        <label>
+                            Khoa
+                        </label>
+                        <select kendo-drop-down-list
+                                id="FacultyIdDegree"
+                                name="FacultyIdDegree"
+                                k-filter="'contains'"
+                                ng-model="modelDegree.FacultyId"
+                                k-data-source="FacultyDropdownlist"
+                                k-data-text-field="'Name'"
+                                k-data-value-field="'Id'"
+                                class="Dropdownlist-Custom"></select>
+                    </div>
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 p-r-30">
+                        <label>
+                            Chuyên ngành
+                        </label>
+                        <select kendo-drop-down-list
+                                id="SpecializedIdDegree"
+                                name="SpecializedIdDegree"
+                                k-filter="'contains'"
+                                ng-model="modelDegree.SpecializedId"
+                                k-data-source="SpecializedDropdownlist"
+                                k-data-text-field="'Name'"
+                                k-data-value-field="'Id'"
+                                class="Dropdownlist-Custom"></select>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 p-r-0">
+                        <label>
+                            Trình độ đào tạo
+                        </label>
+                        <select kendo-drop-down-list
+                                id="DegreeTrainingIdDegree"
+                                name="DegreeTrainingIdDegree"
+                                k-filter="'contains'"
+                                ng-model="modelDegree.DegreeTrainingId"
+                                k-data-source="DegreeTrainingDropdownlist"
+                                k-data-text-field="'Name'"
+                                k-data-value-field="'Id'"
+                                class="Dropdownlist-Custom"></select>
+                    </div>
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 p-r-30">
+                        <label>
+                            Hình thức
+                        </label>
+                        <select kendo-drop-down-list
+                                id="FormsOfTrainingId"
+                                name="FormsOfTrainingId"
+                                k-filter="'contains'"
+                                ng-model="modelDegree.FormsOfTrainingId"
+                                k-data-source="FormsOfTrainingDropdownlist"
+                                k-data-text-field="'Name'"
+                                k-data-value-field="'Id'"
+                                class="Dropdownlist-Custom"></select>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 p-r-30">
+                        <label>
+                            Xếp loại
+                        </label>
+                        <select kendo-drop-down-list
+                                id="ClassificationIdDegree"
+                                name="ClassificationIdDegree"
+                                k-filter="'contains'"
+                                ng-model="modelDegree.ClassificationId"
+                                k-data-source="ClassificationDropdownlist"
+                                k-data-text-field="'Name'"
+                                k-data-value-field="'Id'"
+                                class="Dropdownlist-Custom"></select>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 p-r-0">
+                        <label style="width:100%;">Đã tốt nghiệp</label>
+                        <div class="demo-checkbox">
+                            <input type="checkbox" id="Graduated" class="filled-in chk-col-blue" ng-model="modelDegree.Graduated" ng-change="onChangeGraduated()" />
+                            <label class="m-t-5 checkbox_label_popup" for="Graduated"> Đã tốt nghiệp</label>
+                        </div>
+                    </div>
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 p-r-30">
+                        <label>
+                            Ngày nhận bằng
+                        </label>
+                        <input kendo-date-picker
+                               class="form-control date-picker-style"
+                               k-format="'dd/MM/yyyy'"
+                               onkeydown="return true;"
+                               k-ng-model="modelDegree.DateReceived"
+                               id="DateReceived"
+                               name="DateReceived"
+                               ng-model="modelDegree.DateReceived"
+                               ng-disabled="modelDegree.Graduated === false"
+                               placeholder="dd/MM/yyyy">
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 p-r-30">
+                        <label>
+                            Ghi chú
+                        </label>
+                        <textarea class="form-control"
+                                  name="NoteDegree"
+                                  id="NoteDegree"
+                                  ng-model="modelDegree.Note"
+                                  rows="5"
+                                  maxlength="100"></textarea>
+                    </div>
+                </div>
+            </div>
+            <hr />
+            <div class="footer">
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                        <button type="button"
+                                id="btnSaveDegree"
+                                class="btn btn-primary waves-effect float-right m-l-5"
+                                ng-if="HideButton"
+                                ng-click="SaveDegree()"
+                                disabled>
+                            <i class="material-icons">save</i><span class="icon-name">Lưu</span>
+                        </button>
+                        <button type="button"
+                                class="btn bg-grey waves-effect float-right m-l-5"
+                                id="btnCloseDegree"
+                                ng-click="CloseDegree()"
+                                disabled>
+                            <i class="material-icons">close</i><span class="icon-name">Đóng</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>

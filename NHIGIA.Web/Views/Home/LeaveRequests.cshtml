@@ -1,0 +1,140 @@
+@{ var currentHrmUser = NHIGIA.Web.Infrastructure.HrmSession.Current; }
+<div class="container-fluid">
+    <div class="hrm-page-header">
+        <div>
+            <h1 class="hrm-page-title">Yêu cầu nghỉ phép</h1>
+            <p class="hrm-page-subtitle">Nhân viên gửi đơn và theo dõi quá trình Trưởng phòng → HR phê duyệt</p>
+        </div>
+        <div class="hrm-header-actions">
+            <a class="hrm-btn" href="@Url.Action("Attendance", "Home")"><i class="material-icons">alarm_on</i> Xem chấm công</a>
+            <button class="hrm-btn hrm-btn-primary" type="button" data-toggle="modal" data-target="#leaveRequestModal"><i class="material-icons">add</i> Tạo đơn nghỉ phép</button>
+        </div>
+    </div>
+
+    <div class="hrm-grid hrm-grid-4">
+        <div class="hrm-card hrm-stat"><div class="hrm-stat-top"><span class="hrm-stat-label">Phép năm còn lại</span><span class="hrm-stat-icon"><i class="material-icons">event_available</i></span></div><div id="leaveRemaining" class="hrm-stat-value">--</div><div class="hrm-stat-note">Theo định mức năm hiện tại</div></div>
+        <div class="hrm-card hrm-stat"><div class="hrm-stat-top"><span class="hrm-stat-label">Đã sử dụng</span><span class="hrm-stat-icon green"><i class="material-icons">event_busy</i></span></div><div id="leaveUsed" class="hrm-stat-value">--</div><div class="hrm-stat-note">Tính theo các đơn đã duyệt</div></div>
+        <div class="hrm-card hrm-stat"><div class="hrm-stat-top"><span class="hrm-stat-label">Đang chờ duyệt</span><span class="hrm-stat-icon orange"><i class="material-icons">hourglass_empty</i></span></div><div id="leavePendingCount" class="hrm-stat-value">0</div><div class="hrm-stat-note">Chờ Trưởng phòng hoặc HR</div></div>
+        <div class="hrm-card hrm-stat"><div class="hrm-stat-top"><span class="hrm-stat-label">Đã duyệt</span><span class="hrm-stat-icon purple"><i class="material-icons">check_circle</i></span></div><div id="leaveApproved" class="hrm-stat-value">--</div><div class="hrm-stat-note">Trong năm hiện tại</div></div>
+    </div>
+
+    <div class="hrm-content-grid">
+        <div class="hrm-card">
+            <div class="hrm-card-header">
+                <div><h2 class="hrm-card-title">Đơn nghỉ phép của tôi</h2><p class="hrm-card-subtitle">Theo dõi trạng thái duyệt trực tiếp từ hệ thống</p></div>
+                <span class="hrm-badge hrm-badge-blue">Nhân viên</span>
+            </div>
+            <div class="hrm-table-wrap">
+                <table class="hrm-table">
+                    <thead><tr><th>Mã đơn</th><th>Loại nghỉ</th><th>Thời gian</th><th>Lý do</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>
+                    <tbody id="leaveRequestRows">
+                        <tr id="leaveRequestEmpty"><td colspan="6"><div class="hrm-empty"><i class="material-icons">event_note</i><strong>Chưa có đơn nghỉ phép</strong><br /><span>Chọn “Tạo đơn nghỉ phép” để bắt đầu.</span></div></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="hrm-card">
+            <div class="hrm-card-header"><div><h2 class="hrm-card-title">Quy trình phê duyệt</h2><p class="hrm-card-subtitle">Áp dụng cho đơn nghỉ phép thông thường</p></div></div>
+            <div class="hrm-card-body">
+                <ol class="hrm-flow-list">
+                    <li><span>1</span><div><strong>Nhân viên gửi đơn</strong><small>Chọn loại nghỉ, thời gian và bàn giao công việc.</small></div></li>
+                    <li><span>2</span><div><strong>Trưởng phòng duyệt</strong><small>Kiểm tra lịch và nhân sự của phòng ban.</small></div></li>
+                    <li><span>3</span><div><strong>HR xác nhận</strong><small>Kiểm tra số phép và cập nhật bảng công.</small></div></li>
+                    <li><span>4</span><div><strong>Thông báo kết quả</strong><small>Nhân viên nhận trạng thái cuối cùng trong ứng dụng.</small></div></li>
+                </ol>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="leaveRequestModal" tabindex="-1" role="dialog" aria-labelledby="leaveRequestModalTitle">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content hrm-modal-content">
+            <div class="modal-header"><button type="button" class="close" data-dismiss="modal">&times;</button><h4 id="leaveRequestModalTitle" class="modal-title">Tạo đơn nghỉ phép</h4></div>
+            <div class="modal-body">
+                <form id="leaveRequestForm">@Html.AntiForgeryToken()
+                    <div class="form-group"><label>Loại nghỉ phép</label><select id="leaveType" class="hrm-control" required><option>Phép năm</option><option>Nghỉ ốm</option><option>Nghỉ không lương</option><option>Nghỉ kết hôn</option><option>Nghỉ thai sản</option><option>Khác</option></select></div>
+                    <div class="row hrm-form-row"><div class="col-sm-6"><div class="form-group"><label>Từ ngày</label><input id="leaveStart" class="hrm-control" type="date" required /></div></div><div class="col-sm-6"><div class="form-group"><label>Đến ngày</label><input id="leaveEnd" class="hrm-control" type="date" required /></div></div></div>
+                    <div class="row hrm-form-row"><div class="col-sm-6"><div class="form-group"><label>Thời gian nghỉ</label><select id="leaveSession" class="hrm-control"><option>Cả ngày</option><option>Buổi sáng</option><option>Buổi chiều</option></select></div></div><div class="col-sm-6"><div class="form-group"><label>Người nhận bàn giao</label><input id="leaveHandover" class="hrm-control" placeholder="Mã hoặc tên nhân viên" /></div></div></div>
+                    <div class="form-group hrm-form-row"><label>Lý do</label><textarea id="leaveReason" class="hrm-control hrm-textarea" required maxlength="500" placeholder="Nhập lý do nghỉ phép..."></textarea></div>
+                    <div class="form-group hrm-form-row"><label>Tệp đính kèm</label><input id="leaveAttachment" class="hrm-control hrm-file-control" type="file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" /><p class="hrm-field-note">Giấy xác nhận hoặc tài liệu liên quan, tối đa 10 MB khi kết nối API.</p></div>
+                    <div id="leaveFormError" class="hrm-form-error" role="alert"></div>
+                </form>
+            </div>
+            <div class="modal-footer"><button type="button" class="hrm-btn" data-dismiss="modal">Hủy</button><button type="submit" form="leaveRequestForm" class="hrm-btn hrm-btn-primary">Gửi đơn</button></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    (function () {
+        return; // Luồng giao diện mẫu cũ đã được thay bằng API thật ở dưới.
+        $('.attendance_menu').addClass('active');
+        var form = document.getElementById('leaveRequestForm');
+        var startInput = document.getElementById('leaveStart');
+        var endInput = document.getElementById('leaveEnd');
+        var pendingCount = 0;
+        function dateValue(date) {
+            return date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0');
+        }
+        function displayDate(value) {
+            return value.split('-').reverse().join('/');
+        }
+        function setDefaultDates() {
+            var today = dateValue(new Date());
+            startInput.value = today;
+            endInput.value = today;
+        }
+        setDefaultDates();
+        form.addEventListener('submit', function (event) {
+            event.preventDefault();
+            var error = document.getElementById('leaveFormError');
+            error.textContent = '';
+            if (endInput.value < startInput.value) {
+                error.textContent = 'Ngày kết thúc không được trước ngày bắt đầu.';
+                return;
+            }
+            var empty = document.getElementById('leaveRequestEmpty');
+            if (empty) empty.parentNode.removeChild(empty);
+            var values = {
+                code: 'TMP-' + new Date().getTime().toString().slice(-6),
+                type: document.getElementById('leaveType').value,
+                time: displayDate(startInput.value) + ' — ' + displayDate(endInput.value) + ' · ' + document.getElementById('leaveSession').value,
+                reason: document.getElementById('leaveReason').value
+            };
+            var row = document.createElement('tr');
+            row.innerHTML = '<td><strong></strong><small class="hrm-cell-note">Bản tạm trên giao diện</small></td><td></td><td></td><td></td><td><span class="hrm-badge hrm-badge-warning">Chờ Trưởng phòng</span></td><td><button class="hrm-btn leave-cancel" type="button">Hủy đơn</button></td>';
+            row.querySelector('td:nth-child(1) strong').textContent = values.code;
+            row.querySelector('td:nth-child(2)').textContent = values.type;
+            row.querySelector('td:nth-child(3)').textContent = values.time;
+            row.querySelector('td:nth-child(4)').textContent = values.reason;
+            row.querySelector('.leave-cancel').addEventListener('click', function () {
+                row.parentNode.removeChild(row);
+                pendingCount = Math.max(0, pendingCount - 1);
+                document.getElementById('leavePendingCount').textContent = pendingCount;
+                if (!document.querySelector('#leaveRequestRows tr')) window.location.reload();
+            });
+            document.getElementById('leaveRequestRows').appendChild(row);
+            pendingCount += 1;
+            document.getElementById('leavePendingCount').textContent = pendingCount;
+            $('#leaveRequestModal').modal('hide');
+            form.reset();
+            setDefaultDates();
+        });
+    })();
+</script>
+<script>
+(function(){
+    $('.attendance_menu').addClass('active'); var currentUserId=@(currentHrmUser == null ? 0 : currentHrmUser.Id);
+    function esc(v){return $('<div>').text(v==null?'':v).html();} function d(v){return v?moment(v).format('DD/MM/YYYY'):'';}
+    var labels={PENDING_MANAGER:'Chờ Trưởng phòng',PENDING_HR:'Chờ HR',APPROVED:'Đã duyệt',REJECTED:'Từ chối',CANCELLED:'Đã hủy'};
+    function cls(s){return s==='APPROVED'?'hrm-badge-success':s==='REJECTED'||s==='CANCELLED'?'hrm-badge-danger':'hrm-badge-warning';}
+    function load(){
+        $.get('@Url.Action("LeaveRequests","Hrm")').done(function(r){var items=(r.Data||[]).filter(function(x){return x.UserId===currentUserId;});if(!items.length){$('#leaveRequestRows').html('<tr><td colspan="6"><div class="hrm-empty"><i class="material-icons">event_note</i><strong>Chưa có đơn nghỉ phép</strong></div></td></tr>');return;}$('#leaveRequestRows').html(items.map(function(x){var canCancel=x.StatusCode==='PENDING_MANAGER'||x.StatusCode==='PENDING_HR';return '<tr><td><strong>'+esc(x.RequestCode)+'</strong><small class="hrm-cell-note">'+d(x.CreatedAt)+'</small></td><td>'+esc(x.LeaveType)+'</td><td>'+d(x.StartDate)+' — '+d(x.EndDate)+'<small class="hrm-cell-note">'+esc(x.SessionCode)+'</small></td><td>'+esc(x.Reason)+'</td><td><span class="hrm-badge '+cls(x.StatusCode)+'">'+esc(labels[x.StatusCode]||x.StatusCode)+'</span></td><td>'+(canCancel?'<button class="hrm-btn cancel-leave" data-id="'+x.Id+'">Hủy đơn</button>':'--')+'</td></tr>';}).join(''));});
+        $.get('@Url.Action("LeaveStats","Hrm")').done(function(r){var s=r.Data||{};$('#leaveRemaining').text(Math.max(0,(s.AnnualAllowance||0)-(s.UsedDays||0)));$('#leaveUsed').text(s.UsedDays||0);$('#leavePendingCount').text(s.PendingCount||0);$('#leaveApproved').text(s.ApprovedCount||0);});
+    }
+    function defaults(){var t=moment().format('YYYY-MM-DD');$('#leaveStart,#leaveEnd').val(t);} defaults();
+    $('#leaveRequestForm').on('submit',function(e){e.preventDefault();$('#leaveFormError').text('');if($('#leaveEnd').val()<$('#leaveStart').val()){$('#leaveFormError').text('Ngày kết thúc không được trước ngày bắt đầu.');return;}var file=$('#leaveAttachment')[0].files[0];$.post('@Url.Action("CreateLeave","Hrm")',{__RequestVerificationToken:$('#leaveRequestForm input[name=__RequestVerificationToken]').val(),LeaveType:$('#leaveType').val(),StartDate:$('#leaveStart').val(),EndDate:$('#leaveEnd').val(),SessionCode:$('#leaveSession').val(),HandoverTo:$('#leaveHandover').val(),Reason:$('#leaveReason').val(),AttachmentName:file?file.name:''}).done(function(){$('#leaveRequestModal').modal('hide');$('#leaveRequestForm')[0].reset();defaults();load();}).fail(function(x){$('#leaveFormError').text((x.responseJSON&&x.responseJSON.Message)||'Không thể gửi đơn.');});});
+    $(document).on('click','.cancel-leave',function(){if(!confirm('Hủy đơn nghỉ phép này?'))return;$.post('@Url.Action("CancelLeave","Hrm")',{__RequestVerificationToken:$('#leaveRequestForm input[name=__RequestVerificationToken]').val(),id:$(this).data('id')}).done(load).fail(function(x){alert((x.responseJSON&&x.responseJSON.Message)||'Không thể hủy đơn.');});});load();
+})();
+</script>

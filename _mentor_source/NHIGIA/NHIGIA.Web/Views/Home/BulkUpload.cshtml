@@ -1,0 +1,45 @@
+﻿@using Kendo.Mvc.UI
+
+<script src="@Url.Content("~/Scripts/app/controller/BulkUploadController.js")"></script>
+<script src="@Url.Content("~/Scripts/app/importFile.js")"></script>
+
+<div class="container-fluid" ng-controller="BulkUploadController">
+    <div class="row clearfix">
+        <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+            <div class="card">
+                <div class="header">
+                    <h2>
+                        Danh mục
+                    </h2>
+                </div>
+                <div class="body table-responsive bulk_upload_border">
+                    <div class="button-demo">
+                        <button type="button" class="btn bg-teal waves-effect" ng-click="DownloadTemplateListCategory()"><i class="material-icons">file_download</i><span class="icon-name">Tải file mẫu</span></button>
+                    </div>
+                    @(Html.Kendo().Upload()
+                                   .Name("examResultFileListCategory")
+                                   .HtmlAttributes(new { accept = "application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" })
+                                   .Async(a => a
+                                       .Save("ImportDataListCategory", "BulkUpload")
+                                       .AutoUpload(false)
+                                   )
+                                   .Multiple(false)
+                                   .ShowFileList(true)
+                                   .Messages(message => message
+                                       .UploadSelectedFiles("Import")
+                                       .Select("Chọn file")
+                                       .StatusFailed("Importing failed")
+                                       .HeaderStatusUploaded("Uploaded")
+                                       .HeaderStatusUploading("Uploading ...")
+                                   )
+                                   .Events(e => e
+                                       .Success("onProcessingResultsSucessfully")
+                                       .Upload("validateFileSelected")
+                                   )
+                                   .Enable(true)
+                    )
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

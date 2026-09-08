@@ -1,0 +1,211 @@
+﻿<script src="@Url.Content("~/ckfinder/ckfinder.js")"></script>
+<script src="@Url.Content("~/Scripts/app/controller/EmployeeInformationController.js")"></script>
+<script src="@Url.Content("~/Scripts/app/services/EmployeeInformationService.js")"></script>
+<script src="@Url.Content("~/Scripts/app/services/PoliticsHealthMilitaryInformationService.js")"></script>
+<script src="@Url.Content("~/Scripts/app/services/ListCategoryService.js")"></script>
+<script src="@Url.Content("~/Scripts/app/services/FamilyInformationService.js")"></script>
+<script src="@Url.Content("~/Scripts/app/services/WorkProgressInformationService.js")"></script>
+<script src="@Url.Content("~/Scripts/app/services/ContractInformationService.js")"></script>
+<script src="@Url.Content("~/Scripts/app/services/SalaryHistoryInformationService.js")"></script>
+<script src="@Url.Content("~/Scripts/app/services/BonusInformationService.js")"></script>
+<script src="@Url.Content("~/Scripts/app/services/ProblemInformationService.js")"></script>
+<script src="@Url.Content("~/Scripts/app/services/TrainingProcessInformationService.js")"></script>
+<script src="@Url.Content("~/Scripts/app/services/DegreeInformationService.js")"></script>
+<script src="@Url.Content("~/Scripts/app/services/CertificateInformationService.js")"></script>
+<script src="@Url.Content("~/Scripts/app/services/WorkExperienceInformationService.js")"></script>
+<script src="@Url.Content("~/Scripts/app/services/SkillInformationService.js")"></script>
+<script src="@Url.Content("~/Scripts/app/services/ReceiveInformationService.js")"></script>
+<script src="@Url.Content("~/Scripts/app/services/QuitInformationService.js")"></script>
+<script src="@Url.Content("~/Scripts/app/services/AssetInformationService.js")"></script>
+<script src="@Url.Content("~/Scripts/app/services/SkinInformationService.js")"></script>
+<script src="@Url.Content("~/Scripts/app/services/PageInformationService.js")"></script>
+<script src="@Url.Content("~/Scripts/app/services/AttachmentInformationService.js")"></script>
+<script src="@Url.Content("~/Scripts/app/services/EvaluateService.js")"></script>
+<script src="@Url.Content("~/Scripts/app/services/AllowanceInformationService.js")"></script>
+<script src="@Url.Content("~/Scripts/app/services/EmployeesOnBusinessTripService.js")"></script>
+<script src="@Url.Content("~/Scripts/app/services/ResignationProceduresService.js")"></script>
+<script src="@Url.Content("~/Scripts/app/services/BonusInformationStaffWereCommendedService.js")"></script>
+
+<div class="container-fluid" ng-controller="EmployeeInformationController">
+    <div class="row clearfix" ng-if="ShowList">
+        <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+            <div class="card">
+                @Html.Partial("Header")
+                <div class="body table-responsive">
+                    <div class="button-demo">
+                        <button type="button" class="btn btn-success waves-effect" ng-click="ShowPopup('ADD')">
+                            <i class="material-icons">add_circle</i>
+                            <span class="icon-name">Thêm</span>
+                        </button>
+                        <button id="ButtonEdit" type="button" class="btn btn-primary waves-effect" ng-click="ShowPopup('EDIT')" disabled>
+                            <i class="material-icons" ng-if="HideButton">create</i>
+                            <span class="icon-name" ng-if="HideButton">Sửa</span>
+                            <i class="material-icons" ng-if="ShowButton">remove_red_eye</i>
+                            <span class="icon-name" ng-if="ShowButton">Xem hồ sơ</span>
+                        </button>
+                        <button id="ButtonDelete" type="button" class="btn btn-danger waves-effect" ng-click="ShowPopup('DELETE')" disabled>
+                            <i class="material-icons">delete_sweep</i>
+                            <span class="icon-name">Xoá</span>
+                        </button>
+                        <button id="ButtonResignationProcedures" type="button" class="btn btn-warning waves-effect" ng-click="ShowPopup('RESIGNATION_PROCEDURES')" disabled>
+                            <i class="material-icons">remove_circle_outline</i>
+                            <span class="icon-name">Thủ tục thôi việc</span>
+                        </button>
+                        <button type="button" class="btn btn-info waves-effect" ng-click="ShowPopup('EXPORT_EXCEL')">
+                            <i class="material-icons">file_download</i>
+                            <span class="icon-name">Xuất Excel</span>
+                        </button>
+                        <button type="button" class="btn bg-grey waves-effect" ng-click="ShowPopup('REFRESH')">
+                            <i class="material-icons">refresh</i>
+                            <span class="icon-name">Nạp</span>
+                        </button>
+                    </div>
+                    <div kendo-grid="grid"
+                         id="Table"
+                         k-options="Section">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="row clearfix" ng-if="ShowInfo">
+        @using (Ajax.BeginForm("EmployeeInformation", "Home", null, new AjaxOptions { HttpMethod = "POST" }, new { @name = "Valid", @id = "Valid", @novalidate = "novalidate" }))
+        {
+            <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                <div class="card profile_page">
+                    <button id="btnUpsite" type="button" class="btn btn-primary btn-circle waves-effect fixedbutton" ng-click="Upsite()"><i class="material-icons" style="color:#fff">arrow_upward</i></button>
+                    <div class="header">
+                        <h2 ng-if="model.Id === 0">Thêm mới hồ sơ</h2>
+                        <h2 ng-if="model.Id > 0">Thông tin hồ sơ</h2>
+                        <div class="header-dropdown m-r--5">
+                            <button id="btnSaveHeader" type="button" class="btn btn-primary waves-effect save-hide" ng-if="HideButton" ng-click="Save(Valid)"><i class="material-icons" style="color:#fff">save</i><span class="icon-name">Lưu</span></button>
+                            <button id="btnCancelHeader" type="button" class="btn bg-grey waves-effect" ng-click="ShowPopup('CANCEL')"><i class="material-icons">close</i><span class="icon-name">Huỷ bỏ</span></button>
+                        </div>
+                    </div>
+                    <div class="body table-responsive" style="padding: 0 20px 0 20px;">
+                        <ul class="nav nav-tabs tab-nav-right" role="tablist">
+                            <li role="presentation" class="active"><a href="#employee_information" data-toggle="tab" aria-expanded="true" ng-if="model.Id === 0">Thông tin chung</a><a href="#employee_information" data-toggle="tab" aria-expanded="true" ng-if="model.Id > 0" ng-click="ClickInformation('EMPLOYEE')">Thông tin chung</a></li>
+                            <li role="presentation" class=""><a href="#contact_information" data-toggle="tab" aria-expanded="false" ng-if="model.Id === 0">Thông tin liên hệ</a><a href="#contact_information" data-toggle="tab" aria-expanded="false" ng-if="model.Id > 0" ng-click="ClickInformation('CONTACT')">Liên hệ</a></li>
+                            <li role="presentation" class=""><a href="#job_information" data-toggle="tab" aria-expanded="false" ng-if="model.Id === 0">Thông tin công việc</a><a href="#job_information" data-toggle="tab" aria-expanded="false" ng-if="model.Id > 0" ng-click="ClickInformation('JOB')">Công việc</a></li>
+                            <li role="presentation" class="" ng-if="model.Id > 0"><a href="#family_information" data-toggle="tab" aria-expanded="false" ng-click="ClickInformation('FAMILY')">Gia đình</a></li>
+                            <li role="presentation" class="" ng-if="model.Id > 0"><a href="#politics_health_military_information" data-toggle="tab" aria-expanded="false" ng-click="ClickInformation('POLITICSHEALTHMILITARY')">Chính trị, y tế, quân sự</a></li>
+                            <li role="presentation" class="" ng-if="model.Id > 0"><a href="#contract_information" data-toggle="tab" aria-expanded="false" ng-click="ClickInformation('CONTRACT')">Hợp đồng lao động</a></li>
+                            <li role="presentation" class="" ng-if="model.Id > 0"><a href="#work_progress_information" data-toggle="tab" aria-expanded="false" ng-click="ClickInformation('WORKPROGRESS')">Quá trình công tác</a></li>
+                            <li role="presentation" class="" ng-if="model.Id > 0"><a href="#salary_history_information" data-toggle="tab" aria-expanded="false" ng-click="ClickInformation('SALARYHISTORY')">Lương</a></li>
+                            <li role="presentation" class="" ng-if="model.Id > 0"><a href="#tax_information" data-toggle="tab" aria-expanded="false">Thuế</a></li>
+                            <li role="presentation" class="" ng-if="model.Id > 0"><a href="#insurrance_information" data-toggle="tab" aria-expanded="false">Bảo hiểm</a></li>
+                            <li role="presentation" class="" ng-if="model.Id > 0"><a href="#allowance_information" data-toggle="tab" aria-expanded="false" ng-click="ClickInformation('ALLOWANCE')">Phụ cấp</a></li>
+                            <li role="presentation" class="" ng-if="model.Id > 0"><a href="#bonus_information" data-toggle="tab" aria-expanded="false" ng-click="ClickInformation('BONUS')">Khen thưởng</a></li>
+                            <li role="presentation" class="" ng-if="model.Id > 0"><a href="#problem_information" data-toggle="tab" aria-expanded="false" ng-click="ClickInformation('PROBLEM')">Sự cố</a></li>
+                            <li role="presentation" class="" ng-if="model.Id > 0"><a href="#training_process_information" data-toggle="tab" aria-expanded="false" ng-click="ClickInformation('TRAININGPROCESS')">Quá trình đào tạo</a></li>
+                            <li role="presentation" class="" ng-if="model.Id > 0"><a href="#evaluate_information" data-toggle="tab" aria-expanded="false" ng-click="ClickInformation('EVALUATE')">Đánh giá</a></li>
+                            <li role="presentation" class="" ng-if="model.Id > 0"><a href="#degree_information" data-toggle="tab" aria-expanded="false" ng-click="ClickInformation('DEGREE')">Bằng cấp</a></li>
+                            <li role="presentation" class="" ng-if="model.Id > 0"><a href="#certificate_information" data-toggle="tab" aria-expanded="false" ng-click="ClickInformation('CERTIFICATE')">Chứng chỉ</a></li>
+                            <li role="presentation" class="" ng-if="model.Id > 0"><a href="#work_experience_information" data-toggle="tab" aria-expanded="false" ng-click="ClickInformation('WORKEXPERIENCE')">Kinh nghiệm làm việc</a></li>
+                            <li role="presentation" class="" ng-if="model.Id > 0"><a href="#skill_information" data-toggle="tab" aria-expanded="false" ng-click="ClickInformation('SKILL')">Kỹ năng</a></li>
+                            <li role="presentation" class="" ng-if="model.Id > 0"><a href="#receive_information" data-toggle="tab" aria-expanded="false" ng-click="ClickInformation('RECEIVE')">Tiếp nhận</a></li>
+                            <li role="presentation" class="" ng-if="model.Id > 0"><a href="#quit_information" data-toggle="tab" aria-expanded="false" ng-click="ClickInformation('QUIT')">Thôi việc</a></li>
+                            <li role="presentation" class="" ng-if="model.Id > 0"><a href="#asset_information" data-toggle="tab" aria-expanded="false" ng-click="ClickInformation('ASSET')">Tài sản</a></li>
+                            <li role="presentation" class="" ng-if="model.Id > 0"><a href="#employees_on_business_trip_information" data-toggle="tab" aria-expanded="false" ng-click="ClickInformation('EMPLOYEES_ON_BUSINESS_TRIP_INFORMATION')">Nhân viên đi công tác</a></li>
+                            <li role="presentation" class="" ng-if="model.Id > 0"><a href="#skin_information" data-toggle="tab" aria-expanded="false" ng-click="ClickInformation('SKIN')">Trang phục</a></li>
+                            <li role="presentation" class="" ng-if="model.Id > 0"><a href="#page_information" data-toggle="tab" aria-expanded="false" ng-click="ClickInformation('PAGE')">Giấy tờ có thời hạn</a></li>
+                            <li role="presentation" class="" ng-if="model.Id > 0"><a href="#attachment_information" data-toggle="tab" aria-expanded="false" ng-click="ClickInformation('ATTACHMENT')">Tài liệu đính kèm</a></li>
+                            <li role="presentation" class="" ng-if="model.Id > 0"><a href="#job_information" data-toggle="tab" aria-expanded="false">Thông tin đăng nhập</a></li>
+                        </ul>
+                        <div class="tab-content">
+                            <div role="tabpanel" class="tab-pane fade active in" id="employee_information" style="padding-top: 0;">
+                                @Html.Partial("_EmployeeInformationPartial")
+                            </div>
+                            <div role="tabpanel" class="tab-pane fade" id="contact_information" style="padding-top: 0;">
+                                @Html.Partial("_ContactInformationPartial")
+                            </div>
+                            <div role="tabpanel" class="tab-pane fade" id="job_information" style="padding-top: 0;">
+                                @Html.Partial("_JobInformationPartial")
+                            </div>
+                            <div role="tabpanel" class="tab-pane fade custom_tab_information" id="family_information" style="padding-top: 0;">
+                                @Html.Partial("_FamilyInformationPartial")
+                            </div>
+                            <div role="tabpanel" class="tab-pane fade" id="politics_health_military_information" style="padding-top: 0;">
+                                @Html.Partial("_PoliticsHealthMilitaryInformationPartial")
+                            </div>
+                            <div role="tabpanel" class="tab-pane fade custom_tab_information" id="contract_information" style="padding-top: 0;">
+                                @Html.Partial("_ContractInformationPartial")
+                            </div>
+                            <div role="tabpanel" class="tab-pane fade custom_tab_information" id="work_progress_information" style="padding-top: 0;">
+                                @Html.Partial("_WorkProgressInformationPartial")
+                            </div>
+                            <div role="tabpanel" class="tab-pane fade custom_tab_information" id="salary_history_information" style="padding-top: 0;">
+                                @Html.Partial("_SalaryHistoryInformationPartial")
+                            </div>
+                            <div role="tabpanel" class="tab-pane fade custom_tab_information" id="tax_information" style="padding-top: 0;">
+                                @Html.Partial("_TaxInformationPartial")
+                            </div>
+                            <div role="tabpanel" class="tab-pane fade custom_tab_information" id="insurrance_information" style="padding-top: 0;">
+                                @Html.Partial("_InsurranceInformationPartial")
+                            </div>
+                            <div role="tabpanel" class="tab-pane fade custom_tab_information" id="allowance_information" style="padding-top: 0;">
+                                @Html.Partial("_AllowanceInformationPartial")
+                            </div>
+                            <div role="tabpanel" class="tab-pane fade custom_tab_information" id="bonus_information" style="padding-top: 0;">
+                                @Html.Partial("_BonusInformationPartial")
+                            </div>
+                            <div role="tabpanel" class="tab-pane fade custom_tab_information" id="problem_information" style="padding-top: 0;">
+                                @Html.Partial("_ProblemInformationPartial")
+                            </div>
+                            <div role="tabpanel" class="tab-pane fade custom_tab_information" id="training_process_information" style="padding-top: 0;">
+                                @Html.Partial("_TrainingProcessInformationPartial")
+                            </div>
+                            <div role="tabpanel" class="tab-pane fade custom_tab_information" id="evaluate_information" style="padding-top: 0;">
+                                @Html.Partial("_EvaluateInformationPartial")
+                            </div>
+                            <div role="tabpanel" class="tab-pane fade custom_tab_information" id="degree_information" style="padding-top: 0;">
+                                @Html.Partial("_DegreeInformationPartial")
+                            </div>
+                            <div role="tabpanel" class="tab-pane fade custom_tab_information" id="certificate_information" style="padding-top: 0;">
+                                @Html.Partial("_CertificateInformationPartial")
+                            </div>
+                            <div role="tabpanel" class="tab-pane fade custom_tab_information" id="work_experience_information" style="padding-top: 0;">
+                                @Html.Partial("_WorkExperienceInformationPartial")
+                            </div>
+                            <div role="tabpanel" class="tab-pane fade custom_tab_information" id="skill_information" style="padding-top: 0;">
+                                @Html.Partial("_SkillInformationPartial")
+                            </div>
+                            <div role="tabpanel" class="tab-pane fade custom_tab_information" id="receive_information" style="padding-top: 0;">
+                                @Html.Partial("_ReceiveInformationPartial")
+                            </div>
+                            <div role="tabpanel" class="tab-pane fade custom_tab_information" id="quit_information" style="padding-top: 0;">
+                                @Html.Partial("_QuitInformationPartial")
+                            </div>
+                            <div role="tabpanel" class="tab-pane fade custom_tab_information" id="asset_information" style="padding-top: 0;">
+                                @Html.Partial("_AssetInformationPartial")
+                            </div>
+                            <div role="tabpanel" class="tab-pane fade custom_tab_information" id="employees_on_business_trip_information" style="padding-top: 0;">
+                                @Html.Partial("_EmployeesOnBusinessTripInformationPartial")
+                            </div>
+                            <div role="tabpanel" class="tab-pane fade custom_tab_information" id="skin_information" style="padding-top: 0;">
+                                @Html.Partial("_SkinInformationPartial")
+                            </div>
+                            <div role="tabpanel" class="tab-pane fade custom_tab_information" id="page_information" style="padding-top: 0;">
+                                @Html.Partial("_PageInformationPartial")
+                            </div>
+                            <div role="tabpanel" class="tab-pane fade custom_tab_information" id="attachment_information" style="padding-top: 0;">
+                                @Html.Partial("_AttachmentInformationPartial")
+                            </div>
+                        </div>
+                    </div>
+                    <hr style="border-bottom:1px solid rgba(204, 204, 204, 0.35); border-top: 0;" />
+                    <div class="header">
+                        <div class="header-dropdown m-r--5" style="top:-10px;">
+                            <button id="btnSaveFooter" type="button" class="btn btn-primary waves-effect save-hide" ng-if="HideButton" ng-click="Save(Valid)"><i class="material-icons" style="color:#fff">save</i><span class="icon-name">Lưu</span></button>
+                            <button id="btnCancelFooter" type="button" class="btn bg-grey waves-effect" ng-click="ShowPopup('CANCEL')"><i class="material-icons">close</i><span class="icon-name">Huỷ bỏ</span></button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+    @using (Ajax.BeginForm("ResignationProcedures", "Home", null, new AjaxOptions { HttpMethod = "POST" }, new { @name = "ValidResignationProcedures", @id = "ValidResignationProcedures", @novalidate = "novalidate" }))
+    {
+        @Html.Partial("_ResignationProceduresPartial")
+    }
+</div>

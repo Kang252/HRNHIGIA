@@ -1,0 +1,31 @@
+﻿<div class="container-fluid">
+    <div class="row clearfix">
+        <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 p-r-0 p-l-0">
+            <div class="card box-shadow-none">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th style="max-width:140px;">Số quyết định</th>
+                            <th style="max-width:140px;">Ngày quyết định</th>
+                            <th style="max-width:140px;">Hình thức khen thưởng</th>
+                            <th style="max-width:140px;">Giá trị</th>
+                            <th style="max-width: 100px;">Trạng thái</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr ng-if="GetAllBonusInformation.length > 0" ng-repeat="item in GetAllBonusInformation">
+                            <td>{{item.DecisionNumber}}</td>
+                            <td>{{item.DecisionDateString}}</td>
+                            <td>{{item.CommendationFormName}}</td>
+                            <td>{{item.BonusValue}}</td>
+                            <td>{{item.StatusName}}</td>
+                        </tr>
+                        <tr ng-if="GetAllBonusInformation.length === 0">
+                            <td colspan="5" align="center">Không có dữ liệu</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>

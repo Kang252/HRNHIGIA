@@ -1,0 +1,128 @@
+﻿<script src="@Url.Content("~/Scripts/app/controller/SkillInformationController.js")"></script>
+<div class="container-fluid" ng-controller="SkillInformationController">
+    <div class="row clearfix">
+        <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 p-r-0 p-l-0">
+            <div class="card box-shadow-none">
+                <button type="button" class="btn add-action-text m-r-0 m-b-10 float-right" ng-if="HideButton" ng-click="ShowPopupSkill('ADD_SKILL')"><i class="material-icons">add_circle</i><span class="icon-name">Thêm</span></button>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th style="max-width:200px;">Tên kỹ năng</th>
+                            <th style="max-width:180px;">Nhóm kỹ năng</th>
+                            <th style="max-width:120px;">Cấp bậc kỹ năng</th>
+                            <th style="max-width: 250px;">Ghi chú</th>
+                            <th ng-if="GetAllSkillInformation.length > 0" style="width:85px; min-width:85px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr ng-if="GetAllSkillInformation.length > 0" ng-repeat="item in GetAllSkillInformation">
+                            <td>{{item.SkillName}}</td>
+                            <td>{{item.SkillGroupName}}</td>
+                            <td>{{item.SkillLevelName}}</td>
+                            <td>{{item.Note}}</td>
+                            <td>
+                                <a ng-click="ShowPopupSkill('EDIT_SKILL',item.Id)">
+                                    <i class="material-icons" ng-if="HideButton" style="color:#0c68b4;">mode_edit</i>
+                                    <i class="material-icons" ng-if="ShowButton" style="color:#0c68b4;">remove_red_eye</i>
+                                </a>
+                                <a ng-if="HideButton" ng-click="ShowPopupSkill('DELETE_SKILL',item.Id)"><i class="material-icons" style="color:#E55B5C;">close</i></a>
+                            </td>
+                        </tr>
+                        <tr ng-if="GetAllSkillInformation.length === 0">
+                            <td colspan="4" align="center">Không có dữ liệu</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    @using (Ajax.BeginForm("SkillInformation", "Home", null, new AjaxOptions { HttpMethod = "POST" }, new { @name = "ValidSkill", @id = "ValidSkill", @novalidate = "novalidate" }))
+    {
+        <div id="KenWindownSkill" class="k-window-content KenWindownPopup" style="display:none;">
+            <div class="content" style="margin: 0 0 15px 0;">
+                <div class="row m-t--10">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                        <label>
+                            Tên kỹ năng <span class="asterisk">*</span>
+                        </label>
+                        <input class="form-control"
+                               name="SkillName"
+                               id="SkillName"
+                               ng-model="modelSkill.SkillName"
+                               maxlength="100"
+                               autocomplete="off"
+                               ng-class="{'has-error': showHasErrorSkillName}"
+                               title="{{MessageErrorForInput}}"
+                               ng-change="onChangeValueSkill('SkillName')" />
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 p-r-0">
+                        <label>
+                            Nhóm kỹ năng
+                        </label>
+                        <select kendo-drop-down-list
+                                id="SkillGroupId"
+                                name="SkillGroupId"
+                                ng-model="modelSkill.SkillGroupId"
+                                k-data-source="SkillGroupDropdownlist"
+                                k-data-text-field="'Name'"
+                                k-data-value-field="'Id'"
+                                k-filter="'contains'"
+                                class="Dropdownlist-Custom"></select>
+                    </div>
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6">
+                        <label>
+                            Cấp độ
+                        </label>
+                        <select kendo-drop-down-list
+                                id="SkillLevelId"
+                                name="SkillLevelId"
+                                ng-model="modelSkill.SkillLevelId"
+                                k-data-source="SkillLevelDropdownlist"
+                                k-data-text-field="'Name'"
+                                k-data-value-field="'Id'"
+                                k-filter="'contains'"
+                                class="Dropdownlist-Custom"></select>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                        <label>
+                            Ghi chú
+                        </label>
+                        <textarea class="form-control"
+                                  name="NoteSkill"
+                                  id="NoteSkill"
+                                  ng-model="modelSkill.Note"
+                                  maxlength="100"
+                                  autocomplete="off"
+                                  rows="4"></textarea>
+                    </div>
+                </div>
+            </div>
+            <hr />
+            <div class="footer">
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                        <button type="button"
+                                id="btnSaveSkill"
+                                class="btn btn-primary waves-effect float-right m-l-5"
+                                ng-if="HideButton"
+                                ng-click="SaveSkill()"
+                                disabled>
+                            <i class="material-icons">save</i><span class="icon-name">Lưu</span>
+                        </button>
+                        <button type="button"
+                                class="btn bg-grey waves-effect float-right m-l-5"
+                                id="btnCloseSkill"
+                                ng-click="CloseSkill()"
+                                disabled>
+                            <i class="material-icons">close</i><span class="icon-name">Đóng</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>

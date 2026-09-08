@@ -1,0 +1,408 @@
+﻿<div class="row m-r-0">
+    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 margin-bottom-5 m-t--25">
+        <div class="form-group image-style">
+            <input ng-show="false"
+                   name="Image"
+                   id="ImageLabel"
+                   ng-model="model.Image" />
+            <div name="Image"
+                 style="width: 160px; margin: 0 auto; padding: 0; height: 160px; cursor: pointer; margin-top: 30px; background-repeat: no-repeat; background-size: contain; background-image: url('{{model.Image}}');"
+                 id="ImagePic" ng-click="ChoonseImage()"></div>
+        </div>
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Mã nhân viên</label>
+        <input class="form-control"
+               name="EmployeeCode"
+               id="EmployeeCode"
+               ng-model="model.EmployeeCode"
+               disabled
+               maxlength="50"
+               autocomplete="off" />
+    </div>
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Đơn vị công tác <span class="asterisk">*</span></label>
+        <select kendo-drop-down-list
+                id="WorkUnitId"
+                name="WorkUnitId"
+                k-filter="'contains'"
+                ng-model="model.WorkUnitId"
+                k-data-source="WorkUnitDropdownlist"
+                k-option-label="' '"
+                k-data-text-field="'Name'"
+                k-data-value-field="'Id'"
+                class="Dropdownlist-Custom"
+                ng-class="{'has-error': showErrorMsg(Valid.WorkUnitId)}"
+                required
+                title="{{MessageErrorForSelect}}"
+                ng-disabled="DisableInput"></select>
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Họ và tên <span class="asterisk">*</span></label>
+        <input class="form-control"
+               name="EmployeeName"
+               id="EmployeeName"
+               ng-model="model.EmployeeName"
+               maxlength="50"
+               ng-class="{'has-error': showErrorMsg(Valid.EmployeeName)}"
+               required
+               title="{{MessageErrorForInput}}"
+               autocomplete="off" />
+    </div>
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Vị trí công việc <span class="asterisk">*</span></label>
+        <select kendo-drop-down-list
+                id="JobPositionId"
+                name="JobPositionId"
+                k-filter="'contains'"
+                ng-model="model.JobPositionId"
+                k-data-source="JobPositionDropdownlist"
+                k-option-label="' '"
+                k-data-text-field="'Name'"
+                k-data-value-field="'Id'"
+                class="Dropdownlist-Custom"
+                ng-class="{'has-error': showErrorMsg(Valid.JobPositionId)}"
+                required
+                title="{{MessageErrorForSelect}}"></select>
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Giới tính</label>
+        <select kendo-drop-down-list
+                id="SexId"
+                name="SexId"
+                k-filter="'contains'"
+                ng-model="model.SexId"
+                k-data-source="SexDropdownlist"
+                k-option-label="' '"
+                k-data-text-field="'Name'"
+                k-data-value-field="'Id'"
+                class="Dropdownlist-Custom"></select>
+    </div>
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Dân tộc</label>
+        <select kendo-drop-down-list
+                id="NationId"
+                name="NationId"
+                k-filter="'contains'"
+                ng-model="model.NationId"
+                k-data-source="NationDropdownlist"
+                k-option-label="' '"
+                k-data-text-field="'Name'"
+                k-data-value-field="'Id'"
+                class="Dropdownlist-Custom"></select>
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Ngày sinh</label>
+        <input kendo-date-picker
+               class="form-control date-picker-style"
+               k-format="'dd/MM/yyyy'"
+               onkeydown="return true;"
+               k-ng-model="model.DateOfBirth"
+               k-max="maxDate"
+               k-rebind="maxDate"
+               id="DateOfBirth"
+               name="DateOfBirth"
+               ng-model="model.DateOfBirth"
+               placeholder="dd/MM/yyyy">
+    </div>
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Tôn giáo</label>
+        <select kendo-drop-down-list
+                id="ReligionId"
+                name="ReligionId"
+                k-filter="'contains'"
+                ng-model="model.ReligionId"
+                k-data-source="ReligionDropdownlist"
+                k-option-label="' '"
+                k-data-text-field="'Name'"
+                k-data-value-field="'Id'"
+                class="Dropdownlist-Custom"></select>
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>MST cá nhân</label>
+        <input class="form-control"
+               name="PersonalTaxCode"
+               id="PersonalTaxCode"
+               ng-model="model.PersonalTaxCode"
+               maxlength="50"
+               autocomplete="off" />
+    </div>
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Quốc tịch</label>
+        <select kendo-drop-down-list
+                id="NationalityId"
+                name="NationalityId"
+                k-filter="'contains'"
+                ng-model="model.NationalityId"
+                k-data-source="NationalityDropdownlist"
+                k-option-label="' '"
+                k-data-text-field="'Name'"
+                k-data-value-field="'Id'"
+                class="Dropdownlist-Custom"></select>
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 m-t-15">
+        <b>Số CMND/Thẻ căn cước</b>
+    </div>
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 m-t-15">
+        <b>Hộ chiếu</b>
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Số</label>
+        <input class="form-control"
+               name="IdentificationCardNumber"
+               id="IdentificationCardNumber"
+               ng-model="model.IdentificationCardNumber"
+               maxlength="50"
+               numbers-Only
+               autocomplete="off" />
+    </div>
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Số</label>
+        <input class="form-control"
+               name="PassportNumber"
+               id="PassportNumber"
+               ng-model="model.PassportNumber"
+               maxlength="50"
+               numbers-Only
+               autocomplete="off" />
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Ngày cấp</label>
+        <input kendo-date-picker
+               class="form-control date-picker-style"
+               k-format="'dd/MM/yyyy'"
+               onkeydown="return true;"
+               k-ng-model="model.DateOfIssueOfIdentificationCard"
+               id="DateOfIssueOfIdentificationCard"
+               name="DateOfIssueOfIdentificationCard"
+               ng-model="model.DateOfIssueOfIdentificationCard"
+               ng-class="{'has-error': CheckDateOfIssueOfIdentificationCardLessIdentificationCardExpirationDate}"
+               title="{{MessageCheckDate}}"
+               placeholder="dd/MM/yyyy">
+    </div>
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Ngày cấp</label>
+        <input kendo-date-picker
+               class="form-control date-picker-style"
+               k-format="'dd/MM/yyyy'"
+               onkeydown="return true;"
+               k-ng-model="model.PassportDate"
+               id="PassportDate"
+               name="PassportDate"
+               ng-model="model.PassportDate"
+               ng-class="{'has-error': CheckPassportDateLessPassportExpirationDate}"
+               title="{{MessageCheckDate}}"
+               placeholder="dd/MM/yyyy">
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Nơi cấp</label>
+        <input class="form-control"
+               name="PlaceOfIssueOfIdCard"
+               id="PlaceOfIssueOfIdCard"
+               ng-model="model.PlaceOfIssueOfIdCard"
+               maxlength="50"
+               autocomplete="off" />
+    </div>
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Nơi cấp</label>
+        <input class="form-control"
+               name="PlaceOfIssueOfPassport"
+               id="PlaceOfIssueOfPassport"
+               ng-model="model.PlaceOfIssueOfPassport"
+               maxlength="50"
+               autocomplete="off" />
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Ngày hết hạn</label>
+        <input kendo-date-picker
+               class="form-control date-picker-style"
+               k-format="'dd/MM/yyyy'"
+               onkeydown="return true;"
+               k-ng-model="model.IdentificationCardExpirationDate"
+               id="IdentificationCardExpirationDate"
+               name="IdentificationCardExpirationDate"
+               ng-model="model.IdentificationCardExpirationDate"
+               placeholder="dd/MM/yyyy">
+    </div>
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Ngày hết hạn</label>
+        <input kendo-date-picker
+               class="form-control date-picker-style"
+               k-format="'dd/MM/yyyy'"
+               onkeydown="return true;"
+               k-ng-model="model.PassportExpirationDate"
+               id="PassportExpirationDate"
+               name="PassportExpirationDate"
+               ng-model="model.PassportExpirationDate"
+               placeholder="dd/MM/yyyy">
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 m-t-15">
+        <b>Trình độ/Bằng cấp</b>
+    </div>
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 m-t-15">
+        <b>Thành phần gia đình</b>
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Trình độ văn hoá</label>
+        <select kendo-drop-down-list
+                id="EducationalLevelId"
+                name="EducationalLevelId"
+                k-filter="'contains'"
+                ng-model="model.EducationalLevelId"
+                k-data-source="EducationalLevelDropdownlist"
+                k-option-label="' '"
+                k-data-text-field="'Name'"
+                k-data-value-field="'Id'"
+                class="Dropdownlist-Custom"></select>
+    </div>
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>TT hôn nhân</label>
+        <select kendo-drop-down-list
+                id="MaritalStatusId"
+                name="MaritalStatusId"
+                k-filter="'contains'"
+                ng-model="model.MaritalStatusId"
+                k-data-source="MaritalStatusDropdownlist"
+                k-option-label="' '"
+                k-data-text-field="'Name'"
+                k-data-value-field="'Id'"
+                class="Dropdownlist-Custom"></select>
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Trình độ đào tạo</label>
+        <select kendo-drop-down-list
+                id="DegreeTrainingId"
+                name="DegreeTrainingId"
+                k-filter="'contains'"
+                ng-model="model.DegreeTrainingId"
+                k-data-source="DegreeTrainingDropdownlist"
+                k-option-label="' '"
+                k-data-text-field="'Name'"
+                k-data-value-field="'Id'"
+                class="Dropdownlist-Custom"></select>
+    </div>
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>TP gia đình</label>
+        <select kendo-drop-down-list
+                id="FamilyMemberId"
+                name="FamilyMemberId"
+                k-filter="'contains'"
+                ng-model="model.FamilyMemberId"
+                k-data-source="FamilyMemberDropdownlist"
+                k-option-label="' '"
+                k-data-text-field="'Name'"
+                k-data-value-field="'Id'"
+                class="Dropdownlist-Custom"></select>
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Nơi đào tạo</label>
+        <select kendo-drop-down-list
+                id="TrainingPlacesId"
+                name="TrainingPlacesId"
+                k-filter="'contains'"
+                ng-model="model.TrainingPlacesId"
+                k-data-source="TrainingPlacesDropdownlist"
+                k-option-label="' '"
+                k-data-text-field="'Name'"
+                k-data-value-field="'Id'"
+                class="Dropdownlist-Custom"></select>
+    </div>
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>TP bản thân</label>
+        <select kendo-drop-down-list
+                id="IngredientsThemselvesId"
+                name="IngredientsThemselvesId"
+                k-filter="'contains'"
+                ng-model="model.IngredientsThemselvesId"
+                k-data-source="IngredientsThemselvesDropdownlist"
+                k-option-label="' '"
+                k-data-text-field="'Name'"
+                k-data-value-field="'Id'"
+                class="Dropdownlist-Custom"></select>
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Khoa</label>
+        <select kendo-drop-down-list
+                id="FacultyId"
+                name="FacultyId"
+                k-filter="'contains'"
+                ng-model="model.FacultyId"
+                k-data-source="FacultyDropdownlist"
+                k-option-label="' '"
+                k-data-text-field="'Name'"
+                k-data-value-field="'Id'"
+                class="Dropdownlist-Custom"></select>
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Chuyên ngành</label>
+        <select kendo-drop-down-list
+                id="SpecializedId"
+                name="SpecializedId"
+                k-filter="'contains'"
+                ng-model="model.SpecializedId"
+                k-data-source="SpecializedDropdownlist"
+                k-option-label="' '"
+                k-data-text-field="'Name'"
+                k-data-value-field="'Id'"
+                class="Dropdownlist-Custom"></select>
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Năm tốt nghiệp</label>
+        <input class="form-control"
+               name="GraduationYear"
+               id="GraduationYear"
+               maxlength="4"
+               ng-model="model.GraduationYear"
+               numbers-Only
+               autocomplete="off" />
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Xếp loại</label>
+        <select kendo-drop-down-list
+                id="ClassificationId"
+                name="ClassificationId"
+                k-filter="'contains'"
+                ng-model="model.ClassificationId"
+                k-data-source="ClassificationDropdownlist"
+                k-option-label="' '"
+                k-data-text-field="'Name'"
+                k-data-value-field="'Id'"
+                class="Dropdownlist-Custom"></select>
+    </div>
+</div>

@@ -1,0 +1,398 @@
+﻿<div class="row m-r-0">
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>ĐT di động</label>
+        <input class="form-control"
+               name="MobilePhone"
+               id="MobilePhone"
+               ng-model="model.MobilePhone"
+               numbers-Only
+               maxlength="11"
+               autocomplete="off" />
+    </div>
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Nguyên quán</label>
+        <input class="form-control"
+               name="Domicile"
+               id="Domicile"
+               ng-model="model.Domicile"
+               maxlength="50"
+               autocomplete="off" />
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>ĐT cơ quan</label>
+        <input class="form-control"
+               name="OfficePhone"
+               id="OfficePhone"
+               ng-model="model.OfficePhone"
+               numbers-Only
+               maxlength="11"
+               autocomplete="off" />
+    </div>
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Tỉnh/Thành phố</label>
+        <select kendo-drop-down-list
+                id="ProvinceCityId"
+                name="ProvinceCityId"
+                k-filter="'contains'"
+                ng-model="model.ProvinceCityId"
+                k-data-source="ProvinceCityDropdownlist"
+                k-option-label="' '"
+                k-data-text-field="'Name'"
+                k-data-value-field="'Id'"
+                class="Dropdownlist-Custom"></select>
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>ĐT nhà riêng</label>
+        <input class="form-control"
+               name="HomePhone"
+               id="HomePhone"
+               ng-model="model.HomePhone"
+               numbers-Only
+               maxlength="11"
+               autocomplete="off" />
+    </div>
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Nơi sinh</label>
+        <input class="form-control"
+               name="PlaceBirth"
+               id="PlaceBirth"
+               ng-model="model.PlaceBirth"
+               maxlength="50"
+               autocomplete="off" />
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>ĐT khác</label>
+        <input class="form-control"
+               name="OtherPhone"
+               id="OtherPhone"
+               ng-model="model.OtherPhone"
+               numbers-Only
+               maxlength="11"
+               autocomplete="off" />
+    </div>
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Email cá nhân</label>
+        <input class="form-control"
+               name="PersonalEmail"
+               id="PersonalEmail"
+               ng-model="model.PersonalEmail"
+               maxlength="50"
+               autocomplete="off" />
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Email cơ quan</label>
+        <input class="form-control"
+               name="CompanyEmail"
+               id="CompanyEmail"
+               ng-model="model.CompanyEmail"
+               maxlength="50"
+               autocomplete="off" />
+    </div>
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Email khác</label>
+        <input class="form-control"
+               name="OtherEmail"
+               id="OtherEmail"
+               ng-model="model.OtherEmail"
+               maxlength="50"
+               autocomplete="off" />
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Skype</label>
+        <input class="form-control"
+               name="Skype"
+               id="Skype"
+               ng-model="model.Skype"
+               maxlength="50"
+               autocomplete="off" />
+    </div>
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Facebook</label>
+        <input class="form-control"
+               name="Facebook"
+               id="Facebook"
+               ng-model="model.Facebook"
+               maxlength="50"
+               autocomplete="off" />
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 m-t-15">
+        <b>Hộ khẩu thường trú</b>
+    </div>
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 m-t-15">
+        <b>Chỗ ở hiện nay</b>
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Quốc gia</label>
+        <select kendo-drop-down-list
+                id="ResidenceNationalityId"
+                name="ResidenceNationalityId"
+                k-filter="'contains'"
+                ng-model="model.ResidenceNationalityId"
+                k-data-source="NationalityDropdownlist"
+                k-option-label="' '"
+                k-data-text-field="'Name'"
+                k-data-value-field="'Id'"
+                k-select="onSelectResidenceNationality"
+                class="Dropdownlist-Custom"></select>
+    </div>
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Quốc gia</label>
+        <select kendo-drop-down-list
+                id="CurrentNationalityId"
+                name="CurrentNationalityId"
+                k-filter="'contains'"
+                ng-model="model.CurrentNationalityId"
+                k-data-source="NationalityDropdownlist"
+                k-option-label="' '"
+                k-data-text-field="'Name'"
+                k-data-value-field="'Id'"
+                k-select="onSelectCurrentNationality"
+                class="Dropdownlist-Custom"></select>
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Tỉnh/Thành phố</label>
+        <select kendo-drop-down-list
+                id="ResidenceProvinceCityId"
+                name="ResidenceProvinceCityId"
+                k-filter="'contains'"
+                ng-model="model.ResidenceProvinceCityId"
+                k-data-source="ResidenceProvinceCityDropdownlist"
+                k-option-label="' '"
+                k-data-text-field="'Name'"
+                k-data-value-field="'Id'"
+                k-select="onSelectResidenceProvinceCity"
+                class="Dropdownlist-Custom"></select>
+    </div>
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Tỉnh/Thành phố</label>
+        <select kendo-drop-down-list
+                id="CurrentProvinceCityId"
+                name="CurrentProvinceCityId"
+                k-filter="'contains'"
+                ng-model="model.CurrentProvinceCityId"
+                k-data-source="CurrentProvinceCityDropdownlist"
+                k-option-label="' '"
+                k-data-text-field="'Name'"
+                k-data-value-field="'Id'"
+                k-select="onSelectCurrentProvinceCity"
+                class="Dropdownlist-Custom"></select>
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Quận/Huyện</label>
+        <select kendo-drop-down-list
+                id="ResidenceDistrictId"
+                name="ResidenceDistrictId"
+                k-filter="'contains'"
+                ng-model="model.ResidenceDistrictId"
+                k-data-source="ResidenceDistrictDropdownlist"
+                k-option-label="' '"
+                k-data-text-field="'Name'"
+                k-data-value-field="'Id'"
+                k-select="onSelectResidenceDistrict"
+                class="Dropdownlist-Custom"></select>
+    </div>
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Quận/Huyện</label>
+        <select kendo-drop-down-list
+                id="CurrentDistrictId"
+                name="CurrentDistrictId"
+                k-filter="'contains'"
+                ng-model="model.CurrentDistrictId"
+                k-data-source="CurrentDistrictDropdownlist"
+                k-option-label="' '"
+                k-data-text-field="'Name'"
+                k-data-value-field="'Id'"
+                k-select="onSelectCurrentDistrict"
+                class="Dropdownlist-Custom"></select>
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Xã/Phường</label>
+        <select kendo-drop-down-list
+                id="ResidenceWardsId"
+                name="ResidenceWardsId"
+                k-filter="'contains'"
+                ng-model="model.ResidenceWardsId"
+                k-data-source="ResidenceWardsDropdownlist"
+                k-option-label="' '"
+                k-data-text-field="'Name'"
+                k-data-value-field="'Id'"
+                k-select="onSelectResidenceWards"
+                class="Dropdownlist-Custom"></select>
+    </div>
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Xã/Phường</label>
+        <select kendo-drop-down-list
+                id="CurrentWardsId"
+                name="CurrentWardsId"
+                k-filter="'contains'"
+                ng-model="model.CurrentWardsId"
+                k-data-source="CurrentWardsDropdownlist"
+                k-option-label="' '"
+                k-data-text-field="'Name'"
+                k-data-value-field="'Id'"
+                k-select="onSelectCurrentWards"
+                class="Dropdownlist-Custom"></select>
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Số nhà/Đường phố/Thôn xóm</label>
+        <input class="form-control"
+               name="ResidenceHouseStreetVillageNumber"
+               id="ResidenceHouseStreetVillageNumber"
+               ng-model="model.ResidenceHouseStreetVillageNumber"
+               ng-change="onChangeResidenceHouseStreetVillageNumber()"
+               maxlength="50"
+               autocomplete="off" />
+    </div>
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Số nhà/Đường phố/Thôn xóm</label>
+        <input class="form-control"
+               name="CurrentHouseStreetVillageNumber"
+               id="CurrentHouseStreetVillageNumber"
+               ng-model="model.CurrentHouseStreetVillageNumber"
+               ng-change="onChangeCurrentHouseStreetVillageNumber()"
+               maxlength="50"
+               autocomplete="off" />
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Địa chỉ</label>
+        <input class="form-control"
+               name="ResidenceAddress"
+               id="ResidenceAddress"
+               ng-model="model.ResidenceAddress"
+               disabled
+               autocomplete="off" />
+    </div>
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Địa chỉ</label>
+        <input class="form-control"
+               name="CurrentAddress"
+               id="CurrentAddress"
+               ng-model="model.CurrentAddress"
+               disabled
+               autocomplete="off" />
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Số sổ hộ khẩu</label>
+        <input class="form-control"
+               name="ResidenceHouseholdRegistrationNumber"
+               id="ResidenceHouseholdRegistrationNumber"
+               ng-model="model.ResidenceHouseholdRegistrationNumber"
+               maxlength="50"
+               autocomplete="off" />
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-4 col-md-4 col-sm-4 col-xs-4 margin-bottom-5 p-r-0">
+        <label>Mã số hộ gia đình</label>
+        <input class="form-control"
+               name="ResidenceHouseholdCode"
+               id="ResidenceHouseholdCode"
+               ng-model="model.ResidenceHouseholdCode"
+               maxlength="50"
+               autocomplete="off" />
+    </div>
+    <div class="col-lg-2 col-md-2 col-sm-2 col-xs-2 margin-bottom-5 p-r-0">
+        <label style="width:100%;">&nbsp;</label>
+        <div class="demo-checkbox">
+            <input type="checkbox" id="ResidenceIsHeadHousehold" class="filled-in chk-col-blue" ng-model="model.ResidenceIsHeadHousehold" />
+            <label class="m-t-5" for="ResidenceIsHeadHousehold">Là chủ hộ</label>
+        </div>
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 m-t-15">
+        <b>Liên hệ khẩn cấp</b>
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Họ và tên</label>
+        <input class="form-control"
+               name="UrgentContactFirstAndLastName"
+               id="UrgentContactFirstAndLastName"
+               ng-model="model.UrgentContactFirstAndLastName"
+               maxlength="50"
+               autocomplete="off" />
+    </div>
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Quan hệ</label>
+        <select kendo-drop-down-list
+                id="UrgentContactRelationshipId"
+                name="UrgentContactRelationshipId"
+                k-filter="'contains'"
+                ng-model="model.UrgentContactRelationshipId"
+                k-data-source="RelationshipDropdownlist"
+                k-option-label="' '"
+                k-data-text-field="'Name'"
+                k-data-value-field="'Id'"
+                class="Dropdownlist-Custom"></select>
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>ĐT di động</label>
+        <input class="form-control"
+               name="UrgentContactMobilePhone"
+               id="UrgentContactMobilePhone"
+               ng-model="model.UrgentContactMobilePhone"
+               numbers-Only
+               maxlength="11"
+               autocomplete="off" />
+    </div>
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>ĐT nhà riêng</label>
+        <input class="form-control"
+               name="UrgentContactHomePhone"
+               id="UrgentContactHomePhone"
+               ng-model="model.UrgentContactHomePhone"
+               numbers-Only
+               maxlength="11"
+               autocomplete="off" />
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Email</label>
+        <input class="form-control"
+               name="UrgentContactEmail"
+               id="UrgentContactEmail"
+               ng-model="model.UrgentContactEmail"
+               maxlength="50"
+               autocomplete="off" />
+    </div>
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Địa chỉ</label>
+        <input class="form-control"
+               name="UrgentContactAddress"
+               id="UrgentContactAddress"
+               ng-model="model.UrgentContactAddress"
+               maxlength="50"
+               autocomplete="off" />
+    </div>
+</div>

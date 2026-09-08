@@ -1,0 +1,141 @@
+﻿<script src="@Url.Content("~/Scripts/app/controller/TrainingProcessInformationController.js")"></script>
+<div class="container-fluid" ng-controller="TrainingProcessInformationController">
+    <div class="row clearfix">
+        <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 p-r-0 p-l-0">
+            <div class="card box-shadow-none">
+                <button type="button" class="btn add-action-text m-r-0 m-b-10 float-right" ng-if="HideButton" ng-click="ShowPopupTrainingProcess('ADD_TRAININGPROCESS')"><i class="material-icons">add_circle</i><span class="icon-name">Thêm</span></button>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th style="max-width:120px;">Mã khoá đào tạo</th>
+                            <th style="max-width:180px;">Tên khoá đào tạo</th>
+                            <th style="max-width:120px;">Ngày bắt đầu</th>
+                            <th style="max-width:120px;">Ngày kết thúc</th>
+                            <th style="max-width: 230px;">Mục đích</th>
+                            <th ng-if="GetAllTrainingProcessInformation.length > 0" style="width:85px; min-width:85px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr ng-if="GetAllTrainingProcessInformation.length > 0" ng-repeat="item in GetAllTrainingProcessInformation">
+                            <td>{{item.TrainingProcessCode}}</td>
+                            <td>{{item.TrainingProcessName}}</td>
+                            <td>{{item.StartDayString}}</td>
+                            <td>{{item.EndDateString}}</td>
+                            <td>{{item.Purpose}}</td>
+                            <td>
+                                <a ng-click="ShowPopupTrainingProcess('EDIT_TRAININGPROCESS',item.Id)">
+                                    <i class="material-icons" ng-if="HideButton" style="color:#0c68b4;">mode_edit</i>
+                                    <i class="material-icons" ng-if="ShowButton" style="color:#0c68b4;">remove_red_eye</i>
+                                </a>
+                                <a ng-if="HideButton" ng-click="ShowPopupTrainingProcess('DELETE_TRAININGPROCESS',item.Id)"><i class="material-icons" style="color:#E55B5C;">close</i></a>
+                            </td>
+                        </tr>
+                        <tr ng-if="GetAllTrainingProcessInformation.length === 0">
+                            <td colspan="5" align="center">Không có dữ liệu</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    @using (Ajax.BeginForm("TrainingProcessInformation", "Home", null, new AjaxOptions { HttpMethod = "POST" }, new { @name = "ValidTrainingProcess", @id = "ValidTrainingProcess", @novalidate = "novalidate" }))
+    {
+        <div id="KenWindownTrainingProcess" class="k-window-content KenWindownPopup" style="display:none;">
+            <div class="content" style="margin: 0 0 15px 0;">
+                <div class="row m-t--10">
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 p-r-0">
+                        <label>
+                            Mã khoá đào tạo
+                        </label>
+                        <input class="form-control"
+                               name="TrainingProcessCode"
+                               id="TrainingProcessCode"
+                               ng-model="modelTrainingProcess.TrainingProcessCode"
+                               maxlength="100"
+                               disabled />
+                    </div>
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6">
+                        <label>
+                            Tên khoá đào tạo <span class="asterisk">*</span>
+                        </label>
+                        <input class="form-control"
+                               name="TrainingProcessName"
+                               id="TrainingProcessName"
+                               ng-model="modelTrainingProcess.TrainingProcessName"
+                               maxlength="100"
+                               ng-class="{'has-error': showHasErrorTrainingProcessName}"
+                               title="{{MessageErrorForInput}}"
+                               ng-change="onChangeValueTrainingProcess('TrainingProcessName')" />
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 p-r-0">
+                        <label>
+                            Ngày bắt đầu
+                        </label>
+                        <input kendo-date-picker
+                               class="form-control date-picker-style"
+                               k-format="'dd/MM/yyyy'"
+                               onkeydown="return true;"
+                               k-ng-model="modelTrainingProcess.StartDay"
+                               id="StartDay"
+                               name="StartDay"
+                               ng-model="modelTrainingProcess.StartDay"
+                               placeholder="dd/MM/yyyy">
+                    </div>
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6">
+                        <label>
+                            Ngày kết thúc
+                        </label>
+                        <input kendo-date-picker
+                               class="form-control date-picker-style"
+                               k-format="'dd/MM/yyyy'"
+                               onkeydown="return true;"
+                               k-ng-model="modelTrainingProcess.EndDate"
+                               id="EndDate"
+                               name="EndDate"
+                               ng-model="modelTrainingProcess.EndDate"
+                               ng-class="{'has-error': CheckEndDate}"
+                               title="{{MessageCheckEndDate}}"
+                               placeholder="dd/MM/yyyy">
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                        <label>
+                            Mục đích
+                        </label>
+                        <textarea class="form-control"
+                                  name="Purpose"
+                                  id="Purpose"
+                                  ng-model="modelTrainingProcess.Purpose"
+                                  rows="6"
+                                  maxlength="100"></textarea>
+                    </div>
+                </div>
+            </div>
+            <hr />
+            <div class="footer">
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                        <button type="button"
+                                id="btnSaveTrainingProcess"
+                                class="btn btn-primary waves-effect float-right m-l-5"
+                                ng-if="HideButton"
+                                ng-click="SaveTrainingProcess()"
+                                disabled>
+                            <i class="material-icons">save</i><span class="icon-name">Lưu</span>
+                        </button>
+                        <button type="button"
+                                class="btn bg-grey waves-effect float-right m-l-5"
+                                id="btnCloseTrainingProcess"
+                                ng-click="CloseTrainingProcess()"
+                                disabled>
+                            <i class="material-icons">close</i><span class="icon-name">Đóng</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>

@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+@{
+    var hrmUser = NHIGIA.Web.Infrastructure.HrmSession.Current;
+    var hrmName = hrmUser == null ? "Người dùng" : hrmUser.DisplayName;
+    var hrmRole = hrmUser == null ? "" : hrmUser.RoleCode;
+    var hrmRoleLabel = hrmUser == null ? "" : hrmUser.RoleLabel;
+    var hrmCanManage = NHIGIA.Web.Models.HrmRoles.CanManagePeople(hrmRole);
+    var hrmCanConfigure = hrmRole == NHIGIA.Web.Models.HrmRoles.Admin || hrmRole == NHIGIA.Web.Models.HrmRoles.Hr || hrmRole == NHIGIA.Web.Models.HrmRoles.Director;
+    var hrmHanetUiEnabled = string.Equals(System.Configuration.ConfigurationManager.AppSettings["HanetIntegrationUiEnabled"], "true", StringComparison.OrdinalIgnoreCase);
+    var hrmProfileAction = hrmRole == NHIGIA.Web.Models.HrmRoles.Employee ? "MyProfile" : "EmployeeInformation";
+}
+<html ng-app="hrmApplication">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge">
+    <meta content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" name="viewport">
+    <title>Nhị Gia - @(ViewBag.Title)</title>
+    <!-- Favicon-->
+    <link rel="icon" href="/favicon.ico" type="image/x-icon">
+
+    <!-- Google Fonts -->
+    <link href="@Url.Content("~/Content/css/css.css")" rel="stylesheet" type="text/css">
+    <link href="@Url.Content("~/Content/css/icon.css")" rel="stylesheet" type="text/css">
+
+    <!-- Bootstrap Core Css -->
+    <link href="@Url.Content("~/Content/plugins/bootstrap/css/bootstrap.css")" rel="stylesheet" type="text/css">
+
+    <!-- Waves Effect Css -->
+    <link href="@Url.Content("~/Content/plugins/node-waves/waves.css")" rel="stylesheet" type="text/css">
+
+    <!-- Animation Css -->
+    <link href="@Url.Content("~/Content/plugins/animate-css/animate.css")" rel="stylesheet" type="text/css">
+
+    <!-- Morris Chart Css-->
+    <link href="@Url.Content("~/Content/plugins/morrisjs/morris.css")" rel="stylesheet" type="text/css">
+
+    <!-- Custom Css -->
+    <link href="@Url.Content("~/Content/css/style.css")" rel="stylesheet" type="text/css">
+
+    <!-- AdminBSB Themes. You can choose a theme from css/themes instead of get all themes -->
+    <link href="@Url.Content("~/Content/css/themes/all-themes.css")" rel="stylesheet" type="text/css">
+    <link href="@Url.Content("~/Content/Site.css")" rel="stylesheet" type="text/css">
+    <link href="@Url.Content("~/Content/kendo/2019/kendo.common-material.min.css")" rel="stylesheet" type="text/css">
+    <link href="@Url.Content("~/Content/kendo/2019/kendo.material.min.css")" rel="stylesheet" type="text/css">
+    <link href="@Url.Content("~/Content/hrm-modern.css")" rel="stylesheet" type="text/css">
+
+    <!-- Jquery Core Js -->
+    <script src="@Url.Content("~/Content/plugins/jquery/jquery.min.js")"></script>
+    <script src="@Url.Content("~/Scripts/kendo/2019/jszip.min.js")"></script>
+    <script src="@Url.Content("~/Scripts/kendo/2019/kendo.all.min.js")"></script>
+    <script src="@Url.Content("~/Scripts/kendo.timezones.min.js")"></script>
+    <script src="@Url.Content("~/Scripts/kendo/2019/kendo.aspnetmvc.min.js")"></script>
+    <!-- Bootstrap Core Js -->
+    <script src="@Url.Content("~/Content/plugins/bootstrap/js/bootstrap.js")"></script>
+    <script src="@Url.Content("~/Scripts/respond.js")"></script>
+    <script src="@Url.Content("~/Scripts/jquery.sticky.js")"></script>
+    <script src="@Url.Content("~/Scripts/plugins/bootbox.min.js")"></script>
+    <script src="@Url.Content("~/Scripts/plugins/section-bar.js")"></script>
+    <script src="@Url.Content("~/Scripts/jquery.validate.js")"></script>
+    <script src="@Url.Content("~/Scripts/jquery.validate.unobtrusive.js")"></script>
+    <script src="@Url.Content("~/Scripts/angular.js")"></script>
+    <script src="@Url.Content("~/Scripts/angular-route.js")"></script>
+    <script src="@Url.Content("~/Scripts/angular-animate.js")"></script>
+    <script src="@Url.Content("~/Scripts/angular-resource.js")"></script>
+    <script src="@Url.Content("~/Scripts/angular-messages.js")"></script>
+    <script src="@Url.Content("~/Scripts/angular-cookies.js")"></script>
+    <script src="@Url.Content("~/Scripts/angular-kendo.js")"></script>
+    <script src="@Url.Content("~/Scripts/angular-sanitize.min.js")"></script>
+    <script src="@Url.Content("~/Scripts/Common.js")"></script>
+    <script src="@Url.Content("~/Scripts/app/constants.js")"></script>
+    <script src="@Url.Content("~/Scripts/app/app.js")"></script>
+    <script src="@Url.Content("~/Scripts/app/directives.js")"></script>
+    <script src="@Url.Content("~/Scripts/moment.js")"></script>
+    <script>
+        kendo.ui.Window.fn._keydown = function (originalFn) {
+            var KEY_ESC = 27;
+            return function (e) {
+                if (e.which !== KEY_ESC) {
+                    originalFn.call(this, e);
+                }
+            };
+        }(kendo.ui.Window.fn._keydown);
+
+        // EmployeeInformation
+        var SaveProfileUrl = "@Url.Action("SaveProfile", "EmployeeInformation")";
+        var GetAllEmployeeInformationUrl = "@Url.Action("GetAllEmployeeInformation", "EmployeeInformation")";
+        var GetEmployeeInformationByIdUrl = "@Url.Action("GetEmployeeInformationById", "EmployeeInformation")";
+        var GetEmployeeForAutoCompleBoxUrl = "@Url.Action("GetEmployeeForAutoCompleBox", "EmployeeInformation")";
+        var GetEmployeeUrl = "@Url.Action("GetEmployee", "EmployeeInformation")";
+
+        // ListCategory
+        var GetAllListCategoryUrl = "@Url.Action("GetAllListCategory", "ListCategory")";
+        var GetListCategoryByIdUrl = "@Url.Action("GetListCategoryById", "ListCategory")";
+        var SaveListCategoryUrl = "@Url.Action("SaveListCategory", "ListCategory")";
+        var DeleteListCategoryUrl = "@Url.Action("DeleteListCategory", "ListCategory")";
+        var ExportExcelUrl = "@Url.Action("ExportForExcel", "ListCategory")";
+        var ExportForImportListCategoryUrl = "@Url.Action("ExportForImport", "ListCategory")";
+
+        var ImageUrl = "/Library/base.jpg";
+
+        // Base
+        var GetListCategoryTypeUrl = "@Url.Action("GetListCategoryType", "Base")";
+        var GetDataForDropdownUrl = "@Url.Action("GetDataForDropdown", "Base")";
+        var GetAllNationalityUrl = "@Url.Action("GetAllNationality", "Base")";
+        var GetAllProvinceCityUrl = "@Url.Action("GetAllProvinceCity", "Base")";
+        var GetAllDistrictUrl = "@Url.Action("GetAllDistrict", "Base")";
+        var GetAllWardsUrl = "@Url.Action("GetAllWards", "Base")";
+        var GetStatusForDropdownUrl = "@Url.Action("GetStatusForDropdown", "Base")";
+
+        // FamilyInformation
+        var GetAllFamilyInformationUrl = "@Url.Action("GetAllFamilyInformation", "FamilyInformation")";
+        var SaveFamilyInformationUrl = "@Url.Action("SaveFamilyInformation", "FamilyInformation")";
+        var DeleteFamilyInformationUrl = "@Url.Action("DeleteFamilyInformation", "FamilyInformation")";
+
+        // PoliticsHealthMilitaryInformation
+        var GetAllPoliticsHealthMilitaryInformationUrl = "@Url.Action("GetAllPoliticsHealthMilitaryInformation", "PoliticsHealthMilitaryInformation")";
+        var SavePoliticsHealthMilitaryInformationUrl = "@Url.Action("SavePoliticsHealthMilitaryInformation", "PoliticsHealthMilitaryInformation")";
+
+        // WorkProgressInformation
+        var GetAllWorkProgressInformationUrl = "@Url.Action("GetAllWorkProgressInformation", "WorkProgressInformation")";
+        var SaveWorkProgressInformationUrl = "@Url.Action("SaveWorkProgressInformation", "WorkProgressInformation")";
+        var DeleteWorkProgressInformationUrl = "@Url.Action("DeleteWorkProgressInformation", "WorkProgressInformation")";
+
+        // ContractInformation
+        var GetAllContractInformationUrl = "@Url.Action("GetAllContractInformation", "ContractInformation")";
+        var SaveContractInformationUrl = "@Url.Action("SaveContractInformation", "ContractInformation")";
+
+        // SalaryHistoryInformation
+        var GetAllSalaryHistoryInformationUrl = "@Url.Action("GetAllSalaryHistoryInformation", "SalaryHistoryInformation")";
+        var SaveSalaryHistoryInformationUrl = "@Url.Action("SaveSalaryHistoryInformation", "SalaryHistoryInformation")";
+        var DeleteSalaryHistoryInformationUrl = "@Url.Action("DeleteSalaryHistoryInformation", "SalaryHistoryInformation")";
+
+        // BonusInformation
+        var GetAllBonusInformationUrl = "@Url.Action("GetAllBonusInformation", "BonusInformation")";
+        var SaveBonusInformationUrl = "@Url.Action("SaveBonusInformation", "BonusInformation")";
+        var DeleteBonusInformationUrl = "@Url.Action("DeleteBonusInformation", "BonusInformation")";
+        var GetAllBonusUrl = "@Url.Action("GetAllBonus", "BonusInformation")";
+        var GetBonusByIdUrl = "@Url.Action("GetBonusById", "BonusInformation")";
+
+        // ProblemInformation
+        var GetAllProblemInformationUrl = "@Url.Action("GetAllProblemInformation", "ProblemInformation")";
+        var SaveProblemInformationUrl = "@Url.Action("SaveProblemInformation", "ProblemInformation")";
+        var DeleteProblemInformationUrl = "@Url.Action("DeleteProblemInformation", "ProblemInformation")";
+        var GetAllProblemUrl = "@Url.Action("GetAllProblem", "ProblemInformation")";
+        var GetProblemByIdUrl = "@Url.Action("GetProblemById", "ProblemInformation")";
+
+        // TrainingProcessInformation
+        var GetAllTrainingProcessInformationUrl = "@Url.Action("GetAllTrainingProcessInformation", "TrainingProcessInformation")";
+        var SaveTrainingProcessInformationUrl = "@Url.Action("SaveTrainingProcessInformation", "TrainingProcessInformation")";
+        var DeleteTrainingProcessInformationUrl = "@Url.Action("DeleteTrainingProcessInformation", "TrainingProcessInformation")";
+
+        // DegreeInformation
+        var GetAllDegreeInformationUrl = "@Url.Action("GetAllDegreeInformation", "DegreeInformation")";
+        var SaveDegreeInformationUrl = "@Url.Action("SaveDegreeInformation", "DegreeInformation")";
+        var DeleteDegreeInformationUrl = "@Url.Action("DeleteDegreeInformation", "DegreeInformation")";
+
+        // CertificateInformation
+        var GetAllCertificateInformationUrl = "@Url.Action("GetAllCertificateInformation", "CertificateInformation")";
+        var SaveCertificateInformationUrl = "@Url.Action("SaveCertificateInformation", "CertificateInformation")";
+        var DeleteCertificateInformationUrl = "@Url.Action("DeleteCertificateInformation", "CertificateInformation")";
+
+        // WorkExperienceInformation
+        var GetAllWorkExperienceInformationUrl = "@Url.Action("GetAllWorkExperienceInformation", "WorkExperienceInformation")";
+        var SaveWorkExperienceInformationUrl = "@Url.Action("SaveWorkExperienceInformation", "WorkExperienceInformation")";
+        var DeleteWorkExperienceInformationUrl = "@Url.Action("DeleteWorkExperienceInformation", "WorkExperienceInformation")";
+
+        // SkillInformation
+        var GetAllSkillInformationUrl = "@Url.Action("GetAllSkillInformation", "SkillInformation")";
+        var SaveSkillInformationUrl = "@Url.Action("SaveSkillInformation", "SkillInformation")";
+        var DeleteSkillInformationUrl = "@Url.Action("DeleteSkillInformation", "SkillInformation")";
+
+        // ReceiveInformation
+        var GetAllReceiveInformationUrl = "@Url.Action("GetAllReceiveInformation", "ReceiveInformation")";
+        var SaveReceiveInformationUrl = "@Url.Action("SaveReceiveInformation", "ReceiveInformation")";
+        var DeleteReceiveInformationUrl = "@Url.Action("DeleteReceiveInformation", "ReceiveInformation")";
+
+        // QuitInformation
+        var GetAllQuitInformationUrl = "@Url.Action("GetAllQuitInformation", "QuitInformation")";
+        var SaveQuitInformationUrl = "@Url.Action("SaveQuitInformation", "QuitInformation")";
+        var DeleteQuitInformationUrl = "@Url.Action("DeleteQuitInformation", "QuitInformation")";
+
+        // AssetInformation
+        var GetAllAssetInformationUrl = "@Url.Action("GetAllAssetInformation", "AssetInformation")";
+        var SaveAssetInformationUrl = "@Url.Action("SaveAssetInformation", "AssetInformation")";
+        var DeleteAssetInformationUrl = "@Url.Action("DeleteAssetInformation", "AssetInformation")";
+
+        // SkinInformation
+        var GetAllSkinInformationUrl = "@Url.Action("GetAllSkinInformation", "SkinInformation")";
+        var SaveSkinInformationUrl = "@Url.Action("SaveSkinInformation", "SkinInformation")";
+
+        // PageInformation
+        var GetAllPageInformationUrl = "@Url.Action("GetAllPageInformation", "PageInformation")";
+        var SavePageInformationUrl = "@Url.Action("SavePageInformation", "PageInformation")";
+        var DeletePageInformationUrl = "@Url.Action("DeletePageInformation", "PageInformation")";
+
+        // AttachmentInformation
+        var GetAllAttachmentInformationUrl = "@Url.Action("GetAllAttachmentInformation", "AttachmentInformation")";
+        var SaveAttachmentInformationUrl = "@Url.Action("SaveAttachmentInformation", "AttachmentInformation")";
+        var DeleteAttachmentInformationUrl = "@Url.Action("DeleteAttachmentInformation", "AttachmentInformation")";
+
+         // Evaluate
+        var GetAllEvaluateUrl = "@Url.Action("GetAllEvaluate", "Evaluate")";
+        var SaveEvaluateUrl = "@Url.Action("SaveEvaluate", "Evaluate")";
+        var GetEvaluateByIdUrl = "@Url.Action("GetEvaluateById", "Evaluate")";
+        var DeleteEvaluateUrl = "@Url.Action("DeleteEvaluate", "Evaluate")";
+        var EvaluateExportForExcelUrl = "@Url.Action("EvaluateExportForExcel", "Evaluate")";
+        var GetAllEvaluateDetailUrl = "@Url.Action("GetAllEvaluateDetail", "Evaluate")";
+        var SaveEvaluateDetailUrl = "@Url.Action("SaveEvaluateDetail", "Evaluate")";
+        var DeleteEvaluateDetailUrl = "@Url.Action("DeleteEvaluateDetail", "Evaluate")";
+        var SaveEvaluateFormUrl = "@Url.Action("SaveEvaluateForm", "Evaluate")";
+        var GetEvaluateByEmployeeUrl = "@Url.Action("GetEvaluateByEmployee", "Evaluate")";
+
+        // AllowanceInformation
+        var GetAllAllowanceInformationUrl = "@Url.Action("GetAllAllowanceInformation", "AllowanceInformation")";
+        var SaveAllowanceInformationUrl = "@Url.Action("SaveAllowanceInformation", "AllowanceInformation")";
+        var DeleteAllowanceInformationUrl = "@Url.Action("DeleteAllowanceInformation", "AllowanceInformation")";
+
+        // EmployeesOnBusinessTrip
+        var GetAllEmployeesOnBusinessTripUrl = "@Url.Action("GetAllEmployeesOnBusinessTrip", "EmployeesOnBusinessTrip")";
+        var SaveEmployeesOnBusinessTripUrl = "@Url.Action("SaveEmployeesOnBusinessTrip", "EmployeesOnBusinessTrip")";
+        var GetEmployeesOnBusinessTripByIdUrl = "@Url.Action("GetEmployeesOnBusinessTripById", "EmployeesOnBusinessTrip")";
+        var GetEmployeesOnBusinessTripInformationUrl = "@Url.Action("GetEmployeesOnBusinessTripInformation", "EmployeesOnBusinessTrip")";
+        var DeleteEmployeesOnBusinessTripUrl = "@Url.Action("DeleteEmployeesOnBusinessTrip", "EmployeesOnBusinessTrip")";
+
+        // EmployeesOnBusinessTripAdvances
+        var GetAllEmployeesOnBusinessTripAdvancesUrl = "@Url.Action("GetAllEmployeesOnBusinessTripAdvances", "EmployeesOnBusinessTripAdvances")";
+        var SaveEmployeesOnBusinessTripAdvancesUrl = "@Url.Action("SaveEmployeesOnBusinessTripAdvances", "EmployeesOnBusinessTripAdvances")";
+        var DeleteEmployeesOnBusinessTripAdvancesUrl = "@Url.Action("DeleteEmployeesOnBusinessTripAdvances", "EmployeesOnBusinessTripAdvances")";
+
+        // EmployeesOnBusinessTripPayments
+        var GetAllEmployeesOnBusinessTripPaymentsUrl = "@Url.Action("GetAllEmployeesOnBusinessTripPayments", "EmployeesOnBusinessTripPayments")";
+        var SaveEmployeesOnBusinessTripPaymentsUrl = "@Url.Action("SaveEmployeesOnBusinessTripPayments", "EmployeesOnBusinessTripPayments")";
+        var DeleteEmployeesOnBusinessTripPaymentsUrl = "@Url.Action("DeleteEmployeesOnBusinessTripPayments", "EmployeesOnBusinessTripPayments")";
+
+        // EmployeesOnBusinessTripRevenueEstimates
+        var GetAllEmployeesOnBusinessTripRevenueEstimatesUrl = "@Url.Action("GetAllEmployeesOnBusinessTripRevenueEstimates", "EmployeesOnBusinessTripRevenueEstimates")";
+        var SaveEmployeesOnBusinessTripRevenueEstimatesUrl = "@Url.Action("SaveEmployeesOnBusinessTripRevenueEstimates", "EmployeesOnBusinessTripRevenueEstimates")";
+        var DeleteEmployeesOnBusinessTripRevenueEstimatesUrl = "@Url.Action("DeleteEmployeesOnBusinessTripRevenueEstimates", "EmployeesOnBusinessTripRevenueEstimates")";
+
+        // EmployeesOnBusinessTripAssignedStaff
+        var GetAllEmployeesOnBusinessTripAssignedStaffUrl = "@Url.Action("GetAllEmployeesOnBusinessTripAssignedStaff", "EmployeesOnBusinessTripAssignedStaff")";
+        var SaveEmployeesOnBusinessTripAssignedStaffUrl = "@Url.Action("SaveEmployeesOnBusinessTripAssignedStaff", "EmployeesOnBusinessTripAssignedStaff")";
+        var DeleteEmployeesOnBusinessTripAssignedStaffUrl = "@Url.Action("DeleteEmployeesOnBusinessTripAssignedStaff", "EmployeesOnBusinessTripAssignedStaff")";
+
+        // ResignationProcedures
+        var GetResignationProceduresUrl = "@Url.Action("GetResignationProcedures", "ResignationProcedures")";
+        var SaveResignationProceduresUrl = "@Url.Action("SaveResignationProcedures", "ResignationProcedures")";
+        var DeleteResignationProceduresUrl = "@Url.Action("DeleteResignationProcedures", "ResignationProcedures")";
+        var GetGeneralInformationForResignationProceduresUrl = "@Url.Action("GetGeneralInformationForResignationProcedures", "ResignationProcedures")";
+
+        // ResignationProceduresEmployeeDebt
+        var GetAllResignationProceduresEmployeeDebtUrl = "@Url.Action("GetAllResignationProceduresEmployeeDebt", "ResignationProceduresEmployeeDebt")";
+        var SaveResignationProceduresEmployeeDebtUrl = "@Url.Action("SaveResignationProceduresEmployeeDebt", "ResignationProceduresEmployeeDebt")";
+        var DeleteResignationProceduresEmployeeDebtUrl = "@Url.Action("DeleteResignationProceduresEmployeeDebt", "ResignationProceduresEmployeeDebt")";
+
+        // BonusInformationStaffWereCommended
+        var GetAllBonusInformationStaffWereCommendedUrl = "@Url.Action("GetAllBonusInformationStaffWereCommended", "BonusInformationStaffWereCommended")";
+        var SaveBonusInformationStaffWereCommendedUrl = "@Url.Action("SaveBonusInformationStaffWereCommended", "BonusInformationStaffWereCommended")";
+        var DeleteBonusInformationStaffWereCommendedUrl = "@Url.Action("DeleteBonusInformationStaffWereCommended", "BonusInformationStaffWereCommended")";
+        var SaveOnlyBonusInformationStaffWereCommendedUrl = "@Url.Action("SaveOnlyBonusInformationStaffWereCommended", "BonusInformationStaffWereCommended")";
+
+        // ProblemInformationRelatedStaff
+        var GetAllProblemInformationRelatedStaffUrl = "@Url.Action("GetAllProblemInformationRelatedStaff", "ProblemInformationRelatedStaff")";
+        var SaveProblemInformationRelatedStaffUrl = "@Url.Action("SaveProblemInformationRelatedStaff", "ProblemInformationRelatedStaff")";
+        var DeleteProblemInformationRelatedStaffUrl = "@Url.Action("DeleteProblemInformationRelatedStaff", "ProblemInformationRelatedStaff")";
+        var SaveOnlyProblemInformationRelatedStaffUrl = "@Url.Action("SaveOnlyProblemInformationRelatedStaff", "ProblemInformationRelatedStaff")";
+
+        // ProblemInformationTrackEmployeeCompensation
+        var GetAllProblemInformationTrackEmployeeCompensationUrl = "@Url.Action("GetAllProblemInformationTrackEmployeeCompensation", "ProblemInformationTrackEmployeeCompensation")";
+        var SaveProblemInformationTrackEmployeeCompensationUrl = "@Url.Action("SaveProblemInformationTrackEmployeeCompensation", "ProblemInformationTrackEmployeeCompensation")";
+
+    </script>
+</head>
+<body class="theme-red">
+    <!-- Page Loader -->
+    <div class="page-loader-wrapper">
+        <div class="loader">
+            <div class="preloader">
+                <div class="spinner-layer pl-red">
+                    <div class="circle-clipper left">
+                        <div class="circle"></div>
+                    </div>
+                    <div class="circle-clipper right">
+                        <div class="circle"></div>
+                    </div>
+                </div>
+            </div>
+            <p>Please wait...</p>
+        </div>
+    </div>
+    <!-- #END# Page Loader -->
+    <!-- Overlay For Sidebars -->
+    <div class="overlay"></div>
+    <!-- #END# Overlay For Sidebars -->
+    <!-- Search Bar -->
+    <div class="search-bar">
+        <div class="search-icon">
+            <i class="material-icons">search</i>
+        </div>
+        <input type="text" placeholder="START TYPING...">
+        <div class="close-search">
+            <i class="material-icons">close</i>
+        </div>
+    </div>
+    <!-- #END# Search Bar -->
+    <!-- Top Bar -->
+    <nav class="navbar">
+        <div class="container-fluid">
+            <div class="navbar-header">
+                <a href="javascript:void(0);" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar-collapse" aria-expanded="false"></a>
+                <a href="javascript:void(0);" class="bars"></a>
+                <a class="navbar-brand" href="@Url.Action("Index", "Home")">HRM NHỊ GIA</a>
+            </div>
+            <div class="collapse navbar-collapse" id="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <!-- Call Search -->
+                    <li><a href="javascript:void(0);" class="js-search" data-close="true"><i class="material-icons">search</i></a></li>
+                    <!-- #END# Call Search -->
+                    <!-- Notifications -->
+                    <li class="dropdown">
+                        <a href="javascript:void(0);" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-label="Thông báo">
+                            <i class="material-icons">notifications</i>
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li class="header">THÔNG BÁO</li>
+                            <li class="hrm-dropdown-empty"><i class="material-icons">notifications_none</i><span>Chưa có thông báo mới</span></li>
+                        </ul>
+                    </li>
+                    <!-- #END# Notifications -->
+                    <!-- Tasks -->
+                    <li class="dropdown">
+                        <a href="javascript:void(0);" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-label="Công việc">
+                            <i class="material-icons">flag</i>
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li class="header">CÔNG VIỆC</li>
+                            <li class="hrm-dropdown-empty"><i class="material-icons">outlined_flag</i><span>Chưa có công việc được giao</span></li>
+                        </ul>
+                    </li>
+                    <!-- #END# Tasks -->
+                    <li class="pull-right"><a href="javascript:void(0);" class="js-right-sidebar" data-close="true"><i class="material-icons">more_vert</i></a></li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+    <!-- #Top Bar -->
+    <section>
+        <!-- Left Sidebar -->
+        <aside id="leftsidebar" class="sidebar">
+            <!-- User Info -->
+            <div class="user-info">
+                <div class="image">
+                    <img src="/Content/images/user.png" width="48" height="48" alt="User" />
+                </div>
+                <div class="info-container">
+                    <div class="name" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">@hrmName</div>
+                    <div class="email">@hrmRoleLabel@(hrmUser != null && !string.IsNullOrWhiteSpace(hrmUser.DepartmentName) ? " · " + hrmUser.DepartmentName : "")</div>
+                    <div class="btn-group user-helper-dropdown">
+                        <i class="material-icons" data-toggle="dropdown" aria-haspopup="true" aria-expanded="true">keyboard_arrow_down</i>
+                        <ul class="dropdown-menu pull-right">
+                            <li><a href="@Url.Action(hrmProfileAction, "Home")"><i class="material-icons">person</i>@(hrmRole == NHIGIA.Web.Models.HrmRoles.Employee ? "Hồ sơ của tôi" : "Hồ sơ nhân viên")</a></li>
+                            @if (hrmCanConfigure && hrmHanetUiEnabled) { <li><a href="@Url.Action("HanetIntegration", "Home")"><i class="material-icons">settings_input_antenna</i>Tích hợp thiết bị</a></li> }
+                            <li>
+                                @using (Html.BeginForm("Logout", "Account", FormMethod.Post, new { @class = "hrm-logout-form" })) {
+                                    @Html.AntiForgeryToken()<button type="submit"><i class="material-icons">exit_to_app</i>Đăng xuất</button>
+                                }
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <!-- #User Info -->
+            <!-- Menu -->
+            <div class="menu">
+                <ul class="list">
+                    <li class="header">QUẢN TRỊ NHÂN SỰ</li>
+                    <li class="home">
+                        <a href="@Url.Action("Index", "Home")">
+                            <i class="material-icons">home</i>
+                            <span>Trang chủ</span>
+                        </a>
+                    </li>
+                    <li class="internal_communications">
+                        <a href="@Url.Action("InternalCommunications", "Home")">
+                            <i class="material-icons">announcement</i>
+                            <span>Truyền thông</span>
+                        </a>
+                    </li>
+                    @if (hrmCanManage) {
+                    <li class="approvals_menu"><a href="@Url.Action("Approvals", "Home")"><i class="material-icons">fact_check</i><span>Phê duyệt</span></a></li>
+                    }
+                    @if (hrmCanConfigure && hrmHanetUiEnabled) {
+                    <li class="hanet_menu"><a href="@Url.Action("HanetIntegration", "Home")"><i class="material-icons">camera_front</i><span>Tích hợp thiết bị</span></a></li>
+                    }
+                    @if (hrmCanManage) {
+                    <li class="reports_menu"><a href="@Url.Action("Reports", "Home")"><i class="material-icons">assessment</i><span>Báo cáo nhanh</span></a></li>
+                    }
+                    <li class="employee_information">
+                        <a href="@Url.Action(hrmProfileAction, "Home")">
+                            <i class="material-icons">person</i>
+                            <span>Hồ sơ</span>
+                        </a>
+                    </li>
+                    <li class="attendance_menu">
+                        <a href="javascript:void(0);" class="menu-toggle waves-effect waves-block">
+                            <i class="material-icons">alarm</i>
+                            <span>Chấm công</span>
+                        </a>
+                        <ul class="ml-menu" style="display: none;">
+                            <li>
+                                <a href="javascript:void(0);" class="menu-toggle waves-effect waves-block">
+                                    <span>Chấm công</span>
+                                </a>
+                                <ul class="ml-menu" style="display: none;">
+                                    <li>
+                                        <a href="@Url.Action("Attendance", "Home")" class="waves-effect waves-block">Chấm công chi tiết</a>
+                                    </li>
+                                    <li>
+                                        <a href="@Url.Action("Attendance", "Home")" class="waves-effect waves-block">Tổng hợp chấm công</a>
+                                    </li>
+                                    <li>
+                                        <a href="@Url.Action("Attendance", "Home")" class="waves-effect waves-block">Dữ liệu máy chấm công</a>
+                                    </li>
+                                </ul>
+                            </li>
+                            <li>
+                                <a href="javascript:void(0);" class="menu-toggle waves-effect waves-block">
+                                    <span>Quản lý thời gian</span>
+                                </a>
+                                <ul class="ml-menu">
+                                    <li>
+                                        <a href="@Url.Action("LeaveRequests", "Home")" class="waves-effect waves-block">Nghỉ phép</a>
+                                    </li>
+                                    <li>
+                                        <a href="@Url.Action("EmployeeInformation", "Home")" class="waves-effect waves-block">Làm thêm</a>
+                                    </li>
+                                    <li>
+                                        <a href="@Url.Action("EmployeeInformation", "Home")" class="waves-effect waves-block">Đi muộn, về sớm</a>
+                                    </li>
+                                    <li>
+                                        <a href="@Url.Action("EmployeeInformation", "Home")" class="waves-effect waves-block">Làm bù</a>
+                                    </li>
+                                    <li>
+                                        <a href="@Url.Action("LeaveRequests", "Home")" class="waves-effect waves-block">Tổng hợp nghỉ phép theo năm</a>
+                                    </li>
+                                    <li>
+                                        <a href="@Url.Action("LeaveRequests", "Home")" class="waves-effect waves-block">Tổng hợp nghỉ phép theo tháng</a>
+                                    </li>
+                                </ul>
+                            </li>
+                        </ul>
+                    </li>
+                    <li>
+                        <a href="javascript:void(0);" class="menu-toggle waves-effect waves-block">
+                            <i class="material-icons">monetization_on</i>
+                            <span>Lương</span>
+                        </a>
+                        <ul class="ml-menu" style="display: none;">
+                            <li>
+                                <a href="javascript:void(0);" class="menu-toggle waves-effect waves-block">
+                                    <span>Lương</span>
+                                </a>
+                                <ul class="ml-menu" style="display: none;">
+                                    <li>
+                                        <a href="@Url.Action("EmployeeInformation", "Home")" class="waves-effect waves-block">Xác nhận công thức tính lương</a>
+                                    </li>
+                                    <li>
+                                        <a href="@Url.Action("EmployeeInformation", "Home")" class="waves-effect waves-block">Bảng lương</a>
+                                    </li>
+                                    <li>
+                                        <a href="@Url.Action("EmployeeInformation", "Home")" class="waves-effect waves-block">Bảng tổng hợp công nợ</a>
+                                    </li>
+                                    <li>
+                                        <a href="@Url.Action("EmployeeInformation", "Home")" class="waves-effect waves-block">Bảng chi trả tiền lương</a>
+                                    </li>
+                                    <li>
+                                        <a href="@Url.Action("EmployeeInformation", "Home")" class="waves-effect waves-block">Bảng tạm ghi nợ nhân viên</a>
+                                    </li>
+                                    <li>
+                                        <a href="@Url.Action("EmployeeInformation", "Home")" class="waves-effect waves-block">Bảng tổng hợp ghi nợ nhân viên</a>
+                                    </li>
+                                    <li>
+                                        <a href="@Url.Action("EmployeeInformation", "Home")" class="waves-effect waves-block">Bảng thu nhập khác</a>
+                                    </li>
+                                    <li>
+                                        <a href="@Url.Action("EmployeeInformation", "Home")" class="waves-effect waves-block">Bảng khấu trừ khác</a>
+                                    </li>
+                                </ul>
+                            </li>
+                            <li>
+                                <a href="javascript:void(0);" class="menu-toggle waves-effect waves-block">
+                                    <span>Bảo hiểm</span>
+                                </a>
+                                <ul class="ml-menu">
+                                    <li>
+                                        <a href="@Url.Action("EmployeeInformation", "Home")" class="waves-effect waves-block">Đợt bảo hiểm</a>
+                                    </li>
+                                    <li>
+                                        <a href="@Url.Action("EmployeeInformation", "Home")" class="waves-effect waves-block">Thanh toán bảo hiểm</a>
+                                    </li>
+                                    <li>
+                                        <a href="@Url.Action("EmployeeInformation", "Home")" class="waves-effect waves-block">Hồ sơ bảo hiểm</a>
+                                    </li>
+                                </ul>
+                            </li>
+                            <li>
+                                <a href="javascript:void(0);" class="menu-toggle waves-effect waves-block">
+                                    <span>Thuế</span>
+                                </a>
+                                <ul class="ml-menu">
+                                    <li>
+                                        <a href="@Url.Action("EmployeeInformation", "Home")" class="waves-effect waves-block">Tạm tính thuế</a>
+                                    </li>
+                                    <li>
+                                        <a href="@Url.Action("EmployeeInformation", "Home")" class="waves-effect waves-block">Quyết toán thuế</a>
+                                    </li>
+                                    <li>
+                                        <a href="@Url.Action("EmployeeInformation", "Home")" class="waves-effect waves-block">Tờ khai quyết toán thuế</a>
+                                    </li>
+                                    <li>
+                                        <a href="@Url.Action("EmployeeInformation", "Home")" class="waves-effect waves-block">Tờ khai ĐK MST cá nhân</a>
+                                    </li>
+                                    <li>
+                                        <a href="@Url.Action("EmployeeInformation", "Home")" class="waves-effect waves-block">Đăng ký người phụ thuộc</a>
+                                    </li>
+                                </ul>
+                            </li>
+                        </ul>
+                    </li>
+                    <li>
+                        <a href="javascript:void(0);" class="menu-toggle waves-effect waves-block">
+                            <i class="material-icons">person_add</i>
+                            <span>Tuyển dụng</span>
+                        </a>
+                        <ul class="ml-menu">
+                            <li>
+                                <a href="@Url.Action("EmployeeInformation", "Home")" class="waves-effect waves-block">Kế hoạch tuyển dụng</a>
+                            </li>
+                            <li>
+                                <a href="@Url.Action("EmployeeInformation", "Home")" class="waves-effect waves-block">Đợt tuyển dụng</a>
+                            </li>
+                            <li>
+                                <a href="@Url.Action("EmployeeInformation", "Home")" class="waves-effect waves-block">Nguồn dự trữ</a>
+                            </li>
+                            <li>
+                                <a href="@Url.Action("EmployeeInformation", "Home")" class="waves-effect waves-block">Hồ sơ vãng lai</a>
+                            </li>
+                            <li>
+                                <a href="@Url.Action("EmployeeInformation", "Home")" class="waves-effect waves-block">Tiếp nhận</a>
+                            </li>
+                        </ul>
+                    </li>
+                    <li class="procedure_active">
+                        <a href="javascript:void(0);" class="menu-toggle waves-effect waves-block procedure_toggle">
+                            <i class="material-icons">playlist_add_check</i>
+                            <span>Thủ tục</span>
+                        </a>
+                        <ul class="ml-menu procedure_bussiness_display">
+                            <li class="bussiness_active">
+                                <a href="@Url.Action("EmployeesOnBusinessTrip", "Home")" class="waves-effect waves-block procedure_bussiness_toggle">Công tác</a>
+                            </li>
+                            <li class="resignation_procedures_active">
+                                <a href="@Url.Action("ResignationProcedures", "Home")" class="waves-effect waves-block resignation_procedures_toggle">Thôi việc</a>
+                            </li>
+                        </ul>
+                    </li>
+                    <li>
+                        <a href="javascript:void(0);" class="menu-toggle waves-effect waves-block">
+                            <i class="material-icons">supervisor_account</i>
+                            <span>Đào tạo</span>
+                        </a>
+                        <ul class="ml-menu">
+                            <li>
+                                <a href="@Url.Action("EmployeeInformation", "Home")" class="waves-effect waves-block">Tổng hợp nhu cầu đào tạo</a>
+                            </li>
+                            <li>
+                                <a href="@Url.Action("EmployeeInformation", "Home")" class="waves-effect waves-block">Kế hoạch đào tạo</a>
+                            </li>
+                            <li>
+                                <a href="@Url.Action("EmployeeInformation", "Home")" class="waves-effect waves-block">Khoá đào tạo</a>
+                            </li>
+                        </ul>
+                    </li>
+                    <li class="evaluate_active">
+                        <a href="@Url.Action("Evaluate", "Home")">
+                            <i class="material-icons">star_border</i>
+                            <span>Đánh giá</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="javascript:void(0);" class="menu-toggle waves-effect waves-block">
+                            <i class="material-icons">pie_chart_outlined</i>
+                            <span>Báo cáo</span>
+                        </a>
+                        <ul class="ml-menu" style="display: none;">
+                            <li>
+                                <a href="javascript:void(0);" class="menu-toggle waves-effect waves-block">
+                                    <span>Hồ sơ</span>
+                                </a>
+                                <ul class="ml-menu" style="display: none;">
+                                    <li>
+                                        <a href="@Url.Action("EmployeeInformation", "Home")" class="waves-effect waves-block">Hồ sơ nhân viên</a>
+                                    </li>
+                                    <li>
+                                        <a href="@Url.Action("EmployeeInformation", "Home")" class="waves-effect waves-block">Hợp đồng</a>
+                                    </li>
+                                    <li>
+                                        <a href="@Url.Action("EmployeeInformation", "Home")" class="waves-effect waves-block">Hồ sơ năng lực</a>
+                                    </li>
+                                </ul>
+                            </li>
+                            <li>
+                                <a href="javascript:void(0);" class="menu-toggle waves-effect waves-block">
+                                    <span>Chấm công</span>
+                                </a>
+                                <ul class="ml-menu">
+                                    <li>
+                                        <a href="@Url.Action("EmployeeInformation", "Home")" class="waves-effect waves-block">Quản lý thời gian</a>
+                                    </li>
+                                    <li>
+                                        <a href="@Url.Action("EmployeeInformation", "Home")" class="waves-effect waves-block">Chấm công</a>
+                                    </li>
+                                </ul>
+                            </li>
+                            <li>
+                                <a href="javascript:void(0);" class="menu-toggle waves-effect waves-block">
+                                    <span>Lương</span>
+                                </a>
+                                <ul class="ml-menu">
+                                    <li>
+                                        <a href="@Url.Action("EmployeeInformation", "Home")" class="waves-effect waves-block">Tiền lương</a>
+                                    </li>
+                                    <li>
+                                        <a href="@Url.Action("EmployeeInformation", "Home")" class="waves-effect waves-block">Thuế</a>
+                                    </li>
+                                    <li>
+                                        <a href="@Url.Action("EmployeeInformation", "Home")" class="waves-effect waves-block">Bảo hiểm</a>
+                                    </li>
+                                </ul>
+                            </li>
+                            <li>
+                                <a href="javascript:void(0);" class="menu-toggle waves-effect waves-block">
+                                    <span>Thủ tục</span>
+                                </a>
+                                <ul class="ml-menu">
+                                    <li>
+                                        <a href="@Url.Action("EmployeeInformation", "Home")" class="waves-effect waves-block">Công tác</a>
+                                    </li>
+                                    <li>
+                                        <a href="@Url.Action("EmployeeInformation", "Home")" class="waves-effect waves-block">Đồng phục & Bảo hộ</a>
+                                    </li>
+                                    <li>
+                                        <a href="@Url.Action("EmployeeInformation", "Home")" class="waves-effect waves-block">Thôi việc</a>
+                                    </li>
+                                </ul>
+                            </li>
+                            <li>
+                                <a href="javascript:void(0);" class="menu-toggle waves-effect waves-block">
+                                    <span>Tuyển dụng</span>
+                                </a>
+                                <ul class="ml-menu">
+                                    <li>
+                                        <a href="@Url.Action("EmployeeInformation", "Home")" class="waves-effect waves-block">Tuyển dụng</a>
+                                    </li>
+                                    <li>
+                                        <a href="@Url.Action("EmployeeInformation", "Home")" class="waves-effect waves-block">Tiếp nhận</a>
+                                    </li>
+                                </ul>
+                            </li>
+                            <li>
+                                <a href="javascript:void(0);" class="menu-toggle waves-effect waves-block">
+                                    <span>Khác</span>
+                                </a>
+                                <ul class="ml-menu">
+                                    <li>
+                                        <a href="@Url.Action("EmployeeInformation", "Home")" class="waves-effect waves-block">Đánh giá</a>
+                                    </li>
+                                    <li>
+                                        <a href="@Url.Action("EmployeeInformation", "Home")" class="waves-effect waves-block">Đào tạo</a>
+                                    </li>
+                                    <li>
+                                        <a href="@Url.Action("EmployeeInformation", "Home")" class="waves-effect waves-block">Phúc lợi</a>
+                                    </li>
+                                    <li>
+                                        <a href="@Url.Action("EmployeeInformation", "Home")" class="waves-effect waves-block">Khen thưởng</a>
+                                    </li>
+                                    <li>
+                                        <a href="@Url.Action("EmployeeInformation", "Home")" class="waves-effect waves-block">Sự cố</a>
+                                    </li>
+                                    <li>
+                                        <a href="@Url.Action("EmployeeInformation", "Home")" class="waves-effect waves-block">Báo cáo nhanh</a>
+                                    </li>
+                                </ul>
+                            </li>
+                        </ul>
+                    </li>
+                    <li class="other_active">
+                        <a href="javascript:void(0);" class="menu-toggle waves-effect waves-block other_toggle">
+                            <i class="material-icons">linear_scale</i>
+                            <span>Khác</span>
+                        </a>
+                        <ul class="ml-menu other_display">
+                            <li class="bonus_active">
+                                <a href="@Url.Action("Bonus", "Home")" class="waves-effect waves-block bonus_toggle">Khen thưởng</a>
+                            </li>
+                            <li class="problem_active">
+                                <a href="@Url.Action("Problem", "Home")" class="waves-effect waves-block problem_toggle">Sự cố</a>
+                            </li>
+                            <li>
+                                <a href="@Url.Action("EmployeeInformation", "Home")" class="waves-effect waves-block">Phúc lợi</a>
+                            </li>
+                        </ul>
+                    </li>
+                    <li class="list_category">
+                        <a href="@Url.Action("ListCategory", "Home")">
+                            <i class="material-icons">view_list</i>
+                            <span>Danh mục</span>
+                        </a>
+                    </li>
+                    <li class="system_active">
+                        <a href="javascript:void(0);" class="menu-toggle waves-effect waves-block system_toggle">
+                            <i class="material-icons">settings_applications</i>
+                            <span>Hệ thống</span>
+                        </a>
+                        <ul class="ml-menu system_display" style="display: none;">
+                            <li>
+                                <a href="javascript:void(0);" class="menu-toggle waves-effect waves-block">
+                                    <span>Người dùng</span>
+                                </a>
+                                <ul class="ml-menu" style="display: none;">
+                                    <li>
+                                        <a href="@Url.Action("EmployeeInformation", "Home")" class="waves-effect waves-block">Quản lý người dùng</a>
+                                    </li>
+                                    <li>
+                                        <a href="@Url.Action("EmployeeInformation", "Home")" class="waves-effect waves-block">Vai trò quyền hạn</a>
+                                    </li>
+                                    <li>
+                                        <a href="@Url.Action("EmployeeInformation", "Home")" class="waves-effect waves-block">Nhật ký truy cập</a>
+                                    </li>
+                                    <li>
+                                        <a href="@Url.Action("EmployeeInformation", "Home")" class="waves-effect waves-block">Người dùng quản lý thời gian</a>
+                                    </li>
+                                    <li>
+                                        <a href="@Url.Action("EmployeeInformation", "Home")" class="waves-effect waves-block">Người dùng quản lý đi công tác</a>
+                                    </li>
+                                    <li>
+                                        <a href="@Url.Action("EmployeeInformation", "Home")" class="waves-effect waves-block">Người dùng quản lý duyệt đơn</a>
+                                    </li>
+                                </ul>
+                            </li>
+                            <li>
+                                <a href="javascript:void(0);" class="menu-toggle waves-effect waves-block">
+                                    <span>Khác</span>
+                                </a>
+                                <ul class="ml-menu">
+                                    <li>
+                                        <a href="@Url.Action("WorkSchedules", "Home")" class="waves-effect waves-block">Phân ca làm việc</a>
+                                    </li>
+                                    <li>
+                                        <a href="@Url.Action("EmployeeInformation", "Home")" class="waves-effect waves-block">Ngày nghỉ</a>
+                                    </li>
+                                    <li>
+                                        <a href="@Url.Action("EmployeeInformation", "Home")" class="waves-effect waves-block">Số công chuẩn</a>
+                                    </li>
+                                    <li>
+                                        <a href="@Url.Action("EmployeeInformation", "Home")" class="waves-effect waves-block">Số kỳ lương trong tháng</a>
+                                    </li>
+                                    <li>
+                                        <a href="@Url.Action("EmployeeInformation", "Home")" class="waves-effect waves-block">Giá trị ngầm định</a>
+                                    </li>
+                                    <li>
+                                        <a href="@Url.Action("EmployeeInformation", "Home")" class="waves-effect waves-block">Trường bắt buộc nhập liệu</a>
+                                    </li>
+                                </ul>
+                            </li>
+                            <li class="system_utilities_active">
+                                <a href="javascript:void(0);" class="menu-toggle waves-effect waves-block">
+                                    <span>Tiện ích</span>
+                                </a>
+                                <ul class="ml-menu system_utilities_display">
+                                    <li class="system_utilities_bulk_upload_active">
+                                        <a href="@Url.Action("BulkUpload", "Home")" class="waves-effect waves-block system_utilities_bulk_upload_toggle">Import dữ liệu</a>
+                                    </li>
+                                    <li>
+                                        <a href="@Url.Action("UploadImage", "Home")" class="waves-effect waves-block">Upload hình ảnh</a>
+                                    </li>
+                                    <li>
+                                        <a href="@Url.Action("EmployeeInformation", "Home")" class="waves-effect waves-block">Thùng rác</a>
+                                    </li>
+                                </ul>
+                            </li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+            <!-- #Menu -->
+            <!-- Footer -->
+            <div class="legal">
+                <div class="copyright">
+                    &copy; @DateTime.Now.Year <a href="@Url.Action("Index", "Home")">HRM NHỊ GIA</a>
+                </div>
+            </div>
+            <!-- #Footer -->
+        </aside>
+        <!-- #END# Left Sidebar -->
+        <!-- Right Sidebar -->
+        <aside id="rightsidebar" class="right-sidebar">
+            <ul class="nav nav-tabs tab-nav-right" role="tablist">
+                <li role="presentation" class="active"><a href="#skins" data-toggle="tab">SKINS</a></li>
+            </ul>
+            <div class="tab-content">
+                <div role="tabpanel" class="tab-pane fade in active in active" id="skins">
+                    <ul class="demo-choose-skin">
+                        <li data-theme="red" class="active">
+                            <div class="red"></div>
+                            <span>Red</span>
+                        </li>
+                        <li data-theme="pink">
+                            <div class="pink"></div>
+                            <span>Pink</span>
+                        </li>
+                        <li data-theme="purple">
+                            <div class="purple"></div>
+                            <span>Purple</span>
+                        </li>
+                        <li data-theme="deep-purple">
+                            <div class="deep-purple"></div>
+                            <span>Deep Purple</span>
+                        </li>
+                        <li data-theme="indigo">
+                            <div class="indigo"></div>
+                            <span>Indigo</span>
+                        </li>
+                        <li data-theme="blue">
+                            <div class="blue"></div>
+                            <span>Blue</span>
+                        </li>
+                        <li data-theme="light-blue">
+                            <div class="light-blue"></div>
+                            <span>Light Blue</span>
+                        </li>
+                        <li data-theme="cyan">
+                            <div class="cyan"></div>
+                            <span>Cyan</span>
+                        </li>
+                        <li data-theme="teal">
+                            <div class="teal"></div>
+                            <span>Teal</span>
+                        </li>
+                        <li data-theme="green">
+                            <div class="green"></div>
+                            <span>Green</span>
+                        </li>
+                        <li data-theme="light-green">
+                            <div class="light-green"></div>
+                            <span>Light Green</span>
+                        </li>
+                        <li data-theme="lime">
+                            <div class="lime"></div>
+                            <span>Lime</span>
+                        </li>
+                        <li data-theme="yellow">
+                            <div class="yellow"></div>
+                            <span>Yellow</span>
+                        </li>
+                        <li data-theme="amber">
+                            <div class="amber"></div>
+                            <span>Amber</span>
+                        </li>
+                        <li data-theme="orange">
+                            <div class="orange"></div>
+                            <span>Orange</span>
+                        </li>
+                        <li data-theme="deep-orange">
+                            <div class="deep-orange"></div>
+                            <span>Deep Orange</span>
+                        </li>
+                        <li data-theme="brown">
+                            <div class="brown"></div>
+                            <span>Brown</span>
+                        </li>
+                        <li data-theme="grey">
+                            <div class="grey"></div>
+                            <span>Grey</span>
+                        </li>
+                        <li data-theme="blue-grey">
+                            <div class="blue-grey"></div>
+                            <span>Blue Grey</span>
+                        </li>
+                        <li data-theme="black">
+                            <div class="black"></div>
+                            <span>Black</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </aside>
+        <!-- #END# Right Sidebar -->
+    </section>
+
+    <section class="content">
+        @RenderBody()
+    </section>
+
+    <script src="@Url.Content("~/Content/plugins/jquery-slimscroll/jquery.slimscroll.js")"></script>
+    <script src="@Url.Content("~/Content/plugins/node-waves/waves.js")"></script>
+    <script src="@Url.Content("~/Content/js/admin.js")"></script>
+</body>
+</html>

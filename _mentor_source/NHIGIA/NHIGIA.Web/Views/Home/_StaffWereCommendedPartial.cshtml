@@ -1,0 +1,91 @@
+﻿<script src="@Url.Content("~/Scripts/app/controller/BonusInformationStaffWereCommendedController.js")"></script>
+<div class="container-fluid" ng-controller="BonusInformationStaffWereCommendedController">
+    <div class="row clearfix" style="overflow:hidden;">
+        <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 p-r-0 p-l-0 m-b--30">
+            <div class="card box-shadow-none">
+                <button type="button" class="btn add-action-text m-r-0 m-b-10 float-right" ng-click="ShowPopupBonusInformationStaffWereCommended('ADD_BONUSINFORMATIONSTAFFWERECOMMENDED')"><i class="material-icons">add_circle</i><span class="icon-name">Chọn nhân viên</span></button>
+                <table class="table table_custom">
+                    <thead>
+                        <tr>
+                            <th style="max-width:150px;">Họ và tên</th>
+                            <th style="max-width:150px;">Vị trí công việc</th>
+                            <th style="max-width:150px;">Đơn vị công tác</th>
+                            <th style="max-width:310px;">Giá trị - Trạng thái</th>
+                            <th ng-if="GetAllBonusInformationStaffWereCommended.length > 0" style="width:85px; min-width:85px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr ng-if="GetAllBonusInformationStaffWereCommended.length > 0" ng-repeat="item in GetAllBonusInformationStaffWereCommended">
+                            <td>{{item.EmployeeName}}</td>
+                            <td>{{item.JobPositionName}}</td>
+                            <td>{{item.WorkUnitName}}</td>
+                            <td style="padding: 5px;">
+                                <button style="width: 32px; height: 32px; margin-right: 10px;"
+                                        type="button"
+                                        id="btnSaveBonusValue{{item.Id}}"
+                                        class="btn btn-success waves-effect float-left"
+                                        ng-click="SaveChange(item.Id)">
+                                    <i class="material-icons" style="top: 0; left: -7px;">check</i>
+                                </button>
+                                <input style="width: 207px; height: 32px !important; margin-right: 10px;"
+                                       class="form-control float-left"
+                                       name="BonusValue{{item.Id}}"
+                                       id="BonusValue{{item.Id}}"
+                                       min="0"
+                                       max="999999999999999"
+                                       number-format
+                                       ng-model="item.BonusValue"
+                                       maxlength="15"
+                                       autocomplete="off" />
+                                <div class="demo-checkbox" style="float: left;">
+                                    <input type="checkbox" id="Status_{{item.Id}}" name="Status_{{item.Id}}" class="filled-in chk-col-blue" ng-model="item.Status" ng-change="ShowPopupBonusInformationStaffWereCommended('CHANGE_ATTACHMENT',{{item.Id}})" />
+                                    <label style="margin-top: 5px;" for="Status_{{item.Id}}">Đã hoàn thành</label>
+                                </div>
+                            </td>
+                            <td>
+                                <a ng-click="ShowPopupBonusInformationStaffWereCommended('DELETE_BONUSINFORMATIONSTAFFWERECOMMENDED',item.Id)"><i class="material-icons" style="color:#E55B5C;">close</i></a>
+                            </td>
+                        </tr>
+                        <tr ng-if="GetAllBonusInformationStaffWereCommended.length === 0">
+                            <td colspan="4" align="center">Không có dữ liệu</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    @using (Ajax.BeginForm("BonusInformationStaffWereCommended", "Home", null, new AjaxOptions { HttpMethod = "POST" }, new { @name = "ValidBonusInformationStaffWereCommended", @id = "ValidBonusInformationStaffWereCommended", @novalidate = "novalidate" }))
+    {
+        <div id="KenWindownBonusInformationStaffWereCommended" class="k-window-content KenWindownPopup" style="display:none;">
+            <div class="content" style="max-height: 400px; margin: 0 0 15px 0; overflow: auto; overflow-x: hidden;">
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                        <div kendo-grid="gridBonusInformationStaffWereCommended"
+                             id="TableBonusInformationStaffWereCommended"
+                             k-options="SectionBonusInformationStaffWereCommended">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <hr />
+            <div class="footer">
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                        <button type="button"
+                                id="btnSaveBonusInformationStaffWereCommended"
+                                class="btn btn-primary waves-effect float-right m-l-5"
+                                ng-click="SaveBonusInformationStaffWereCommended()">
+                            <i class="material-icons">save</i><span class="icon-name">Lưu</span>
+                        </button>
+                        <button type="button"
+                                class="btn bg-grey waves-effect float-right m-l-5"
+                                id="btnCloseBonusInformationStaffWereCommended"
+                                ng-click="CloseBonusInformationStaffWereCommended()">
+                            <i class="material-icons">close</i><span class="icon-name">Đóng</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>

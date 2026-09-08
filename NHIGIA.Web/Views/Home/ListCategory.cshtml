@@ -1,0 +1,112 @@
+﻿<script src="@Url.Content("~/Scripts/app/controller/ListCategoryController.js")"></script>
+<script src="@Url.Content("~/Scripts/app/services/ListCategoryService.js")"></script>
+
+<div class="container-fluid" ng-controller="ListCategoryController">
+    <div class="row clearfix">
+        <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+            <div class="card">
+                @Html.Partial("Header")
+                <div class="body table-responsive">
+                    <div class="button-demo">
+                        <button type="button" class="btn btn-success waves-effect" ng-click="ShowPopup('ADD')"><i class="material-icons">add_circle</i><span class="icon-name">Thêm</span></button>
+                        <button id="ButtonCreate" type="button" class="btn btn-primary waves-effect" ng-click="ShowPopup('EDIT')" disabled><i class="material-icons">create</i><span class="icon-name">Sửa</span></button>
+                        <button id="ButtonDelete" type="button" class="btn btn-danger waves-effect" ng-click="ShowPopup('DELETE')" disabled><i class="material-icons">delete_sweep</i><span class="icon-name">Xoá</span></button>
+                        <button type="button" class="btn btn-info waves-effect" ng-click="ShowPopup('EXPORTEXCEL')"><i class="material-icons">file_download</i><span class="icon-name">Xuất Excel</span></button>
+                        <button type="button" class="btn bg-grey waves-effect" ng-click="ShowPopup('REFRESH')"><i class="material-icons">refresh</i><span class="icon-name">Nạp</span></button>
+                    </div>
+                    <div kendo-grid="grid"
+                         id="Table"
+                         k-options="Section">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    @using (Ajax.BeginForm("ListCategory", "Home", null, new AjaxOptions { HttpMethod = "POST" }, new { @name = "Valid", @id = "Valid", @novalidate = "novalidate" }))
+    {
+        <div id="KenWindown" class="k-window-content KenWindownPopup" style="display:none;">
+            <div class="content" style="margin: 0 0 15px 0;">
+                <div class="row m-t--10" ng-if="model.Id > 0">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                        <label>Mã</label>
+                        <input class="form-control"
+                               name="Code"
+                               id="Code"
+                               ng-model="model.Code"
+                               maxlength="50"
+                               disabled
+                               autocomplete="off" />
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                        <label>
+                            Tên danh mục <span class="asterisk">*</span>
+                        </label>
+                        <span class="help-block">
+                            <label class="control-label" ng-if="CheckDuplicate">({{MessageErrorForDuplicate}})</label>
+                        </span>
+                        <input class="form-control"
+                               name="Name"
+                               id="Name"
+                               ng-model="model.Name"
+                               maxlength="50"
+                               ng-class="{'has-error': showErrorMsg(Valid.Name) || CheckDuplicate}"
+                               title="{{MessageErrorForInput}}"
+                               required
+                               autocomplete="off" />
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                        <label>Địa chỉ</label>
+                        <input class="form-control"
+                               name="Address"
+                               id="Address"
+                               ng-model="model.Address"
+                               maxlength="50"
+                               autocomplete="off" />
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                        <label>
+                            Loại danh mục <span class="asterisk">*</span>
+                        </label>
+                        <select kendo-drop-down-list
+                                id="ListCategoryTypeId"
+                                name="ListCategoryTypeId"
+                                ng-model="model.ListCategoryTypeId"
+                                k-data-source="ListCategoryTypeDropdownlist"
+                                k-data-text-field="'Name'"
+                                k-data-value-field="'Id'"
+                                k-filter="'contains'"
+                                ng-class="{'has-error': showErrorMsg(Valid.ListCategoryTypeId)}"
+                                title="{{MessageErrorForSelect}}"
+                                required
+                                class="Dropdownlist-Custom"></select>
+                    </div>
+                </div>
+            </div>
+            <hr />
+            <div class="footer">
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                        <button type="button"
+                                id="btnSave"
+                                class="btn btn-primary waves-effect float-right m-l-5"
+                                ng-click="Save(Valid)">
+                            <i class="material-icons">save</i><span class="icon-name">Lưu</span>
+                        </button>
+                        <button type="button"
+                                class="btn bg-grey waves-effect float-right m-l-5"
+                                id="btnClose"
+                                ng-click="Close()">
+                            <i class="material-icons">close</i><span class="icon-name">Đóng</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>

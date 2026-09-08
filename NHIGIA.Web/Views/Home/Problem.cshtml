@@ -1,0 +1,81 @@
+﻿<script src="@Url.Content("~/Scripts/app/controller/ProblemInformationController.js")"></script>
+<script src="@Url.Content("~/Scripts/app/services/ProblemInformationService.js")"></script>
+<script src="@Url.Content("~/Scripts/app/services/ListCategoryService.js")"></script>
+<script src="@Url.Content("~/Scripts/app/services/ProblemInformationRelatedStaffService.js")"></script>
+<script src="@Url.Content("~/Scripts/app/services/EmployeeInformationService.js")"></script>
+
+<div class="container-fluid" ng-controller="ProblemInformationController">
+    <div class="row clearfix" ng-if="ShowList">
+        <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+            <div class="card">
+                @Html.Partial("Header")
+                <div class="body table-responsive">
+                    <div class="button-demo">
+                        <button type="button" class="btn btn-success waves-effect" ng-click="ShowPopup('ADD')">
+                            <i class="material-icons">add_circle</i>
+                            <span class="icon-name">Thêm</span>
+                        </button>
+                        <button id="ButtonEdit" type="button" class="btn btn-primary waves-effect" ng-click="ShowPopup('EDIT')" disabled>
+                            <i class="material-icons">create</i>
+                            <span class="icon-name">Sửa</span>
+                        </button>
+                        <button id="ButtonDelete" type="button" class="btn btn-danger waves-effect" ng-click="ShowPopup('DELETE')" disabled>
+                            <i class="material-icons">delete_sweep</i>
+                            <span class="icon-name">Xoá</span>
+                        </button>
+                        <button type="button" class="btn btn-info waves-effect" ng-click="ShowPopup('EXPORT_EXCEL')">
+                            <i class="material-icons">file_download</i>
+                            <span class="icon-name">Xuất Excel</span>
+                        </button>
+                        <button type="button" class="btn bg-grey waves-effect" ng-click="ShowPopup('REFRESH')">
+                            <i class="material-icons">refresh</i>
+                            <span class="icon-name">Nạp</span>
+                        </button>
+                    </div>
+                    <div kendo-grid="grid"
+                         id="Table"
+                         k-options="Section">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="row clearfix" ng-if="ShowInfo">
+        @using (Ajax.BeginForm("Problem", "Home", null, new AjaxOptions { HttpMethod = "POST" }, new { @name = "Valid", @id = "Valid", @novalidate = "novalidate" }))
+        {
+            <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                <div class="card profile_page">
+                    <button id="btnUpsite" type="button" class="btn btn-primary btn-circle waves-effect fixedbutton" ng-click="Upsite()"><i class="material-icons" style="color:#fff">arrow_upward</i></button>
+                    <div class="header">
+                        <h2>Sự cố</h2>
+                        <div class="header-dropdown m-r--5">
+                            <button id="btnSaveHeader" type="button" class="btn btn-primary waves-effect save-hide" ng-click="Save()"><i class="material-icons" style="color:#fff">save</i><span class="icon-name">Lưu</span></button>
+                            <button id="btnCancelHeader" type="button" class="btn bg-grey waves-effect" ng-click="ShowPopup('CANCEL')"><i class="material-icons">close</i><span class="icon-name">Huỷ bỏ</span></button>
+                        </div>
+                    </div>
+                    <div class="body table-responsive" style="padding: 0 20px 0 20px;">
+                        <ul class="nav nav-tabs tab-nav-right" role="tablist">
+                            <li role="presentation" class="active"><a href="#general_incident_information" data-toggle="tab" aria-expanded="true" ng-if="model.Id === 0">Thông tin sự cố</a><a href="#general_incident_information" data-toggle="tab" aria-expanded="true" ng-if="model.Id > 0" ng-click="ClickInformation('GENERAL_INCIDENT_INFORMATION')">Thông tin sự cố</a></li>
+                            <li role="presentation" class="" ng-if="model.Id > 0"><a href="#related_staff" data-toggle="tab" aria-expanded="false" ng-click="ClickInformation('RELATED_STAFF')">Nhân viên liên quan</a></li>
+                        </ul>
+                        <div class="tab-content">
+                            <div role="tabpanel" class="tab-pane fade active in" id="general_incident_information" style="padding-top: 0;">
+                                @Html.Partial("_GeneralIncidentInformationPartial")
+                            </div>
+                            <div role="tabpanel" class="tab-pane fade custom_tab_information" id="related_staff" style="padding-top: 0;">
+                                @Html.Partial("_RelatedStaffPartial")
+                            </div>
+                        </div>
+                    </div>
+                    <hr style="border-bottom:1px solid rgba(204, 204, 204, 0.35); border-top: 0;" />
+                    <div class="header">
+                        <div class="header-dropdown m-r--5" style="top:-10px;">
+                            <button id="btnSaveFooter" type="button" class="btn btn-primary waves-effect save-hide" ng-click="Save()"><i class="material-icons" style="color:#fff">save</i><span class="icon-name">Lưu</span></button>
+                            <button id="btnCancelFooter" type="button" class="btn bg-grey waves-effect" ng-click="ShowPopup('CANCEL')"><i class="material-icons">close</i><span class="icon-name">Huỷ bỏ</span></button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+</div>

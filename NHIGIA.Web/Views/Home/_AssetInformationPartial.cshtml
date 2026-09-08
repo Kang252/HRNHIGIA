@@ -1,0 +1,165 @@
+﻿<script src="@Url.Content("~/Scripts/app/controller/AssetInformationController.js")"></script>
+<div class="container-fluid" ng-controller="AssetInformationController">
+    <div class="row clearfix">
+        <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 p-r-0 p-l-0">
+            <div class="card box-shadow-none">
+                <button type="button" class="btn add-action-text m-r-0 m-b-10 float-right" ng-if="HideButton" ng-click="ShowPopupAsset('ADD_ASSET')"><i class="material-icons">add_circle</i><span class="icon-name">Thêm</span></button>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th style="max-width:125px;">Mã tài sản</th>
+                            <th style="max-width:200px;">Tên tài sản</th>
+                            <th style="max-width:180px;">Loại tài sản</th>
+                            <th style="max-width:180px;">Ngày nhận</th>
+                            <th style="max-width: 100px;">Trạng thái</th>
+                            <th ng-if="GetAllAssetInformation.length > 0" style="width:85px; min-width:85px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr ng-if="GetAllAssetInformation.length > 0" ng-repeat="item in GetAllAssetInformation">
+                            <td>{{item.AssetCode}}</td>
+                            <td>{{item.AssetName}}</td>
+                            <td>{{item.AssetTypeName}}</td>
+                            <td>{{item.ReceivedDateString}}</td>
+                            <td>{{item.AssetStatusName}}</td>
+                            <td>
+                                <a ng-click="ShowPopupAsset('EDIT_ASSET',item.Id)">
+                                    <i class="material-icons" ng-if="HideButton" style="color:#0c68b4;">mode_edit</i>
+                                    <i class="material-icons" ng-if="ShowButton" style="color:#0c68b4;">remove_red_eye</i>
+                                </a>
+                                <a ng-if="HideButton" ng-click="ShowPopupAsset('DELETE_ASSET',item.Id)"><i class="material-icons" style="color:#E55B5C;">close</i></a>
+                            </td>
+                        </tr>
+                        <tr ng-if="GetAllAssetInformation.length === 0">
+                            <td colspan="5" align="center">Không có dữ liệu</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    @using (Ajax.BeginForm("AssetInformation", "Home", null, new AjaxOptions { HttpMethod = "POST" }, new { @name = "ValidAsset", @id = "ValidAsset", @novalidate = "novalidate" }))
+    {
+        <div id="KenWindownAsset" class="k-window-content KenWindownPopup" style="display:none;">
+            <div class="content" style="margin: 0 0 15px 0;">
+                <div class="row m-t--10">
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 p-r-0">
+                        <label>
+                            Mã tài sản <span class="asterisk">*</span>
+                        </label>
+                        <span class="help-block">
+                            <label class="control-label" ng-if="CheckDuplicate">({{MessageErrorForDuplicate}})</label>
+                        </span>
+                        <input class="form-control"
+                               name="AssetCode"
+                               id="AssetCode"
+                               ng-model="modelAsset.AssetCode"
+                               ng-class="{'has-error': showHasErrorAssetCode}"
+                               title="{{MessageErrorForInput}}"
+                               ng-change="onChangeValueAsset('AssetCode')"
+                               maxlength="100"
+                               autocomplete="off" />
+                    </div>
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6">
+                        <label>
+                            Tên tài sản <span class="asterisk">*</span>
+                        </label>
+                        <input class="form-control"
+                               name="AssetName"
+                               id="AssetName"
+                               ng-model="modelAsset.AssetName"
+                               ng-class="{'has-error': showHasErrorAssetName}"
+                               title="{{MessageErrorForInput}}"
+                               ng-change="onChangeValueAsset('AssetName')"
+                               maxlength="100"
+                               autocomplete="off" />
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 p-r-0">
+                        <label>
+                            Loại tài sản
+                        </label>
+                        <select kendo-drop-down-list
+                                id="AssetTypeId"
+                                name="AssetTypeId"
+                                ng-model="modelAsset.AssetTypeId"
+                                k-data-source="AssetTypeDropdownlist"
+                                k-data-text-field="'Name'"
+                                k-data-value-field="'Id'"
+                                k-filter="'contains'"
+                                class="Dropdownlist-Custom"></select>
+                    </div>
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6">
+                        <label>
+                            Trạng thái
+                        </label>
+                        <select kendo-drop-down-list
+                                id="AssetStatusId"
+                                name="AssetStatusId"
+                                ng-model="modelAsset.AssetStatusId"
+                                k-data-source="AssetStatusDropdownlist"
+                                k-data-text-field="'Name'"
+                                k-data-value-field="'Id'"
+                                k-filter="'contains'"
+                                class="Dropdownlist-Custom"></select>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 p-r-0">
+                        <label>
+                            Ngày mượn
+                        </label>
+                        <input kendo-date-picker
+                               class="form-control date-picker-style"
+                               k-format="'dd/MM/yyyy'"
+                               onkeydown="return true;"
+                               k-ng-model="modelAsset.ReceivedDate"
+                               id="ReceivedDate"
+                               name="ReceivedDate"
+                               ng-model="modelAsset.ReceivedDate"
+                               placeholder="dd/MM/yyyy">
+                    </div>
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6">
+                        <label>
+                            Ngày trả
+                        </label>
+                        <input kendo-date-picker
+                               class="form-control date-picker-style"
+                               k-format="'dd/MM/yyyy'"
+                               onkeydown="return true;"
+                               k-ng-model="modelAsset.PayDay"
+                               id="PayDay"
+                               name="PayDay"
+                               ng-model="modelAsset.PayDay"
+                               ng-class="{'has-error': CheckPayDay}"
+                               title="{{MessageCheckPayDay}}"
+                               placeholder="dd/MM/yyyy">
+                    </div>
+                </div>
+            </div>
+            <hr />
+            <div class="footer">
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                        <button type="button"
+                                id="btnSaveAsset"
+                                class="btn btn-primary waves-effect float-right m-l-5"
+                                ng-if="HideButton"
+                                ng-click="SaveAsset()"
+                                disabled>
+                            <i class="material-icons">save</i><span class="icon-name">Lưu</span>
+                        </button>
+                        <button type="button"
+                                class="btn bg-grey waves-effect float-right m-l-5"
+                                id="btnCloseAsset"
+                                ng-click="CloseAsset()"
+                                disabled>
+                            <i class="material-icons">close</i><span class="icon-name">Đóng</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>

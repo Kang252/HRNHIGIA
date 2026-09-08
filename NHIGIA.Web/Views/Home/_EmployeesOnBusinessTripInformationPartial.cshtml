@@ -1,0 +1,33 @@
+﻿<script src="@Url.Content("~/Scripts/app/controller/EmployeesOnBusinessTripInformationController.js")"></script>
+
+<div class="container-fluid" ng-controller="EmployeesOnBusinessTripInformationController">
+    <div class="row clearfix">
+        <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 p-r-0 p-l-0">
+            <div class="card box-shadow-none">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th style="max-width:120px;">Nhân viên đề nghị</th>
+                            <th style="max-width:100px;">Ngày đi</th>
+                            <th style="max-width:100px;">Ngày về</th>
+                            <th style="max-width:180px;">Địa điểm công tác</th>
+                            <th style="max-width: 100px;">Trạng thái</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr ng-if="GetEmployeesOnBusinessTripInformation.length > 0" ng-repeat="item in GetEmployeesOnBusinessTripInformation">
+                            <td>{{item.Proponent}}</td>
+                            <td>{{item.DayToString}}</td>
+                            <td>{{item.ReturnDateString}}</td>
+                            <td>{{item.WorkingPlace}}</td>
+                            <td>{{item.BrowsingStatusName}}</td>
+                        </tr>
+                        <tr ng-if="GetEmployeesOnBusinessTripInformation.length === 0">
+                            <td colspan="5" align="center">Không có dữ liệu</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>

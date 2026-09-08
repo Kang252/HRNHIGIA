@@ -1,0 +1,428 @@
+﻿<div class="row m-r-0">
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Mã chấm công</label>
+        <input class="form-control"
+               name="TimekeepingCode"
+               id="TimekeepingCode"
+               ng-model="model.TimekeepingCode"
+               disabled
+               autocomplete="off" />
+    </div>
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Số sổ QL lao động</label>
+        <input class="form-control"
+               name="LaborManagementBookNumber"
+               id="LaborManagementBookNumber"
+               ng-model="model.LaborManagementBookNumber"
+               maxlength="50"
+               autocomplete="off" />
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Đơn vị công tác <span class="asterisk">*</span></label>
+        <select kendo-drop-down-list
+                id="WorkUnitId1"
+                name="WorkUnitId"
+                k-filter="'contains'"
+                ng-model="model.WorkUnitId"
+                k-data-source="WorkUnitDropdownlist"
+                k-option-label="' '"
+                k-data-text-field="'Name'"
+                k-data-value-field="'Id'"
+                class="Dropdownlist-Custom"
+                ng-class="{'has-error': showErrorMsg(Valid.WorkUnitId)}"
+                required
+                title="{{MessageErrorForSelect}}"></select>
+    </div>
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Loại hợp đồng</label>
+        <select kendo-drop-down-list
+                id="ContractTypeId"
+                name="ContractTypeId"
+                k-filter="'contains'"
+                ng-model="model.ContractTypeId"
+                k-data-source="ContractTypeDropdownlist"
+                k-option-label="' '"
+                k-data-text-field="'Name'"
+                k-data-value-field="'Id'"
+                class="Dropdownlist-Custom"
+                ng-disabled="model.Id > 0"></select>
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Vị trí công việc <span class="asterisk">*</span></label>
+        <select kendo-drop-down-list
+                id="JobPositionId1"
+                name="JobPositionId"
+                k-filter="'contains'"
+                ng-model="model.JobPositionId"
+                k-data-source="JobPositionDropdownlist"
+                k-option-label="' '"
+                k-data-text-field="'Name'"
+                k-data-value-field="'Id'"
+                class="Dropdownlist-Custom"
+                ng-class="{'has-error': showErrorMsg(Valid.JobPositionId)}"
+                required
+                title="{{MessageErrorForSelect}}"></select>
+    </div>
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Ngày tập sự</label>
+        <input kendo-date-picker
+               class="form-control date-picker-style"
+               k-format="'dd/MM/yyyy'"
+               onkeydown="return true;"
+               k-ng-model="model.ApprenticeDay"
+               id="ApprenticeDay"
+               name="ApprenticeDay"
+               ng-model="model.ApprenticeDay"
+               ng-class="{'has-error': CheckApprenticeDayLessProbationDay}"
+               title="{{MessageCheckApprenticeDayLessProbationDay}}"
+               placeholder="dd/MM/yyyy">
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Trạng thái</label>
+        <select kendo-drop-down-list
+                id="WorkStatusId"
+                name="WorkStatusId"
+                k-filter="'contains'"
+                ng-model="model.WorkStatusId"
+                k-data-source="WorkStatusDropdownlist"
+                k-option-label="' '"
+                k-data-text-field="'Name'"
+                k-data-value-field="'Id'"
+                class="Dropdownlist-Custom"></select>
+    </div>
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Ngày thử việc</label>
+        <input kendo-date-picker
+               class="form-control date-picker-style"
+               k-format="'dd/MM/yyyy'"
+               onkeydown="return true;"
+               k-ng-model="model.ProbationDay"
+               id="ProbationDay"
+               name="ProbationDay"
+               ng-model="model.ProbationDay"
+               ng-class="{'has-error': CheckProbationDayLessOfficialDate}"
+               title="{{MessageCheckProbationDayLessOfficialDate}}"
+               placeholder="dd/MM/yyyy">
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Quản lý trực tiếp</label>
+        <input kendo-auto-complete
+               name="DirectManagementId"
+               id="DirectManagementId"
+               k-data-text-field="'EmployeeName'"
+               placeholder="Nhập 3 ký tự trở lên"
+               k-filter="'contains'"
+               k-min-length="3"
+               k-data-source="GetEmployeeForDirectManagement"
+               k-on-select="onSelectDirectManagementId(kendoEvent)"
+               ng-blur="onChangeDirectManagementId()"
+               ng-change="onChangeDirectManagementIdValue()"
+               ng-model="model.DirectManagementAutoComplete" />
+    </div>
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Ngày chính thức</label>
+        <input kendo-date-picker
+               class="form-control date-picker-style"
+               k-format="'dd/MM/yyyy'"
+               onkeydown="return true;"
+               k-ng-model="model.OfficialDate"
+               id="OfficialDate"
+               name="OfficialDate"
+               ng-model="model.OfficialDate"
+               placeholder="dd/MM/yyyy">
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Quản lý gián tiếp</label>
+        <input kendo-auto-complete
+               name="IndirectManagementId"
+               id="IndirectManagementId"
+               k-data-text-field="'EmployeeName'"
+               placeholder="Nhập 3 ký tự trở lên"
+               k-filter="'contains'"
+               k-min-length="3"
+               k-data-source="GetEmployeeForIndirectManagement"
+               k-on-select="onSelectIndirectManagementId(kendoEvent)"
+               ng-model="model.IndirectManagementAutoComplete"
+               ng-blur="onChangeIndirectManagementId()"
+               ng-change="onChangeIndirectManagementIdValue()" />
+    </div>
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Số ngày phép</label>
+        <input class="form-control"
+               name="NumberOfDaysOff"
+               id="NumberOfDaysOff"
+               ng-model="model.NumberOfDaysOff"
+               numbers-Only
+               maxlength="50"
+               autocomplete="off" />
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Địa điểm làm việc</label>
+        <select kendo-drop-down-list
+                id="WorkLocationId"
+                name="WorkLocationId"
+                k-filter="'contains'"
+                ng-model="model.WorkLocationId"
+                k-data-source="WorkLocationDropdownlist"
+                k-option-label="' '"
+                k-data-text-field="'Name'"
+                k-data-value-field="'Id'"
+                class="Dropdownlist-Custom"></select>
+    </div>
+    <div class="col-lg-4 col-md-4 col-sm-4 col-xs-4 margin-bottom-5 p-r-0">
+        <label style="width:100%;">Tự động tăng phép theo thâm niên</label>
+        <div class="demo-checkbox">
+            <input type="checkbox" id="AutomaticallyIncreasesMagicAccordingToSeniority" class="filled-in chk-col-blue" ng-model="model.AutomaticallyIncreasesMagicAccordingToSeniority" />
+            <label class="m-t-5" for="AutomaticallyIncreasesMagicAccordingToSeniority">Tự động tăng</label>
+        </div>
+    </div>
+    <div class="col-lg-2 col-md-2 col-sm-2 col-xs-2 margin-bottom-5 p-r-0">
+        <label>Tăng phép sau</label>
+        <input class="form-control"
+               name="IncreaseLaterSpells"
+               id="IncreaseLaterSpells"
+               disabled
+               ng-model="model.IncreaseLaterSpells"
+               maxlength="50"
+               autocomplete="off" />
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 m-t-15">
+        <b>Thông tin lương</b>
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Bậc lương</label>
+        <select kendo-drop-down-list
+                id="WageId"
+                name="WageId"
+                k-filter="'contains'"
+                ng-model="model.WageId"
+                k-data-source="WageDropdownlist"
+                k-option-label="' '"
+                k-data-text-field="'Name'"
+                k-data-value-field="'Id'"
+                class="Dropdownlist-Custom"></select>
+    </div>
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>TK ngân hàng</label>
+        <input class="form-control"
+               name="BankAccoun"
+               id="BankAccoun"
+               ng-model="model.BankAccoun"
+               numbers-Only
+               maxlength="50"
+               autocomplete="off" />
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Lương cơ bản</label>
+        <input class="form-control"
+               name="BasicSalary"
+               id="BasicSalary"
+               ng-model="model.BasicSalary"
+               min="0"
+               max="999999999999999"
+               number-format
+               maxlength="15"
+               autocomplete="off" />
+    </div>
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Ngân hàng</label>
+        <select kendo-drop-down-list
+                id="BankId"
+                name="BankId"
+                k-filter="'contains'"
+                ng-model="model.BankId"
+                k-data-source="BankDropdownlist"
+                k-option-label="' '"
+                k-data-text-field="'Name'"
+                k-data-value-field="'Id'"
+                class="Dropdownlist-Custom"></select>
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Lương đóng BH</label>
+        <input class="form-control"
+               name="InsurancePremiums"
+               id="InsurancePremiums"
+               ng-model="model.InsurancePremiums"
+               min="0"
+               max="999999999999999"
+               number-format
+               maxlength="15"
+               autocomplete="off" />
+    </div>
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label style="width:100%;">&nbsp;</label>
+        <div class="demo-checkbox">
+            <input type="checkbox" id="JoinTheUnion" class="filled-in chk-col-blue" ng-model="model.JoinTheUnion" />
+            <label class="m-t-5" for="JoinTheUnion">Tham gia công đoàn</label>
+        </div>
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-4 col-md-4 col-sm-4 col-xs-4 margin-bottom-5 p-r-0">
+        <label>Số công chuẩn</label>
+        <input class="form-control"
+               name="StandardPublicNumber"
+               id="StandardPublicNumber"
+               ng-model="model.StandardPublicNumber"
+               maxlength="50"
+               autocomplete="off" />
+    </div>
+    <div class="col-lg-2 col-md-2 col-sm-2 col-xs-2 margin-bottom-5 p-r-0">
+        <label>&nbsp;</label>
+        <select kendo-drop-down-list
+                id="StandardPublicId"
+                name="StandardPublicId"
+                k-filter="'contains'"
+                ng-model="model.StandardPublicId"
+                k-data-source="StandardPublicDropdownlist"
+                k-option-label="' '"
+                k-data-text-field="'Name'"
+                k-data-value-field="'Id'"
+                class="Dropdownlist-Custom"></select>
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 m-t-15">
+        <b>Thông tin bảo hiểm</b>
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Ngày tham gia BH</label>
+        <input kendo-date-picker
+               class="form-control date-picker-style"
+               k-format="'dd/MM/yyyy'"
+               onkeydown="return true;"
+               k-ng-model="model.DateOfInsurance"
+               id="DateOfInsurance"
+               name="DateOfInsurance"
+               ng-model="model.DateOfInsurance"
+               placeholder="dd/MM/yyyy">
+    </div>
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Số thẻ BHYT</label>
+        <input class="form-control"
+               name="HealthInsuranceCardNumber"
+               id="HealthInsuranceCardNumber"
+               ng-model="model.HealthInsuranceCardNumber"
+               maxlength="50"
+               autocomplete="off" />
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Tỷ lệ đóng BH</label>
+        <input class="form-control"
+               name="InsurancePremiumRate"
+               id="InsurancePremiumRate"
+               ng-model="model.InsurancePremiumRate"
+               numbers-Only
+               maxlength="3"
+               autocomplete="off" />
+    </div>
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Ngày hết hạn</label>
+        <input kendo-date-picker
+               class="form-control date-picker-style"
+               k-format="'dd/MM/yyyy'"
+               onkeydown="return true;"
+               k-ng-model="model.HealthInsuranceExpirationDate"
+               id="HealthInsuranceExpirationDate"
+               name="HealthInsuranceExpirationDate"
+               ng-model="model.HealthInsuranceExpirationDate"
+               placeholder="dd/MM/yyyy">
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Số sổ BHXH</label>
+        <input class="form-control"
+               name="SomeSocialInsuranceBooks"
+               id="SomeSocialInsuranceBooks"
+               ng-model="model.SomeSocialInsuranceBooks"
+               maxlength="50"
+               autocomplete="off" />
+    </div>
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Nơi đăng ký KCB</label>
+        <select kendo-drop-down-list
+                id="PlaceOfRegistrationForMedicalExaminationAndTreatmentId"
+                name="PlaceOfRegistrationForMedicalExaminationAndTreatmentId"
+                k-filter="'contains'"
+                ng-model="model.PlaceOfRegistrationForMedicalExaminationAndTreatmentId"
+                k-data-source="PlaceOfRegistrationForMedicalExaminationAndTreatmentDropdownlist"
+                k-option-label="' '"
+                k-data-text-field="'Name'"
+                k-data-value-field="'Id'"
+                k-select="onSelectPlaceOfRegistrationForMedicalExaminationAndTreatment"
+                class="Dropdownlist-Custom"></select>
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Mã số BHXH</label>
+        <input class="form-control"
+               name="SocialInsuranceNumber"
+               id="SocialInsuranceNumber"
+               ng-model="model.SocialInsuranceNumber"
+               maxlength="50"
+               autocomplete="off" />
+    </div>
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Mã số nơi KCB</label>
+        <input class="form-control"
+               name="CodesOfMedicalExaminationAndTreatmentPlaces"
+               id="CodesOfMedicalExaminationAndTreatmentPlaces"
+               ng-model="model.CodesOfMedicalExaminationAndTreatmentPlaces"
+               disabled
+               maxlength="50"
+               autocomplete="off" />
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-2 col-md-2 col-sm-2 col-xs-2 margin-bottom-5 p-r-0">
+        <label>Mã tỉnh cấp</label>
+        <input class="form-control"
+               name="ProvinceCodeLevel"
+               id="ProvinceCodeLevel"
+               ng-model="model.ProvinceCodeLevel"
+               disabled
+               placeholder="Mã tỉnh"
+               maxlength="50"
+               autocomplete="off" />
+    </div>
+    <div class="col-lg-4 col-md-4 col-sm-4 col-xs-4 margin-bottom-5 p-r-0">
+        <label>Tên tỉnh cấp</label>
+        <select kendo-drop-down-list
+                id="ProvinceNameLevelId"
+                name="ProvinceNameLevelId"
+                k-filter="'contains'"
+                ng-model="model.ProvinceNameLevelId"
+                k-data-source="ProvinceCityDropdownlist"
+                k-option-label="' '"
+                k-data-text-field="'Name'"
+                k-data-value-field="'Id'"
+                k-select="onSelectProvinceCity"
+                class="Dropdownlist-Custom"></select>
+    </div>
+</div>

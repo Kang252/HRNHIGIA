@@ -1,0 +1,384 @@
+﻿<div class="row m-r-0">
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Họ và tên <span class="asterisk">*</span></label>
+        <input kendo-auto-complete
+               name="EmployeeId"
+               id="EmployeeId"
+               k-data-text-field="'EmployeeName'"
+               placeholder="Nhập 3 ký tự trở lên"
+               k-filter="'contains'"
+               k-min-length="3"
+               k-data-source="GetEmployee"
+               k-on-select="onSelectEmployee(kendoEvent)"
+               ng-blur="onChangeEmployee()"
+               ng-change="onChangeValue('EmployeeId');onChangeEmployeeValue()"
+               ng-model="modelInformationRecommendedForBusinessTravel.EmployeeAutoComplete"
+               ng-class="{'has-error': showHasErrorEmployeeId}"
+               title="{{MessageErrorForInput}}" />
+    </div>
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Mã nhân viên</label>
+        <input class="form-control"
+               name="EmployeeCode"
+               id="EmployeeCode"
+               ng-model="modelInformationRecommendedForBusinessTravel.EmployeeCode"
+               disabled
+               maxlength="50"
+               autocomplete="off" />
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Vị trí công việc</label>
+        <input class="form-control"
+               name="JobPositionName"
+               id="JobPositionName"
+               ng-model="modelInformationRecommendedForBusinessTravel.JobPositionName"
+               disabled
+               maxlength="50"
+               autocomplete="off" />
+    </div>
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Đơn vị công tác</label>
+        <input class="form-control"
+               name="WorkUnitName"
+               id="WorkUnitName"
+               ng-model="modelInformationRecommendedForBusinessTravel.WorkUnitName"
+               disabled
+               maxlength="50"
+               autocomplete="off" />
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 margin-bottom-5 p-r-0">
+        <label>Người duyệt</label>
+        <input kendo-auto-complete
+               name="EmployeeApprovedId"
+               id="EmployeeApprovedId"
+               k-data-text-field="'EmployeeName'"
+               placeholder="Nhập 3 ký tự trở lên"
+               k-filter="'contains'"
+               k-min-length="3"
+               k-data-source="GetEmployeeApproved"
+               k-on-select="onSelectEmployeeApproved(kendoEvent)"
+               ng-blur="onChangeEmployeeApproved()"
+               ng-change="onChangeEmployeeApprovedValue()"
+               ng-model="modelInformationRecommendedForBusinessTravel.EmployeeApprovedAutoComplete" />
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Ngày đi <span class="asterisk">*</span></label>
+        <input kendo-date-picker
+               class="form-control date-picker-style"
+               k-format="'dd/MM/yyyy'"
+               onkeydown="return false;"
+               k-ng-model="modelInformationRecommendedForBusinessTravel.DayTo"
+               id="DayTo"
+               name="DayTo"
+               ng-model="modelInformationRecommendedForBusinessTravel.DayTo"
+               placeholder="dd/MM/yyyy"
+               ng-class="{'has-error': showHasErrorDayTo}"
+               title="{{MessageErrorForInput}}"
+               ng-change="onChangeValue('DayTo');">
+    </div>
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Ngày về <span class="asterisk">*</span></label>
+        <input kendo-date-picker
+               class="form-control date-picker-style"
+               k-format="'dd/MM/yyyy'"
+               onkeydown="return false;"
+               k-ng-model="modelInformationRecommendedForBusinessTravel.ReturnDate"
+               id="ReturnDate"
+               name="ReturnDate"
+               ng-model="modelInformationRecommendedForBusinessTravel.ReturnDate"
+               placeholder="dd/MM/yyyy"
+               ng-class="{'has-error': showHasErrorReturnDate || CheckReturnDate}"
+               title="{{MessageCheckReturnDate}}"
+               ng-change="onChangeValue('ReturnDate');">
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 margin-bottom-5 p-r-0">
+        <label>Địa điểm công tác</label>
+        <input class="form-control"
+               name="WorkingPlace"
+               id="WorkingPlace"
+               ng-model="modelInformationRecommendedForBusinessTravel.WorkingPlace"
+               maxlength="50"
+               autocomplete="off" />
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 margin-bottom-5 p-r-0">
+        <label>Mục đích công tác</label>
+        <input class="form-control"
+               name="WorkingPurpose"
+               id="WorkingPurpose"
+               ng-model="modelInformationRecommendedForBusinessTravel.WorkingPurpose"
+               maxlength="50"
+               autocomplete="off" />
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Ngày đề nghị</label>
+        <input kendo-date-picker
+               class="form-control date-picker-style"
+               k-format="'dd/MM/yyyy'"
+               onkeydown="return true;"
+               k-ng-model="modelInformationRecommendedForBusinessTravel.RecommendedDate"
+               id="RecommendedDate"
+               name="RecommendedDate"
+               ng-model="modelInformationRecommendedForBusinessTravel.RecommendedDate"
+               placeholder="dd/MM/yyyy">
+    </div>
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Thời hạn hoàn thành <span class="asterisk">*</span></label>
+        <input kendo-date-picker
+               class="form-control date-picker-style"
+               k-format="'dd/MM/yyyy'"
+               onkeydown="return false;"
+               k-ng-model="modelInformationRecommendedForBusinessTravel.Deadline"
+               id="Deadline"
+               name="Deadline"
+               ng-model="modelInformationRecommendedForBusinessTravel.Deadline"
+               placeholder="dd/MM/yyyy"
+               ng-class="{'has-error': showHasErrorDeadline}"
+               title="{{MessageErrorForInput}}"
+               ng-change="onChangeValue('Deadline');">
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Số tiền đề nghị tạm ứng</label>
+        <input class="form-control"
+               name="AmountProposedForAdvance"
+               id="AmountProposedForAdvance"
+               ng-model="modelInformationRecommendedForBusinessTravel.AmountProposedForAdvance"
+               min="0"
+               max="999999999999999"
+               number-format
+               maxlength="15"
+               autocomplete="off" />
+    </div>
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Số tiền đã tạm ứng</label>
+        <input class="form-control"
+               name="AmountOfAdvance"
+               id="AmountOfAdvance"
+               ng-model="modelInformationRecommendedForBusinessTravel.AmountOfAdvance"
+               min="0"
+               max="999999999999999"
+               number-format
+               maxlength="15"
+               autocomplete="off" />
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 margin-bottom-5 p-r-0">
+        <label>Lý do tạm ứng</label>
+        <input class="form-control"
+               name="ReasonForAdvance"
+               id="ReasonForAdvance"
+               ng-model="modelInformationRecommendedForBusinessTravel.ReasonForAdvance"
+               maxlength="50"
+               autocomplete="off" />
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 custom_tab_information margin-bottom-5 p-r-0">
+        <label>Yêu cầu hỗ trợ</label>
+        <table class="table p-r-0 m-b-0">
+            <thead>
+                <tr>
+                    <th style="width:140px; min-width:140px;">Yêu cầu</th>
+                    <th style="width:140px; min-width:140px;">Người hỗ trợ</th>
+                    <th style="width:140px; min-width:140px;">Thời hạn hỗ trợ</th>
+                    <th style="width:140px; min-width:140px;">Ghi chú</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Ô tô</td>
+                    <td style="padding: 5px;">
+                        <input kendo-auto-complete
+                               name="RequireToBeSupported_Car1"
+                               id="RequireToBeSupported_Car1"
+                               k-data-text-field="'EmployeeName'"
+                               placeholder="Nhập 3 ký tự trở lên"
+                               k-filter="'contains'"
+                               k-min-length="3"
+                               k-data-source="GetRequireToBeSupported_Car1"
+                               k-on-select="onSelectRequireToBeSupported_Car1(kendoEvent)"
+                               ng-blur="onChangeRequireToBeSupported_Car1()"
+                               ng-change="onChangeRequireToBeSupported_Car1Value()"
+                               ng-model="modelInformationRecommendedForBusinessTravel.RequireToBeSupported_Car1" />
+                    </td>
+                    <td style="padding: 5px;">
+                        <input kendo-date-picker
+                               class="form-control date-picker-style"
+                               k-format="'dd/MM/yyyy'"
+                               onkeydown="return true;"
+                               blocker-paste
+                               k-ng-model="modelInformationRecommendedForBusinessTravel.RequireToBeSupported_Car2"
+                               id="RequireToBeSupported_Car2"
+                               name="RequireToBeSupported_Car2"
+                               ng-model="modelInformationRecommendedForBusinessTravel.RequireToBeSupported_Car2"
+                               placeholder="dd/MM/yyyy">
+                    </td>
+                    <td style="padding: 5px;">
+                        <input class="form-control"
+                               name="RequireToBeSupported_Car3"
+                               id="RequireToBeSupported_Car3"
+                               ng-model="modelInformationRecommendedForBusinessTravel.RequireToBeSupported_Car3"
+                               maxlength="50"
+                               autocomplete="off" />
+                    </td>
+                </tr>
+                <tr>
+                    <td>Vé máy bay</td>
+                    <td style="padding: 5px;">
+                        <input kendo-auto-complete
+                               name="RequireToBeSupported_Plane1"
+                               id="RequireToBeSupported_Plane1"
+                               k-data-text-field="'EmployeeName'"
+                               placeholder="Nhập 3 ký tự trở lên"
+                               k-filter="'contains'"
+                               k-min-length="3"
+                               k-data-source="GetRequireToBeSupported_Plane1"
+                               k-on-select="onSelectRequireToBeSupported_Plane1(kendoEvent)"
+                               ng-blur="onChangeRequireToBeSupported_Plane1()"
+                               ng-change="onChangeRequireToBeSupported_Plane1Value()"
+                               ng-model="modelInformationRecommendedForBusinessTravel.RequireToBeSupported_Plane1" />
+                    </td>
+                    <td style="padding: 5px;">
+                        <input kendo-date-picker
+                               class="form-control date-picker-style"
+                               k-format="'dd/MM/yyyy'"
+                               onkeydown="return true;"
+                               blocker-paste
+                               k-ng-model="modelInformationRecommendedForBusinessTravel.RequireToBeSupported_Plane2"
+                               id="RequireToBeSupported_Plane2"
+                               name="RequireToBeSupported_Plane2"
+                               ng-model="modelInformationRecommendedForBusinessTravel.RequireToBeSupported_Plane2"
+                               placeholder="dd/MM/yyyy">
+                    </td>
+                    <td style="padding: 5px;">
+                        <input class="form-control"
+                               name="RequireToBeSupported_Plane3"
+                               id="RequireToBeSupported_Plane3"
+                               ng-model="modelInformationRecommendedForBusinessTravel.RequireToBeSupported_Plane3"
+                               maxlength="50"
+                               autocomplete="off" />
+                    </td>
+                </tr>
+                <tr>
+                    <td>Phòng ở/khách sạn</td>
+                    <td style="padding: 5px;">
+                        <input kendo-auto-complete
+                               name="RequireToBeSupported_Hotel1"
+                               id="RequireToBeSupported_Hotel1"
+                               k-data-text-field="'EmployeeName'"
+                               placeholder="Nhập 3 ký tự trở lên"
+                               k-filter="'contains'"
+                               k-min-length="3"
+                               k-data-source="GetRequireToBeSupported_Hotel1"
+                               k-on-select="onSelectRequireToBeSupported_Hotel1(kendoEvent)"
+                               ng-blur="onChangeRequireToBeSupported_Hotel1()"
+                               ng-change="onChangeRequireToBeSupported_Hotel1Value()"
+                               ng-model="modelInformationRecommendedForBusinessTravel.RequireToBeSupported_Hotel1" />
+                    </td>
+                    <td style="padding: 5px;">
+                        <input kendo-date-picker
+                               class="form-control date-picker-style"
+                               k-format="'dd/MM/yyyy'"
+                               onkeydown="return true;"
+                               blocker-paste
+                               k-ng-model="modelInformationRecommendedForBusinessTravel.RequireToBeSupported_Hotel2"
+                               id="RequireToBeSupported_Hotel2"
+                               name="RequireToBeSupported_Hotel2"
+                               ng-model="modelInformationRecommendedForBusinessTravel.RequireToBeSupported_Hotel2"
+                               placeholder="dd/MM/yyyy">
+                    </td>
+                    <td style="padding: 5px;">
+                        <input class="form-control"
+                               name="RequireToBeSupported_Hotel3"
+                               id="RequireToBeSupported_Hotel3"
+                               ng-model="modelInformationRecommendedForBusinessTravel.RequireToBeSupported_Hotel3"
+                               maxlength="50"
+                               autocomplete="off" />
+                    </td>
+                </tr>
+                <tr>
+                    <td>Khác</td>
+                    <td style="padding: 5px;">
+                        <input kendo-auto-complete
+                               name="RequireToBeSupported_Other1"
+                               id="RequireToBeSupported_Other1"
+                               k-data-text-field="'EmployeeName'"
+                               placeholder="Nhập 3 ký tự trở lên"
+                               k-filter="'contains'"
+                               k-min-length="3"
+                               k-data-source="GetRequireToBeSupported_Other1"
+                               k-on-select="onSelectRequireToBeSupported_Other1(kendoEvent)"
+                               ng-blur="onChangeRequireToBeSupported_Other1()"
+                               ng-change="onChangeRequireToBeSupported_Other1Value()"
+                               ng-model="modelInformationRecommendedForBusinessTravel.RequireToBeSupported_Other1" />
+                    </td>
+                    <td style="padding: 5px;">
+                        <input kendo-date-picker
+                               class="form-control date-picker-style"
+                               k-format="'dd/MM/yyyy'"
+                               onkeydown="return true;"
+                               blocker-paste
+                               k-ng-model="modelInformationRecommendedForBusinessTravel.RequireToBeSupported_Other2"
+                               id="RequireToBeSupported_Other2"
+                               name="RequireToBeSupported_Other2"
+                               ng-model="modelInformationRecommendedForBusinessTravel.RequireToBeSupported_Other2"
+                               placeholder="dd/MM/yyyy">
+                    </td>
+                    <td style="padding: 5px;">
+                        <input style="height: 32px !important;"
+                               class="form-control"
+                               name="RequireToBeSupported_Other3"
+                               id="RequireToBeSupported_Other3"
+                               ng-model="modelInformationRecommendedForBusinessTravel.RequireToBeSupported_Other3"
+                               maxlength="50"
+                               autocomplete="off" />
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 margin-bottom-5 p-r-0">
+        <label>Trạng thái <span class="asterisk">*</span></label>
+        <select kendo-drop-down-list
+                id="BrowsingStatusId"
+                name="BrowsingStatusId"
+                k-filter="'contains'"
+                ng-model="modelInformationRecommendedForBusinessTravel.BrowsingStatusId"
+                k-data-source="BrowsingStatusDropdownlist"
+                k-option-label="' '"
+                k-data-text-field="'Name'"
+                k-data-value-field="'Id'"
+                class="Dropdownlist-Custom"
+                ng-class="{'has-error': showHasErrorBrowsingStatusId}"
+                title="{{MessageErrorForSelect}}"
+                ng-change="onChangeValue('BrowsingStatusId');"></select>
+    </div>
+</div>
+<div class="row m-r-0" ng-show="modelInformationRecommendedForBusinessTravel.BrowsingStatusId == 6">
+    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 margin-bottom-5 p-r-0">
+        <label>Lý do không duyệt</label>
+        <textarea class="form-control"
+                  name="ReasonsForNotBrowsing"
+                  id="ReasonsForNotBrowsing"
+                  ng-model="modelInformationRecommendedForBusinessTravel.ReasonsForNotBrowsing"
+                  rows="3"
+                  maxlength="100"
+                  autocomplete="off"></textarea>
+    </div>
+</div>

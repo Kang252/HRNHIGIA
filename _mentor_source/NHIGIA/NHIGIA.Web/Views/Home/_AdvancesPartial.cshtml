@@ -1,0 +1,153 @@
+﻿<script src="@Url.Content("~/Scripts/app/controller/EmployeesOnBusinessTripAdvancesController.js")"></script>
+<div class="container-fluid" ng-controller="EmployeesOnBusinessTripAdvancesController">
+    <div class="row clearfix">
+        <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 p-r-0 p-l-0">
+            <div class="card box-shadow-none">
+                <button type="button" class="btn add-action-text m-r-0 m-b-10 float-right" ng-click="ShowPopupEmployeesOnBusinessTripAdvances('ADD_EMPLOYEESONBUSINESSTRIPADVANCES')"><i class="material-icons">add_circle</i><span class="icon-name">Thêm</span></button>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th style="max-width:100px;">Khoản chi</th>
+                            <th style="max-width:100px;">Đơn vị tính</th>
+                            <th style="max-width:100px;">Số lượng</th>
+                            <th style="max-width:100px;">Đơn giá</th>
+                            <th style="max-width:100px;">Thành tiền</th>
+                            <th style="max-width: 150px;">Ghi chú</th>
+                            <th ng-if="GetAllEmployeesOnBusinessTripAdvances.length > 0" style="width:85px; min-width:85px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr ng-if="GetAllEmployeesOnBusinessTripAdvances.length > 0" ng-repeat="item in GetAllEmployeesOnBusinessTripAdvances">
+                            <td>{{item.Expenses}}</td>
+                            <td>{{item.Unit}}</td>
+                            <td>{{item.Amount}}</td>
+                            <td>{{item.UnitPrice}}</td>
+                            <td>{{item.Money}}</td>
+                            <td>{{item.Note}}</td>
+                            <td>
+                                <a ng-click="ShowPopupEmployeesOnBusinessTripAdvances('EDIT_EMPLOYEESONBUSINESSTRIPADVANCES',item.Id)"><i class="material-icons" style="color:#0c68b4;">mode_edit</i></a>
+                                <a ng-click="ShowPopupEmployeesOnBusinessTripAdvances('DELETE_EMPLOYEESONBUSINESSTRIPADVANCES',item.Id)"><i class="material-icons" style="color:#E55B5C;">close</i></a>
+                            </td>
+                        </tr>
+                        <tr ng-if="GetAllEmployeesOnBusinessTripAdvances.length === 0">
+                            <td colspan="6" align="center">Không có dữ liệu</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    @using (Ajax.BeginForm("EmployeesOnBusinessTripAdvances", "Home", null, new AjaxOptions { HttpMethod = "POST" }, new { @name = "ValidEmployeesOnBusinessTripAdvances", @id = "ValidEmployeesOnBusinessTripAdvances", @novalidate = "novalidate" }))
+    {
+        <div id="KenWindownEmployeesOnBusinessTripAdvances" class="k-window-content KenWindownPopup" style="display:none;">
+            <div class="content" style="margin: 0 0 15px 0;">
+                <div class="row m-t--10">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                        <label>
+                            Khoản chi <span class="asterisk">*</span>
+                        </label>
+                        <input class="form-control"
+                               name="Expenses"
+                               id="Expenses"
+                               maxlength="50"
+                               ng-model="modelEmployeesOnBusinessTripAdvances.Expenses"
+                               ng-class="{'has-error': showHasErrorExpenses}"
+                               title="{{MessageErrorForInput}}"
+                               ng-change="onChangeValueEmployeesOnBusinessTripAdvances('Expenses')"
+                               autocomplete="off" />
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 p-r-0">
+                        <label>
+                            Đơn vị tính
+                        </label>
+                        <input class="form-control"
+                               name="Unit"
+                               id="Unit"
+                               maxlength="50"
+                               ng-model="modelEmployeesOnBusinessTripAdvances.Unit"
+                               autocomplete="off" />
+                    </div>
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6">
+                        <label>
+                            Số lượng
+                        </label>
+                        <input class="form-control"
+                               name="Amount"
+                               id="Amount"
+                               maxlength="4"
+                               ng-model="modelEmployeesOnBusinessTripAdvances.Amount"
+                               numbers-Only
+                               autocomplete="off" />
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 p-r-0">
+                        <label>
+                            Đơn giá
+                        </label>
+                        <input class="form-control"
+                               name="UnitPrice"
+                               id="UnitPrice"
+                               ng-model="modelEmployeesOnBusinessTripAdvances.UnitPrice"
+                               min="0"
+                               max="999999999999999"
+                               number-format
+                               maxlength="15"
+                               autocomplete="off" />
+                    </div>
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6">
+                        <label>
+                            Thành tiền
+                        </label>
+                        <input class="form-control"
+                               name="Money"
+                               id="Money"
+                               ng-model="modelEmployeesOnBusinessTripAdvances.Money"
+                               min="0"
+                               max="999999999999999"
+                               number-format
+                               maxlength="15"
+                               autocomplete="off" />
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                        <label>
+                            Ghi chú
+                        </label>
+                        <textarea class="form-control"
+                                  name="NoteEmployeesOnBusinessTripAdvances"
+                                  id="NoteEmployeesOnBusinessTripAdvances"
+                                  ng-model="modelEmployeesOnBusinessTripAdvances.Note"
+                                  maxlength="100"
+                                  autocomplete="off"
+                                  rows="5"></textarea>
+                    </div>
+                </div>
+            </div>
+            <hr />
+            <div class="footer">
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                        <button type="button"
+                                id="btnSaveEmployeesOnBusinessTripAdvances"
+                                class="btn btn-primary waves-effect float-right m-l-5"
+                                ng-click="SaveEmployeesOnBusinessTripAdvances()"
+                                disabled>
+                            <i class="material-icons">save</i><span class="icon-name">Lưu</span>
+                        </button>
+                        <button type="button"
+                                class="btn bg-grey waves-effect float-right m-l-5"
+                                id="btnCloseEmployeesOnBusinessTripAdvances"
+                                ng-click="CloseEmployeesOnBusinessTripAdvances()"
+                                disabled>
+                            <i class="material-icons">close</i><span class="icon-name">Đóng</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>

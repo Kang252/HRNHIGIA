@@ -1,0 +1,131 @@
+﻿<script src="@Url.Content("~/Scripts/app/controller/AllowanceInformationController.js")"></script>
+<div class="container-fluid" ng-controller="AllowanceInformationController">
+    <div class="row clearfix">
+        <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 p-r-0 p-l-0">
+            <div class="card box-shadow-none">
+                <button type="button" class="btn add-action-text m-r-0 m-b-10 float-right" ng-if="HideButton" ng-click="ShowPopupAllowance('ADD_ALLOWANCE')"><i class="material-icons">add_circle</i><span class="icon-name">Thêm</span></button>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th style="max-width:125px;">Loại phụ cấp</th>
+                            <th style="max-width:125px;">Hạn phụ cấp</th>
+                            <th style="max-width: 125px;">Tiền phụ cấp</th>
+                            <th ng-if="GetAllAllowanceInformation.length > 0" style="width:85px; min-width:85px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr ng-if="GetAllAllowanceInformation.length > 0" ng-repeat="item in GetAllAllowanceInformation">
+                            <td>{{item.AllowanceTypeName}}</td>
+                            <td>{{item.DateString}}</td>
+                            <td>{{item.Price}}</td>
+                            <td>
+                                <a ng-click="ShowPopupAllowance('EDIT_ALLOWANCE',item.Id)">
+                                    <i class="material-icons" ng-if="HideButton" style="color:#0c68b4;">mode_edit</i>
+                                    <i class="material-icons" ng-if="ShowButton" style="color:#0c68b4;">remove_red_eye</i>
+                                </a>
+                                <a ng-if="HideButton" ng-click="ShowPopupAllowance('DELETE_ALLOWANCE',item.Id)"><i class="material-icons" style="color:#E55B5C;">close</i></a>
+                            </td>
+                        </tr>
+                        <tr ng-if="GetAllAllowanceInformation.length === 0">
+                            <td colspan="3" align="center">Không có dữ liệu</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    @using (Ajax.BeginForm("AllowanceInformation", "Home", null, new AjaxOptions { HttpMethod = "POST" }, new { @name = "ValidAllowance", @id = "ValidAllowance", @novalidate = "novalidate" }))
+    {
+        <div id="KenWindownAllowance" class="k-window-content KenWindownPopup" style="display:none;">
+            <div class="content" style="margin: 0 0 15px 0;">
+                <div class="row m-t--10">
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 p-r-0">
+                        <label>
+                            Loại phụ cấp <span class="asterisk">*</span>
+                        </label>
+                        <select kendo-drop-down-list
+                                id="AllowanceTypeId"
+                                name="AllowanceTypeId"
+                                ng-model="modelAllowance.AllowanceTypeId"
+                                k-data-source="AllowanceTypeDropdownlist"
+                                k-data-text-field="'Name'"
+                                k-data-value-field="'Id'"
+                                k-filter="'contains'"
+                                ng-class="{'has-error': showHasErrorAllowanceType}"
+                                title="{{MessageErrorForSelect}}"
+                                ng-change="onChangeValueAllowance('AllowanceTypeId')"
+                                class="Dropdownlist-Custom"></select>
+                    </div>
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6">
+                        <label>
+                            Tiền phụ cấp
+                        </label>
+                        <input class="form-control"
+                               name="Price"
+                               id="Price"
+                               ng-model="modelAllowance.Price"
+                               min="0"
+                               max="999999999999999"
+                               number-format
+                               maxlength="15"
+                               autocomplete="off" />
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 p-r-0">
+                        <label>
+                            Từ ngày
+                        </label>
+                        <input kendo-date-picker
+                               class="form-control date-picker-style"
+                               k-format="'dd/MM/yyyy'"
+                               onkeydown="return true;"
+                               k-ng-model="modelAllowance.StartDate"
+                               id="StartDateAllowance"
+                               name="StartDateAllowance"
+                               ng-model="modelAllowance.StartDate"
+                               placeholder="dd/MM/yyyy">
+                    </div>
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6">
+                        <label>
+                            Đến ngày
+                        </label>
+                        <input kendo-date-picker
+                               class="form-control date-picker-style"
+                               k-format="'dd/MM/yyyy'"
+                               onkeydown="return true;"
+                               k-ng-model="modelAllowance.ToDate"
+                               id="ToDateAllowance"
+                               name="ToDateAllowance"
+                               ng-model="modelAllowance.ToDate"
+                               ng-class="{'has-error': CheckToDate}"
+                               title="{{MessageCheckToDate}}"
+                               placeholder="dd/MM/yyyy">
+                    </div>
+                </div>
+            </div>
+            <hr />
+            <div class="footer">
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                        <button type="button"
+                                id="btnSaveAllowance"
+                                class="btn btn-primary waves-effect float-right m-l-5"
+                                ng-if="HideButton"
+                                ng-click="SaveAllowance()"
+                                disabled>
+                            <i class="material-icons">save</i><span class="icon-name">Lưu</span>
+                        </button>
+                        <button type="button"
+                                class="btn bg-grey waves-effect float-right m-l-5"
+                                id="btnCloseAllowance"
+                                ng-click="CloseAllowance()"
+                                disabled>
+                            <i class="material-icons">close</i><span class="icon-name">Đóng</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>

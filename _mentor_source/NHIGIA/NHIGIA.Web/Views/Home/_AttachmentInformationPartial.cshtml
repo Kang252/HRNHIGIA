@@ -1,0 +1,115 @@
+﻿<script src="@Url.Content("~/Scripts/app/controller/AttachmentInformationController.js")"></script>
+<div class="container-fluid" ng-controller="AttachmentInformationController">
+    <div class="row clearfix">
+        <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 p-r-0 p-l-0">
+            <div class="card box-shadow-none">
+                <button type="button" class="btn add-action-text m-r-0 m-b-10 float-right" ng-click="ShowPopupAttachment('ADD_ATTACHMENT')"><i class="material-icons">add_circle</i><span class="icon-name">Thêm</span></button>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th style="max-width:250px;">Tên tệp đính kèm</th>
+                            <th style="max-width: 120px;">Cho phép tải</th>
+                            <th ng-if="GetAllAttachmentInformation.length > 0" style="width:85px; min-width:85px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr ng-if="GetAllAttachmentInformation.length > 0" ng-repeat="item in GetAllAttachmentInformation">
+                            <td>{{item.FileName}}</td>
+                            <td>
+                                <div class="demo-checkbox">
+                                    <input type="checkbox" id="IsDownload_{{item.Id}}" name="IsDownload_{{item.Id}}" class="filled-in chk-col-blue" ng-model="item.IsDownload" ng-change="ShowPopupAttachment('CHANGE_ATTACHMENT',{{item.Id}})" />
+                                    <label style="margin-top: 0;" for="IsDownload_{{item.Id}}"></label>
+                                </div>
+                            </td>
+                            <td>
+                                <a href="../AttachmentInformation/DownloadAttachmentInformation?id={{item.Id}}" ng-if="item.IsDownload === true"><i class="material-icons" style="color:#0c68b4;">cloud_download</i></a>
+                                <a ng-click="ShowPopupAttachment('DELETE_ATTACHMENT',item.Id)"><i class="material-icons" style="color:#E55B5C;">close</i></a>
+                            </td>
+                        </tr>
+                        <tr ng-if="GetAllAttachmentInformation.length === 0">
+                            <td colspan="2" align="center">Không có dữ liệu</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    @using (Ajax.BeginForm("AttachmentInformation", "Home", null, new AjaxOptions { HttpMethod = "POST" }, new { @name = "ValidAttachment", @id = "ValidAttachment", @novalidate = "novalidate", enctype = "multipart/form-data" }))
+    {
+        <div id="KenWindownAttachment" class="k-window-content KenWindownPopup" style="display:none;">
+            <div class="content" style="margin: 0 0 15px 0;">
+                <div class="row m-t--10">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                        <label>
+                            Tệp đính kèm <span class="asterisk">*</span>
+                        </label>
+                        <br />
+                        <br />
+                        <div class="attachment_information bulk_upload_border">
+                            <input name="files"
+                                   id="files"
+                                   type="file"
+                                   accept=".pdf,.xlsx,.xls,.doc,.docx"
+                                   kendo-upload
+                                   k-multiple="false"
+                                   ng-model="modelAttachment.FileName"
+                                   k-on-error="OnErrorAction(kendoEvent)"
+                                   k-on-success="OnSuccessAction(kendoEvent)"
+                                   k-async="{ saveUrl: '../AttachmentInformation/UploadDocument',autoUpload: false, batch: true }"
+                                   k-select="onSelect"
+                                   k-show-file-list="false"
+                                   ng-class="{'has-error': showHasErrorFileName}"
+                                   title="{{MessageErrorForInput}}"
+                                   k-enabled="true" />
+                        </div>
+                        <div class="ScrollStyle" style="border: 1px solid #ccc; border-top: 0px;">
+                            <ul class="k-upload-files k-reset" ng-repeat="attachedDocument in Attachment">
+                                <li class="k-file k-file-success" style="margin-top: 10px;">
+                                    <span class="k-progress" style="width: 100%;">
+                                    </span><span class="k-icon k-i-pdf">uploaded</span>
+                                    <span class="k-filename" title="{{attachedDocument.FileName}}">
+                                        <a ng-show="attachedDocument.Id != 0" ng-if="!attachedDocument.Id"> {{attachedDocument.FileName}}</a>
+                                    </span>
+                                    <strong class="k-upload-status">
+                                        <button type="button" class="k-button k-button-bare k-upload-action" ng-click="DeleteFileUpload(attachedDocument)">
+                                            <span title="Remove" class="glyphicon glyphicon-remove" aria-label="Remove"></span>
+                                        </button>
+                                    </strong>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 m-t-5">
+                        <div class="demo-checkbox">
+                            <input type="checkbox" id="IsDownloadPopup" class="filled-in chk-col-blue" ng-model="modelAttachment.IsDownload" />
+                            <label class="m-t-5 checkbox_label_popup" for="IsDownloadPopup">Cho phép nhân viên tải xuống</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <hr class="m-t--10" />
+            <div class="footer">
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                        <button type="button"
+                                id="btnSaveAttachment"
+                                class="btn btn-primary waves-effect float-right m-l-5"
+                                ng-click="SaveAttachment()"
+                                disabled>
+                            <i class="material-icons">save</i><span class="icon-name">Lưu</span>
+                        </button>
+                        <button type="button"
+                                class="btn bg-grey waves-effect float-right m-l-5"
+                                id="btnCloseAttachment"
+                                ng-click="CloseAttachment()"
+                                disabled>
+                            <i class="material-icons">close</i><span class="icon-name">Đóng</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>

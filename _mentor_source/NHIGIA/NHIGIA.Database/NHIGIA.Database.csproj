@@ -1,0 +1,220 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{752F983A-8B02-44A0-A668-95490C602DCA}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <RootNamespace>NHIGIA.Database</RootNamespace>
+    <AssemblyName>NHIGIA.Database</AssemblyName>
+    <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
+    <TargetFrameworkProfile />
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug</OutputPath>
+    <DefineConstants>DEBUG;</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <ConsolePause>false</ConsolePause>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release</OutputPath>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <ConsolePause>false</ConsolePause>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Properties\AssemblyInfo.cs" />
+  </ItemGroup>
+  <ItemGroup />
+  <ItemGroup>
+    <None Include="Data\Functions_Data.sql" />
+    <None Include="Database\CreateDatabase.sql" />
+    <None Include="DEV_NHIGIA" />
+    <None Include="Procedures\spGetAllListCategory.sql" />
+    <None Include="Tables\Functions.sql" />
+    <None Include="Tables\ListCategory.sql" />
+    <None Include="Tables\ListCategoryType.sql" />
+    <None Include="Types\TypeSortDescriptor.sql" />
+    <None Include="Types\TypeFilterDescriptor.sql" />
+    <None Include="Procedures\spGetListCategoryById.sql" />
+    <None Include="Procedures\spGetListCategoryType.sql" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="Data\District_Data.sql" />
+    <Content Include="Data\ListCategoryType_Data.sql" />
+    <Content Include="Data\ListStatus_Data.sql" />
+    <Content Include="Data\Nationality_Data.sql" />
+    <Content Include="Data\ProvinceCity_Data.sql" />
+    <Content Include="Data\Wards_Data.sql" />
+    <Content Include="Functions\ufn_format_string_to_date.sql" />
+    <Content Include="Functions\ufn_removeMark.sql" />
+    <Content Include="Procedures\spCheckDuplicate.sql" />
+    <Content Include="Procedures\spDownloadAttachmentInformation.sql" />
+    <Content Include="Procedures\spGetAllBonus.sql" />
+    <Content Include="Procedures\spGetAllDistrict.sql" />
+    <Content Include="Procedures\spGetAllEmployeeInformation.sql" />
+    <Content Include="Procedures\spGetAllEmployeesOnBusinessTrip.sql" />
+    <Content Include="Procedures\spGetAllEvaluate.sql" />
+    <Content Include="Procedures\spGetAllEvaluateDetail.sql" />
+    <Content Include="Procedures\spGetAllNationality.sql" />
+    <Content Include="Procedures\spGetAllowanceInformation.sql" />
+    <Content Include="Procedures\spGetAllProblem.sql" />
+    <Content Include="Procedures\spGetAllProvinceCity.sql" />
+    <Content Include="Procedures\spGetAllWards.sql" />
+    <Content Include="Procedures\spGetAssetInformation.sql" />
+    <Content Include="Procedures\spGetAttachmentInformation.sql" />
+    <Content Include="Procedures\spGetBonusById.sql" />
+    <Content Include="Procedures\spGetBonusInformation.sql" />
+    <Content Include="Procedures\spGetBonusInformationStaffWereCommended.sql" />
+    <Content Include="Procedures\spGetCertificateInformation.sql" />
+    <Content Include="Procedures\spGetContractInformation.sql" />
+    <Content Include="Procedures\spGetDataForDropdown.sql" />
+    <Content Include="Procedures\spGetDegreeInformation.sql" />
+    <Content Include="Procedures\spGetEmployee.sql" />
+    <Content Include="Procedures\spGetEmployeeForAutoCompleBox.sql" />
+    <Content Include="Procedures\spGetEmployeeInformationById.sql" />
+    <Content Include="Procedures\spGetEmployeesOnBusinessTripAdvances.sql" />
+    <Content Include="Procedures\spGetEmployeesOnBusinessTripAssignedStaff.sql" />
+    <Content Include="Procedures\spGetEmployeesOnBusinessTripById.sql" />
+    <Content Include="Procedures\spGetEmployeesOnBusinessTripInformation.sql" />
+    <Content Include="Procedures\spGetEmployeesOnBusinessTripPayments.sql" />
+    <Content Include="Procedures\spGetEmployeesOnBusinessTripRevenueEstimates.sql" />
+    <Content Include="Procedures\spGetEvaluateByEmployee.sql" />
+    <Content Include="Procedures\spGetEvaluateById.sql" />
+    <Content Include="Procedures\spGetFamilyInformation.sql" />
+    <Content Include="Procedures\spGetGeneralInformationForResignationProcedures.sql" />
+    <Content Include="Procedures\spGetPageInformation.sql" />
+    <Content Include="Procedures\spGetPoliticsHealthMilitaryInformation.sql" />
+    <Content Include="Procedures\spGetProblemById.sql" />
+    <Content Include="Procedures\spGetProblemInformation.sql" />
+    <Content Include="Procedures\spGetProblemInformationRelatedStaff.sql" />
+    <Content Include="Procedures\spGetProblemInformationTrackEmployeeCompensation.sql" />
+    <Content Include="Procedures\spGetQuitInformation.sql" />
+    <Content Include="Procedures\spGetReceiveInformation.sql" />
+    <Content Include="Procedures\spGetResignationProcedures.sql" />
+    <Content Include="Procedures\spGetResignationProceduresEmployeeDebt.sql" />
+    <Content Include="Procedures\spGetSalaryHistoryInformation.sql" />
+    <Content Include="Procedures\spGetSkillInformation.sql" />
+    <Content Include="Procedures\spGetSkinInformation.sql" />
+    <Content Include="Procedures\spGetStatusForDropdown.sql" />
+    <Content Include="Procedures\spGetTrainingProcessInformation.sql" />
+    <Content Include="Procedures\spGetWorkExperienceInformation.sql" />
+    <Content Include="Procedures\spGetWorkProgressInformation.sql" />
+    <Content Include="Procedures\spSaveAllowanceInformation.sql" />
+    <Content Include="Procedures\spSaveAssetInformation.sql" />
+    <Content Include="Procedures\spSaveAttachmentInformation.sql" />
+    <Content Include="Procedures\spSaveBonusInformation.sql" />
+    <Content Include="Procedures\spSaveBonusInformationStaffWereCommended.sql" />
+    <Content Include="Procedures\spSaveCertificateInformation.sql" />
+    <Content Include="Procedures\spSaveContractInformation.sql" />
+    <Content Include="Procedures\spSaveDegreeInformation.sql" />
+    <Content Include="Procedures\spSaveEmployeesOnBusinessTrip.sql" />
+    <Content Include="Procedures\spSaveEmployeesOnBusinessTripAdvances.sql" />
+    <Content Include="Procedures\spSaveEmployeesOnBusinessTripAssignedStaff.sql" />
+    <Content Include="Procedures\spSaveEmployeesOnBusinessTripPayments.sql" />
+    <Content Include="Procedures\spSaveEmployeesOnBusinessTripRevenueEstimates.sql" />
+    <Content Include="Procedures\spSaveEvaluate.sql" />
+    <Content Include="Procedures\spSaveEvaluateDetail.sql" />
+    <Content Include="Procedures\spSaveFamilyInformation.sql" />
+    <Content Include="Procedures\spSaveListCategory.sql" />
+    <Content Include="Procedures\spSavePageInformation.sql" />
+    <Content Include="Procedures\spSavePoliticsHealthMilitaryInformation.sql" />
+    <Content Include="Procedures\spSaveProblemInformation.sql" />
+    <Content Include="Procedures\spSaveProblemInformationRelatedStaff.sql" />
+    <Content Include="Procedures\spSaveProblemInformationTrackEmployeeCompensation.sql" />
+    <Content Include="Procedures\spSaveProfile.sql" />
+    <Content Include="Procedures\spSaveQuitInformation.sql" />
+    <Content Include="Procedures\spSaveReceiveInformation.sql" />
+    <Content Include="Procedures\spSaveResignationProcedures.sql" />
+    <Content Include="Procedures\spSaveResignationProceduresEmployeeDebt.sql" />
+    <Content Include="Procedures\spSaveSalaryHistoryInformation.sql" />
+    <Content Include="Procedures\spSaveSkillInformation.sql" />
+    <Content Include="Procedures\spSaveSkinInformation.sql" />
+    <Content Include="Procedures\spSaveTrainingProcessInformation.sql" />
+    <Content Include="Procedures\spSaveWorkExperienceInformation.sql" />
+    <Content Include="Procedures\spSaveWorkProgressInformation.sql" />
+    <Content Include="Procedures\spUpdateAttachmentInformation.sql" />
+    <Content Include="Tables\AllowanceInformation.sql" />
+    <Content Include="Tables\AssetInformation.sql" />
+    <Content Include="Tables\AttachmentInformation.sql" />
+    <Content Include="Tables\BonusInformation.sql" />
+    <Content Include="Tables\BonusInformationStaffWereCommended.sql" />
+    <Content Include="Tables\CertificateInformation.sql" />
+    <Content Include="Tables\ContactInformation.sql" />
+    <Content Include="Tables\ContractInformation.sql" />
+    <Content Include="Tables\DegreeInformation.sql" />
+    <Content Include="Tables\District.sql" />
+    <Content Include="Tables\EmployeeInformation.sql" />
+    <Content Include="Tables\EmployeesOnBusinessTrip.sql" />
+    <Content Include="Tables\EmployeesOnBusinessTripAdvances.sql" />
+    <Content Include="Tables\EmployeesOnBusinessTripAssignedStaff.sql" />
+    <Content Include="Tables\EmployeesOnBusinessTripPayments.sql" />
+    <Content Include="Tables\EmployeesOnBusinessTripRevenueEstimates.sql" />
+    <Content Include="Tables\Evaluate.sql" />
+    <Content Include="Tables\EvaluateDetail.sql" />
+    <Content Include="Tables\FamilyInformation.sql" />
+    <Content Include="Tables\JobInformation.sql" />
+    <Content Include="Tables\ListStatus.sql" />
+    <Content Include="Tables\Nationality.sql" />
+    <Content Include="Tables\PageInformation.sql" />
+    <Content Include="Tables\PoliticsHealthMilitaryInformation.sql" />
+    <Content Include="Tables\ProblemInformation.sql" />
+    <Content Include="Tables\ProblemInformationRelatedStaff.sql" />
+    <Content Include="Tables\ProblemInformationTrackEmployeeCompensation.sql" />
+    <Content Include="Tables\ProvinceCity.sql" />
+    <Content Include="Tables\QuitInformation.sql" />
+    <Content Include="Tables\ReceiveInformation.sql" />
+    <Content Include="Tables\ResignationProcedures.sql" />
+    <Content Include="Tables\ResignationProceduresEmployeeDebt.sql" />
+    <Content Include="Tables\SalaryHistoryInformation.sql" />
+    <Content Include="Tables\SkillInformation.sql" />
+    <Content Include="Tables\SkinInformation.sql" />
+    <Content Include="Tables\TrainingProcessInformation.sql" />
+    <Content Include="Tables\Wards.sql" />
+    <Content Include="Tables\WorkExperienceInformation.sql" />
+    <Content Include="Tables\WorkProgressInformation.sql" />
+    <Content Include="Types\TypeAllowanceInformation.sql" />
+    <Content Include="Types\TypeAssetInformation.sql" />
+    <Content Include="Types\TypeAttachment.sql" />
+    <Content Include="Types\TypeAttachmentInformation.sql" />
+    <Content Include="Types\TypeBonusInformation.sql" />
+    <Content Include="Types\TypeBonusInformationStaffWereCommended.sql" />
+    <Content Include="Types\TypeCertificateInformation.sql" />
+    <Content Include="Types\TypeContractInformation.sql" />
+    <Content Include="Types\TypeDegreeInformation.sql" />
+    <Content Include="Types\TypeEmployeesOnBusinessTrip.sql" />
+    <Content Include="Types\TypeEmployeesOnBusinessTripAdvances.sql" />
+    <Content Include="Types\TypeEmployeesOnBusinessTripAssignedStaff.sql" />
+    <Content Include="Types\TypeEmployeesOnBusinessTripPayments.sql" />
+    <Content Include="Types\TypeEmployeesOnBusinessTripRevenueEstimates.sql" />
+    <Content Include="Types\TypeEvaluate.sql" />
+    <Content Include="Types\TypeEvaluateDetail.sql" />
+    <Content Include="Types\TypeFamilyInformation.sql" />
+    <Content Include="Types\TypeListCategory.sql" />
+    <Content Include="Types\TypePageInformation.sql" />
+    <Content Include="Types\TypePoliticsHealthMilitaryInformation.sql" />
+    <Content Include="Types\TypeProblemInformation.sql" />
+    <Content Include="Types\TypeProblemInformationRelatedStaff.sql" />
+    <Content Include="Types\TypeProblemInformationTrackEmployeeCompensation.sql" />
+    <Content Include="Types\TypeProfile.sql" />
+    <Content Include="Types\TypeQuitInformation.sql" />
+    <Content Include="Types\TypeReceiveInformation.sql" />
+    <Content Include="Types\TypeResignationProcedures.sql" />
+    <Content Include="Types\TypeResignationProceduresEmployeeDebt.sql" />
+    <Content Include="Types\TypeSalaryHistoryInformation.sql" />
+    <Content Include="Types\TypeSkillInformation.sql" />
+    <Content Include="Types\TypeSkinInformation.sql" />
+    <Content Include="Types\TypeTrainingProcessInformation.sql" />
+    <Content Include="Types\TypeWorkExperienceInformation.sql" />
+    <Content Include="Types\TypeWorkProgressInformation.sql" />
+  </ItemGroup>
+  <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
+</Project>

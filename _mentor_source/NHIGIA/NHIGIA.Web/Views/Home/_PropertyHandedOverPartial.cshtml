@@ -1,0 +1,31 @@
+﻿<div class="container-fluid">
+    <div class="row clearfix">
+        <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 p-r-0 p-l-0">
+            <div class="card box-shadow-none">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th style="max-width:125px;">Mã tài sản</th>
+                            <th style="max-width:200px;">Tên tài sản</th>
+                            <th style="max-width:180px;">Loại tài sản</th>
+                            <th style="max-width:120px;">Ngày nhận</th>
+                            <th style="max-width: 120px;">Ngày trả</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr ng-if="GetAllAssetInformation.length > 0" ng-repeat="item in GetAllAssetInformation">
+                            <td>{{item.AssetCode}}</td>
+                            <td>{{item.AssetName}}</td>
+                            <td>{{item.AssetTypeName}}</td>
+                            <td>{{item.ReceivedDateString}}</td>
+                            <td>{{item.PayDayString}}</td>
+                        </tr>
+                        <tr ng-if="GetAllAssetInformation.length === 0">
+                            <td colspan="5" align="center">Không có dữ liệu</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>

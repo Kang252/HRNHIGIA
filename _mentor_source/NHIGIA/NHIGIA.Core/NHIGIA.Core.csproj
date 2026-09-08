@@ -1,0 +1,403 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{F9DB27DB-C2D2-4F32-A5AE-13DACCC9A382}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>NHIGIA.Core</RootNamespace>
+    <AssemblyName>NHIGIA.Core</AssemblyName>
+    <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <Deterministic>true</Deterministic>
+    <TargetFrameworkProfile />
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="AutoMapper, Version=10.0.0.0, Culture=neutral, PublicKeyToken=be96cd2c38ef1005, processorArchitecture=MSIL">
+      <HintPath>..\packages\AutoMapper.10.1.1\lib\net461\AutoMapper.dll</HintPath>
+    </Reference>
+    <Reference Include="GemBox.Spreadsheet, Version=39.3.30.1153, Culture=neutral, PublicKeyToken=b1b72c69714d4847, processorArchitecture=MSIL">
+      <HintPath>..\packages\GemBox.Spreadsheet.39.3.30.1153\lib\net30\GemBox.Spreadsheet.dll</HintPath>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.ComponentModel.Annotations, Version=4.2.1.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.ComponentModel.Annotations.4.7.0\lib\net461\System.ComponentModel.Annotations.dll</HintPath>
+    </Reference>
+    <Reference Include="System.ComponentModel.DataAnnotations" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="System.Data.DataSetExtensions" />
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Net.Http" />
+    <Reference Include="System.Xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Domain\DtoEntities\MessageDto.cs" />
+    <Compile Include="Domain\DtoEntities\RequestDto.cs" />
+    <Compile Include="Domain\DynamicParameter.cs" />
+    <Compile Include="Domain\Entity\AllowanceInformationEntity.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\Entity\AssetInformationEntity.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\Entity\AttachmentInformationEntity.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\Entity\BonusInformationEntity.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\Entity\BonusInformationStaffWereCommendedEntity.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\Entity\CertificateInformationEntity.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\Entity\ContactInformationEntity.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\Entity\ContractInformationEntity.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\Entity\DegreeInformationEntity.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\Entity\DistrictEntity.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\Entity\DomainGenerator1.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\Entity\EmployeeInformationEntity.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\Entity\EmployeesOnBusinessTripAdvancesEntity.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\Entity\EmployeesOnBusinessTripAssignedStaffEntity.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\Entity\EmployeesOnBusinessTripEntity.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\Entity\EmployeesOnBusinessTripPaymentsEntity.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\Entity\EmployeesOnBusinessTripRevenueEstimatesEntity.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\Entity\EvaluateDetailEntity.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\Entity\EvaluateEntity.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\Entity\EvaluateFormEntity.cs" />
+    <Compile Include="Domain\Entity\FamilyInformationEntity.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\Entity\FunctionsEntity.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\Entity\JobInformationEntity.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\Entity\ListCategoryEntity.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\Entity\ListCategoryTypeEntity.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\Entity\ListStatusEntity.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\Entity\NationalityEntity.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\Entity\PageInformationEntity.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\Entity\PoliticsHealthMilitaryInformationEntity.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\Entity\ProblemInformationEntity.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\Entity\ProblemInformationRelatedStaffEntity.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\Entity\ProblemInformationTrackEmployeeCompensationEntity.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\Entity\ProfileEntity.cs" />
+    <Compile Include="Domain\Entity\ProvinceCityEntity.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\Entity\QuitInformationEntity.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\Entity\ReceiveInformationEntity.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\Entity\ResignationProceduresEmployeeDebtEntity.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\Entity\ResignationProceduresEntity.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\Entity\SalaryHistoryInformationEntity.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\Entity\SkillInformationEntity.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\Entity\SkinInformationEntity.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\Entity\TrainingProcessInformationEntity.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\Entity\WardsEntity.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\Entity\WorkExperienceInformationEntity.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\Entity\WorkProgressInformationEntity.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\TypedEntities\DomainGenerator.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\TypedEntities\IUserDefinedType.cs" />
+    <Compile Include="Domain\TypedEntities\TypeAllowanceInformation.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\TypedEntities\TypeAssetInformation.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\TypedEntities\TypeAttachment.cs" />
+    <Compile Include="Domain\TypedEntities\TypeAttachmentInformation.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\TypedEntities\TypeBonusInformation.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\TypedEntities\TypeBonusInformationStaffWereCommended.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\TypedEntities\TypeCertificateInformation.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\TypedEntities\TypeContactInformation.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\TypedEntities\TypeContractInformation.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\TypedEntities\TypeDegreeInformation.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\TypedEntities\TypeDistrict.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\TypedEntities\TypeEmployeeInformation.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\TypedEntities\TypeEmployeesOnBusinessTrip.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\TypedEntities\TypeEmployeesOnBusinessTripAdvances.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\TypedEntities\TypeEmployeesOnBusinessTripAssignedStaff.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\TypedEntities\TypeEmployeesOnBusinessTripPayments.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\TypedEntities\TypeEmployeesOnBusinessTripRevenueEstimates.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\TypedEntities\TypeEvaluate.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\TypedEntities\TypeEvaluateDetail.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\TypedEntities\TypeFamilyInformation.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\TypedEntities\TypeFilterDescriptor.cs" />
+    <Compile Include="Domain\TypedEntities\TypeFunctions.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\TypedEntities\TypeJobInformation.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\TypedEntities\TypeListCategory.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\TypedEntities\TypeListCategoryType.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\TypedEntities\TypeListStatus.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\TypedEntities\TypeNationality.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\TypedEntities\TypePageInformation.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\TypedEntities\TypePoliticsHealthMilitaryInformation.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\TypedEntities\TypeProblemInformation.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\TypedEntities\TypeProblemInformationRelatedStaff.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\TypedEntities\TypeProblemInformationTrackEmployeeCompensation.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\TypedEntities\TypeProfile.cs" />
+    <Compile Include="Domain\TypedEntities\TypeProvinceCity.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\TypedEntities\TypeQuitInformation.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\TypedEntities\TypeReceiveInformation.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\TypedEntities\TypeResignationProcedures.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\TypedEntities\TypeResignationProceduresEmployeeDebt.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\TypedEntities\TypeSalaryHistoryInformation.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\TypedEntities\TypeSkillInformation.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\TypedEntities\TypeSkinInformation.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\TypedEntities\TypeSortDescriptor.cs" />
+    <Compile Include="Domain\TypedEntities\TypeTrainingProcessInformation.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\TypedEntities\TypeWards.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\TypedEntities\TypeWorkExperienceInformation.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\TypedEntities\TypeWorkProgressInformation.cs">
+      <DependentUpon>DomainGenerator.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Domain\ViewModel\AllowanceInformationViewModel.cs" />
+    <Compile Include="Domain\ViewModel\AssetInformationViewModel.cs" />
+    <Compile Include="Domain\ViewModel\AttachmentViewModel.cs" />
+    <Compile Include="Domain\ViewModel\BonusInformationStaffWereCommendedViewModel.cs" />
+    <Compile Include="Domain\ViewModel\CertificateInformationViewModel.cs" />
+    <Compile Include="Domain\ViewModel\CheckDuplicateViewModel.cs" />
+    <Compile Include="Domain\ViewModel\ContractInformationViewModel.cs" />
+    <Compile Include="Domain\ViewModel\DegreeInformationViewModel.cs" />
+    <Compile Include="Domain\ViewModel\EmployeeInformationViewModel.cs" />
+    <Compile Include="Domain\ViewModel\EmployeesOnBusinessTripAdvancesViewModel.cs" />
+    <Compile Include="Domain\ViewModel\EmployeesOnBusinessTripAssignedStaffViewModel.cs" />
+    <Compile Include="Domain\ViewModel\EmployeesOnBusinessTripPaymentsViewModel.cs" />
+    <Compile Include="Domain\ViewModel\EmployeesOnBusinessTripRevenueEstimatesViewModel.cs" />
+    <Compile Include="Domain\ViewModel\EmployeesOnBusinessTripViewModel.cs" />
+    <Compile Include="Domain\ViewModel\EvaluateDetailViewModel.cs" />
+    <Compile Include="Domain\ViewModel\EvaluateViewModel.cs" />
+    <Compile Include="Domain\ViewModel\FamilyInformationViewModel.cs" />
+    <Compile Include="Domain\ViewModel\ImportDataViewModel.cs" />
+    <Compile Include="Domain\ViewModel\ListCategoryViewModel.cs" />
+    <Compile Include="Domain\ViewModel\PageInformationViewModel.cs" />
+    <Compile Include="Domain\ViewModel\PoliticsHealthMilitaryInformationViewModel.cs" />
+    <Compile Include="Domain\ViewModel\ProblemInformationRelatedStaffViewModel.cs" />
+    <Compile Include="Domain\ViewModel\ProblemInformationTrackEmployeeCompensationViewModel.cs" />
+    <Compile Include="Domain\ViewModel\ProblemInformationViewModel.cs" />
+    <Compile Include="Domain\ViewModel\QuitInformationViewModel.cs" />
+    <Compile Include="Domain\ViewModel\ReceiveInformationViewModel.cs" />
+    <Compile Include="Domain\ViewModel\ResignationProceduresEmployeeDebtViewModel.cs" />
+    <Compile Include="Domain\ViewModel\ResignationProceduresViewModel.cs" />
+    <Compile Include="Domain\ViewModel\SalaryHistoryInformationViewModel.cs" />
+    <Compile Include="Domain\ViewModel\SkillInformationViewModel.cs" />
+    <Compile Include="Domain\ViewModel\TrainingProcessInformationViewModel.cs" />
+    <Compile Include="Domain\ViewModel\UploadDocumentViewModel.cs" />
+    <Compile Include="Domain\ViewModel\WorkExperienceInformationViewModel.cs" />
+    <Compile Include="Domain\ViewModel\WorkProgressInformationViewModel.cs" />
+    <Compile Include="Domain\ViewModel\BonusInformationViewModel.cs" />
+    <Compile Include="Helper\CommonExcel.cs" />
+    <Compile Include="Helper\DataTableHelper.cs" />
+    <Compile Include="Helper\DictionaryHelper.cs" />
+    <Compile Include="Helper\ExportToExcelColumns.cs" />
+    <Compile Include="Helper\GenerationWorksheet.cs" />
+    <Compile Include="Helper\MapperHelper.cs" />
+    <Compile Include="Helper\PagingData.cs" />
+    <Compile Include="Helper\RepoHelper.cs" />
+    <Compile Include="Helper\Response.cs" />
+    <Compile Include="Helper\StoredProcedureParameter.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\.editorconfig">
+      <Link>.editorconfig</Link>
+    </None>
+    <None Include="App.config" />
+    <None Include="Domain\Entity\OrmLite.Core.ttinclude" />
+    <None Include="Domain\TypedEntities\OrmLite.Core.ttinclude" />
+    <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\NHIGIA.Common\NHIGIA.Common.csproj">
+      <Project>{4454d088-971e-476f-b5b7-161d92e7ff3b}</Project>
+      <Name>NHIGIA.Common</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="Domain\Entity\DomainGenerator.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <LastGenOutput>DomainGenerator1.cs</LastGenOutput>
+    </Content>
+    <Content Include="Domain\TypedEntities\DomainGenerator.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <LastGenOutput>DomainGenerator.cs</LastGenOutput>
+    </Content>
+  </ItemGroup>
+  <ItemGroup>
+    <Service Include="{508349B6-6B84-4DF5-91F0-309BEEBAD82D}" />
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>

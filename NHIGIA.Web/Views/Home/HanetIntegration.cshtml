@@ -1,0 +1,41 @@
+<div class="container-fluid">
+    <div class="hrm-page-header">
+        <div><h1 class="hrm-page-title">Tích hợp camera HANET</h1><p class="hrm-page-subtitle">Cấu hình API, webhook và ánh xạ khuôn mặt với nhân viên</p></div>
+        <button id="testHanet" class="hrm-btn"><i class="material-icons">network_check</i> Kiểm tra kết nối</button>
+    </div>
+    <div class="hrm-grid hrm-grid-2">
+        <div class="hrm-card"><div class="hrm-card-header"><div><h2 class="hrm-card-title">Cấu hình kết nối</h2><p class="hrm-card-subtitle">Thông tin bí mật được mã hóa trước khi lưu</p></div></div><div class="hrm-card-body">
+            <form id="hanetForm">@Html.AntiForgeryToken()
+                <div class="form-group"><label>API base URL</label><input id="hanetApi" class="hrm-control" required /></div>
+                <div class="form-group"><label>OAuth token URL</label><input id="hanetOAuth" class="hrm-control" required /></div>
+                <div class="row"><div class="col-sm-6"><div class="form-group"><label>Client ID</label><input id="hanetClient" class="hrm-control" /></div></div><div class="col-sm-6"><div class="form-group"><label>Client secret</label><input id="hanetSecret" class="hrm-control" type="password" placeholder="Để trống nếu không đổi" /></div></div></div>
+                <div class="form-group"><label>Access token</label><input id="hanetToken" class="hrm-control" type="password" placeholder="Để trống nếu không đổi" /></div>
+                <div class="row"><div class="col-sm-6"><div class="form-group"><label>Place ID</label><input id="hanetPlace" class="hrm-control" /></div></div><div class="col-sm-6"><div class="form-group"><label>Webhook secret</label><input id="hanetWebhook" class="hrm-control" /></div></div></div>
+                <label class="hrm-check"><input id="hanetEnabled" type="checkbox" /> Bật nhận dữ liệu HANET</label>
+                <p class="hrm-field-note">Webhook: <code>@Request.Url.GetLeftPart(UriPartial.Authority)@Url.Action("Receive","HanetWebhook")?secret=WEBHOOK_SECRET</code></p>
+                <button class="hrm-btn hrm-btn-primary" type="submit" style="margin-top:16px">Lưu cấu hình</button> <span id="hanetMessage" class="hrm-field-note"></span>
+            </form>
+        </div></div>
+        <div class="hrm-card"><div class="hrm-card-header"><div><h2 class="hrm-card-title">Ánh xạ nhân viên</h2><p class="hrm-card-subtitle">Ghép Person ID/Alias ID từ HANET với tài khoản HRM</p></div></div><div class="hrm-card-body">
+            <form id="mapForm">@Html.AntiForgeryToken()
+                <div class="form-group"><label>Nhân viên</label><select id="mapUser" class="hrm-control"></select></div>
+                <div class="form-group"><label>Person ID</label><input id="mapPerson" class="hrm-control" /></div>
+                <div class="form-group"><label>Alias ID</label><input id="mapAlias" class="hrm-control" /></div>
+                <button class="hrm-btn hrm-btn-primary" type="submit">Lưu ánh xạ</button>
+            </form>
+            <div class="hrm-field-note" style="margin-top:18px">Sự kiện webhook được chống ghi trùng bằng Event ID; bản ghi chưa ánh xạ vẫn được giữ để đối soát.</div>
+        </div></div>
+    </div>
+</div>
+<script>
+(function(){
+    $('.hanet_menu').addClass('active');
+    function token(form){return $(form+' input[name=__RequestVerificationToken]').val();}
+    function message(xhr, fallback){return xhr.responseJSON&&xhr.responseJSON.Message||fallback;}
+    $.get('@Url.Action("HanetSettings","Hrm")').done(function(r){var s=r.Data||{};$('#hanetApi').val(s.ApiBaseUrl);$('#hanetOAuth').val(s.OAuthTokenUrl);$('#hanetClient').val(s.ClientId);$('#hanetPlace').val(s.PlaceId);$('#hanetWebhook').val(s.WebhookSecret);$('#hanetEnabled').prop('checked',s.IsEnabled);});
+    $.get('@Url.Action("Users","Hrm")').done(function(r){$('#mapUser').html((r.Data||[]).map(function(x){return '<option value="'+x.Id+'">'+$('<div>').text(x.DisplayName+' · '+(x.DepartmentName||'')).html()+'</option>';}).join(''));});
+    $('#hanetForm').on('submit',function(e){e.preventDefault();$.post('@Url.Action("SaveHanetSettings","Hrm")',{__RequestVerificationToken:token('#hanetForm'),ApiBaseUrl:$('#hanetApi').val(),OAuthTokenUrl:$('#hanetOAuth').val(),ClientId:$('#hanetClient').val(),ClientSecret:$('#hanetSecret').val(),AccessToken:$('#hanetToken').val(),PlaceId:$('#hanetPlace').val(),WebhookSecret:$('#hanetWebhook').val(),IsEnabled:$('#hanetEnabled').is(':checked')}).done(function(){$('#hanetMessage').text('Đã lưu cấu hình.');}).fail(function(x){$('#hanetMessage').text(message(x,'Không thể lưu.'));});});
+    $('#mapForm').on('submit',function(e){e.preventDefault();$.post('@Url.Action("SaveHanetPersonMap","Hrm")',{__RequestVerificationToken:token('#mapForm'),UserId:$('#mapUser').val(),PersonId:$('#mapPerson').val(),AliasId:$('#mapAlias').val(),PlaceId:$('#hanetPlace').val()}).done(function(){alert('Đã lưu ánh xạ.');}).fail(function(x){alert(message(x,'Không thể lưu ánh xạ.'));});});
+    $('#testHanet').on('click',function(){$.post('@Url.Action("TestHanet","Hrm")',{__RequestVerificationToken:token('#hanetForm')}).done(function(r){alert(r.Message);}).fail(function(x){alert(message(x,'Kết nối thất bại.'));});});
+})();
+</script>

@@ -1,0 +1,170 @@
+﻿<div class="row m-r-0">
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Số quyết định <span class="asterisk">*</span></label>
+        <input class="form-control"
+               name="DecisionNumber"
+               id="DecisionNumber"
+               ng-model="model.DecisionNumber"
+               maxlength="50"
+               autocomplete="off"
+               ng-class="{'has-error': showHasErrorDecisionNumber}"
+               title="{{MessageErrorForInput}}"
+               ng-change="onChangeValue('DecisionNumber')" />
+    </div>
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Ngày quyết định <span class="asterisk">*</span></label>
+        <input kendo-date-picker
+               class="form-control date-picker-style"
+               k-format="'dd/MM/yyyy'"
+               onkeydown="return true;"
+               k-ng-model="model.DecisionDate"
+               id="DecisionDate"
+               name="DecisionDate"
+               ng-model="model.DecisionDate"
+               placeholder="dd/MM/yyyy"
+               ng-class="{'has-error': showHasErrorDecisionDate}"
+               title="{{MessageErrorForInput}}"
+               ng-change="onChangeValue('DecisionDate')">
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Người ký quyết định <span class="asterisk">*</span></label>
+        <input kendo-auto-complete
+               name="ThePersonSignedTheDecisionId"
+               id="ThePersonSignedTheDecisionId"
+               k-data-text-field="'EmployeeName'"
+               placeholder="Nhập 3 ký tự trở lên"
+               k-filter="'contains'"
+               k-min-length="3"
+               k-data-source="GetEmployeeForThePersonSignedTheDecision"
+               k-on-select="onSelectThePersonSignedTheDecisionId(kendoEvent)"
+               ng-blur="onChangeThePersonSignedTheDecisionId()"
+               ng-change="onChangeValue('ThePersonSignedTheDecisionId');onChangeThePersonSignedTheDecisionIdValue()"
+               ng-model="model.ThePersonSignedTheDecisionAutoComplete"
+               ng-class="{'has-error': showHasErrorThePersonSignedTheDecisionId}"
+               title="{{MessageErrorForInput}}" />
+    </div>
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Vị trí công việc</label>
+        <input class="form-control"
+               name="JobPositionName"
+               id="JobPositionName"
+               ng-model="model.JobPositionName"
+               maxlength="50"
+               disabled
+               autocomplete="off" />
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Ngày khen thưởng</label>
+        <input kendo-date-picker
+               class="form-control date-picker-style"
+               k-format="'dd/MM/yyyy'"
+               onkeydown="return true;"
+               k-ng-model="model.BonusDay"
+               id="BonusDay"
+               name="BonusDay"
+               ng-model="model.BonusDay"
+               placeholder="dd/MM/yyyy">
+    </div>
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Kế hoạch khen thưởng</label>
+        <select kendo-drop-down-list
+                id="RewardPlanId"
+                name="RewardPlanId"
+                ng-model="model.RewardPlanId"
+                k-data-source="RewardPlanDropdownlist"
+                k-option-label="' '"
+                k-data-text-field="'Name'"
+                k-data-value-field="'Id'"
+                k-filter="'contains'"
+                class="Dropdownlist-Custom"></select>
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 margin-bottom-5 p-r-0">
+        <label>Căn cứ khen thưởng</label>
+        <textarea class="form-control"
+                  name="BonusGrounds"
+                  id="BonusGrounds"
+                  ng-model="model.BonusGrounds"
+                  maxlength="100"
+                  rows="4"
+                  autocomplete="off"> </textarea>
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 margin-bottom-5 p-r-0">
+        <label>Lý do khen thưởng</label>
+        <select kendo-drop-down-list
+                id="RewardReasonId"
+                name="RewardReasonId"
+                ng-model="model.RewardReasonId"
+                k-data-source="RewardReasonDropdownlist"
+                k-option-label="' '"
+                k-data-text-field="'Name'"
+                k-data-value-field="'Id'"
+                k-filter="'contains'"
+                class="Dropdownlist-Custom"></select>
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Hình thức khen thưởng</label>
+        <select kendo-drop-down-list
+                id="CommendationFormId"
+                name="CommendationFormId"
+                ng-model="model.CommendationFormId"
+                k-data-source="CommendationFormDropdownlist"
+                k-option-label="' '"
+                k-data-text-field="'Name'"
+                k-data-value-field="'Id'"
+                k-filter="'contains'"
+                class="Dropdownlist-Custom"></select>
+    </div>
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Nguồn ngân sách khen thưởng</label>
+        <select kendo-drop-down-list
+                id="BonusBudgetSourceId"
+                name="BonusBudgetSourceId"
+                ng-model="model.BonusBudgetSourceId"
+                k-data-source="BonusBudgetSourceDropdownlist"
+                k-option-label="' '"
+                k-data-text-field="'Name'"
+                k-data-value-field="'Id'"
+                k-filter="'contains'"
+                class="Dropdownlist-Custom"></select>
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Tổng giá trị</label>
+        <input class="form-control"
+               name="TotalValue"
+               id="TotalValue"
+               ng-model="model.TotalValue"
+               min="0"
+               max="999999999999999"
+               number-format
+               maxlength="15"
+               autocomplete="off" />
+    </div>
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Trạng thái <span class="asterisk">*</span></label>
+        <select kendo-drop-down-list
+                id="StatusBonusId"
+                name="StatusBonusId"
+                ng-model="model.StatusBonusId"
+                k-data-source="StatusBonusDropdownlist"
+                k-option-label="' '"
+                k-data-text-field="'Name'"
+                k-data-value-field="'Id'"
+                k-filter="'contains'"
+                class="Dropdownlist-Custom"
+                ng-class="{'has-error': showHasErrorStatusBonusId}"
+                title="{{MessageErrorForSelect}}"
+                ng-change="onChangeValue('StatusBonusId')"></select>
+    </div>
+</div>

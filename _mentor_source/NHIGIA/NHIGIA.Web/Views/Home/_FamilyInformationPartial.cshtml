@@ -1,0 +1,385 @@
+﻿<script src="@Url.Content("~/Scripts/app/controller/FamilyInformationController.js")"></script>
+<div class="container-fluid" ng-controller="FamilyInformationController">
+    <div class="row clearfix">
+        <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 p-r-0 p-l-0">
+            <div class="card box-shadow-none">
+                <button type="button" class="btn add-action-text m-r-0 m-b-10 float-right" ng-if="HideButton" ng-click="ShowPopupFamily('ADD_FAMILY')"><i class="material-icons">add_circle</i><span class="icon-name">Thêm</span></button>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th style="max-width:200px;">Họ và tên</th>
+                            <th style="max-width:120px;">Ngày sinh</th>
+                            <th style="max-width:120px;">Quan hệ</th>
+                            <th style="max-width:180px;">Điện thoại</th>
+                            <th style="max-width:100px;">Chủ hộ</th>
+                            <th style="max-width: 130px;">Liên hệ khẩn cấp</th>
+                            <th ng-if="GetAllFamilyInformation.length > 0" style="width:85px; min-width:85px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr ng-if="GetAllFamilyInformation.length > 0" ng-repeat="item in GetAllFamilyInformation">
+                            <td>{{item.FirstAndLastName}}</td>
+                            <td>{{item.DateOfBirthString}}</td>
+                            <td>{{item.RelationshipName}}</td>
+                            <td>{{item.MobilePhone}}</td>
+                            <td>
+                                <div class="align-center" ng-if="item.BeTheHeadOfTheHousehold === true">
+                                    <i class="material-icons">check_circle</i><span class="icon-name"></span>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="align-center" ng-if="item.AsAnEmergencyContact === true">
+                                    <i class="material-icons">check_circle</i><span class="icon-name"></span>
+                                </div>
+                            </td>
+                            <td>
+                                <a ng-click="ShowPopupFamily('EDIT_FAMILY',item.Id)">
+                                    <i class="material-icons" ng-if="HideButton" style="color:#0c68b4;">mode_edit</i>
+                                    <i class="material-icons" ng-if="ShowButton" style="color:#0c68b4;">remove_red_eye</i>
+                                </a>
+                                <a ng-if="HideButton" ng-click="ShowPopupFamily('DELETE_FAMILY',item.Id)"><i class="material-icons" style="color:#E55B5C;">close</i></a>
+                            </td>
+                        </tr>
+                        <tr ng-if="GetAllFamilyInformation.length === 0">
+                            <td colspan="6" align="center">Không có dữ liệu</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    @using (Ajax.BeginForm("FamilyInformation", "Home", null, new AjaxOptions { HttpMethod = "POST" }, new { @name = "ValidFamily", @id = "ValidFamily", @novalidate = "novalidate" }))
+    {
+        <div id="KenWindownFamily" class="k-window-content KenWindownPopup" style="display:none;">
+            <div class="content" style="height: 400px; margin: 0 -15px 15px 0; overflow: auto; overflow-x: hidden;">
+                <div class="row m-t--10">
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 p-r-0">
+                        <label>
+                            Quan hệ <span class="asterisk">*</span>
+                        </label>
+                        <select kendo-drop-down-list
+                                id="RelationshipId"
+                                name="RelationshipId"
+                                ng-model="modelFamily.RelationshipId"
+                                k-data-source="RelationshipDropdownlist"
+                                k-data-text-field="'Name'"
+                                k-data-value-field="'Id'"
+                                k-filter="'contains'"
+                                class="Dropdownlist-Custom"
+                                ng-class="{'has-error': showHasErrorRelationshipId}"
+                                title="{{MessageErrorForSelect}}"
+                                ng-change="onChangeValueFamily('RelationshipId')"></select>
+                    </div>
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 p-r-30">
+                        <label>
+                            Họ và tên <span class="asterisk">*</span>
+                        </label>
+                        <input class="form-control"
+                               name="FirstAndLastName"
+                               id="FirstAndLastName"
+                               ng-model="modelFamily.FirstAndLastName"
+                               ng-class="{'has-error': showHasErrorFirstAndLastName}"
+                               title="{{MessageErrorForInput}}"
+                               ng-change="onChangeValueFamily('FirstAndLastName')"
+                               maxlength="100"
+                               autocomplete="off" />
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 p-r-0">
+                        <label>
+                            Ngày sinh
+                        </label>
+                        <input kendo-date-picker
+                               class="form-control date-picker-style"
+                               k-format="'dd/MM/yyyy'"
+                               onkeydown="return true;"
+                               k-ng-model="modelFamily.DateOfBirth"
+                               k-max="maxDate"
+                               k-rebind="maxDate"
+                               id="DateOfBirthFamily"
+                               name="DateOfBirthFamily"
+                               ng-model="modelFamily.DateOfBirth"
+                               placeholder="dd/MM/yyyy">
+                    </div>
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 p-r-30">
+                        <label>
+                            Giới tính <span class="asterisk">*</span>
+                        </label>
+                        <select kendo-drop-down-list
+                                id="SexIdFamily"
+                                name="SexIdFamily"
+                                ng-model="modelFamily.SexId"
+                                k-data-source="SexDropdownlist"
+                                k-data-text-field="'Name'"
+                                k-data-value-field="'Id'"
+                                k-filter="'contains'"
+                                class="Dropdownlist-Custom"
+                                ng-class="{'has-error': showHasErrorSexIdFamily}"
+                                title="{{MessageErrorForSelect}}"
+                                ng-change="onChangeValueFamily('SexIdFamily')"></select>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 p-r-0">
+                        <label>
+                            Quốc tịch
+                        </label>
+                        <select kendo-drop-down-list
+                                id="NationalityIdFamily"
+                                name="NationalityIdFamily"
+                                ng-model="modelFamily.NationalityId"
+                                k-data-source="NationalityDropdownlist"
+                                k-data-text-field="'Name'"
+                                k-data-value-field="'Id'"
+                                k-filter="'contains'"
+                                class="Dropdownlist-Custom"></select>
+                    </div>
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 p-r-30">
+                        <label>
+                            Số CMND/Hộ chiếu
+                        </label>
+                        <input class="form-control"
+                               name="IdPassportNumber"
+                               id="IdPassportNumber"
+                               ng-model="modelFamily.IdPassportNumber"
+                               maxlength="100"
+                               numbers-Only
+                               autocomplete="off" />
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 p-r-30">
+                        <label>
+                            Địa chỉ
+                        </label>
+                        <input class="form-control"
+                               name="Address"
+                               id="Address"
+                               ng-model="modelFamily.Address"
+                               maxlength="100"
+                               autocomplete="off" />
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 p-r-0">
+                        <label>
+                            ĐT di động
+                        </label>
+                        <input class="form-control"
+                               name="MobilePhoneFamily"
+                               id="MobilePhoneFamily"
+                               ng-model="modelFamily.MobilePhone"
+                               maxlength="11"
+                               numbers-Only
+                               autocomplete="off" />
+                    </div>
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 p-r-30">
+                        <label>
+                            ĐT nhà riêng
+                        </label>
+                        <input class="form-control"
+                               name="HomePhoneFamily"
+                               id="HomePhoneFamily"
+                               ng-model="modelFamily.HomePhone"
+                               maxlength="11"
+                               numbers-Only
+                               autocomplete="off" />
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 p-r-30">
+                        <label>
+                            Email
+                        </label>
+                        <input class="form-control"
+                               name="Email"
+                               id="Email"
+                               ng-model="modelFamily.Email"
+                               maxlength="100"
+                               autocomplete="off" />
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 p-r-0">
+                        <label>
+                            Nghề nghiệp
+                        </label>
+                        <input class="form-control"
+                               name="Job"
+                               id="Job"
+                               ng-model="modelFamily.Job"
+                               maxlength="100"
+                               autocomplete="off" />
+                    </div>
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 p-r-30">
+                        <label>
+                            MST cá nhân
+                        </label>
+                        <input class="form-control"
+                               name="PersonalTaxCodeFamily"
+                               id="PersonalTaxCodeFamily"
+                               ng-model="modelFamily.PersonalTaxCode"
+                               maxlength="100"
+                               autocomplete="off" />
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 p-r-30">
+                        <label>
+                            Nơi làm việc
+                        </label>
+                        <input class="form-control"
+                               name="Workplace"
+                               id="Workplace"
+                               ng-model="modelFamily.Workplace"
+                               maxlength="100"
+                               autocomplete="off" />
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-lg-4 col-md-4 col-sm-4 col-xs-4 m-t-10">
+                        <div class="demo-checkbox">
+                            <input type="checkbox" id="SameHouseholdRegistrationBook" class="filled-in chk-col-blue" ng-model="modelFamily.SameHouseholdRegistrationBook" />
+                            <label class="m-t-5 checkbox_label_popup" for="SameHouseholdRegistrationBook"> Cùng sổ hộ khẩu</label>
+                        </div>
+                    </div>
+                    <div class="col-lg-4 col-md-4 col-sm-4 col-xs-4 m-t-10">
+                        <div class="demo-checkbox">
+                            <input type="checkbox" id="BeTheHeadOfTheHousehold" class="filled-in chk-col-blue" ng-model="modelFamily.BeTheHeadOfTheHousehold" />
+                            <label class="m-t-5 checkbox_label_popup" for="BeTheHeadOfTheHousehold">Là chủ hộ</label>
+                        </div>
+                    </div>
+                    <div class="col-lg-4 col-md-4 col-sm-4 col-xs-4 m-t-10">
+                        <div class="demo-checkbox">
+                            <input type="checkbox" id="IsADependent" class="filled-in chk-col-blue" ng-model="modelFamily.IsADependent" ng-change="onChangeIsADependent()" />
+                            <label class="m-t-5 checkbox_label_popup" for="IsADependent">Là người phụ thuộc</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="row" ng-if="modelFamily.IsADependent === true">
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 p-r-0">
+                        <label>
+                            Số
+                        </label>
+                        <input class="form-control"
+                               name="Number"
+                               id="Number"
+                               ng-model="modelFamily.Number"
+                               maxlength="100"
+                               numbers-Only
+                               autocomplete="off" />
+                    </div>
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 p-r-30">
+                        <label>
+                            Quyển số
+                        </label>
+                        <input class="form-control"
+                               name="NumberBook"
+                               id="NumberBook"
+                               ng-model="modelFamily.NumberBook"
+                               maxlength="100"
+                               autocomplete="off" />
+                    </div>
+                </div>
+                <div class="row" ng-if="modelFamily.IsADependent === true">
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 p-r-0">
+                        <label>
+                            Thời điểm tính GT
+                        </label>
+                        <input kendo-date-picker
+                               class="form-control date-picker-style"
+                               k-format="'dd/MM/yyyy'"
+                               onkeydown="return true;"
+                               k-ng-model="modelFamily.TimeToCalculateDeduction"
+                               id="TimeToCalculateDeduction"
+                               name="TimeToCalculateDeduction"
+                               ng-model="modelFamily.TimeToCalculateDeduction"
+                               ng-class="{'has-error': CheckTimeToCalculateDeductionLessTimeToEndTheDeduction}"
+                               title="{{MessageCheckDateDeduction}}"
+                               placeholder="dd/MM/yyyy">
+                    </div>
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 p-r-30">
+                        <label>
+                            Thời điểm kết thúc GT
+                        </label>
+                        <input kendo-date-picker
+                               class="form-control date-picker-style"
+                               k-format="'dd/MM/yyyy'"
+                               onkeydown="return true;"
+                               k-ng-model="modelFamily.TimeToEndTheDeduction"
+                               id="TimeToEndTheDeduction"
+                               name="TimeToEndTheDeduction"
+                               ng-model="modelFamily.TimeToEndTheDeduction"
+                               placeholder="dd/MM/yyyy">
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 p-r-30">
+                        <label>
+                            Ghi chú
+                        </label>
+                        <input class="form-control"
+                               name="Note"
+                               id="Note"
+                               ng-model="modelFamily.Note"
+                               maxlength="100"
+                               autocomplete="off" />
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 m-t-10">
+                        <div class="demo-checkbox">
+                            <input type="checkbox" id="IsDead" class="filled-in chk-col-blue" ng-model="modelFamily.IsDead" ng-change="onChangeIsDead()" />
+                            <label class="m-t-5 checkbox_label_popup" for="IsDead">Đã mất</label>
+                        </div>
+                    </div>
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 p-r-30" ng-if="modelFamily.IsDead === true">
+                        <label>
+                            Ngày mất
+                        </label>
+                        <input kendo-date-picker
+                               class="form-control date-picker-style"
+                               k-format="'dd/MM/yyyy'"
+                               onkeydown="return true;"
+                               k-ng-model="modelFamily.DeadDate"
+                               id="DeadDate"
+                               name="DeadDate"
+                               ng-model="modelFamily.DeadDate"
+                               ng-class="{'has-error': CheckDateOfBirthLessDeadDate}"
+                               title="{{MessageCheckDateDead}}"
+                               placeholder="dd/MM/yyyy">
+                    </div>
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 m-t-10" ng-if="modelFamily.IsDead === false">
+                        <div class="demo-checkbox">
+                            <input type="checkbox" id="AsAnEmergencyContact" class="filled-in chk-col-blue" ng-model="modelFamily.AsAnEmergencyContact" />
+                            <label class="m-t-5 checkbox_label_popup" for="AsAnEmergencyContact">Là người liên hệ khẩn cấp</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <hr />
+            <div class="footer">
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                        <button type="button"
+                                id="btnSaveFamily"
+                                class="btn btn-primary waves-effect float-right m-l-5"
+                                ng-if="HideButton"
+                                ng-click="SaveFamily()"
+                                disabled>
+                            <i class="material-icons">save</i><span class="icon-name">Lưu</span>
+                        </button>
+                        <button type="button"
+                                class="btn bg-grey waves-effect float-right m-l-5"
+                                id="btnCloseFamily"
+                                ng-click="CloseFamily()"
+                                disabled>
+                            <i class="material-icons">close</i><span class="icon-name">Đóng</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>

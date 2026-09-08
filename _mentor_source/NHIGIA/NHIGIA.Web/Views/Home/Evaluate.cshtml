@@ -1,0 +1,291 @@
+﻿<script src="@Url.Content("~/Scripts/app/controller/EvaluateController.js")"></script>
+<script src="@Url.Content("~/Scripts/app/services/EvaluateService.js")"></script>
+<script src="@Url.Content("~/Scripts/app/services/ListCategoryService.js")"></script>
+<script src="@Url.Content("~/Scripts/app/services/EmployeeInformationService.js")"></script>
+
+<div class="container-fluid" ng-controller="EvaluateController">
+    <div class="row clearfix" ng-show="ShowList">
+        <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+            <div class="card">
+                @Html.Partial("Header")
+                <div class="body table-responsive">
+                    <div class="button-demo">
+                        <button type="button" class="btn btn-success waves-effect" ng-click="ShowPopup('ADD')"><i class="material-icons">add_circle</i><span class="icon-name">Thêm</span></button>
+                        <button id="ButtonEdit" type="button" class="btn btn-primary waves-effect" ng-click="ShowPopup('EDIT')" disabled><i class="material-icons">create</i><span class="icon-name">Sửa</span></button>
+                        <button id="ButtonEvaluate" type="button" class="btn btn-warning waves-effect" ng-click="ShowPopup('EVALUATE')" disabled><i class="material-icons">star_border</i><span class="icon-name">Đánh giá</span></button>
+                        <button id="ButtonDelete" type="button" class="btn btn-danger waves-effect" ng-click="ShowPopup('DELETE')" disabled><i class="material-icons">delete_sweep</i><span class="icon-name">Xoá</span></button>
+                        <button type="button" class="btn btn-info waves-effect" ng-click="ShowPopup('EXPORT_EXCEL')"><i class="material-icons">file_download</i><span class="icon-name">Xuất Excel</span></button>
+                        <button type="button" class="btn bg-grey waves-effect" ng-click="ShowPopup('REFRESH')"><i class="material-icons">refresh</i><span class="icon-name">Nạp</span></button>
+                    </div>
+                    <div kendo-grid="gridEvaluate"
+                         id="Table"
+                         k-options="Section">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    @using (Ajax.BeginForm("Evaluate", "Home", null, new AjaxOptions { HttpMethod = "POST" }, new { @name = "Valid", @id = "Valid", @novalidate = "novalidate" }))
+    {
+        <div id="KenWindown" class="k-window-content KenWindownPopup" style="display:none;">
+            <div class="content" style="margin: 0 0 15px 0;">
+                <div class="row m-t--10">
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 p-r-0">
+                        <label>Tên đợt đánh giá <span class="asterisk">*</span></label>
+                        <span class="help-block">
+                            <label class="control-label" ng-if="CheckDuplicate">({{MessageErrorForDuplicate}})</label>
+                        </span>
+                        <input class="form-control"
+                               name="NameOfAudit"
+                               id="NameOfAudit"
+                               ng-model="model.NameOfAudit"
+                               maxlength="50"
+                               ng-class="{'has-error': showErrorMsg(Valid.NameOfAudit) || CheckDuplicate}"
+                               required
+                               title="{{MessageErrorForInput}}"
+                               autocomplete="off" />
+                    </div>
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6">
+                        <label>Từ ngày</label>
+                        <input kendo-date-picker
+                               class="form-control date-picker-style"
+                               k-format="'dd/MM/yyyy'"
+                               onkeydown="return true;"
+                               k-ng-model="model.Since"
+                               id="Since"
+                               name="Since"
+                               ng-model="model.Since"
+                               placeholder="dd/MM/yyyy">
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 p-r-0">
+                        <label>Kỳ đánh giá <span class="asterisk">*</span></label>
+                        <select kendo-drop-down-list
+                                id="EvaluationPeriodId"
+                                name="EvaluationPeriodId"
+                                ng-model="model.EvaluationPeriodId"
+                                k-data-source="EvaluationPeriodDropdownlist"
+                                k-data-text-field="'Name'"
+                                k-data-value-field="'Id'"
+                                k-filter="'contains'"
+                                ng-class="{'has-error': showErrorMsg(Valid.EvaluationPeriodId)}"
+                                required
+                                title="{{MessageErrorForSelect}}"
+                                class="Dropdownlist-Custom"></select>
+                    </div>
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6">
+                        <label>Đến ngày</label>
+                        <input kendo-date-picker
+                               class="form-control date-picker-style"
+                               k-format="'dd/MM/yyyy'"
+                               onkeydown="return true;"
+                               k-ng-model="model.ToDate"
+                               id="ToDate"
+                               name="ToDate"
+                               ng-model="model.ToDate"
+                               ng-class="{'has-error': CheckToDate}"
+                               title="{{MessageCheckToDate}}"
+                               placeholder="dd/MM/yyyy">
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 p-r-0">
+                        <label>Đơn vị công tác <span class="asterisk">*</span></label>
+                        <select kendo-drop-down-list
+                                id="WorkUnitIdEvaluate"
+                                name="WorkUnitIdEvaluate"
+                                ng-model="model.WorkUnitId"
+                                k-data-source="WorkUnitDropdownlist"
+                                k-data-text-field="'Name'"
+                                k-data-value-field="'Id'"
+                                k-filter="'contains'"
+                                ng-class="{'has-error': showErrorMsg(Valid.WorkUnitIdEvaluate)}"
+                                required
+                                title="{{MessageErrorForSelect}}"
+                                class="Dropdownlist-Custom"></select>
+                    </div>
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6">
+                        <label>Hạn đánh giá</label>
+                        <input kendo-date-picker
+                               class="form-control date-picker-style"
+                               k-format="'dd/MM/yyyy'"
+                               onkeydown="return true;"
+                               k-ng-model="model.EvaluationTerm"
+                               id="EvaluationTerm"
+                               name="EvaluationTerm"
+                               ng-model="model.EvaluationTerm"
+                               ng-class="{'has-error': CheckEvaluationTerm}"
+                               title="{{MessageCheckEvaluationTerm}}"
+                               placeholder="dd/MM/yyyy">
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 p-r-0">
+                        <label>Trạng thái <span class="asterisk">*</span></label>
+                        <select kendo-drop-down-list
+                                id="EvaluationStatusId"
+                                name="EvaluationStatusId"
+                                ng-model="model.EvaluationStatusId"
+                                k-data-source="EvaluationStatusDropdownlist"
+                                k-data-text-field="'Name'"
+                                k-data-value-field="'Id'"
+                                k-filter="'contains'"
+                                ng-class="{'has-error': showErrorMsg(Valid.EvaluationStatusId)}"
+                                required
+                                title="{{MessageErrorForSelect}}"
+                                class="Dropdownlist-Custom"></select>
+                    </div>
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6">
+                        <label>Nhân sự phụ trách</label>
+                        <input kendo-auto-complete
+                               name="PersonInChargeId"
+                               id="PersonInChargeId"
+                               k-data-text-field="'EmployeeName'"
+                               placeholder="Nhập 3 ký tự trở lên"
+                               k-filter="'contains'"
+                               k-min-length="3"
+                               k-data-source="GetEmployeeForPersonInCharge"
+                               k-on-select="onSelectPersonInCharge(kendoEvent)"
+                               ng-blur="onChangePersonInCharge()"
+                               ng-change="onChangePersonInChargeValue()"
+                               ng-model="model.PersonInChargeAutoComplete" />
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                        <label>Mô tả tóm tắt</label>
+                        <textarea class="form-control"
+                                  name="BriefDescription"
+                                  id="BriefDescription"
+                                  ng-model="model.BriefDescription"
+                                  maxlength="100"
+                                  rows="4"
+                                  autocomplete="off"></textarea>
+                    </div>
+                </div>
+            </div>
+            <hr />
+            <div class="footer">
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                        <button type="button"
+                                id="btnSave"
+                                class="btn btn-primary waves-effect float-right m-l-5"
+                                ng-click="Save(Valid)">
+                            <i class="material-icons">save</i><span class="icon-name">Lưu</span>
+                        </button>
+                        <button type="button"
+                                class="btn bg-grey waves-effect float-right m-l-5"
+                                id="btnClose"
+                                ng-click="Close()">
+                            <i class="material-icons">close</i><span class="icon-name">Đóng</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+    <div class="row clearfix" ng-show="ShowInfo">
+        <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+            <div class="card">
+                <div class="header">
+                    <h2>Đánh giá đối tượng</h2>
+                </div>
+                <div class="body table-responsive">
+                    <div class="button-demo">
+                        <button id="ButtonAddAssessedAudience" type="button" class="btn btn-success waves-effect" ng-click="ShowPopup('ADD_ASSESSED_AUDIENCE')"><i class="material-icons">person_add</i><span class="icon-name">Thêm đối tượng</span></button>
+                        <button id="ButtonRemove" type="button" class="btn btn-danger waves-effect" ng-click="ShowPopup('REMOVE')" disabled><i class="material-icons">delete_sweep</i><span class="icon-name">Loại bỏ</span></button>
+                        <button id="ButtonEvaluationForm" type="button" class="btn btn-primary waves-effect" ng-click="ShowPopup('EVALUATE_FORM')" disabled><i class="material-icons">blur_linear</i><span class="icon-name">Phiếu đánh giá</span></button>
+                        <button type="button" class="btn bg-grey waves-effect" ng-click="ShowPopup('LOAD')"><i class="material-icons">sync</i><span class="icon-name">Nạp</span></button>
+                        <button type="button" class="btn bg-teal waves-effect" ng-click="ShowPopup('BACK')"><i class="material-icons">arrow_back</i><span class="icon-name">Quay lại</span></button>
+                    </div>
+                    <div kendo-grid="grid"
+                         id="TableEvaluateDetail"
+                         k-options="SectionEvaluateDetail">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    @using (Ajax.BeginForm("EvaluateDetail", "Home", null, new AjaxOptions { HttpMethod = "POST" }, new { @name = "ValidEvaluateDetail", @id = "ValidEvaluateDetail", @novalidate = "novalidate" }))
+    {
+        <div id="KenWindownEvaluateDetail" class="k-window-content KenWindownPopup" style="display:none;">
+            <div class="content" style="margin: 0 0 15px 0;">
+                <div class="row m-t--10">
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 p-r-0">
+                        <label>Họ và tên <span class="asterisk">*</span></label>
+                        <span class="help-block">
+                            <label class="control-label" ng-if="CheckDuplicateEvaluateDetail">({{MessageErrorForDuplicate}})</label>
+                        </span>
+                        <input kendo-auto-complete
+                               name="EmployeeId"
+                               id="EmployeeId"
+                               k-data-text-field="'EmployeeName'"
+                               placeholder="Nhập 3 ký tự trở lên"
+                               k-filter="'contains'"
+                               k-min-length="3"
+                               k-data-source="GetEmployee"
+                               k-on-select="onSelectEmployee(kendoEvent)"
+                               ng-class="{'has-error': showHasErrorEmployeeName}"
+                               title="{{MessageErrorForInput}}"
+                               ng-blur="onChangeEmployee()"
+                               ng-change="onChangeValuePage('EmployeeName');onChangeEmployeeValue()"
+                               ng-model="modelEvaluateDetail.EmployeeName" />
+                    </div>
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6">
+                        <label>Mã nhân viên</label>
+                        <input class="form-control"
+                               name="EmployeeCode"
+                               id="EmployeeCode"
+                               ng-model="modelEvaluateDetail.EmployeeCode"
+                               disabled />
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 p-r-0">
+                        <label>Đơn vị công tác</label>
+                        <input class="form-control"
+                               name="WorkUnitName"
+                               id="WorkUnitName"
+                               ng-model="modelEvaluateDetail.WorkUnitName"
+                               disabled />
+                    </div>
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6">
+                        <label>Vị trí công việc</label>
+                        <input class="form-control"
+                               name="JobPositionName"
+                               id="JobPositionName"
+                               ng-model="modelEvaluateDetail.JobPositionName"
+                               disabled />
+                    </div>
+                </div>
+            </div>
+            <hr />
+            <div class="footer">
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                        <button type="button"
+                                id="btnSaveEvaluateDetail"
+                                class="btn btn-primary waves-effect float-right m-l-5"
+                                ng-click="SaveEvaluateDetail()">
+                            <i class="material-icons">save</i><span class="icon-name">Lưu</span>
+                        </button>
+                        <button type="button"
+                                class="btn bg-grey waves-effect float-right m-l-5"
+                                id="btnCloseEvaluateDetail"
+                                ng-click="CloseEvaluateDetail()">
+                            <i class="material-icons">close</i><span class="icon-name">Đóng</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+    @using (Ajax.BeginForm("EvaluateForm", "Home", null, new AjaxOptions { HttpMethod = "POST" }, new { @name = "ValidEvaluateForm", @id = "ValidEvaluateForm", @novalidate = "novalidate" }))
+    {
+        <div id="KenWindownEvaluateForm" class="k-window-content KenWindownPopup custom_tab_information" style="display:none;">
+            @Html.Partial("_EvaluateFormPartial")
+        </div>
+    }
+</div>

@@ -1,0 +1,142 @@
+﻿<div class="row m-r-0">
+    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 margin-bottom-5 p-r-0">
+        <label>Tên sự cố <span class="asterisk">*</span></label>
+        <input class="form-control"
+               name="ProblemName"
+               id="ProblemName"
+               ng-model="model.ProblemName"
+               maxlength="50"
+               autocomplete="off"
+               ng-class="{'has-error': showHasErrorProblemName}"
+               title="{{MessageErrorForInput}}"
+               ng-change="onChangeValue('ProblemName')" />
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Loại sự cố <span class="asterisk">*</span></label>
+        <select kendo-drop-down-list
+                id="TypeOfIncidentId"
+                name="TypeOfIncidentId"
+                ng-model="model.TypeOfIncidentId"
+                k-data-source="TypeOfIncidentDropdownlist"
+                k-option-label="' '"
+                k-data-text-field="'Name'"
+                k-data-value-field="'Id'"
+                k-filter="'contains'"
+                class="Dropdownlist-Custom"
+                ng-class="{'has-error': showHasErrorTypeOfIncidentId}"
+                title="{{MessageErrorForSelect}}"
+                ng-change="onChangeValue('TypeOfIncidentId')"></select>
+    </div>
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Ngày xảy ra <span class="asterisk">*</span></label>
+        <input kendo-date-picker
+               class="form-control date-picker-style"
+               k-format="'dd/MM/yyyy'"
+               onkeydown="return true;"
+               k-ng-model="model.HappenDay"
+               id="HappenDay"
+               name="HappenDay"
+               ng-model="model.HappenDay"
+               placeholder="dd/MM/yyyy"
+               ng-class="{'has-error': showHasErrorHappenDay}"
+               title="{{MessageErrorForInput}}"
+               ng-change="onChangeValue('HappenDay')">
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 margin-bottom-5 p-r-0">
+        <label>Nơi xảy ra</label>
+        <textarea class="form-control"
+                  name="WhereHappened"
+                  id="WhereHappened"
+                  ng-model="model.WhereHappened"
+                  rows="3"
+                  maxlength="100"></textarea>
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 margin-bottom-5 p-r-0">
+        <label>Nguyên nhân</label>
+        <textarea class="form-control"
+                  name="Reason"
+                  id="Reason"
+                  ng-model="model.Reason"
+                  rows="3"
+                  maxlength="100"></textarea>
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 margin-bottom-5 p-r-0">
+        <label>Mô tả sự cố</label>
+        <textarea class="form-control"
+                  name="DescriptionOfTheProblem"
+                  id="DescriptionOfTheProblem"
+                  ng-model="model.DescriptionOfTheProblem"
+                  rows="3"
+                  maxlength="100"></textarea>
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 margin-bottom-5 p-r-0">
+        <label>Đơn vị có liên quan <span class="asterisk">*</span></label>
+        <select kendo-drop-down-list
+                id="RelatedUnitId"
+                name="RelatedUnitId"
+                ng-model="model.RelatedUnitId"
+                k-data-source="RelatedUnitDropdownlist"
+                k-option-label="' '"
+                k-data-text-field="'Name'"
+                k-data-value-field="'Id'"
+                k-filter="'contains'"
+                class="Dropdownlist-Custom"
+                ng-class="{'has-error': showHasErrorRelatedUnitId}"
+                title="{{MessageErrorForSelect}}"
+                ng-change="onChangeValue('RelatedUnitId')"></select>
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Tổng giá trị thiệt hại</label>
+        <input class="form-control"
+               name="TotalValueOfDamage"
+               id="TotalValueOfDamage"
+               ng-model="model.TotalValueOfDamage"
+               min="0"
+               max="999999999999999"
+               number-format
+               maxlength="15"
+               autocomplete="off" />
+    </div>
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Tổng giá trị được bồi thường</label>
+        <input class="form-control"
+               name="TotalCompensationValue"
+               id="TotalCompensationValue"
+               ng-model="model.TotalCompensationValue"
+               min="0"
+               max="999999999999999"
+               number-format
+               maxlength="15"
+               autocomplete="off" />
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 margin-bottom-5 p-r-0">
+        <label>Trạng thái xử lý <span class="asterisk">*</span></label>
+        <select kendo-drop-down-list
+                id="CompensationStatusId"
+                name="CompensationStatusId"
+                ng-model="model.CompensationStatusId"
+                k-data-source="CompensationStatusDropdownlist"
+                k-option-label="' '"
+                k-data-text-field="'Name'"
+                k-data-value-field="'Id'"
+                k-filter="'contains'"
+                class="Dropdownlist-Custom"
+                ng-class="{'has-error': showHasErrorCompensationStatusId}"
+                title="{{MessageErrorForSelect}}"
+                ng-change="onChangeValue('CompensationStatusId')"></select>
+    </div>
+</div>

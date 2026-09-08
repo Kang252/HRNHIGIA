@@ -1,0 +1,219 @@
+﻿<script src="@Url.Content("~/Scripts/app/controller/WorkProgressInformationController.js")"></script>
+<div class="container-fluid" ng-controller="WorkProgressInformationController">
+    <div class="row clearfix">
+        <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 p-r-0 p-l-0">
+            <div class="card box-shadow-none">
+                <button type="button" class="btn add-action-text m-r-0 m-b-10 float-right" ng-if="HideButton" ng-click="ShowPopupWorkProgress('ADD_WORKPROGRESS')"><i class="material-icons">add_circle</i><span class="icon-name">Thêm</span></button>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th style="max-width:230px;">Từ ngày - đến ngày</th>
+                            <th style="max-width:180px;">Số quyết định</th>
+                            <th style="max-width:120px;">Đơn vị công tác</th>
+                            <th style="max-width: 180px;">Vị trí công việc</th>
+                            <th ng-if="GetAllWorkProgressInformation.length > 0" style="width:85px; min-width:85px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr ng-if="GetAllWorkProgressInformation.length > 0" ng-repeat="item in GetAllWorkProgressInformation">
+                            <td>{{item.StartDateEndDate}}</td>
+                            <td>{{item.DecisionNumber}}</td>
+                            <td>{{item.WorkUnitName}}</td>
+                            <td>{{item.JobPositionName}}</td>
+                            <td>
+                                <a ng-click="ShowPopupWorkProgress('EDIT_WORKPROGRESS',item.Id)">
+                                    <i class="material-icons" ng-if="HideButton" style="color:#0c68b4;">mode_edit</i>
+                                    <i class="material-icons" ng-if="ShowButton" style="color:#0c68b4;">remove_red_eye</i>
+                                </a>
+                                <a ng-click="ShowPopupWorkProgress('DELETE_WORKPROGRESS',item.Id)" ng-if="GetAllWorkProgressInformation.length > 1 && HideButton"><i class="material-icons" style="color:#E55B5C;">close</i></a>
+                            </td>
+                        </tr>
+                        <tr ng-if="GetAllWorkProgressInformation.length === 0">
+                            <td colspan="5" align="center">Không có dữ liệu</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    @using (Ajax.BeginForm("WorkProgressInformation", "Home", null, new AjaxOptions { HttpMethod = "POST" }, new { @name = "ValidWorkProgress", @id = "ValidWorkProgress", @novalidate = "novalidate" }))
+    {
+        <div id="KenWindownWorkProgress" class="k-window-content KenWindownPopup" style="display:none;">
+            <div class="content" style="margin: 0 0 15px 0;">
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                        <label>
+                            Từ ngày
+                        </label>
+                        <input kendo-date-picker
+                               class="date-picker-style1"
+                               k-format="'dd/MM/yyyy'"
+                               onkeydown="return true;"
+                               k-ng-model="modelWorkProgress.StartDate"
+                               id="StartDate"
+                               name="StartDate"
+                               ng-model="modelWorkProgress.StartDate"
+                               placeholder="dd/MM/yyyy"
+                               style="float:left;">
+                        <label style="float:left; padding-left: 10px;">
+                            Đến nay
+                        </label>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 p-r-0">
+                        <label>
+                            Vị trí công việc <span class="asterisk">*</span>
+                        </label>
+                        <select kendo-drop-down-list
+                                id="JobPositionIdWorkProgress"
+                                name="JobPositionIdWorkProgress"
+                                ng-model="modelWorkProgress.JobPositionId"
+                                k-data-source="JobPositionDropdownlist"
+                                k-data-text-field="'Name'"
+                                k-data-value-field="'Id'"
+                                k-filter="'contains'"
+                                class="Dropdownlist-Custom"
+                                ng-class="{'has-error': showHasErrorJobPositionIdWorkProgress}"
+                                title="{{MessageErrorForSelect}}"
+                                ng-change="onChangeValueWorkProgress('JobPositionIdWorkProgress')"></select>
+                    </div>
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6">
+                        <label>
+                            Đơn vị công tác <span class="asterisk">*</span>
+                        </label>
+                        <select kendo-drop-down-list
+                                id="WorkUnitIdWorkProgress"
+                                name="WorkUnitIdWorkProgress"
+                                ng-model="modelWorkProgress.WorkUnitId"
+                                k-data-source="WorkUnitDropdownlist"
+                                k-data-text-field="'Name'"
+                                k-data-value-field="'Id'"
+                                k-filter="'contains'"
+                                class="Dropdownlist-Custom"
+                                ng-class="{'has-error': showHasErrorWorkUnitIdWorkProgress}"
+                                title="{{MessageErrorForSelect}}"
+                                ng-change="onChangeValueWorkProgress('WorkUnitIdWorkProgress')"></select>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                        <label>
+                            Trạng thái <span class="asterisk">*</span>
+                        </label>
+                        <select kendo-drop-down-list
+                                id="WorkStatusIdWorkProgress"
+                                name="WorkStatusIdWorkProgress"
+                                ng-model="modelWorkProgress.WorkStatusId"
+                                k-data-source="WorkStatusDropdownlist"
+                                k-data-text-field="'Name'"
+                                k-data-value-field="'Id'"
+                                k-filter="'contains'"
+                                class="Dropdownlist-Custom"
+                                ng-class="{'has-error': showHasErrorWorkStatusIdWorkProgress}"
+                                title="{{MessageErrorForSelect}}"
+                                ng-change="onChangeValueWorkProgress('WorkStatusIdWorkProgress')"></select>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 p-r-0">
+                        <label>
+                            Quản lý trực tiếp
+                        </label>
+                        <input kendo-auto-complete
+                               name="DirectManagementIdWorkProgress"
+                               id="DirectManagementIdWorkProgress"
+                               k-data-text-field="'EmployeeName'"
+                               placeholder="Nhập 3 ký tự trở lên"
+                               k-filter="'contains'"
+                               k-min-length="3"
+                               k-data-source="GetEmployeeForDirectManagementWorkProgress"
+                               k-on-select="onSelectDirectManagementIdWorkProgress(kendoEvent)"
+                               ng-blur="onChangeDirectManagementIdWorkProgress()"
+                               ng-change="onChangeDirectManagementIdWorkProgressValue()"
+                               ng-model="modelWorkProgress.DirectManagementWorkProgressAutoComplete" />
+                    </div>
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6">
+                        <label>
+                            Quản lý gián tiếp
+                        </label>
+                        <input kendo-auto-complete
+                               name="IndirectManagementIdWorkProgress"
+                               id="IndirectManagementIdWorkProgress"
+                               k-data-text-field="'EmployeeName'"
+                               placeholder="Nhập 3 ký tự trở lên"
+                               k-filter="'contains'"
+                               k-min-length="3"
+                               k-data-source="GetEmployeeForIndirectManagementWorkProgress"
+                               k-on-select="onSelectIndirectManagementIdWorkProgress(kendoEvent)"
+                               ng-blur="onChangeIndirectManagementIdWorkProgress()"
+                               ng-change="onChangeIndirectManagementIdWorkProgressValue()"
+                               ng-model="modelWorkProgress.IndirectManagementWorkProgressAutoComplete" />
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 p-r-0">
+                        <label>
+                            Số quyết định
+                        </label>
+                        <input class="form-control"
+                               name="DecisionNumber"
+                               id="DecisionNumber"
+                               ng-model="modelWorkProgress.DecisionNumber"
+                               maxlength="100"
+                               autocomplete="off" />
+                    </div>
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6">
+                        <label>
+                            Ngày quyết định
+                        </label>
+                        <input kendo-date-picker
+                               class="form-control date-picker-style"
+                               k-format="'dd/MM/yyyy'"
+                               onkeydown="return true;"
+                               k-ng-model="modelWorkProgress.DecisionDate"
+                               id="DecisionDate"
+                               name="DecisionDate"
+                               ng-model="modelWorkProgress.DecisionDate"
+                               placeholder="dd/MM/yyyy">
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                        <label>
+                            Ghi chú
+                        </label>
+                        <input class="form-control"
+                               name="NoteWorkProgress"
+                               id="NoteWorkProgress"
+                               ng-model="modelWorkProgress.Note"
+                               maxlength="100"
+                               autocomplete="off" />
+                    </div>
+                </div>
+            </div>
+            <hr />
+            <div class="footer">
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                        <button type="button"
+                                id="btnSaveWorkProgress"
+                                class="btn btn-primary waves-effect float-right m-l-5"
+                                ng-if="HideButton"
+                                ng-click="SaveWorkProgress()"
+                                disabled>
+                            <i class="material-icons">save</i><span class="icon-name">Lưu</span>
+                        </button>
+                        <button type="button"
+                                class="btn bg-grey waves-effect float-right m-l-5"
+                                id="btnCloseWorkProgress"
+                                ng-click="CloseWorkProgress()"
+                                disabled>
+                            <i class="material-icons">close</i><span class="icon-name">Đóng</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>

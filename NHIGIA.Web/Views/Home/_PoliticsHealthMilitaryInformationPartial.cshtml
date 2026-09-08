@@ -1,0 +1,340 @@
+﻿<script src="@Url.Content("~/Scripts/app/controller/PoliticsHealthMilitaryInformationController.js")"></script>
+
+<div ng-controller="PoliticsHealthMilitaryInformationController">
+    <div class="row m-r-0 m-t--15">
+        <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 m-t-15">
+            <b>Thông tin chính trị</b>
+        </div>
+        <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 m-t-15">
+            <b>Thông tin quân sự</b>
+        </div>
+    </div>
+    <div class="row m-r-0">
+        <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+            <div class="demo-checkbox">
+                <input type="checkbox" id="IsAUnionMember" class="filled-in chk-col-blue" ng-model="modelPoliticsHealthMilitary.IsAUnionMember" ng-change="onChangeIsAUnionMember()" />
+                <label class="m-t-5" for="IsAUnionMember">Là đoàn viên</label>
+            </div>
+        </div>
+        <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+            <div class="demo-checkbox">
+                <input type="checkbox" id="AsASsoldier" class="filled-in chk-col-blue" ng-model="modelPoliticsHealthMilitary.AsASsoldier" ng-change="onChangeAsASsoldier()" />
+                <label class="m-t-5" for="AsASsoldier">Là quân nhân</label>
+            </div>
+        </div>
+    </div>
+    <div class="row m-r-0">
+        <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0 m-t--12">
+            <label>Ngày vào Đoàn</label>
+            <input kendo-date-picker
+                   class="form-control date-picker-style"
+                   k-format="'dd/MM/yyyy'"
+                   onkeydown="return true;"
+                   k-ng-model="modelPoliticsHealthMilitary.DayToUnion"
+                   id="DayToUnion"
+                   name="DayToUnion"
+                   ng-model="modelPoliticsHealthMilitary.DayToUnion"
+                   ng-disabled="modelPoliticsHealthMilitary.IsAUnionMember === false"
+                   placeholder="dd/MM/yyyy">
+        </div>
+        <div class="col-lg-2 col-md-2 col-sm-2 col-xs-2 margin-bottom-5 p-r-0 m-t--12">
+            <label>Ngày nhập ngũ</label>
+            <input kendo-date-picker
+                   class="form-control date-picker-style"
+                   k-format="'dd/MM/yyyy'"
+                   onkeydown="return true;"
+                   k-ng-model="modelPoliticsHealthMilitary.DateOfEnlistment"
+                   id="DateOfEnlistment"
+                   name="DateOfEnlistment"
+                   ng-model="modelPoliticsHealthMilitary.DateOfEnlistment"
+                   ng-disabled="modelPoliticsHealthMilitary.AsASsoldier === false"
+                   placeholder="dd/MM/yyyy">
+        </div>
+        <div class="col-lg-2 col-md-2 col-sm-2 col-xs-2 margin-bottom-5 p-r-0 m-t--12">
+            <label>Binh chủng</label>
+            <select kendo-drop-down-list
+                    id="ArmyId"
+                    name="ArmyId"
+                    k-filter="'contains'"
+                    ng-model="modelPoliticsHealthMilitary.ArmyId"
+                    k-data-source="ArmyDropdownlist"
+                    k-option-label="' '"
+                    k-data-text-field="'Name'"
+                    k-data-value-field="'Id'"
+                    ng-disabled="modelPoliticsHealthMilitary.AsASsoldier === false"
+                    class="Dropdownlist-Custom"></select>
+        </div>
+        <div class="col-lg-2 col-md-2 col-sm-2 col-xs-2 margin-bottom-5 p-r-0 m-t--12">
+            <label>Đơn vị</label>
+            <input class="form-control"
+                   name="MilitaryUnit"
+                   id="MilitaryUnit"
+                   ng-model="modelPoliticsHealthMilitary.MilitaryUnit"
+                   maxlength="100"
+                   ng-disabled="modelPoliticsHealthMilitary.AsASsoldier === false"
+                   autocomplete="off" />
+        </div>
+    </div>
+    <div class="row m-r-0">
+        <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+            <label>Chức vụ</label>
+            <select kendo-drop-down-list
+                    id="GroupPositionId"
+                    name="GroupPositionId"
+                    k-filter="'contains'"
+                    ng-model="modelPoliticsHealthMilitary.GroupPositionId"
+                    k-data-source="GroupPositionDropdownlist"
+                    k-option-label="' '"
+                    k-data-text-field="'Name'"
+                    k-data-value-field="'Id'"
+                    ng-disabled="modelPoliticsHealthMilitary.IsAUnionMember === false"
+                    class="Dropdownlist-Custom"></select>
+        </div>
+        <div class="col-lg-2 col-md-2 col-sm-2 col-xs-2 margin-bottom-5 p-r-0">
+            <label>Cấp bậc</label>
+            <select kendo-drop-down-list
+                    id="MilitaryRankId"
+                    name="MilitaryRankId"
+                    k-filter="'contains'"
+                    ng-model="modelPoliticsHealthMilitary.MilitaryRankId"
+                    k-data-source="MilitaryRankDropdownlist"
+                    k-option-label="' '"
+                    k-data-text-field="'Name'"
+                    k-data-value-field="'Id'"
+                    ng-disabled="modelPoliticsHealthMilitary.AsASsoldier === false"
+                    class="Dropdownlist-Custom"></select>
+        </div>
+        <div class="col-lg-2 col-md-2 col-sm-2 col-xs-2 margin-bottom-5 p-r-0">
+            <label>Chức vụ</label>
+            <select kendo-drop-down-list
+                    id="MilitaryPositionId"
+                    name="MilitaryPositionId"
+                    k-filter="'contains'"
+                    ng-model="modelPoliticsHealthMilitary.MilitaryPositionId"
+                    k-data-source="MilitaryPositionDropdownlist"
+                    k-option-label="' '"
+                    k-data-text-field="'Name'"
+                    k-data-value-field="'Id'"
+                    ng-disabled="modelPoliticsHealthMilitary.AsASsoldier === false"
+                    class="Dropdownlist-Custom"></select>
+        </div>
+        <div class="col-lg-2 col-md-2 col-sm-2 col-xs-2 margin-bottom-5 p-r-0">
+            <label>Ngày xuất ngũ</label>
+            <input kendo-date-picker
+                   class="form-control date-picker-style"
+                   k-format="'dd/MM/yyyy'"
+                   onkeydown="return true;"
+                   k-ng-model="modelPoliticsHealthMilitary.DateOfDemobilization"
+                   id="DateOfDemobilization"
+                   name="DateOfDemobilization"
+                   ng-model="modelPoliticsHealthMilitary.DateOfDemobilization"
+                   ng-disabled="modelPoliticsHealthMilitary.AsASsoldier === false"
+                   placeholder="dd/MM/yyyy">
+        </div>
+    </div>
+    <div class="row m-r-0">
+        <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+            <label>Nơi kết nạp</label>
+            <input class="form-control"
+                   name="PlaceOfUnionAdmission"
+                   id="PlaceOfUnionAdmission"
+                   ng-model="modelPoliticsHealthMilitary.PlaceOfUnionAdmission"
+                   maxlength="100"
+                   ng-disabled="modelPoliticsHealthMilitary.IsAUnionMember === false"
+                   autocomplete="off" />
+        </div>
+        <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+            <label>Lý do</label>
+            <input class="form-control"
+                   name="TheReason"
+                   id="TheReason"
+                   ng-model="modelPoliticsHealthMilitary.TheReason"
+                   maxlength="100"
+                   ng-disabled="modelPoliticsHealthMilitary.AsASsoldier === false"
+                   autocomplete="off" />
+        </div>
+    </div>
+    <div class="row m-r-0 m-t-5">
+        <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+            <div class="demo-checkbox">
+                <input type="checkbox" id="AsAPartyMember" class="filled-in chk-col-blue" ng-model="modelPoliticsHealthMilitary.AsAPartyMember" ng-change="onChangeAsAPartyMember()" />
+                <label class="m-t-5" for="AsAPartyMember">Là đảng viên</label>
+            </div>
+        </div>
+        <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+            <div class="demo-checkbox">
+                <input type="checkbox" id="AsWoundedSoldiersSickSoldiers" class="filled-in chk-col-blue" ng-model="modelPoliticsHealthMilitary.AsWoundedSoldiersSickSoldiers" ng-change="onChangeAsWoundedSoldiersSickSoldiers()" />
+                <label class="m-t-5" for="AsWoundedSoldiersSickSoldiers">Là thương binh bệnh binh</label>
+            </div>
+        </div>
+    </div>
+    <div class="row m-r-0">
+        <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0 m-t--10">
+            <label>Ngày vào Đảng</label>
+            <input kendo-date-picker
+                   class="form-control date-picker-style"
+                   k-format="'dd/MM/yyyy'"
+                   onkeydown="return true;"
+                   k-ng-model="modelPoliticsHealthMilitary.DayToParty"
+                   id="DayToParty"
+                   name="DayToParty"
+                   ng-model="modelPoliticsHealthMilitary.DayToParty"
+                   ng-disabled="modelPoliticsHealthMilitary.AsAPartyMember === false"
+                   placeholder="dd/MM/yyyy">
+        </div>
+        <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0 m-t--10">
+            <label>Ngày tham gia CM</label>
+            <input kendo-date-picker
+                   class="form-control date-picker-style"
+                   k-format="'dd/MM/yyyy'"
+                   onkeydown="return true;"
+                   k-ng-model="modelPoliticsHealthMilitary.DateToJoinRevolution"
+                   id="DateToJoinRevolution"
+                   name="DateToJoinRevolution"
+                   ng-model="modelPoliticsHealthMilitary.DateToJoinRevolution"
+                   ng-disabled="modelPoliticsHealthMilitary.AsWoundedSoldiersSickSoldiers === false"
+                   placeholder="dd/MM/yyyy">
+        </div>
+    </div>
+    <div class="row m-r-0">
+        <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+            <label>Chức vụ</label>
+            <select kendo-drop-down-list
+                    id="PartyPositionId"
+                    name="PartyPositionId"
+                    k-filter="'contains'"
+                    ng-model="modelPoliticsHealthMilitary.PartyPositionId"
+                    k-data-source="PartyPositionDropdownlist"
+                    k-option-label="' '"
+                    k-data-text-field="'Name'"
+                    k-data-value-field="'Id'"
+                    ng-disabled="modelPoliticsHealthMilitary.AsAPartyMember === false"
+                    class="Dropdownlist-Custom"></select>
+        </div>
+        <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+            <label>Hạng</label>
+            <select kendo-drop-down-list
+                    id="RankId"
+                    name="RankId"
+                    k-filter="'contains'"
+                    ng-model="modelPoliticsHealthMilitary.RankId"
+                    k-data-source="RankDropdownlist"
+                    k-option-label="' '"
+                    k-data-text-field="'Name'"
+                    k-data-value-field="'Id'"
+                    ng-disabled="modelPoliticsHealthMilitary.AsWoundedSoldiersSickSoldiers === false"
+                    class="Dropdownlist-Custom"></select>
+        </div>
+    </div>
+    <div class="row m-r-0">
+        <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+            <label>Nơi kết nạp</label>
+            <input class="form-control"
+                   name="PlaceOfAdmissionToTheParty"
+                   id="PlaceOfAdmissionToTheParty"
+                   ng-model="modelPoliticsHealthMilitary.PlaceOfAdmissionToTheParty"
+                   maxlength="100"
+                   ng-disabled="modelPoliticsHealthMilitary.AsAPartyMember === false"
+                   autocomplete="off" />
+        </div>
+        <div class="col-lg-4 col-md-4 col-sm-4 col-xs-4 margin-bottom-5 p-r-0">
+            <label>Tỉ lệ suy giảm LĐ</label>
+            <input class="form-control"
+                   name="RateOfLaborDecline"
+                   id="RateOfLaborDecline"
+                   ng-model="modelPoliticsHealthMilitary.RateOfLaborDecline"
+                   maxlength="100"
+                   numbers-Only
+                   ng-disabled="modelPoliticsHealthMilitary.AsWoundedSoldiersSickSoldiers === false"
+                   autocomplete="off" />
+
+        </div>
+        <div class="col-lg-2 col-md-2 col-sm-2 col-xs-2 margin-bottom-5 p-r-0">
+            <label style="width:100%;">&nbsp;</label>
+            <div class="demo-checkbox">
+                <input type="checkbox" id="EnjoyTheMode" class="filled-in chk-col-blue" ng-model="modelPoliticsHealthMilitary.EnjoyTheMode"
+                       ng-disabled="modelPoliticsHealthMilitary.AsWoundedSoldiersSickSoldiers === false" />
+                <label class="m-t-5" for="EnjoyTheMode">Hưởng chế độ</label>
+            </div>
+        </div>
+    </div>
+    <div class="row m-r-0">
+        <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 m-t-15">
+            <b>Thông tin y tế</b>
+        </div>
+    </div>
+    <div class="row m-r-0">
+        <div class="col-lg-3 col-md-3 col-sm-3 col-xs-3 margin-bottom-5 p-r-0 m-t--5">
+            <label>Nhóm máu</label>
+            <select kendo-drop-down-list
+                    id="BloodGroupId"
+                    name="BloodGroupId"
+                    k-filter="'contains'"
+                    ng-model="modelPoliticsHealthMilitary.BloodGroupId"
+                    k-data-source="BloodGroupDropdownlist"
+                    k-option-label="' '"
+                    k-data-text-field="'Name'"
+                    k-data-value-field="'Id'"
+                    class="Dropdownlist-Custom"></select>
+        </div>
+        <div class="col-lg-3 col-md-3 col-sm-3 col-xs-3 margin-bottom-5 p-r-0 m-t--5">
+            <label>Chiều cao (m)</label>
+            <input class="form-control"
+                   name="Height"
+                   id="Height"
+                   ng-model="modelPoliticsHealthMilitary.Height"
+                   numbers-Only
+                   maxlength="3"
+                   autocomplete="off" />
+        </div>
+    </div>
+    <div class="row m-r-0">
+        <div class="col-lg-3 col-md-3 col-sm-3 col-xs-3 margin-bottom-5 p-r-0">
+            <label>Cân nặng (kg)</label>
+            <input class="form-control"
+                   name="Weight"
+                   id="Weight"
+                   ng-model="modelPoliticsHealthMilitary.Weight"
+                   numbers-Only
+                   maxlength="3"
+                   autocomplete="off" />
+        </div>
+        <div class="col-lg-3 col-md-3 col-sm-3 col-xs-3 margin-bottom-5 p-r-0">
+            <label>Tình trạng sức khỏe</label>
+            <input class="form-control"
+                   name="HealthStatus"
+                   id="HealthStatus"
+                   ng-model="modelPoliticsHealthMilitary.HealthStatus"
+                   maxlength="100"
+                   autocomplete="off" />
+        </div>
+    </div>
+    <div class="row m-r-0">
+        <div class="col-lg-3 col-md-3 col-sm-3 col-xs-3 margin-bottom-5 p-r-0">
+            <label>Bệnh tật</label>
+            <input class="form-control"
+                   name="Diseases"
+                   id="Diseases"
+                   ng-model="modelPoliticsHealthMilitary.Diseases"
+                   maxlength="100"
+                   autocomplete="off" />
+        </div>
+        <div class="col-lg-3 col-md-3 col-sm-3 col-xs-3 margin-bottom-5 p-r-0">
+            <label>Lưu ý</label>
+            <input class="form-control"
+                   name="NotePoliticsHealthMilitary"
+                   id="NotePoliticsHealthMilitary"
+                   ng-model="modelPoliticsHealthMilitary.Note"
+                   maxlength="100"
+                   autocomplete="off" />
+        </div>
+    </div>
+    <div class="row m-r-0">
+        <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+            <div class="demo-checkbox">
+                <input type="checkbox" id="PeopleWithDisabilities" class="filled-in chk-col-blue" ng-model="modelPoliticsHealthMilitary.PeopleWithDisabilities" />
+                <label class="m-t-5" for="PeopleWithDisabilities">Là người khuyết tật</label>
+            </div>
+        </div>
+    </div>
+</div>

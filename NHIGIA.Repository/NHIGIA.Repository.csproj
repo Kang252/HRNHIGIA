@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{75EA09E8-6365-475B-8DE3-26247B220B87}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>NHIGIA.Repository</RootNamespace>
+    <AssemblyName>NHIGIA.Repository</AssemblyName>
+    <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <Deterministic>true</Deterministic>
+    <TargetFrameworkProfile />
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="Dapper, Version=2.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\Dapper.2.0.35\lib\net461\Dapper.dll</HintPath>
+    </Reference>
+    <Reference Include="DapperExtensions, Version=1.6.3.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\DapperExtensions.1.6.3\lib\net45\DapperExtensions.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.Practices.EnterpriseLibrary.Common, Version=6.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\packages\EnterpriseLibrary.Common.6.0.1304.0\lib\NET45\Microsoft.Practices.EnterpriseLibrary.Common.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.Practices.EnterpriseLibrary.Data, Version=6.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\packages\EnterpriseLibrary.Data.6.0.1304.0\lib\NET45\Microsoft.Practices.EnterpriseLibrary.Data.dll</HintPath>
+    </Reference>
+    <Reference Include="Newtonsoft.Json, Version=12.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
+      <HintPath>..\packages\Newtonsoft.Json.12.0.3\lib\net45\Newtonsoft.Json.dll</HintPath>
+    </Reference>
+    <Reference Include="NLog, Version=4.0.0.0, Culture=neutral, PublicKeyToken=5120e14c03d0593c, processorArchitecture=MSIL">
+      <HintPath>..\packages\NLog.4.7.5\lib\net45\NLog.dll</HintPath>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.ComponentModel.Annotations, Version=4.2.1.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.ComponentModel.Annotations.4.7.0\lib\net461\System.ComponentModel.Annotations.dll</HintPath>
+    </Reference>
+    <Reference Include="System.ComponentModel.DataAnnotations" />
+    <Reference Include="System.Configuration" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.IO.Compression" />
+    <Reference Include="System.Runtime.Serialization" />
+    <Reference Include="System.ServiceModel" />
+    <Reference Include="System.Transactions" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="System.Data.DataSetExtensions" />
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Net.Http" />
+    <Reference Include="System.Xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Infrastructure\IAllowanceInformationRepository.cs" />
+    <Compile Include="Infrastructure\IAssetInformationRepository.cs" />
+    <Compile Include="Infrastructure\IAttachmentInformationRepository.cs" />
+    <Compile Include="Infrastructure\IBonusInformationRepository.cs" />
+    <Compile Include="Infrastructure\IBonusInformationStaffWereCommendedRepository.cs" />
+    <Compile Include="Infrastructure\IBulkUploadRepository.cs" />
+    <Compile Include="Infrastructure\ICertificateInformationRepository.cs" />
+    <Compile Include="Infrastructure\IContractInformationRepository.cs" />
+    <Compile Include="Infrastructure\IDegreeInformationRepository.cs" />
+    <Compile Include="Infrastructure\IEmployeeInformationRepository.cs" />
+    <Compile Include="Infrastructure\IEmployeesOnBusinessTripAdvancesRepository.cs" />
+    <Compile Include="Infrastructure\IEmployeesOnBusinessTripAssignedStaffRepository.cs" />
+    <Compile Include="Infrastructure\IEmployeesOnBusinessTripPaymentsRepository.cs" />
+    <Compile Include="Infrastructure\IEmployeesOnBusinessTripRepository.cs" />
+    <Compile Include="Infrastructure\IEmployeesOnBusinessTripRevenueEstimatesRepository.cs" />
+    <Compile Include="Infrastructure\IEvaluateRepository.cs" />
+    <Compile Include="Infrastructure\IFamilyInformationRepository.cs" />
+    <Compile Include="Infrastructure\IListCategoryRepository.cs" />
+    <Compile Include="Infrastructure\IListCategoryTypeRepository.cs" />
+    <Compile Include="Infrastructure\IPageInformationRepository.cs" />
+    <Compile Include="Infrastructure\IPoliticsHealthMilitaryInformationRepository.cs" />
+    <Compile Include="Infrastructure\IProblemInformationRelatedStaffRepository.cs" />
+    <Compile Include="Infrastructure\IProblemInformationRepository.cs" />
+    <Compile Include="Infrastructure\IProblemInformationTrackEmployeeCompensationRepository.cs" />
+    <Compile Include="Infrastructure\IQuitInformationRepository.cs" />
+    <Compile Include="Infrastructure\IReceiveInformationRepository.cs" />
+    <Compile Include="Infrastructure\IResignationProceduresEmployeeDebtRepository.cs" />
+    <Compile Include="Infrastructure\IResignationProceduresRepository.cs" />
+    <Compile Include="Infrastructure\ISalaryHistoryInformationRepository.cs" />
+    <Compile Include="Infrastructure\ISkillInformationRepository.cs" />
+    <Compile Include="Infrastructure\ISkinInformationRepository.cs" />
+    <Compile Include="Infrastructure\ITrainingProcessInformationRepository.cs" />
+    <Compile Include="Infrastructure\IWorkExperienceInformationRepository.cs" />
+    <Compile Include="Infrastructure\IWorkProgressInformationRepository.cs" />
+    <Compile Include="Pattern\BaseRepository.cs" />
+    <Compile Include="Pattern\CommonRepository.cs" />
+    <Compile Include="Pattern\IBaseRepository.cs" />
+    <Compile Include="Pattern\ICommonRepository.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Repositories\AllowanceInformationRepository.cs" />
+    <Compile Include="Repositories\AssetInformationRepository.cs" />
+    <Compile Include="Repositories\AttachmentInformationRepository.cs" />
+    <Compile Include="Repositories\BonusInformationRepository.cs" />
+    <Compile Include="Repositories\BonusInformationStaffWereCommendedRepository.cs" />
+    <Compile Include="Repositories\BulkUploadRepository.cs" />
+    <Compile Include="Repositories\CertificateInformationRepository.cs" />
+    <Compile Include="Repositories\ContractInformationRepository.cs" />
+    <Compile Include="Repositories\DegreeInformationRepository.cs" />
+    <Compile Include="Repositories\EmployeeInformationRepository.cs" />
+    <Compile Include="Repositories\EmployeesOnBusinessTripAdvancesRepository.cs" />
+    <Compile Include="Repositories\EmployeesOnBusinessTripAssignedStaffRepository.cs" />
+    <Compile Include="Repositories\EmployeesOnBusinessTripPaymentsRepository.cs" />
+    <Compile Include="Repositories\EmployeesOnBusinessTripRepository.cs" />
+    <Compile Include="Repositories\EmployeesOnBusinessTripRevenueEstimatesRepository.cs" />
+    <Compile Include="Repositories\EvaluateRepository.cs" />
+    <Compile Include="Repositories\FamilyInformationRepository.cs" />
+    <Compile Include="Repositories\ListCategoryRepository.cs" />
+    <Compile Include="Repositories\ListCategoryTypeRepository.cs" />
+    <Compile Include="Repositories\PageInformationRepository.cs" />
+    <Compile Include="Repositories\PoliticsHealthMilitaryInformationRepository.cs" />
+    <Compile Include="Repositories\ProblemInformationRelatedStaffRepository.cs" />
+    <Compile Include="Repositories\ProblemInformationRepository.cs" />
+    <Compile Include="Repositories\ProblemInformationTrackEmployeeCompensationRepository.cs" />
+    <Compile Include="Repositories\QuitInformationRepository.cs" />
+    <Compile Include="Repositories\ReceiveInformationRepository.cs" />
+    <Compile Include="Repositories\ResignationProceduresEmployeeDebtRepository.cs" />
+    <Compile Include="Repositories\ResignationProceduresRepository.cs" />
+    <Compile Include="Repositories\SalaryHistoryInformationRepository.cs" />
+    <Compile Include="Repositories\SkillInformationRepository.cs" />
+    <Compile Include="Repositories\SkinInformationRepository.cs" />
+    <Compile Include="Repositories\TrainingProcessInformationRepository.cs" />
+    <Compile Include="Repositories\WorkExperienceInformationRepository.cs" />
+    <Compile Include="Repositories\WorkProgressInformationRepository.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\NHIGIA.Common\NHIGIA.Common.csproj">
+      <Project>{4454D088-971E-476F-B5B7-161D92E7FF3B}</Project>
+      <Name>NHIGIA.Common</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\NHIGIA.Core\NHIGIA.Core.csproj">
+      <Project>{f9db27db-c2d2-4f32-a5ae-13daccc9a382}</Project>
+      <Name>NHIGIA.Core</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup />
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>

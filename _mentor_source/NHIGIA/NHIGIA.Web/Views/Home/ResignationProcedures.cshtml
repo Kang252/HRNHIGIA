@@ -1,0 +1,218 @@
+﻿<script src="@Url.Content("~/Scripts/app/controller/ResignationProceduresController.js")"></script>
+<script src="@Url.Content("~/Scripts/app/services/ResignationProceduresService.js")"></script>
+<script src="@Url.Content("~/Scripts/app/services/ListCategoryService.js")"></script>
+<script src="@Url.Content("~/Scripts/app/services/AssetInformationService.js")"></script>
+<script src="@Url.Content("~/Scripts/app/services/QuitInformationService.js")"></script>
+<script src="@Url.Content("~/Scripts/app/services/ResignationProceduresEmployeeDebtService.js")"></script>
+<script src="@Url.Content("~/Scripts/app/services/EmployeeInformationService.js")"></script>
+
+<div class="container-fluid" ng-controller="ResignationProceduresController">
+    <div class="row clearfix" ng-if="ShowList">
+        <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+            <div class="card">
+                @Html.Partial("Header")
+                <div class="body table-responsive">
+                    <div class="button-demo">
+                        <button id="ButtonFinishProcedures" type="button" class="btn btn-success waves-effect" ng-click="ShowPopup('FINISH_PROCEDURES')">
+                            <i class="material-icons add_hide">check_circle</i>
+                            <span class="icon-name add_hide">Hoàn thành thủ tục</span>
+                            <i class="material-icons add_show hide">remove_red_eye</i>
+                            <span class="icon-name add_show hide">Xem thủ tục</span>
+                        </button>
+                        <button id="ButtonResignationUpdate" type="button" class="btn btn-warning waves-effect add_hide" ng-click="ShowPopup('RESIGNATION_UPDATE')">
+                            <i class="material-icons">check_circle</i>
+                            <span class="icon-name">Cập nhật thôi việc</span>
+                        </button>
+                        <button id="ButtonDelete" type="button" class="btn btn-danger waves-effect" ng-click="ShowPopup('DELETE')" disabled>
+                            <i class="material-icons">delete_sweep</i>
+                            <span class="icon-name">Xoá</span>
+                        </button>
+                        <button type="button" class="btn btn-info waves-effect" ng-click="ShowPopup('EXPORT_EXCEL')">
+                            <i class="material-icons">file_download</i>
+                            <span class="icon-name">Xuất Excel</span>
+                        </button>
+                        <button type="button" class="btn bg-grey waves-effect" ng-click="ShowPopup('REFRESH')">
+                            <i class="material-icons">refresh</i>
+                            <span class="icon-name">Nạp</span>
+                        </button>
+                    </div>
+                    <div kendo-grid="grid"
+                         id="Table"
+                         k-options="Section">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="row clearfix" ng-if="ShowInfo">
+        @using (Ajax.BeginForm("ResignationProcedures", "Home", null, new AjaxOptions { HttpMethod = "POST" }, new { @name = "Valid", @id = "Valid", @novalidate = "novalidate" }))
+        {
+            <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                <div class="card">
+                    <div class="header">
+                        <h2>Hoàn thành thủ tục</h2>
+                        <div class="header-dropdown m-r--5">
+                            <button id="btnCancelHeader" type="button" class="btn bg-grey waves-effect" ng-click="ShowPopup('CANCEL')"><i class="material-icons">close</i><span class="icon-name">Huỷ bỏ</span></button>
+                        </div>
+                    </div>
+                    <div class="body table-responsive" style="padding: 0 20px 0 20px;">
+                        <ul class="nav nav-tabs tab-nav-right" role="tablist">
+                            <li role="presentation" class="active"><a href="#general_information" data-toggle="tab" aria-expanded="false" ng-click="ClickInformation('GENERAL_INFORMATION')">Thông tin chung</a></li>
+                            <li role="presentation" class=""><a href="#procedure" data-toggle="tab" aria-expanded="false" ng-click="ClickInformation('PROCEDURE')">Thủ tục</a></li>
+                            <li role="presentation" class=""><a href="#property_handed_over" data-toggle="tab" aria-expanded="false" ng-click="ClickInformation('PROPERTY_HANDED_OVER')">Tài sản bàn giao</a></li>
+                            <li role="presentation" class=""><a href="#employee_debt" data-toggle="tab" aria-expanded="false" ng-click="ClickInformation('EMPLOYEE_DEBT')">Công nợ nhân viên</a></li>
+                        </ul>
+                        <div class="tab-content">
+                            <div role="tabpanel" class="tab-pane fade active in" id="general_information" style="padding-top: 0;">
+                                @Html.Partial("_GeneralnformationPartial")
+                            </div>
+                            <div role="tabpanel" class="tab-pane fade custom_tab_information" id="procedure" style="padding-top: 15px;">
+                                @Html.Partial("_ProcedurePartial")
+                            </div>
+                            <div role="tabpanel" class="tab-pane fade custom_tab_information" id="property_handed_over" style="padding-top: 15px;">
+                                @Html.Partial("_PropertyHandedOverPartial")
+                            </div>
+                            <div role="tabpanel" class="tab-pane fade custom_tab_information" id="employee_debt" style="padding-top: 0;">
+                                @Html.Partial("_EmployeeDebtPartial")
+                            </div>
+                        </div>
+                    </div>
+                    <hr style="border-bottom:1px solid rgba(204, 204, 204, 0.35); border-top: 0;" />
+                    <div class="header">
+                        <div class="header-dropdown m-r--5" style="top:-10px;">
+                            <button id="btnCancelFooter" type="button" class="btn bg-grey waves-effect" ng-click="ShowPopup('CANCEL')"><i class="material-icons">close</i><span class="icon-name">Huỷ bỏ</span></button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+    @using (Ajax.BeginForm("ResignationUpdate", "Home", null, new AjaxOptions { HttpMethod = "POST" }, new { @name = "ValidResignationUpdate", @id = "ValidResignationUpdate", @novalidate = "novalidate" }))
+    {
+        <div id="KenWindownResignationUpdate" class="k-window-content KenWindownPopup" style="display:none;">
+            <div class="content" style="height: 400px; margin: 0 -15px 15px 0; overflow: auto; overflow-x: hidden;">
+                <div class="row m-t--8">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 p-r-30">
+                        <label>
+                            Số quyết định
+                        </label>
+                        <input class="form-control"
+                               name="DecisionNumber"
+                               id="DecisionNumber"
+                               ng-model="model.DecisionNumber"
+                               maxlength="50"
+                               autocomplete="off" />
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 p-r-0">
+                        <label>Ngày quyết định</label>
+                        <input kendo-date-picker
+                               class="date-picker-style"
+                               k-format="'dd/MM/yyyy'"
+                               onkeydown="return true;"
+                               k-ng-model="modelWorkProgress.DecisionDate"
+                               id="DecisionDate"
+                               name="DecisionDate"
+                               ng-model="model.DecisionDate"
+                               placeholder="dd/MM/yyyy">
+                    </div>
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 p-r-30">
+                        <label>Ngày nghỉ việc <span class="asterisk">*</span></label>
+                        <input kendo-date-picker
+                               class="date-picker-style"
+                               k-format="'dd/MM/yyyy'"
+                               onkeydown="return false;"
+                               k-ng-model="modelWorkProgress.DayOff"
+                               id="DayOff"
+                               name="DayOff"
+                               ng-model="model.DayOff"
+                               placeholder="dd/MM/yyyy"
+                               ng-class="{'has-error': CheckDayOff}"
+                               title="{{MessageCheckDayOff}}">
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 p-r-30">
+                        <label>
+                            Người duyệt nghỉ
+                        </label>
+                        <input kendo-auto-complete
+                               name="ReviewerId"
+                               id="ReviewerId"
+                               k-data-text-field="'EmployeeName'"
+                               placeholder="Nhập 3 ký tự trở lên"
+                               k-filter="'contains'"
+                               k-min-length="3"
+                               k-data-source="GetEmployeeForReviewer"
+                               k-on-select="onSelectReviewerId(kendoEvent)"
+                               ng-blur="onChangeReviewerId()"
+                               ng-change="onChangeReviewerIdValue()"
+                               ng-model="model.ReviewerAutoComplete" />
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 p-r-30">
+                        <label>
+                            Lý do nghỉ
+                        </label>
+                        <textarea class="form-control"
+                                  name="ReasonForRest"
+                                  id="ReasonForRest"
+                                  ng-model="model.ReasonForRest"
+                                  maxlength="100"
+                                  autocomplete="off"
+                                  rows="2"></textarea>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 p-r-30">
+                        <label>
+                            Ý kiến đóng góp
+                        </label>
+                        <textarea class="form-control"
+                                  name="Comments"
+                                  id="Comments"
+                                  ng-model="model.Comments"
+                                  maxlength="100"
+                                  autocomplete="off"
+                                  rows="2"></textarea>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 p-r-30">
+                        <label>
+                            Ghi chú
+                        </label>
+                        <textarea class="form-control"
+                                  name="Note"
+                                  id="Note"
+                                  ng-model="model.Note"
+                                  maxlength="100"
+                                  autocomplete="off"
+                                  rows="3"></textarea>
+                    </div>
+                </div>
+            </div>
+            <hr />
+            <div class="footer">
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                        <button type="button"
+                                id="btnSaveResignationUpdate"
+                                class="btn btn-primary waves-effect float-right m-l-5"
+                                ng-click="Save()">
+                            <i class="material-icons">save</i><span class="icon-name">Đồng ý</span>
+                        </button>
+                        <button type="button"
+                                class="btn bg-grey waves-effect float-right m-l-5"
+                                id="btnCloseResignationUpdate"
+                                ng-click="Close()">
+                            <i class="material-icons">close</i><span class="icon-name">Huỷ bỏ</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>

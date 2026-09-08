@@ -1,0 +1,217 @@
+﻿<div class="row m-r-0 m-t--15">
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 m-t-15">
+        <b>May sẵn - Kích cỡ kiểu chữ</b>
+    </div>
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 m-t-15">
+        <b>May sẵn - Kích cỡ kiểu số</b>
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Áo</label>
+        <select kendo-drop-down-list
+                id="ShirtStringId"
+                name="ShirtStringId"
+                ng-model="modelSkin.ShirtStringId"
+                k-data-source="FontSizeDropdownlist"
+                k-data-text-field="'Name'"
+                k-data-value-field="'Id'"
+                k-filter="'contains'"
+                class="Dropdownlist-Custom"></select>
+    </div>
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Áo</label>
+        <select kendo-drop-down-list
+                id="ShirtNumberId"
+                name="ShirtNumberId"
+                ng-model="modelSkin.ShirtNumberId"
+                k-data-source="NumberSizeDropdownlist"
+                k-data-text-field="'Name'"
+                k-data-value-field="'Id'"
+                k-filter="'contains'"
+                class="Dropdownlist-Custom"></select>
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Quần</label>
+        <select kendo-drop-down-list
+                id="TrousersStringId"
+                name="TrousersStringId"
+                ng-model="modelSkin.TrousersStringId"
+                k-data-source="FontSizeDropdownlist"
+                k-data-text-field="'Name'"
+                k-data-value-field="'Id'"
+                k-filter="'contains'"
+                class="Dropdownlist-Custom"></select>
+    </div>
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Quần</label>
+        <select kendo-drop-down-list
+                id="TrousersNumberId"
+                name="TrousersNumberId"
+                ng-model="modelSkin.TrousersNumberId"
+                k-data-source="NumberSizeDropdownlist"
+                k-data-text-field="'Name'"
+                k-data-value-field="'Id'"
+                k-filter="'contains'"
+                class="Dropdownlist-Custom"></select>
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Zuýp</label>
+        <select kendo-drop-down-list
+                id="ZuypStringId"
+                name="ZuypStringId"
+                ng-model="modelSkin.ZuypStringId"
+                k-data-source="FontSizeDropdownlist"
+                k-data-text-field="'Name'"
+                k-data-value-field="'Id'"
+                k-filter="'contains'"
+                class="Dropdownlist-Custom"></select>
+    </div>
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Zuýp</label>
+        <select kendo-drop-down-list
+                id="ZuypNumberId"
+                name="ZuypNumberId"
+                ng-model="modelSkin.ZuypNumberId"
+                k-data-source="NumberSizeDropdownlist"
+                k-data-text-field="'Name'"
+                k-data-value-field="'Id'"
+                k-filter="'contains'"
+                class="Dropdownlist-Custom"></select>
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Đồ bảo hộ</label>
+        <select kendo-drop-down-list
+                id="ProtectiveGearStringId"
+                name="ProtectiveGearStringId"
+                ng-model="modelSkin.ProtectiveGearStringId"
+                k-data-source="FontSizeDropdownlist"
+                k-data-text-field="'Name'"
+                k-data-value-field="'Id'"
+                k-filter="'contains'"
+                class="Dropdownlist-Custom"></select>
+    </div>
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Đồ bảo hộ</label>
+        <select kendo-drop-down-list
+                id="ProtectiveGearNumberId"
+                name="ProtectiveGearNumberId"
+                ng-model="modelSkin.ProtectiveGearNumberId"
+                k-data-source="NumberSizeDropdownlist"
+                k-data-text-field="'Name'"
+                k-data-value-field="'Id'"
+                k-filter="'contains'"
+                class="Dropdownlist-Custom"></select>
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 m-t-15">
+        <b>May đo (cm)</b>
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Rộng vai</label>
+        <input class="form-control"
+               name="ShoulderWidth"
+               id="ShoulderWidth"
+               ng-model="modelSkin.ShoulderWidth"
+               numbers-Only
+               maxlength="3"
+               autocomplete="off" />
+    </div>
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Vòng mông</label>
+        <input class="form-control"
+               name="Buttocks"
+               id="Buttocks"
+               ng-model="modelSkin.Buttocks"
+               numbers-Only
+               maxlength="3"
+               autocomplete="off" />
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Dài tay</label>
+        <input class="form-control"
+               name="LongSleeve"
+               id="LongSleeve"
+               ng-model="modelSkin.LongSleeve"
+               numbers-Only
+               maxlength="3"
+               autocomplete="off" />
+    </div>
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Dài quần</label>
+        <input class="form-control"
+               name="LongPants"
+               id="LongPants"
+               ng-model="modelSkin.LongPants"
+               numbers-Only
+               maxlength="3"
+               autocomplete="off" />
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Dài áo</label>
+        <input class="form-control"
+               name="LongCoat"
+               id="LongCoat"
+               ng-model="modelSkin.LongCoat"
+               numbers-Only
+               maxlength="3"
+               autocomplete="off" />
+    </div>
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Dài váy</label>
+        <input class="form-control"
+               name="LongSkirt"
+               id="LongSkirt"
+               ng-model="modelSkin.LongSkirt"
+               numbers-Only
+               maxlength="3"
+               autocomplete="off" />
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Vòng ngực</label>
+        <input class="form-control"
+               name="ChestRing"
+               id="ChestRing"
+               ng-model="modelSkin.ChestRing"
+               numbers-Only
+               maxlength="3"
+               autocomplete="off" />
+    </div>
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Vòng đùi</label>
+        <input class="form-control"
+               name="LapThigh"
+               id="LapThigh"
+               ng-model="modelSkin.LapThigh"
+               numbers-Only
+               maxlength="3"
+               autocomplete="off" />
+    </div>
+</div>
+<div class="row m-r-0">
+    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 margin-bottom-5 p-r-0">
+        <label>Vòng eo</label>
+        <input class="form-control"
+               name="Waist"
+               id="Waist"
+               ng-model="modelSkin.Waist"
+               numbers-Only
+               maxlength="3"
+               autocomplete="off" />
+    </div>
+</div>

@@ -1,0 +1,240 @@
+﻿<script src="@Url.Content("~/Scripts/app/controller/WorkExperienceInformationController.js")"></script>
+<div class="container-fluid" ng-controller="WorkExperienceInformationController">
+    <div class="row clearfix">
+        <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 p-r-0 p-l-0">
+            <div class="card box-shadow-none">
+                <button type="button" class="btn add-action-text m-r-0 m-b-10 float-right" ng-if="HideButton" ng-click="ShowPopupWorkExperience('ADD_WORKEXPERIENCE')"><i class="material-icons">add_circle</i><span class="icon-name">Thêm</span></button>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th style="max-width:200px;">Thời gian</th>
+                            <th style="max-width:180px;">Nơi làm việc</th>
+                            <th style="max-width:120px;">Vị trí công việc</th>
+                            <th style="max-width:180px;">Mức lương</th>
+                            <th style="max-width: 156px;">Đã kiểm tra, đối chiếu</th>
+                            <th ng-if="GetAllWorkExperienceInformation.length > 0" style="width:85px; min-width:85px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr ng-if="GetAllWorkExperienceInformation.length > 0" ng-repeat="item in GetAllWorkExperienceInformation">
+                            <td>{{item.TimeWork}}</td>
+                            <td>{{item.Workplace}}</td>
+                            <td>{{item.JobPosition}}</td>
+                            <td>{{item.Wage}}</td>
+                            <td>
+                                <div class="align-center" ng-if="item.HaveCheckedCompared === true">
+                                    <i class="material-icons">check_circle</i><span class="icon-name"></span>
+                                </div>
+                            </td>
+                            <td>
+                                <a ng-click="ShowPopupWorkExperience('EDIT_WORKEXPERIENCE',item.Id)">
+                                    <i class="material-icons" ng-if="HideButton" style="color:#0c68b4;">mode_edit</i>
+                                    <i class="material-icons" ng-if="ShowButton" style="color:#0c68b4;">remove_red_eye</i>
+                                </a>
+                                <a ng-if="HideButton" ng-click="ShowPopupWorkExperience('DELETE_WORKEXPERIENCE',item.Id)"><i class="material-icons" style="color:#E55B5C;">close</i></a>
+                            </td>
+                        </tr>
+                        <tr ng-if="GetAllWorkExperienceInformation.length === 0">
+                            <td colspan="5" align="center">Không có dữ liệu</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    @using (Ajax.BeginForm("WorkExperienceInformation", "Home", null, new AjaxOptions { HttpMethod = "POST" }, new { @name = "ValidWorkExperience", @id = "ValidWorkExperience", @novalidate = "novalidate" }))
+    {
+        <div id="KenWindownWorkExperience" class="k-window-content KenWindownPopup" style="display:none;">
+            <div class="content" style="height: 400px; margin: 0 -15px 15px 0; overflow: auto; overflow-x: hidden;">
+                <div class="row m-t--10">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 p-r-0">
+                        <label>
+                            <b>Kinh nghiệm làm việc</b>
+                        </label>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 p-r-0">
+                        <label>
+                            Từ tháng, năm <span class="asterisk">*</span>
+                        </label>
+                        <input kendo-date-picker
+                               class="form-control date-picker-style"
+                               k-format="'MM/yyyy'"
+                               onkeydown="return false;"
+                               k-ng-model="modelWorkExperience.FromMonthAndYear"
+                               k-options="monthSelectorOptions"
+                               id="FromMonthAndYear"
+                               name="FromMonthAndYear"
+                               ng-model="modelWorkExperience.FromMonthAndYear"
+                               placeholder="MM/yyyy">
+                    </div>
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 p-r-30">
+                        <label>
+                            Đến tháng, năm <span class="asterisk">*</span>
+                        </label>
+                        <input kendo-date-picker
+                               class="form-control date-picker-style"
+                               k-format="'MM/yyyy'"
+                               onkeydown="return false;"
+                               k-ng-model="modelWorkExperience.ByMonthAndYear"
+                               k-options="monthSelectorOptions"
+                               id="ByMonthAndYear"
+                               name="ByMonthAndYear"
+                               ng-model="modelWorkExperience.ByMonthAndYear"
+                               ng-class="{'has-error': CheckByMonthAndYear}"
+                               title="{{MessageCheckByMonthAndYear}}"
+                               placeholder="MM/yyyy">
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 p-r-0">
+                        <label>
+                            Nơi làm việc <span class="asterisk">*</span>
+                        </label>
+                        <input class="form-control"
+                               name="WorkplaceWorkExperience"
+                               id="WorkplaceWorkExperience"
+                               ng-model="modelWorkExperience.Workplace"
+                               maxlength="100"
+                               ng-class="{'has-error': showHasErrorWorkplace}"
+                               title="{{MessageErrorForInput}}"
+                               ng-change="onChangeValueWorkExperience('Workplace')" />
+                    </div>
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 p-r-30">
+                        <label>
+                            Vị trí công việc <span class="asterisk">*</span>
+                        </label>
+                        <input class="form-control"
+                               name="JobPosition"
+                               id="JobPosition"
+                               ng-model="modelWorkExperience.JobPosition"
+                               maxlength="100"
+                               ng-class="{'has-error': showHasErrorJobPosition}"
+                               title="{{MessageErrorForInput}}"
+                               ng-change="onChangeValueWorkExperience('JobPosition')" />
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 p-r-30">
+                        <label>
+                            Mức lương
+                        </label>
+                        <input class="form-control"
+                               name="Wage"
+                               id="Wage"
+                               ng-model="modelWorkExperience.Wage"
+                               min="0"
+                               max="999999999999999"
+                               number-format
+                               maxlength="15" />
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 p-r-0">
+                        <label>
+                            Mô tả công việc
+                        </label>
+                        <textarea class="form-control"
+                                  name="JobDescription"
+                                  id="JobDescription"
+                                  ng-model="modelWorkExperience.JobDescription"
+                                  maxlength="100"></textarea>
+                    </div>
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 p-r-30">
+                        <label>
+                            Ghi chú
+                        </label>
+                        <textarea class="form-control"
+                                  name="NoteWorkExperience"
+                                  id="NoteWorkExperience"
+                                  ng-model="modelWorkExperience.Note"
+                                  maxlength="100"></textarea>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 p-r-0">
+                        <label>
+                            <b>Người tham khảo, đối chiếu</b>
+                        </label>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 p-r-0">
+                        <label>
+                            Họ và tên
+                        </label>
+                        <input class="form-control"
+                               name="FirstAndLastNameWorkExperience"
+                               id="FirstAndLastNameWorkExperience"
+                               ng-model="modelWorkExperience.FirstAndLastName"
+                               maxlength="100" />
+                    </div>
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 p-r-30">
+                        <label>
+                            Chức danh
+                        </label>
+                        <input class="form-control"
+                               name="Title"
+                               id="Title"
+                               ng-model="modelWorkExperience.Title"
+                               maxlength="100" />
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 p-r-0">
+                        <label>
+                            Điện thoại
+                        </label>
+                        <input class="form-control"
+                               name="Phone"
+                               id="Phone"
+                               ng-model="modelWorkExperience.Phone"
+                               maxlength="11"
+                               numbers-Only />
+                    </div>
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 p-r-30">
+                        <label>
+                            Email
+                        </label>
+                        <input class="form-control"
+                               name="EmailWorkExperience"
+                               id="EmailWorkExperience"
+                               ng-model="modelWorkExperience.Email"
+                               maxlength="100" />
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 p-t-5">
+                        <div class="demo-checkbox">
+                            <input type="checkbox" id="HaveCheckedCompared" class="filled-in chk-col-blue" ng-model="modelWorkExperience.HaveCheckedCompared" />
+                            <label class="m-t-5 checkbox_label_popup" for="HaveCheckedCompared"> Đã kiểm tra, đối chiếu</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <hr class="m-t--10" />
+            <div class="footer">
+                <div class="row">
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                        <button type="button"
+                                id="btnSaveWorkExperience"
+                                class="btn btn-primary waves-effect float-right m-l-5"
+                                ng-if="HideButton"
+                                ng-click="SaveWorkExperience()"
+                                disabled>
+                            <i class="material-icons">save</i><span class="icon-name">Lưu</span>
+                        </button>
+                        <button type="button"
+                                class="btn bg-grey waves-effect float-right m-l-5"
+                                id="btnCloseWorkExperience"
+                                ng-click="CloseWorkExperience()"
+                                disabled>
+                            <i class="material-icons">close</i><span class="icon-name">Đóng</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>

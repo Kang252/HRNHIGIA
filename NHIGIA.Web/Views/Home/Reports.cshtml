@@ -1,0 +1,30 @@
+<div class="container-fluid">
+    <div class="hrm-page-header">
+        <div><h1 class="hrm-page-title">Báo cáo nhân sự</h1><p class="hrm-page-subtitle">Tổng hợp chấm công, nghỉ phép và tình trạng nhân sự</p></div>
+        <a id="reportExport" class="hrm-btn hrm-btn-primary"><i class="material-icons">file_download</i> Xuất CSV chấm công</a>
+    </div>
+    <div class="hrm-grid hrm-grid-4">
+        <div class="hrm-card hrm-stat"><div class="hrm-stat-label">Nhân sự trong phạm vi</div><div id="rEmployees" class="hrm-stat-value">--</div></div>
+        <div class="hrm-card hrm-stat"><div class="hrm-stat-label">Có mặt hôm nay</div><div id="rPresent" class="hrm-stat-value">--</div></div>
+        <div class="hrm-card hrm-stat"><div class="hrm-stat-label">Đi muộn / về sớm</div><div id="rLate" class="hrm-stat-value">--</div></div>
+        <div class="hrm-card hrm-stat"><div class="hrm-stat-label">Đơn chờ duyệt</div><div id="rPending" class="hrm-stat-value">--</div></div>
+    </div>
+    <div class="hrm-card hrm-section-gap">
+        <div class="hrm-toolbar"><div class="hrm-field"><label>TỪ NGÀY</label><input id="rFrom" class="hrm-control" type="date" /></div><div class="hrm-field"><label>ĐẾN NGÀY</label><input id="rTo" class="hrm-control" type="date" /></div><button id="rLoad" class="hrm-btn hrm-btn-primary">Lập báo cáo</button></div>
+        <div class="hrm-table-wrap"><table class="hrm-table"><thead><tr><th>Nhân viên</th><th>Ngày</th><th>Ca</th><th>Vào</th><th>Ra</th><th>Đi muộn</th><th>Về sớm</th></tr></thead><tbody id="rRows"></tbody></table></div>
+    </div>
+</div>
+<script>
+(function(){
+    $('.reports_menu').addClass('active');
+    $('#rFrom').val(moment().startOf('month').format('YYYY-MM-DD')); $('#rTo').val(moment().format('YYYY-MM-DD'));
+    function esc(v){return $('<div>').text(v==null?'':v).html();}
+    function load(){
+        var query={fromDate:$('#rFrom').val(),toDate:$('#rTo').val()};
+        $('#reportExport').attr('href','@Url.Action("AttendanceCsv","Hrm")?fromDate='+query.fromDate+'&toDate='+query.toDate);
+        $.get('@Url.Action("Attendance","Hrm")',query).done(function(r){var items=r.Data||[];$('#rRows').html(items.length?items.map(function(x){return '<tr><td>'+esc(x.DisplayName)+'</td><td>'+moment(x.WorkDate).format('DD/MM/YYYY')+'</td><td>'+esc(x.ShiftName||'--')+'</td><td>'+(x.CheckIn?moment(x.CheckIn).format('HH:mm'):'--')+'</td><td>'+(x.CheckOut?moment(x.CheckOut).format('HH:mm'):'--')+'</td><td>'+x.LateMinutes+' phút</td><td>'+x.EarlyMinutes+' phút</td></tr>';}).join(''):'<tr><td colspan="7"><div class="hrm-empty">Chưa có dữ liệu.</div></td></tr>');});
+        $.get('@Url.Action("Dashboard","Hrm")').done(function(r){var d=r.Data||{};$('#rEmployees').text(d.TotalEmployees);$('#rPresent').text(d.PresentToday);$('#rLate').text(d.LateOrEarlyToday);$('#rPending').text(d.PendingApprovals);});
+    }
+    $('#rLoad').click(load); load();
+})();
+</script>
