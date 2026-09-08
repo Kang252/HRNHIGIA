@@ -1,7 +1,11 @@
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.DataProtection;
 using NHIGIA.Modern.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Logging.ClearProviders();
+builder.Logging.AddConsole();
 
 builder.Services
     .AddControllersWithViews()
@@ -18,7 +22,13 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         options.ExpireTimeSpan = TimeSpan.FromHours(8);
     });
 builder.Services.AddAuthorization();
-builder.Services.AddDataProtection();
+var dataProtection = builder.Services.AddDataProtection();
+var dataProtectionPath = builder.Configuration["HRM_DATA_PROTECTION_PATH"];
+if (!string.IsNullOrWhiteSpace(dataProtectionPath))
+{
+    Directory.CreateDirectory(dataProtectionPath);
+    dataProtection.PersistKeysToFileSystem(new DirectoryInfo(dataProtectionPath));
+}
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton<HrmDataStore>();
 builder.Services.AddScoped<HrmUserAccessor>();

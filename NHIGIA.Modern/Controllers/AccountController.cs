@@ -12,8 +12,13 @@ namespace NHIGIA.Modern.Controllers;
 public sealed class AccountController : Controller
 {
     private readonly HrmDataStore _store;
+    private readonly ILogger<AccountController> _logger;
 
-    public AccountController(HrmDataStore store) => _store = store;
+    public AccountController(HrmDataStore store, ILogger<AccountController> logger)
+    {
+        _store = store;
+        _logger = logger;
+    }
 
     [HttpGet]
     public IActionResult Login(string returnUrl = null)
@@ -27,7 +32,21 @@ public sealed class AccountController : Controller
     public async Task<IActionResult> Login(LoginViewModel model)
     {
         if (!ModelState.IsValid) return View(model);
-        var user = _store.FindUser(model.Username);
+
+        HrmUserAccountModel user;
+        try
+        {
+            user = _store.FindUser(model.Username);
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(exception, "Không thể kết nối cơ sở dữ liệu khi đăng nhập");
+            ModelState.AddModelError(
+                string.Empty,
+                "Hệ thống chưa kết nối được cơ sở dữ liệu. Vui lòng liên hệ quản trị viên.");
+            return View(model);
+        }
+
         if (user == null || !user.IsActive || !HrmPasswordHasher.Verify(model.Password, user.PasswordSalt, user.PasswordHash))
         {
             ModelState.AddModelError(string.Empty, "Tài khoản hoặc mật khẩu không đúng.");
