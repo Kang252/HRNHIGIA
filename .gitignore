@@ -79,3 +79,4 @@ _[Ss]cripts
 NHIGIA.Web/Web.config
 NHIGIA.Modern/appsettings.Production.json
 **/*.dll.config
+**/Web.config
