@@ -28,6 +28,14 @@ try
         await Task.Delay(500);
     }
     if (!ready) throw new Exception("Local test host failed to start.");
+    using (var proxyRequest = new HttpRequestMessage(HttpMethod.Get, "/Work?kind=kpi"))
+    {
+        proxyRequest.Headers.Add("X-Forwarded-Proto", "https");
+        var proxyResponse = await client.SendAsync(proxyRequest);
+        if (proxyResponse.Headers.Location?.Scheme != "https")
+            throw new Exception("Forwarded HTTPS scheme was not preserved in the login redirect.");
+        Console.WriteLine("PASS forwarded HTTPS redirect");
+    }
     var provider = DataProtectionProvider.Create(new DirectoryInfo(keys), b => b.SetApplicationName(root + Path.DirectorySeparatorChar));
     var format = new TicketDataFormat(provider.CreateProtector("Microsoft.AspNetCore.Authentication.Cookies.CookieAuthenticationMiddleware", "Cookies", "v2"));
     string Cookie(string role)
