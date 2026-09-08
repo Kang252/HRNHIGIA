@@ -45,7 +45,7 @@
 
     <div class="hrm-mobile-menu">
         <a class="hrm-btn" asp-controller="Work" asp-action="Index" asp-route-kind="kpi">KPI</a>
-        @if (canConfigure) { <a class="hrm-btn" asp-controller="Work" asp-action="Index" asp-route-kind="payroll">Tính lương</a> }
+        <a class="hrm-btn" asp-controller="Work" asp-action="Index" asp-route-kind="payroll">@(canConfigure ? "Tính lương" : "Phiếu lương")</a>
         @if (canConfigure) { <a class="hrm-btn" asp-controller="Work" asp-action="Index" asp-route-kind="recruitment">Tuyển dụng</a> }
         @if (canManage) { <a class="hrm-btn" asp-controller="Work" asp-action="Index" asp-route-kind="training">Đào tạo</a> }
         <a class="hrm-btn" asp-controller="Work" asp-action="Index" asp-route-kind="overtime">Tăng ca</a>
@@ -90,8 +90,8 @@
                     }
                     <li class="header">HIỆU SUẤT &amp; HỖ TRỢ</li>
                     <li class="@(workKind == "kpi" ? "active" : "")"><a asp-controller="Work" asp-action="Index" asp-route-kind="kpi"><i class="material-icons">track_changes</i><span>KPI</span></a></li>
-                    @if (canConfigure) {
                     <li class="@(workKind == "payroll" ? "active" : "")"><a asp-controller="Work" asp-action="Index" asp-route-kind="payroll"><i class="material-icons">payments</i><span>Tính lương</span></a></li>
+                    @if (canConfigure) {
                     <li class="@(workKind == "recruitment" ? "active" : "")"><a asp-controller="Work" asp-action="Index" asp-route-kind="recruitment"><i class="material-icons">person_search</i><span>Tuyển dụng</span></a></li>
                     }
                     @if (canManage) {

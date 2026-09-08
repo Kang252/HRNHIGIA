@@ -4,8 +4,18 @@
     {
         ["TRACKING"] = "Đang theo dõi", ["PENDING"] = "Chờ phê duyệt",
         ["AVAILABLE"] = "Sẵn sàng", ["ASSIGNED"] = "Đã cấp phát",
-        ["OPEN"] = "Đang xử lý", ["DRAFT"] = "Bản nháp", ["PLANNED"] = "Đã lên lịch"
+        ["OPEN"] = "Đang xử lý", ["DRAFT"] = "Bản nháp", ["PLANNED"] = "Đã lên lịch",
+        ["PENDING_APPROVAL"] = "Chờ Giám đốc duyệt", ["APPROVED"] = "Đã duyệt",
+        ["REJECTED"] = "Cần điều chỉnh", ["LOCKED"] = "Đã khóa",
+        ["PUBLISHED"] = "Đã phát hành", ["PAID"] = "Đã thanh toán",
+        ["DISPUTED"] = "Có khiếu nại", ["RESOLVED"] = "Đã xử lý khiếu nại"
     };
+    var currentUser = HrmUser.Current;
+    var isAdmin = currentUser?.RoleCode == HrmRoles.Admin;
+    var isHr = currentUser?.RoleCode == HrmRoles.Hr;
+    var isDirector = currentUser?.RoleCode == HrmRoles.Director;
+    var canEditPayroll = isAdmin || isHr;
+    var canApprovePayroll = isAdmin || isDirector;
     var showEmployee = Model.Kind is "kpi" or "transfer" or "payroll" or "assets" or "training"
         || (Model.CanManage && Model.Kind is "overtime" or "resignation");
     var employeeRequired = Model.Kind is "kpi" or "transfer" or "payroll" or "overtime" or "resignation";
@@ -34,6 +44,14 @@
 </div>
 <div asp-validation-summary="All" class="alert alert-danger" role="alert"></div>
 @if (TempData["WorkSuccess"] is string success) { <div class="alert alert-success" role="status">@success</div> }
+@if (TempData["WorkError"] is string error) { <div class="alert alert-danger" role="alert">@error</div> }
+
+@if (Model.Kind == "payroll")
+{
+    <ol class="payroll-flow" aria-label="Quy trình bảng lương">
+        <li>Nháp</li><li>Chờ duyệt</li><li>Đã duyệt</li><li>Khóa</li><li>Phát hành</li><li>Thanh toán</li>
+    </ol>
+}
 
 <div class="work-layout">
     <section class="work-panel">
@@ -51,7 +69,7 @@
         else
         {
             <div class="table-responsive"><table class="table table-hover">
-                <thead><tr><th>Nội dung</th><th>@(Model.Kind == "recruitment" ? "Phòng ban" : "Nhân viên")</th><th>Thông tin chính</th><th>Trạng thái</th></tr></thead>
+                <thead><tr><th>Nội dung</th><th>@(Model.Kind == "recruitment" ? "Phòng ban" : "Nhân viên")</th><th>Thông tin chính</th><th>Trạng thái</th>@if (Model.Kind == "payroll") { <th>Thao tác</th> }</tr></thead>
                 <tbody>
                 @foreach (var item in Model.Items)
                 {
@@ -67,7 +85,39 @@
                             <small class="work-muted">@item.DueDate?.ToString("dd/MM/yyyy")</small>
                             @if (Model.Kind == "helpdesk") { <span>@item.Priority</span> }
                         </td>
-                        <td><span class="work-status">@(statusLabels.GetValueOrDefault(item.Status, item.Status))</span></td>
+                        <td><span class="work-status work-status-@item.Status?.ToLowerInvariant()">@(statusLabels.GetValueOrDefault(item.Status, item.Status))</span>@if (!string.IsNullOrWhiteSpace(item.LastActionNote)) { <small class="work-muted">@item.LastActionNote</small> }</td>
+                        @if (Model.Kind == "payroll")
+                        {
+                            <td class="payroll-actions">
+                                @if (canEditPayroll && item.Status is "DRAFT" or "REJECTED")
+                                {
+                                    <a class="hrm-btn" asp-controller="Work" asp-action="Index" asp-route-kind="payroll" asp-route-editId="@item.Id">Sửa</a>
+                                }
+                                @if ((canEditPayroll && item.Status is "DRAFT" or "REJECTED") || (canApprovePayroll && item.Status == "PENDING_APPROVAL") || (canEditPayroll && item.Status is "APPROVED" or "LOCKED" or "PUBLISHED" or "DISPUTED") || (!Model.CanManage && item.Status is "PUBLISHED" or "PAID"))
+                                {
+                                    <form method="post" asp-controller="Work" asp-action="PayrollAction" class="payroll-action-form">
+                                        <input type="hidden" name="id" value="@item.Id" />
+                                        @if ((canApprovePayroll && item.Status == "PENDING_APPROVAL") || (!Model.CanManage && item.Status is "PUBLISHED" or "PAID"))
+                                        {
+                                            <input class="form-control" name="note" maxlength="1000" placeholder="Ghi chú / lý do" />
+                                        }
+                                        @if (canEditPayroll && item.Status == "DRAFT") { <button class="hrm-btn hrm-btn-primary" name="command" value="submit">Gửi duyệt</button> }
+                                        @if (canEditPayroll && item.Status == "REJECTED") { <button class="hrm-btn hrm-btn-primary" name="command" value="resubmit">Gửi lại</button> }
+                                        @if (canApprovePayroll && item.Status == "PENDING_APPROVAL")
+                                        {
+                                            <button class="hrm-btn hrm-btn-primary" name="command" value="approve">Duyệt</button>
+                                            <button class="hrm-btn" name="command" value="reject">Trả lại</button>
+                                        }
+                                        @if (canEditPayroll && item.Status == "APPROVED") { <button class="hrm-btn hrm-btn-primary" name="command" value="lock">Khóa bảng lương</button> }
+                                        @if (canEditPayroll && item.Status == "LOCKED") { <button class="hrm-btn hrm-btn-primary" name="command" value="publish">Phát hành</button> }
+                                        @if (canEditPayroll && item.Status == "PUBLISHED") { <button class="hrm-btn hrm-btn-primary" name="command" value="pay">Đã thanh toán</button> }
+                                        @if (!Model.CanManage && item.Status == "PUBLISHED") { <button class="hrm-btn" name="command" value="dispute">Báo sai lệch</button> }
+                                        @if (!Model.CanManage && item.Status == "PAID") { <button class="hrm-btn" name="command" value="disputepaid">Báo sai lệch</button> }
+                                        @if (canEditPayroll && item.Status == "DISPUTED") { <button class="hrm-btn hrm-btn-primary" name="command" value="resolve">Đã xử lý</button> }
+                                    </form>
+                                }
+                            </td>
+                        }
                     </tr>
                 }
                 </tbody>
@@ -78,10 +128,11 @@
     @if (Model.CanCreate)
     {
         <section class="work-panel">
-            <h3>@(Model.Kind == "helpdesk" ? "Tạo yêu cầu Helpdesk IT" : "Thêm mới")</h3>
-            <form method="post" asp-controller="Work" asp-action="Create">
+            <h3>@(Model.Kind == "helpdesk" ? "Tạo yêu cầu Helpdesk IT" : Model.EditId.HasValue ? "Cập nhật bảng lương" : "Thêm mới")</h3>
+            <form method="post" asp-controller="Work" asp-action="@(Model.EditId.HasValue ? "UpdatePayroll" : "Create")">
                 <fieldset disabled="@(!Model.Available)">
                     <input type="hidden" name="Kind" value="@Model.Kind" />
+                    @if (Model.EditId.HasValue) { <input type="hidden" name="Id" value="@Model.EditId" /> }
                     <label for="Title">@(Model.Kind switch { "assets" => "Tên tài sản", "recruitment" => "Vị trí tuyển dụng", "training" => "Tên khóa đào tạo", _ => "Tiêu đề" }) *</label>
                     <input id="Title" name="Title" class="form-control" required maxlength="200" value="@Model.Draft.Title" />
 
@@ -123,7 +174,8 @@
                     }
                     <label for="Description">@(Model.Kind switch { "overtime" => "Lý do tăng ca", "resignation" => "Lý do nghỉ việc", _ => "Mô tả" }) @(Model.Kind is "helpdesk" or "overtime" or "resignation" ? "*" : "")</label>
                     <textarea id="Description" name="Description" class="form-control" rows="4" maxlength="2000" required="@(Model.Kind is "helpdesk" or "overtime" or "resignation")">@Model.Draft.Description</textarea>
-                    <button type="submit" class="hrm-btn hrm-btn-primary work-submit">@(Model.Kind == "helpdesk" ? "Gửi yêu cầu" : "Lưu bản ghi")</button>
+                    <button type="submit" class="hrm-btn hrm-btn-primary work-submit">@(Model.Kind == "helpdesk" ? "Gửi yêu cầu" : Model.EditId.HasValue ? "Lưu thay đổi" : "Lưu bản ghi")</button>
+                    @if (Model.EditId.HasValue) { <a class="hrm-btn work-cancel" asp-controller="Work" asp-action="Index" asp-route-kind="payroll">Hủy sửa</a> }
                 </fieldset>
             </form>
         </section>

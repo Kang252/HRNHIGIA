@@ -61,7 +61,7 @@ try
     await Check("/Work?kind=overtime", "EMPLOYEE", HttpStatusCode.OK, "Số giờ tăng ca", "Lý do tăng ca");
     await Check("/Work?kind=resignation", "EMPLOYEE", HttpStatusCode.OK, "Ngày làm việc cuối cùng", "Lý do nghỉ việc");
     await Check("/Work?kind=transfer", "EMPLOYEE", HttpStatusCode.Redirect);
-    await Check("/Work?kind=payroll", "EMPLOYEE", HttpStatusCode.Redirect);
+    await Check("/Work?kind=payroll", "EMPLOYEE", HttpStatusCode.OK, "Phiếu lương", "Chưa kết nối");
     await Check("/Work?kind=recruitment", "EMPLOYEE", HttpStatusCode.Redirect);
     await Check("/Work?kind=unknown", "ADMIN", HttpStatusCode.NotFound);
     using var post = new HttpRequestMessage(HttpMethod.Post, "/Work/Create");

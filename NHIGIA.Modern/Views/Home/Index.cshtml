@@ -80,7 +80,7 @@
         <div class="hrm-card-header"><div><h2 class="hrm-card-title">Ứng dụng eHRM</h2><p class="hrm-card-subtitle">Các nghiệp vụ quản trị nhân sự Nhị Gia</p></div></div>
         <div class="hrm-card-body hrm-app-grid">
             <a class="hrm-app-tile" href="@Url.Action(dashboardProfileAction, "Home")"><i class="material-icons">groups</i><span>Quản lý nhân sự</span></a>
-            @if (dashboardCanConfigure) { <a class="hrm-app-tile" href="@Url.Action("Index", "Work", new { kind = "payroll" })"><i class="material-icons">payments</i><span>Tính lương</span></a> }
+            <a class="hrm-app-tile" href="@Url.Action("Index", "Work", new { kind = "payroll" })"><i class="material-icons">payments</i><span>@(dashboardCanConfigure ? "Tính lương" : "Phiếu lương")</span></a>
             <a class="hrm-app-tile" href="@Url.Action("Attendance", "Home")"><i class="material-icons">alarm_on</i><span>Chấm công</span></a>
             <a class="hrm-app-tile" href="@Url.Action("Index", "Work", new { kind = "kpi" })"><i class="material-icons">track_changes</i><span>KPI</span></a>
             @if (dashboardCanConfigure) { <a class="hrm-app-tile" href="@Url.Action("Index", "Work", new { kind = "recruitment" })"><i class="material-icons">person_search</i><span>Tuyển dụng</span></a> }

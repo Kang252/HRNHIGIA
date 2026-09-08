@@ -351,3 +351,9 @@ IF OBJECT_ID('dbo.CK_HrmWorkItem_Kind', 'C') IS NULL
     ALTER TABLE dbo.HrmWorkItem WITH CHECK ADD CONSTRAINT CK_HrmWorkItem_Kind
     CHECK (Kind IN ('kpi','payroll','recruitment','training','overtime','resignation','transfer','assets','helpdesk'));
 GO
+
+IF COL_LENGTH('dbo.HrmWorkItem', 'UpdatedAt') IS NULL
+    ALTER TABLE dbo.HrmWorkItem ADD UpdatedAt DATETIME2 NULL;
+IF COL_LENGTH('dbo.HrmWorkItem', 'LastActionNote') IS NULL
+    ALTER TABLE dbo.HrmWorkItem ADD LastActionNote NVARCHAR(1000) NULL;
+GO

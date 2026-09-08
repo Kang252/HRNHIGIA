@@ -20,6 +20,8 @@ public sealed class WorkItem
     public string Status { get; set; }
     public int CreatedBy { get; set; }
     public DateTime CreatedAt { get; set; }
+    public DateTime? UpdatedAt { get; set; }
+    public string LastActionNote { get; set; }
     public string EmployeeName { get; set; }
     public string DepartmentName { get; set; }
 }
@@ -33,6 +35,7 @@ public sealed class WorkPage
     public bool CanManage { get; set; }
     public bool Available { get; set; }
     public string Query { get; set; }
+    public int? EditId { get; set; }
     public WorkItem Draft { get; set; } = new();
     public List<WorkItem> Items { get; set; } = new();
     public List<WorkPerson> People { get; set; } = new();

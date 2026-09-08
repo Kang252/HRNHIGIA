@@ -14,6 +14,8 @@ public sealed class WorkController : Controller
     public WorkController(WorkItemStore store, HrmUserAccessor user, ILogger<WorkController> logger)
     { _store = store; _user = user; _logger = logger; }
 
+    private string ClientIp => HttpContext.Connection.RemoteIpAddress?.ToString();
+
     private WorkPage Page(string kind, string q = null)
     {
         var configure = User.IsInRole(HrmRoles.Admin) || User.IsInRole(HrmRoles.Hr) || User.IsInRole(HrmRoles.Director);
@@ -26,6 +28,7 @@ public sealed class WorkController : Controller
             {
                 "helpdesk" or "overtime" or "resignation" => true,
                 "training" => managePeople,
+                "payroll" => User.IsInRole(HrmRoles.Admin) || User.IsInRole(HrmRoles.Hr),
                 _ => configure
             },
             Query = q
@@ -43,6 +46,8 @@ public sealed class WorkController : Controller
             "helpdesk" => ("Helpdesk IT", "Gửi yêu cầu hỗ trợ và theo dõi các yêu cầu của bạn."),
             _ => (null, null)
         };
+        if (kind == "payroll" && !configure)
+            (page.Title, page.Subtitle) = ("Phiếu lương", "Xem phiếu lương đã phát hành và gửi phản hồi khi có sai lệch.");
         return page.Title == null ? null : page;
     }
     private void Load(WorkPage page)
@@ -57,12 +62,20 @@ public sealed class WorkController : Controller
         }
     }
     [HttpGet]
-    public IActionResult Index(string kind = "kpi", string q = null)
+    public IActionResult Index(string kind = "kpi", string q = null, int? editId = null)
     {
         var page = Page(kind, q);
         if (page == null) return NotFound();
-        if (kind is "transfer" or "payroll" or "recruitment" && !page.CanManage) return Forbid();
+        if (kind is "transfer" or "recruitment" && !page.CanManage) return Forbid();
+        page.EditId = editId;
         Load(page);
+        if (kind == "payroll" && editId.HasValue)
+        {
+            if (!(User.IsInRole(HrmRoles.Admin) || User.IsInRole(HrmRoles.Hr))) return Forbid();
+            var item = page.Items.FirstOrDefault(x => x.Id == editId && x.Status is "DRAFT" or "REJECTED");
+            if (item == null) return NotFound();
+            page.Draft = item;
+        }
         return View(page);
     }
 
@@ -84,6 +97,8 @@ public sealed class WorkController : Controller
             ModelState.AddModelError("", "Vui lòng chọn phòng ban mới và ngày dự kiến.");
         if (draft.Kind == "payroll" && (!draft.EmployeeId.HasValue || string.IsNullOrWhiteSpace(draft.Category) || !draft.Target.HasValue || !draft.Actual.HasValue || !draft.DueDate.HasValue))
             ModelState.AddModelError("", "Kỳ lương cần nhân viên, kỳ tính lương, tổng thu nhập, thực nhận và ngày thanh toán.");
+        if (draft.Kind == "payroll" && draft.Actual > draft.Target)
+            ModelState.AddModelError("", "Số tiền thực nhận không được lớn hơn tổng thu nhập.");
         if (draft.Kind == "recruitment" && (!draft.DepartmentId.HasValue || !draft.Target.HasValue || draft.Target <= 0 || !draft.DueDate.HasValue))
             ModelState.AddModelError("", "Nhu cầu tuyển dụng cần phòng ban, số lượng và hạn tuyển.");
         if (draft.Kind == "training" && !draft.DueDate.HasValue)
@@ -123,5 +138,69 @@ public sealed class WorkController : Controller
             ModelState.AddModelError("", "Không thể lưu dữ liệu. Vui lòng thử lại; mã tài sản có thể đã tồn tại.");
             return View("Index", page);
         }
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public IActionResult UpdatePayroll([Bind("Id,Kind,Title,Description,Category,Reference,EmployeeId,DueDate,Target,Actual")] WorkItem draft)
+    {
+        if (draft.Kind != "payroll") return NotFound();
+        if (!(User.IsInRole(HrmRoles.Admin) || User.IsInRole(HrmRoles.Hr))) return Forbid();
+        var page = Page("payroll");
+        page.EditId = draft.Id;
+        page.Draft = draft;
+        Load(page);
+        ValidatePayroll(draft, page);
+        if (!page.Available || !ModelState.IsValid) return View("Index", page);
+        if (!_store.UpdatePayrollDraft(draft, _user.Current.Id, ClientIp))
+        {
+            ModelState.AddModelError("", "Bảng lương không còn ở trạng thái có thể chỉnh sửa.");
+            return View("Index", page);
+        }
+        TempData["WorkSuccess"] = $"Đã cập nhật bảng lương #{draft.Id:D5}.";
+        return RedirectToAction("Index", new { kind = "payroll" });
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public IActionResult PayrollAction(int id, string command, string note)
+    {
+        var role = _user.Current.RoleCode;
+        var isAdmin = role == HrmRoles.Admin;
+        var isHr = role == HrmRoles.Hr;
+        var isDirector = role == HrmRoles.Director;
+        var rule = command?.ToLowerInvariant() switch
+        {
+            "submit" when isAdmin || isHr => ("DRAFT", "PENDING_APPROVAL", "SUBMIT", (int?)null),
+            "resubmit" when isAdmin || isHr => ("REJECTED", "PENDING_APPROVAL", "SUBMIT", (int?)null),
+            "approve" when isAdmin || isDirector => ("PENDING_APPROVAL", "APPROVED", "APPROVE", (int?)null),
+            "reject" when isAdmin || isDirector => ("PENDING_APPROVAL", "REJECTED", "REJECT", (int?)null),
+            "lock" when isAdmin || isHr => ("APPROVED", "LOCKED", "LOCK", (int?)null),
+            "publish" when isAdmin || isHr => ("LOCKED", "PUBLISHED", "PUBLISH", (int?)null),
+            "pay" when isAdmin || isHr => ("PUBLISHED", "PAID", "PAY", (int?)null),
+            "dispute" => ("PUBLISHED", "DISPUTED", "DISPUTE", (int?)_user.Current.Id),
+            "disputepaid" => ("PAID", "DISPUTED", "DISPUTE", (int?)_user.Current.Id),
+            "resolve" when isAdmin || isHr => ("DISPUTED", "RESOLVED", "RESOLVE", (int?)null),
+            _ => ((string)null, null, null, (int?)null)
+        };
+        if (rule.Item1 == null) return Forbid();
+        if ((command is "reject" or "dispute" or "disputepaid") && string.IsNullOrWhiteSpace(note))
+        {
+            TempData["WorkError"] = "Vui lòng nhập lý do trước khi xử lý.";
+            return RedirectToAction("Index", new { kind = "payroll" });
+        }
+        if (!_store.TransitionPayroll(id, rule.Item1, rule.Item2, rule.Item3, note, _user.Current.Id, rule.Item4, ClientIp))
+            TempData["WorkError"] = "Bảng lương đã đổi trạng thái hoặc bạn không có quyền xử lý.";
+        else
+            TempData["WorkSuccess"] = $"Đã cập nhật trạng thái bảng lương #{id:D5}.";
+        return RedirectToAction("Index", new { kind = "payroll" });
+    }
+
+    private void ValidatePayroll(WorkItem draft, WorkPage page)
+    {
+        if (!draft.EmployeeId.HasValue || string.IsNullOrWhiteSpace(draft.Category) || !draft.Target.HasValue || !draft.Actual.HasValue || !draft.DueDate.HasValue)
+            ModelState.AddModelError("", "Kỳ lương cần nhân viên, kỳ tính lương, tổng thu nhập, thực nhận và ngày thanh toán.");
+        if (draft.EmployeeId.HasValue && !page.People.Any(x => x.Id == draft.EmployeeId))
+            ModelState.AddModelError("", "Nhân viên được chọn không hợp lệ.");
+        if (draft.Target < 0 || draft.Actual < 0 || draft.Actual > draft.Target)
+            ModelState.AddModelError("", "Số tiền thực nhận phải từ 0 đến tổng thu nhập.");
     }
 }
