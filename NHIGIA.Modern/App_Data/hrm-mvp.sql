@@ -337,12 +337,16 @@ END;
 GO
 
 DECLARE @workKindConstraint SYSNAME;
+DECLARE @dropWorkKindConstraintSql NVARCHAR(500);
 SELECT TOP (1) @workKindConstraint = cc.name
 FROM sys.check_constraints cc
 WHERE cc.parent_object_id = OBJECT_ID('dbo.HrmWorkItem')
   AND cc.definition LIKE '%Kind%';
 IF @workKindConstraint IS NOT NULL AND @workKindConstraint <> 'CK_HrmWorkItem_Kind'
-    EXEC('ALTER TABLE dbo.HrmWorkItem DROP CONSTRAINT ' + QUOTENAME(@workKindConstraint));
+BEGIN
+    SET @dropWorkKindConstraintSql = N'ALTER TABLE dbo.HrmWorkItem DROP CONSTRAINT ' + QUOTENAME(@workKindConstraint);
+    EXEC sys.sp_executesql @dropWorkKindConstraintSql;
+END;
 IF OBJECT_ID('dbo.CK_HrmWorkItem_Kind', 'C') IS NULL
     ALTER TABLE dbo.HrmWorkItem WITH CHECK ADD CONSTRAINT CK_HrmWorkItem_Kind
     CHECK (Kind IN ('kpi','payroll','recruitment','training','overtime','resignation','transfer','assets','helpdesk'));
