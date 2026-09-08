@@ -13,22 +13,20 @@ namespace NHIGIA.Modern.Infrastructure
 {
     public class HrmDataStore
     {
-        private readonly string _connectionString;
+        private readonly IConfiguration _configuration;
         private readonly IDataProtector _protector;
 
         public HrmDataStore(IConfiguration configuration, IDataProtectionProvider dataProtectionProvider)
         {
-            _connectionString = Environment.GetEnvironmentVariable("HRM_CONNECTION_STRING")
-                ?? configuration.GetConnectionString("MainConnectionString")
-                ?? throw new InvalidOperationException("ConnectionStrings:MainConnectionString is missing.");
+            _configuration = configuration;
             _protector = dataProtectionProvider.CreateProtector("NHIGIA", "HanetCredential", "v1");
         }
 
         private SqlConnection OpenConnection()
         {
-            var connection = new SqlConnection(_connectionString);
-            connection.Open();
-            return connection;
+            var connection = new SqlConnection(DatabaseConfiguration.Resolve(_configuration));
+            try { connection.Open(); return connection; }
+            catch { connection.Dispose(); throw; }
         }
 
         public bool CanConnect()

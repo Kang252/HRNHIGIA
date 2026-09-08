@@ -3,7 +3,11 @@
     var role = user?.RoleCode ?? string.Empty;
     var canManage = HrmRoles.CanManagePeople(role);
     var canConfigure = role == HrmRoles.Admin || role == HrmRoles.Hr || role == HrmRoles.Director;
+    var workKind = ViewContext.RouteData.Values["controller"]?.ToString() == "Work" ? ((Model as WorkPage)?.Kind ?? "kpi") : "";
     var action = ViewContext.RouteData.Values["action"]?.ToString() ?? "Index";
+    var isWork = ViewContext.RouteData.Values["controller"]?.ToString() == "Work";
+
+    if (isWork) { action = "Work"; }
 }
 <!DOCTYPE html>
 <html lang="vi">
@@ -40,7 +44,12 @@
     </nav>
 
     <div class="hrm-mobile-menu">
-        <a class="hrm-btn" asp-action="Index">Tổng quan</a><a class="hrm-btn" asp-action="Attendance">Chấm công</a><a class="hrm-btn" asp-action="LeaveRequests">Nghỉ phép</a><a class="hrm-btn" asp-action="WorkSchedules">Lịch làm việc</a>
+        <a class="hrm-btn" asp-controller="Work" asp-action="Index" asp-route-kind="kpi">KPI</a>
+        @if (canConfigure) { <a class="hrm-btn" asp-controller="Work" asp-action="Index" asp-route-kind="transfer">Điều chuyển</a> }
+        <a class="hrm-btn" asp-controller="Work" asp-action="Index" asp-route-kind="assets">Tài sản</a>
+        <a class="hrm-btn" asp-controller="Work" asp-action="Index" asp-route-kind="helpdesk">Helpdesk IT</a>
+        <a class="hrm-btn" href="/Home/Index">Tổng quan</a><a class="hrm-btn" href="/Home/Attendance">Chấm công</a><a class="hrm-btn" href="/Home/LeaveRequests">Nghỉ phép</a><a class="hrm-btn" href="/Home/WorkSchedules">Lịch làm việc</a>
+
     </div>
 
     <section>
@@ -56,27 +65,34 @@
             <div class="menu">
                 <ul class="list">
                     <li class="header">NGHIỆP VỤ NHÂN SỰ</li>
-                    <li class="@(action == "Index" ? "active" : "")"><a asp-action="Index"><i class="material-icons">dashboard</i><span>Tổng quan</span></a></li>
-                    <li class="@(action == "MyProfile" ? "active" : "")"><a asp-action="MyProfile"><i class="material-icons">badge</i><span>Hồ sơ của tôi</span></a></li>
-                    <li class="@(action == "Attendance" ? "active" : "")"><a asp-action="Attendance"><i class="material-icons">alarm_on</i><span>Chấm công</span></a></li>
-                    <li class="@(action == "WorkSchedules" ? "active" : "")"><a asp-action="WorkSchedules"><i class="material-icons">event_note</i><span>@(canManage ? "Phân ca làm việc" : "Lịch làm việc")</span></a></li>
-                    <li class="@(action == "LeaveRequests" ? "active" : "")"><a asp-action="LeaveRequests"><i class="material-icons">event_busy</i><span>Nghỉ phép</span></a></li>
+                    <li class="@(action == "Index" && string.IsNullOrEmpty(workKind) ? "active" : "")"><a asp-controller="Home" asp-action="Index"><i class="material-icons">dashboard</i><span>Tổng quan</span></a></li>
+                    <li class="@(action == "MyProfile" ? "active" : "")"><a asp-controller="Home" asp-action="MyProfile"><i class="material-icons">badge</i><span>Hồ sơ của tôi</span></a></li>
+                    <li class="@(action == "Attendance" ? "active" : "")"><a asp-controller="Home" asp-action="Attendance"><i class="material-icons">alarm_on</i><span>Chấm công</span></a></li>
+                    <li class="@(action == "WorkSchedules" ? "active" : "")"><a asp-controller="Home" asp-action="WorkSchedules"><i class="material-icons">event_note</i><span>@(canManage ? "Phân ca làm việc" : "Lịch làm việc")</span></a></li>
+                    <li class="@(action == "LeaveRequests" ? "active" : "")"><a asp-controller="Home" asp-action="LeaveRequests"><i class="material-icons">event_busy</i><span>Nghỉ phép</span></a></li>
                     @if (canManage)
                     {
-                        <li class="@(action == "Approvals" ? "active" : "")"><a asp-action="Approvals"><i class="material-icons">fact_check</i><span>Phê duyệt</span></a></li>
+                        <li class="@(action == "Approvals" ? "active" : "")"><a asp-controller="Home" asp-action="Approvals"><i class="material-icons">fact_check</i><span>Phê duyệt</span></a></li>
                     }
-                    <li class="@(action == "InternalCommunications" ? "active" : "")"><a asp-action="InternalCommunications"><i class="material-icons">campaign</i><span>Truyền thông nội bộ</span></a></li>
+                    <li class="@(action == "InternalCommunications" ? "active" : "")"><a asp-controller="Home" asp-action="InternalCommunications"><i class="material-icons">campaign</i><span>Truyền thông nội bộ</span></a></li>
                     @if (canConfigure)
                     {
-                        <li class="@(action == "Reports" ? "active" : "")"><a asp-action="Reports"><i class="material-icons">analytics</i><span>Báo cáo</span></a></li>
+                        <li class="@(action == "Reports" ? "active" : "")"><a asp-controller="Home" asp-action="Reports"><i class="material-icons">analytics</i><span>Báo cáo</span></a></li>
                         @if (Configuration.GetValue<bool>("Features:HanetIntegrationUiEnabled"))
                         {
-                            <li class="@(action == "HanetIntegration" ? "active" : "")"><a asp-action="HanetIntegration"><i class="material-icons">sync</i><span>Tích hợp HANET</span></a></li>
+                            <li class="@(action == "HanetIntegration" ? "active" : "")"><a asp-controller="Home" asp-action="HanetIntegration"><i class="material-icons">sync</i><span>Tích hợp HANET</span></a></li>
                         }
                     }
+                    <li class="header">HIỆU SUẤT &amp; HỖ TRỢ</li>
+                    <li class="@(workKind == "kpi" ? "active" : "")"><a asp-controller="Work" asp-action="Index" asp-route-kind="kpi"><i class="material-icons">track_changes</i><span>KPI</span></a></li>
+                    @if (canConfigure) {
+                    <li class="@(workKind == "transfer" ? "active" : "")"><a asp-controller="Work" asp-action="Index" asp-route-kind="transfer"><i class="material-icons">swap_horiz</i><span>Điều chuyển nhân sự</span></a></li>
+                    }
+                    <li class="@(workKind == "assets" ? "active" : "")"><a asp-controller="Work" asp-action="Index" asp-route-kind="assets"><i class="material-icons">inventory_2</i><span>Quản lý tài sản</span></a></li>
+                    <li class="@(workKind == "helpdesk" ? "active" : "")"><a asp-controller="Work" asp-action="Index" asp-route-kind="helpdesk"><i class="material-icons">support_agent</i><span>Helpdesk IT</span></a></li>
                 </ul>
             </div>
-            <div class="legal"><div class="copyright">&copy; @DateTime.Now.Year <a asp-action="Index">HRM NHỊ GIA</a></div></div>
+            <div class="legal"><div class="copyright">&copy; @DateTime.Now.Year <a asp-controller="Home" asp-action="Index">HRM NHỊ GIA</a></div></div>
         </aside>
     </section>
 

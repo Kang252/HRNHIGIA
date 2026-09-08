@@ -31,6 +31,8 @@ if (!string.IsNullOrWhiteSpace(dataProtectionPath))
 }
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton<HrmDataStore>();
+
+builder.Services.AddScoped<WorkItemStore>();
 builder.Services.AddScoped<HrmUserAccessor>();
 
 var app = builder.Build();

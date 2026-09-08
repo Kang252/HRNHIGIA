@@ -15,3 +15,7 @@ publish
 *.zip
 *.user
 *.suo
+
+**/appsettings.Production.json
+**/bin
+**/obj

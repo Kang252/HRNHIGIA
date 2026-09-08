@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: nhigia-hrm
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /Health
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: ConnectionStrings__MainConnectionString
+        sync: false

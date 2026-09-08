@@ -2,6 +2,7 @@ SET NOCOUNT ON;
 SET QUOTED_IDENTIFIER ON;
 SET ANSI_NULLS ON;
 
+
 IF OBJECT_ID('dbo.HrmDepartment', 'U') IS NULL
 BEGIN
     CREATE TABLE dbo.HrmDepartment (
@@ -274,9 +275,6 @@ GO
 IF NOT EXISTS (SELECT 1 FROM dbo.HrmDepartment WHERE Code = 'BOD') INSERT dbo.HrmDepartment(Code, Name) VALUES ('BOD', N'Ban Giám đốc');
 IF NOT EXISTS (SELECT 1 FROM dbo.HrmDepartment WHERE Code = 'HR') INSERT dbo.HrmDepartment(Code, Name) VALUES ('HR', N'Phòng Nhân sự');
 IF NOT EXISTS (SELECT 1 FROM dbo.HrmDepartment WHERE Code = 'IT') INSERT dbo.HrmDepartment(Code, Name) VALUES ('IT', N'Phòng Công nghệ thông tin');
-UPDATE dbo.HrmDepartment SET Name=N'Ban Giám đốc' WHERE Code='BOD';
-UPDATE dbo.HrmDepartment SET Name=N'Phòng Nhân sự' WHERE Code='HR';
-UPDATE dbo.HrmDepartment SET Name=N'Phòng Công nghệ thông tin' WHERE Code='IT';
 GO
 
 IF NOT EXISTS (SELECT 1 FROM dbo.HrmUserAccount WHERE Username = 'admin')
@@ -289,28 +287,23 @@ IF NOT EXISTS (SELECT 1 FROM dbo.HrmUserAccount WHERE Username = 'huongtm')
     INSERT dbo.HrmUserAccount(Username, PasswordHash, PasswordSalt, DisplayName, RoleCode, DepartmentId) VALUES ('huongtm', 'dwjzkd1+uqTVlCYCrgRvfPhtl+9LJ8JLuJR2Z+GLodc=', 'SLgp7cdbMeklGBDGrauqbg==', N'Trưởng phòng', 'MANAGER', (SELECT Id FROM dbo.HrmDepartment WHERE Code='IT'));
 IF NOT EXISTS (SELECT 1 FROM dbo.HrmUserAccount WHERE Username = 'anhvt')
     INSERT dbo.HrmUserAccount(Username, PasswordHash, PasswordSalt, DisplayName, RoleCode, DepartmentId, SupervisorUserId) VALUES ('anhvt', '1NVAHjhZ1bhmA5ZfU2t/qbNk4dyyl5/g9M7ybLNea18=', 'jl5wrk1kwMsd8JVs2oxcGQ==', N'Nhân viên', 'EMPLOYEE', (SELECT Id FROM dbo.HrmDepartment WHERE Code='IT'), (SELECT Id FROM dbo.HrmUserAccount WHERE Username='huongtm'));
-UPDATE dbo.HrmUserAccount SET DisplayName=N'Quản trị hệ thống' WHERE Username='admin';
-UPDATE dbo.HrmUserAccount SET DisplayName=N'Quản trị nhân sự' WHERE Username='hradmin';
-UPDATE dbo.HrmUserAccount SET DisplayName=N'Giám đốc' WHERE Username='thedt';
-UPDATE dbo.HrmUserAccount SET DisplayName=N'Trưởng phòng' WHERE Username='huongtm';
-UPDATE dbo.HrmUserAccount SET DisplayName=N'Nhân viên' WHERE Username='anhvt';
 GO
 
 IF NOT EXISTS (SELECT 1 FROM dbo.HrmEmployeeProfile p INNER JOIN dbo.HrmUserAccount u ON u.Id=p.UserId WHERE u.Username='admin')
     INSERT dbo.HrmEmployeeProfile(UserId, EmployeeCode, JobTitle, EmploymentStatus, CompanyEmail, TimekeepingCode, AnnualLeaveDays)
-    SELECT Id, 'HB000', N'Quản trị hệ thống', N'Đang làm việc', 'admin@hoabinh.local', 'HB000', 12 FROM dbo.HrmUserAccount WHERE Username='admin';
+    SELECT Id, 'NG000', N'Quản trị hệ thống', N'Đang làm việc', 'admin@nhigia.local', 'NG000', 12 FROM dbo.HrmUserAccount WHERE Username='admin';
 IF NOT EXISTS (SELECT 1 FROM dbo.HrmEmployeeProfile p INNER JOIN dbo.HrmUserAccount u ON u.Id=p.UserId WHERE u.Username='hradmin')
     INSERT dbo.HrmEmployeeProfile(UserId, EmployeeCode, JobTitle, EmploymentStatus, CompanyEmail, TimekeepingCode, AnnualLeaveDays)
-    SELECT Id, 'HB001', N'Chuyên viên nhân sự', N'Đang làm việc', 'hradmin@hoabinh.local', 'HB001', 12 FROM dbo.HrmUserAccount WHERE Username='hradmin';
+    SELECT Id, 'NG001', N'Chuyên viên nhân sự', N'Đang làm việc', 'hradmin@nhigia.local', 'NG001', 12 FROM dbo.HrmUserAccount WHERE Username='hradmin';
 IF NOT EXISTS (SELECT 1 FROM dbo.HrmEmployeeProfile p INNER JOIN dbo.HrmUserAccount u ON u.Id=p.UserId WHERE u.Username='thedt')
     INSERT dbo.HrmEmployeeProfile(UserId, EmployeeCode, JobTitle, EmploymentStatus, CompanyEmail, TimekeepingCode, AnnualLeaveDays)
-    SELECT Id, 'HB002', N'Giám đốc', N'Đang làm việc', 'thedt@hoabinh.local', 'HB002', 12 FROM dbo.HrmUserAccount WHERE Username='thedt';
+    SELECT Id, 'NG002', N'Giám đốc', N'Đang làm việc', 'thedt@nhigia.local', 'NG002', 12 FROM dbo.HrmUserAccount WHERE Username='thedt';
 IF NOT EXISTS (SELECT 1 FROM dbo.HrmEmployeeProfile p INNER JOIN dbo.HrmUserAccount u ON u.Id=p.UserId WHERE u.Username='huongtm')
     INSERT dbo.HrmEmployeeProfile(UserId, EmployeeCode, JobTitle, EmploymentStatus, CompanyEmail, TimekeepingCode, AnnualLeaveDays)
-    SELECT Id, 'HB003', N'Trưởng phòng', N'Đang làm việc', 'huongtm@hoabinh.local', 'HB003', 12 FROM dbo.HrmUserAccount WHERE Username='huongtm';
+    SELECT Id, 'NG003', N'Trưởng phòng', N'Đang làm việc', 'huongtm@nhigia.local', 'NG003', 12 FROM dbo.HrmUserAccount WHERE Username='huongtm';
 IF NOT EXISTS (SELECT 1 FROM dbo.HrmEmployeeProfile p INNER JOIN dbo.HrmUserAccount u ON u.Id=p.UserId WHERE u.Username='anhvt')
     INSERT dbo.HrmEmployeeProfile(UserId, EmployeeCode, JobTitle, EmploymentStatus, CompanyEmail, TimekeepingCode, AnnualLeaveDays)
-    SELECT Id, 'HB004', N'Nhân viên', N'Đang làm việc', 'anhvt@hoabinh.local', 'HB004', 12 FROM dbo.HrmUserAccount WHERE Username='anhvt';
+    SELECT Id, 'NG004', N'Nhân viên', N'Đang làm việc', 'anhvt@nhigia.local', 'NG004', 12 FROM dbo.HrmUserAccount WHERE Username='anhvt';
 GO
 
 IF NOT EXISTS (SELECT 1 FROM dbo.HrmShiftTemplate WHERE Code='HC') INSERT dbo.HrmShiftTemplate(Code, Name, StartTime, EndTime, BreakMinutes, GraceMinutes, IsOvernight) VALUES ('HC', N'Ca hành chính', '08:00', '17:00', 60, 5, 0);
@@ -319,4 +312,26 @@ IF NOT EXISTS (SELECT 1 FROM dbo.HrmShiftTemplate WHERE Code='DEM') INSERT dbo.H
 GO
 
 IF NOT EXISTS (SELECT 1 FROM dbo.HrmHanetSettings WHERE Id=1) INSERT dbo.HrmHanetSettings(Id, ApiBaseUrl, OAuthTokenUrl, IsEnabled, LastSyncStatus, LastSyncMessage) VALUES (1, 'https://partner.hanet.ai', 'https://oauth.hanet.com/token', 0, 'NOT_CONFIGURED', N'Chưa cấu hình thông tin ứng dụng HANET');
+GO
+SET ANSI_NULLS ON;
+SET QUOTED_IDENTIFIER ON;
+
+IF OBJECT_ID('dbo.HrmWorkItem', 'U') IS NULL
+BEGIN
+ CREATE TABLE dbo.HrmWorkItem (
+  Id INT IDENTITY PRIMARY KEY,
+  Kind NVARCHAR(20) NOT NULL CHECK (Kind IN ('kpi','transfer','assets','helpdesk')),
+  Title NVARCHAR(200) NOT NULL, Description NVARCHAR(2000) NULL,
+  Category NVARCHAR(100) NULL, Reference NVARCHAR(100) NULL,
+  EmployeeId INT NULL REFERENCES dbo.HrmUserAccount(Id),
+  DepartmentId INT NULL REFERENCES dbo.HrmDepartment(Id),
+  DueDate DATE NULL, Target DECIMAL(19,4) NULL, Actual DECIMAL(19,4) NULL,
+  Weight DECIMAL(5,2) NULL CHECK (Weight BETWEEN 1 AND 100),
+  Priority NVARCHAR(20) NOT NULL DEFAULT 'NORMAL', Status NVARCHAR(30) NOT NULL,
+  CreatedBy INT NOT NULL REFERENCES dbo.HrmUserAccount(Id),
+  CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
+ );
+ CREATE INDEX IX_HrmWorkItem_Kind ON dbo.HrmWorkItem(Kind,CreatedAt);
+ CREATE UNIQUE INDEX UX_HrmWorkItem_AssetReference ON dbo.HrmWorkItem(Reference) WHERE Kind='assets' AND Reference IS NOT NULL;
+END;
 GO
