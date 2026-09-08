@@ -54,10 +54,15 @@ try
         Console.WriteLine($"PASS {role ?? "anonymous"} {path}");
     }
     await Check("/Work?kind=kpi", null, HttpStatusCode.Redirect);
-    foreach (var kind in new[] { "kpi", "transfer", "assets", "helpdesk" })
+    await Check("/", "ADMIN", HttpStatusCode.OK, "Ứng dụng eHRM", "Tính lương", "Tuyển dụng", "Quản lý đào tạo", "Tăng ca", "Quản lý nghỉ việc");
+    foreach (var kind in new[] { "kpi", "payroll", "recruitment", "training", "overtime", "resignation", "transfer", "assets", "helpdesk" })
         await Check("/Work?kind=" + kind, "ADMIN", HttpStatusCode.OK, "Chưa kết nối", "disabled", "href=\"/Home/Attendance\"");
     await Check("/Work?kind=helpdesk", "EMPLOYEE", HttpStatusCode.OK, "Tạo yêu cầu Helpdesk IT");
+    await Check("/Work?kind=overtime", "EMPLOYEE", HttpStatusCode.OK, "Số giờ tăng ca", "Lý do tăng ca");
+    await Check("/Work?kind=resignation", "EMPLOYEE", HttpStatusCode.OK, "Ngày làm việc cuối cùng", "Lý do nghỉ việc");
     await Check("/Work?kind=transfer", "EMPLOYEE", HttpStatusCode.Redirect);
+    await Check("/Work?kind=payroll", "EMPLOYEE", HttpStatusCode.Redirect);
+    await Check("/Work?kind=recruitment", "EMPLOYEE", HttpStatusCode.Redirect);
     await Check("/Work?kind=unknown", "ADMIN", HttpStatusCode.NotFound);
     using var post = new HttpRequestMessage(HttpMethod.Post, "/Work/Create");
     post.Headers.Add("Cookie", Cookie("ADMIN"));

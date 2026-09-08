@@ -23,9 +23,10 @@ The original ASP.NET MVC 5 solution remains available as the migration source. O
 
 ## KPI and internal services
 
-The sidebar and mobile navigation include `/Work?kind=kpi`, `transfer`, `assets`, and `helpdesk`.
+The sidebar and mobile navigation include `/Work?kind=kpi`, `payroll`, `recruitment`, `training`, `overtime`, `resignation`, `transfer`, `assets`, and `helpdesk`.
 These pages list and create SQL-backed records in `dbo.HrmWorkItem`; no demo records are shown.
 HR, directors and admins can create KPI records, transfer proposals and assets. Employees can view their own records and submit IT requests.
+Payroll and recruitment are restricted to HR, directors and admins. Managers can create training plans and review overtime/resignation requests; employees can submit their own overtime and resignation requests.
 KPI progress is actual / target; weight is recorded but no aggregate appraisal score is calculated.
 Transfers are proposals only and do not update employee departments. Asset records capture the initial assignee.
 Editing, transfer approval, asset return history, ticket assignment and resolution are not yet implemented.

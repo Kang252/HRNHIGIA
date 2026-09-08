@@ -1,59 +1,131 @@
 @model WorkPage
 @{
-    var statusLabels = new Dictionary<string,string> { ["TRACKING"]="Đang theo dõi", ["PENDING"]="Chờ phê duyệt", ["AVAILABLE"]="Sẵn sàng", ["ASSIGNED"]="Đã cấp phát", ["OPEN"]="Mới tiếp nhận" };
+    var statusLabels = new Dictionary<string, string>
+    {
+        ["TRACKING"] = "Đang theo dõi", ["PENDING"] = "Chờ phê duyệt",
+        ["AVAILABLE"] = "Sẵn sàng", ["ASSIGNED"] = "Đã cấp phát",
+        ["OPEN"] = "Đang xử lý", ["DRAFT"] = "Bản nháp", ["PLANNED"] = "Đã lên lịch"
+    };
+    var showEmployee = Model.Kind is "kpi" or "transfer" or "payroll" or "assets" or "training"
+        || (Model.CanManage && Model.Kind is "overtime" or "resignation");
+    var employeeRequired = Model.Kind is "kpi" or "transfer" or "payroll" or "overtime" or "resignation";
+    var showDepartment = Model.Kind is "transfer" or "recruitment" or "training";
+    var showReference = Model.Kind is "assets" or "payroll" or "recruitment" or "training";
+    var referenceRequired = Model.Kind is "assets" or "recruitment";
+    var showCategory = Model.Kind is "kpi" or "payroll" or "recruitment" or "training";
+    var showDate = Model.Kind is "kpi" or "payroll" or "recruitment" or "training" or "overtime" or "resignation" or "transfer";
+    var dateLabel = Model.Kind switch
+    {
+        "payroll" => "Ngày thanh toán", "recruitment" => "Hạn tuyển",
+        "training" => "Ngày tổ chức", "overtime" => "Ngày tăng ca",
+        "resignation" => "Ngày làm việc cuối cùng", "transfer" => "Ngày điều chuyển dự kiến",
+        _ => "Hạn hoàn thành"
+    };
+    var categoryLabel = Model.Kind switch
+    {
+        "payroll" => "Kỳ tính lương", "recruitment" => "Hình thức làm việc",
+        "training" => "Hình thức đào tạo", "kpi" => "Đơn vị đo", _ => "Phân loại"
+    };
 }
-<div class="hrm-page-header"><div><h2>@Model.Title</h2><p>@Model.Subtitle</p></div><span class="hrm-badge">@Model.Items.Count bản ghi</span></div>
+
+<div class="hrm-page-header">
+    <div><h2>@Model.Title</h2><p>@Model.Subtitle</p></div>
+    <span class="hrm-badge">@Model.Items.Count bản ghi</span>
+</div>
 <div asp-validation-summary="All" class="alert alert-danger" role="alert"></div>
 @if (TempData["WorkSuccess"] is string success) { <div class="alert alert-success" role="status">@success</div> }
+
 <div class="work-layout">
-<section class="work-panel">
-    <h3>Danh sách @Model.Title</h3>
-    <form method="get" asp-controller="Work" asp-action="Index" class="work-search">
-        <input type="hidden" name="kind" value="@Model.Kind" />
-        <input class="form-control" name="q" value="@Model.Query" placeholder="Tìm theo tên, mã, nhân viên…" aria-label="Tìm kiếm" />
-        <button class="hrm-btn" type="submit">Tìm kiếm</button>
-    </form>
-    @if (!Model.Available) { <p>Chưa tải được dữ liệu. Vui lòng thử lại sau.</p> }
-    else if (Model.Items.Count == 0) { <div class="work-empty"><i class="material-icons">inbox</i><h4>Chưa có bản ghi</h4><p>@(Model.CanCreate ? "Điền biểu mẫu bên cạnh để tạo bản ghi đầu tiên." : "Các bản ghi liên quan đến bạn sẽ hiển thị tại đây.")</p></div> }
-    else {
-    <div class="table-responsive"><table class="table table-hover"><thead><tr><th>Nội dung</th><th>Nhân viên</th><th>@(Model.Kind == "kpi" ? "Kết quả / Mục tiêu" : "Thông tin")</th><th>Trạng thái</th></tr></thead><tbody>
-    @foreach (var item in Model.Items) {
-        <tr><td><strong>@item.Title</strong><small class="work-muted">#@item.Id.ToString("D5") · @item.Reference</small><p class="work-description">@item.Description</p></td><td>@(item.EmployeeName ?? "Chưa phân công")<small class="work-muted">@item.DepartmentName</small></td><td>
-        @if (Model.Kind == "kpi") { <strong>@(item.Actual ?? 0) / @item.Target</strong><small class="work-muted">Trọng số: @item.Weight%</small> }
-        else { <span>@item.Category</span> }
-        <small class="work-muted">@item.DueDate?.ToString("dd/MM/yyyy")</small>
-        @if (Model.Kind == "helpdesk") { <span>@item.Priority</span> }
-        </td><td><span class="work-status">@(statusLabels.GetValueOrDefault(item.Status, item.Status))</span></td></tr>
+    <section class="work-panel">
+        <h3>Danh sách @Model.Title</h3>
+        <form method="get" asp-controller="Work" asp-action="Index" class="work-search">
+            <input type="hidden" name="kind" value="@Model.Kind" />
+            <input class="form-control" name="q" value="@Model.Query" placeholder="Tìm theo tên, mã, nhân viên…" aria-label="Tìm kiếm" />
+            <button class="hrm-btn" type="submit">Tìm kiếm</button>
+        </form>
+        @if (!Model.Available) { <p>Chưa tải được dữ liệu. Vui lòng thử lại sau.</p> }
+        else if (Model.Items.Count == 0)
+        {
+            <div class="work-empty"><i class="material-icons">inbox</i><h4>Chưa có bản ghi</h4><p>@(Model.CanCreate ? "Điền biểu mẫu bên cạnh để tạo bản ghi đầu tiên." : "Các bản ghi liên quan đến bạn sẽ hiển thị tại đây.")</p></div>
+        }
+        else
+        {
+            <div class="table-responsive"><table class="table table-hover">
+                <thead><tr><th>Nội dung</th><th>@(Model.Kind == "recruitment" ? "Phòng ban" : "Nhân viên")</th><th>Thông tin chính</th><th>Trạng thái</th></tr></thead>
+                <tbody>
+                @foreach (var item in Model.Items)
+                {
+                    <tr>
+                        <td><strong>@item.Title</strong><small class="work-muted">#@item.Id.ToString("D5") @(string.IsNullOrWhiteSpace(item.Reference) ? "" : "· " + item.Reference)</small><p class="work-description">@item.Description</p></td>
+                        <td>@(Model.Kind == "recruitment" ? item.DepartmentName : item.EmployeeName ?? "Chưa phân công")<small class="work-muted">@(Model.Kind == "recruitment" ? item.Category : item.DepartmentName)</small></td>
+                        <td>
+                            @if (Model.Kind == "kpi") { <strong>@(item.Actual ?? 0) / @item.Target @item.Category</strong><small class="work-muted">Trọng số: @item.Weight%</small> }
+                            else if (Model.Kind == "payroll") { <strong>Thực nhận: @item.Actual?.ToString("N0")</strong><small class="work-muted">Tổng thu nhập: @item.Target?.ToString("N0") · @item.Category</small> }
+                            else if (Model.Kind == "recruitment") { <strong>@(item.Actual ?? 0) / @item.Target ứng viên</strong> }
+                            else if (Model.Kind == "overtime") { <strong>@item.Target giờ</strong> }
+                            else { <span>@item.Category</span> }
+                            <small class="work-muted">@item.DueDate?.ToString("dd/MM/yyyy")</small>
+                            @if (Model.Kind == "helpdesk") { <span>@item.Priority</span> }
+                        </td>
+                        <td><span class="work-status">@(statusLabels.GetValueOrDefault(item.Status, item.Status))</span></td>
+                    </tr>
+                }
+                </tbody>
+            </table></div>
+        }
+    </section>
+
+    @if (Model.CanCreate)
+    {
+        <section class="work-panel">
+            <h3>@(Model.Kind == "helpdesk" ? "Tạo yêu cầu Helpdesk IT" : "Thêm mới")</h3>
+            <form method="post" asp-controller="Work" asp-action="Create">
+                <fieldset disabled="@(!Model.Available)">
+                    <input type="hidden" name="Kind" value="@Model.Kind" />
+                    <label for="Title">@(Model.Kind switch { "assets" => "Tên tài sản", "recruitment" => "Vị trí tuyển dụng", "training" => "Tên khóa đào tạo", _ => "Tiêu đề" }) *</label>
+                    <input id="Title" name="Title" class="form-control" required maxlength="200" value="@Model.Draft.Title" />
+
+                    @if (showEmployee)
+                    {
+                        <label for="EmployeeId">Nhân viên @(employeeRequired ? "*" : "")</label>
+                        <select id="EmployeeId" name="EmployeeId" class="form-control" required="@employeeRequired"><option value="">Chọn nhân viên</option>@foreach (var person in Model.People) { <option value="@person.Id" selected="@(Model.Draft.EmployeeId == person.Id)">@person.DisplayName</option> }</select>
+                    }
+                    @if (showDepartment)
+                    {
+                        <label for="DepartmentId">@(Model.Kind == "transfer" ? "Phòng ban mới" : "Phòng ban") @(Model.Kind is "transfer" or "recruitment" ? "*" : "")</label>
+                        <select id="DepartmentId" name="DepartmentId" class="form-control" required="@(Model.Kind is "transfer" or "recruitment")"><option value="">Chọn phòng ban</option>@foreach (var department in Model.Departments) { <option value="@department.Id" selected="@(Model.Draft.DepartmentId == department.Id)">@department.Name</option> }</select>
+                    }
+                    @if (showReference)
+                    {
+                        <label for="Reference">@(Model.Kind switch { "assets" => "Mã tài sản", "payroll" => "Mã bảng lương", "recruitment" => "Mã nhu cầu", _ => "Mã khóa học" }) @(referenceRequired ? "*" : "")</label>
+                        <input id="Reference" name="Reference" class="form-control" required="@referenceRequired" maxlength="100" value="@Model.Draft.Reference" />
+                    }
+                    @if (showCategory)
+                    {
+                        <label for="Category">@categoryLabel @(Model.Kind == "payroll" ? "*" : "")</label>
+                        <input id="Category" name="Category" class="form-control" required="@(Model.Kind == "payroll")" maxlength="100" value="@Model.Draft.Category" placeholder="@(Model.Kind == "payroll" ? "Ví dụ: 09/2026" : null)" />
+                    }
+                    @if (Model.Kind is "kpi" or "payroll" or "recruitment" or "overtime")
+                    {
+                        <label for="Target">@(Model.Kind switch { "payroll" => "Tổng thu nhập", "recruitment" => "Số lượng cần tuyển", "overtime" => "Số giờ tăng ca", _ => "Mục tiêu" }) *</label>
+                        <input id="Target" name="Target" class="form-control" type="number" min="0.01" max="1000000000" step="0.01" required value="@Model.Draft.Target" />
+                    }
+                    @if (Model.Kind is "kpi" or "payroll" or "recruitment")
+                    {
+                        <label for="Actual">@(Model.Kind switch { "payroll" => "Thực nhận", "recruitment" => "Số ứng viên hiện tại", _ => "Kết quả thực tế" }) @(Model.Kind == "payroll" ? "*" : "")</label>
+                        <input id="Actual" name="Actual" class="form-control" type="number" min="0" max="1000000000" step="0.01" required="@(Model.Kind == "payroll")" value="@Model.Draft.Actual" />
+                    }
+                    @if (Model.Kind == "kpi") { <label for="Weight">Trọng số (%) *</label><input id="Weight" name="Weight" class="form-control" type="number" min="1" max="100" step="0.01" required value="@Model.Draft.Weight" /> }
+                    @if (showDate) { <label for="DueDate">@dateLabel *</label><input id="DueDate" name="DueDate" type="date" class="form-control" required value="@Model.Draft.DueDate?.ToString("yyyy-MM-dd")" /> }
+                    @if (Model.Kind == "helpdesk")
+                    {
+                        <label for="Priority">Mức ưu tiên *</label><select id="Priority" name="Priority" class="form-control">@foreach (var priority in new Dictionary<string, string> { { "LOW", "Thấp" }, { "NORMAL", "Bình thường" }, { "HIGH", "Cao" }, { "URGENT", "Khẩn cấp" } }) { <option value="@priority.Key" selected="@(Model.Draft.Priority == priority.Key)">@priority.Value</option> }</select>
+                    }
+                    <label for="Description">@(Model.Kind switch { "overtime" => "Lý do tăng ca", "resignation" => "Lý do nghỉ việc", _ => "Mô tả" }) @(Model.Kind is "helpdesk" or "overtime" or "resignation" ? "*" : "")</label>
+                    <textarea id="Description" name="Description" class="form-control" rows="4" maxlength="2000" required="@(Model.Kind is "helpdesk" or "overtime" or "resignation")">@Model.Draft.Description</textarea>
+                    <button type="submit" class="hrm-btn hrm-btn-primary work-submit">@(Model.Kind == "helpdesk" ? "Gửi yêu cầu" : "Lưu bản ghi")</button>
+                </fieldset>
+            </form>
+        </section>
     }
-    </tbody></table></div>
-    }
-</section>
-@if (Model.CanCreate) {
-<section class="work-panel"><h3>@(Model.Kind == "helpdesk" ? "Tạo yêu cầu Helpdesk IT" : "Thêm mới")</h3>
-<form method="post" asp-controller="Work" asp-action="Create">
-<fieldset disabled="@(!Model.Available)">
-<input type="hidden" name="Kind" value="@Model.Kind" />
-<label for="Title">@(Model.Kind == "assets" ? "Tên tài sản" : "Tiêu đề") *</label><input id="Title" name="Title" class="form-control" required maxlength="200" value="@Model.Draft.Title" />
-@if (Model.Kind != "helpdesk") {
-<label for="EmployeeId">Nhân viên @(Model.Kind is "kpi" or "transfer" ? "*" : "")</label><select id="EmployeeId" name="EmployeeId" class="form-control" required="@(Model.Kind is "kpi" or "transfer")"><option value="">Chọn nhân viên</option>@foreach(var person in Model.People){<option value="@person.Id" selected="@(Model.Draft.EmployeeId == person.Id)">@person.DisplayName</option>}</select>
-}
-@if (Model.Kind == "transfer") {
-<label for="DepartmentId">Phòng ban mới *</label><select id="DepartmentId" name="DepartmentId" required class="form-control"><option value="">Chọn phòng ban</option>@foreach(var department in Model.Departments){<option value="@department.Id" selected="@(Model.Draft.DepartmentId == department.Id)">@department.Name</option>}</select>
-}
-@if (Model.Kind == "assets") { <label for="Reference">Mã tài sản *</label><input id="Reference" name="Reference" class="form-control" required maxlength="100" value="@Model.Draft.Reference" /> }
-<label for="Category">@(Model.Kind == "kpi" ? "Đơn vị đo" : "Phân loại")</label><input id="Category" name="Category" class="form-control" maxlength="100" value="@Model.Draft.Category" />
-@if (Model.Kind == "kpi") {
-<label for="Target">Mục tiêu *</label><input id="Target" name="Target" class="form-control" type="number" min="0.0001" max="1000000000" step="0.0001" required value="@Model.Draft.Target" />
-<label for="Actual">Kết quả thực tế</label><input id="Actual" name="Actual" class="form-control" type="number" min="0" max="1000000000" step="0.0001" value="@Model.Draft.Actual" />
-<label for="Weight">Trọng số (%) *</label><input id="Weight" name="Weight" class="form-control" type="number" min="1" max="100" step="0.01" required value="@Model.Draft.Weight" />
-}
-@if (Model.Kind is "kpi" or "transfer") { <label for="DueDate">@(Model.Kind == "transfer" ? "Ngày điều chuyển dự kiến" : "Hạn hoàn thành") *</label><input id="DueDate" name="DueDate" type="date" class="form-control" required value="@Model.Draft.DueDate?.ToString("yyyy-MM-dd")" /> }
-@if (Model.Kind == "helpdesk") {
-<label for="Priority">Mức ưu tiên *</label><select id="Priority" name="Priority" class="form-control">@foreach(var priority in new Dictionary<string,string>{{"LOW","Thấp"},{"NORMAL","Bình thường"},{"HIGH","Cao"},{"URGENT","Khẩn cấp"}}){<option value="@priority.Key" selected="@(Model.Draft.Priority == priority.Key)">@priority.Value</option>}</select>
-}
-<label for="Description">Mô tả @(Model.Kind == "helpdesk" ? "*" : "")</label><textarea id="Description" name="Description" class="form-control" rows="4" maxlength="2000" required="@(Model.Kind == "helpdesk")">@Model.Draft.Description</textarea>
-<button type="submit" class="hrm-btn hrm-btn-primary work-submit">@(Model.Kind == "helpdesk" ? "Gửi yêu cầu" : "Lưu bản ghi")</button>
-</fieldset>
-</form></section>
-}
 </div>

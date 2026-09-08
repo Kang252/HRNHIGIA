@@ -320,7 +320,7 @@ IF OBJECT_ID('dbo.HrmWorkItem', 'U') IS NULL
 BEGIN
  CREATE TABLE dbo.HrmWorkItem (
   Id INT IDENTITY PRIMARY KEY,
-  Kind NVARCHAR(20) NOT NULL CHECK (Kind IN ('kpi','transfer','assets','helpdesk')),
+  Kind NVARCHAR(20) NOT NULL CHECK (Kind IN ('kpi','payroll','recruitment','training','overtime','resignation','transfer','assets','helpdesk')),
   Title NVARCHAR(200) NOT NULL, Description NVARCHAR(2000) NULL,
   Category NVARCHAR(100) NULL, Reference NVARCHAR(100) NULL,
   EmployeeId INT NULL REFERENCES dbo.HrmUserAccount(Id),
@@ -334,4 +334,16 @@ BEGIN
  CREATE INDEX IX_HrmWorkItem_Kind ON dbo.HrmWorkItem(Kind,CreatedAt);
  CREATE UNIQUE INDEX UX_HrmWorkItem_AssetReference ON dbo.HrmWorkItem(Reference) WHERE Kind='assets' AND Reference IS NOT NULL;
 END;
+GO
+
+DECLARE @workKindConstraint SYSNAME;
+SELECT TOP (1) @workKindConstraint = cc.name
+FROM sys.check_constraints cc
+WHERE cc.parent_object_id = OBJECT_ID('dbo.HrmWorkItem')
+  AND cc.definition LIKE '%Kind%';
+IF @workKindConstraint IS NOT NULL AND @workKindConstraint <> 'CK_HrmWorkItem_Kind'
+    EXEC('ALTER TABLE dbo.HrmWorkItem DROP CONSTRAINT ' + QUOTENAME(@workKindConstraint));
+IF OBJECT_ID('dbo.CK_HrmWorkItem_Kind', 'C') IS NULL
+    ALTER TABLE dbo.HrmWorkItem WITH CHECK ADD CONSTRAINT CK_HrmWorkItem_Kind
+    CHECK (Kind IN ('kpi','payroll','recruitment','training','overtime','resignation','transfer','assets','helpdesk'));
 GO

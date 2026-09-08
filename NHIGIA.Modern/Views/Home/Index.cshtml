@@ -5,6 +5,7 @@
     var dashboardCanManage = dashboardUser != null && HrmRoles.CanManagePeople(dashboardUser.RoleCode);
     var dashboardIsEmployee = dashboardUser != null && dashboardUser.RoleCode == HrmRoles.Employee;
     var dashboardIsManager = dashboardUser != null && dashboardUser.RoleCode == HrmRoles.Manager;
+    var dashboardCanConfigure = dashboardUser != null && HrmRoles.CanPublishCompanyWide(dashboardUser.RoleCode);
     var dashboardProfileAction = dashboardCanManage ? "EmployeeInformation" : "MyProfile";
     var dashboardTitle = dashboardIsEmployee ? "Tổng quan của tôi" : dashboardIsManager ? "Tổng quan phòng ban" : "Tổng quan nhân sự";
     var dashboardSubtitle = dashboardIsEmployee ? "Theo dõi lịch làm việc, chấm công và nghỉ phép cá nhân" : dashboardIsManager ? "Theo dõi nhanh nhân sự thuộc phòng ban của bạn" : "Theo dõi nhanh tình hình nhân sự toàn công ty";
@@ -75,6 +76,25 @@
     </div>
     }
 
+    <div class="hrm-card hrm-section-gap">
+        <div class="hrm-card-header"><div><h2 class="hrm-card-title">Ứng dụng eHRM</h2><p class="hrm-card-subtitle">Các nghiệp vụ quản trị nhân sự Nhị Gia</p></div></div>
+        <div class="hrm-card-body hrm-app-grid">
+            <a class="hrm-app-tile" href="@Url.Action(dashboardProfileAction, "Home")"><i class="material-icons">groups</i><span>Quản lý nhân sự</span></a>
+            @if (dashboardCanConfigure) { <a class="hrm-app-tile" href="@Url.Action("Index", "Work", new { kind = "payroll" })"><i class="material-icons">payments</i><span>Tính lương</span></a> }
+            <a class="hrm-app-tile" href="@Url.Action("Attendance", "Home")"><i class="material-icons">alarm_on</i><span>Chấm công</span></a>
+            <a class="hrm-app-tile" href="@Url.Action("Index", "Work", new { kind = "kpi" })"><i class="material-icons">track_changes</i><span>KPI</span></a>
+            @if (dashboardCanConfigure) { <a class="hrm-app-tile" href="@Url.Action("Index", "Work", new { kind = "recruitment" })"><i class="material-icons">person_search</i><span>Tuyển dụng</span></a> }
+            <a class="hrm-app-tile" href="@Url.Action("InternalCommunications", "Home")"><i class="material-icons">campaign</i><span>Truyền thông nội bộ</span></a>
+            @if (dashboardCanManage) { <a class="hrm-app-tile" href="@Url.Action("Index", "Work", new { kind = "training" })"><i class="material-icons">school</i><span>Quản lý đào tạo</span></a> }
+            <a class="hrm-app-tile" href="@Url.Action("Index", "Work", new { kind = "overtime" })"><i class="material-icons">more_time</i><span>Tăng ca</span></a>
+            <a class="hrm-app-tile" href="@Url.Action("LeaveRequests", "Home")"><i class="material-icons">event_busy</i><span>Nghỉ phép</span></a>
+            <a class="hrm-app-tile" href="@Url.Action("Index", "Work", new { kind = "resignation" })"><i class="material-icons">person_remove</i><span>Quản lý nghỉ việc</span></a>
+            @if (dashboardCanConfigure) { <a class="hrm-app-tile" href="@Url.Action("Index", "Work", new { kind = "transfer" })"><i class="material-icons">swap_horiz</i><span>Điều chuyển nhân sự</span></a> }
+            <a class="hrm-app-tile" href="@Url.Action("Index", "Work", new { kind = "assets" })"><i class="material-icons">inventory_2</i><span>Quản lý tài sản</span></a>
+            <a class="hrm-app-tile" href="@Url.Action("Index", "Work", new { kind = "helpdesk" })"><i class="material-icons">support_agent</i><span>Helpdesk IT</span></a>
+        </div>
+    </div>
+
     <div class="hrm-content-grid">
         <div class="hrm-card">
             <div class="hrm-card-header">
@@ -132,7 +152,7 @@
                     <a class="hrm-btn" href="@Url.Action("LeaveRequests", "Home")"><i class="material-icons">event_busy</i> Nghỉ phép</a>
                     <a class="hrm-btn" href="@Url.Action("InternalCommunications", "Home")"><i class="material-icons">announcement</i> Truyền thông</a>
                     <a class="hrm-btn" href="@Url.Action("WorkSchedules", "Home")"><i class="material-icons">event_note</i> @(dashboardIsEmployee ? "Lịch của tôi" : "Phân ca")</a>
-                    @if (!dashboardIsEmployee) { <a class="hrm-btn" href="@Url.Action("Evaluate", "Home")"><i class="material-icons">star_outline</i> Đánh giá</a> }
+                    <a class="hrm-btn" href="@Url.Action("Index", "Work", new { kind = "kpi" })"><i class="material-icons">track_changes</i> KPI</a>
                 </div>
             </div>
         </div>
