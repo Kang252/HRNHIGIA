@@ -22,7 +22,7 @@
     <link rel="stylesheet" href="~/Content/css/style.css" />
     <link rel="stylesheet" href="~/Content/hrm-modern.css" asp-append-version="true" />
     <style>
-        .navbar-brand:before{content:"NG"!important}.hrm-top-user{color:#fff;padding:21px 18px;display:inline-block}.hrm-logout{display:inline-block;margin:13px 16px 0 0}.hrm-logout button{background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.35);color:#fff;border-radius:7px;padding:7px 12px}.sidebar .menu .list a{display:flex;align-items:center;gap:10px}.sidebar .menu .list a i{margin-top:0!important}.sidebar .menu .list li.active>a{background:#eaf2ff;color:#1769e0}.hrm-mobile-menu{display:none}
+        .navbar-brand,.navbar-brand:hover,.navbar-brand:focus{color:#111827!important}.navbar-brand:before{content:"NG"!important}.hrm-top-user{color:#fff;padding:21px 18px;display:inline-block}.hrm-logout{display:inline-block;margin:13px 16px 0 0}.hrm-logout button{background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.35);color:#fff;border-radius:7px;padding:7px 12px}.sidebar .menu .list a{display:flex;align-items:center;gap:10px}.sidebar .menu .list a i{margin-top:0!important;flex:0 0 24px;width:24px}.sidebar .menu .list a span{margin-left:12px;min-width:0}.sidebar .menu .list li.active>a{background:#eaf2ff;color:#1769e0}.hrm-mobile-menu{display:none}
         @@media(max-width:900px){.sidebar{display:none}section.content{margin:82px 12px 20px}.hrm-mobile-menu{display:flex;gap:8px;overflow-x:auto;padding:8px 12px;background:#fff;position:fixed;top:64px;left:0;right:0;z-index:8;border-bottom:1px solid #e5eaf1}.hrm-mobile-menu a{white-space:nowrap}.hrm-page-header{margin-top:48px}.hrm-grid-4,.hrm-grid-3,.hrm-grid-2,.hrm-content-grid{grid-template-columns:1fr!important}}
     </style>
     <script src="~/Content/plugins/jquery/jquery.min.js"></script>
@@ -102,7 +102,7 @@
                     @if (canConfigure) {
                     <li class="@(workKind == "transfer" ? "active" : "")"><a asp-controller="Work" asp-action="Index" asp-route-kind="transfer"><i class="material-icons">swap_horiz</i><span>Điều chuyển nhân sự</span></a></li>
                     }
-                    <li class="@(workKind == "assets" ? "active" : "")"><a asp-controller="Work" asp-action="Index" asp-route-kind="assets"><i class="material-icons">inventory_2</i><span>Quản lý tài sản</span></a></li>
+                    <li class="@(workKind == "assets" ? "active" : "")"><a asp-controller="Work" asp-action="Index" asp-route-kind="assets"><i class="material-icons">devices</i><span>Quản lý tài sản</span></a></li>
                     <li class="@(workKind == "helpdesk" ? "active" : "")"><a asp-controller="Work" asp-action="Index" asp-route-kind="helpdesk"><i class="material-icons">support_agent</i><span>Helpdesk IT</span></a></li>
                 </ul>
             </div>

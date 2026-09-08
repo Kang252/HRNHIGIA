@@ -53,8 +53,18 @@ try
         foreach (var value in text) if (!html.Contains(value)) throw new Exception($"{path}: missing {value}");
         Console.WriteLine($"PASS {role ?? "anonymous"} {path}");
     }
+    async Task CheckMissing(string path, string role, params string[] text)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, path);
+        request.Headers.Add("Cookie", Cookie(role));
+        var response = await client.SendAsync(request);
+        var html = WebUtility.HtmlDecode(await response.Content.ReadAsStringAsync());
+        foreach (var value in text) if (html.Contains(value)) throw new Exception($"{path}: unexpected {value}");
+        Console.WriteLine($"PASS removed content {path}");
+    }
     await Check("/Work?kind=kpi", null, HttpStatusCode.Redirect);
-    await Check("/", "ADMIN", HttpStatusCode.OK, "Ứng dụng eHRM", "Tính lương", "Tuyển dụng", "Quản lý đào tạo", "Tăng ca", "Quản lý nghỉ việc");
+    await Check("/", "ADMIN", HttpStatusCode.OK, "Tổng quan nhân sự", "Tình hình chấm công hôm nay", "Truy cập nhanh");
+    await CheckMissing("/", "ADMIN", "Ứng dụng eHRM", "hrm-app-grid", "inventory_2");
     foreach (var kind in new[] { "kpi", "payroll", "recruitment", "training", "overtime", "resignation", "transfer", "assets", "helpdesk" })
         await Check("/Work?kind=" + kind, "ADMIN", HttpStatusCode.OK, "Chưa kết nối", "disabled", "href=\"/Home/Attendance\"");
     await Check("/Work?kind=helpdesk", "EMPLOYEE", HttpStatusCode.OK, "Tạo yêu cầu Helpdesk IT");
