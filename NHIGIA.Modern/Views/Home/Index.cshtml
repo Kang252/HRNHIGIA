@@ -1,9 +1,154 @@
-﻿@{
-    ViewData["Title"] = "Nhị Gia";
+@using NHIGIA.Modern.Models
+@{
+    var today = DateTime.Now;
+    var dashboardUser = HrmUser.Current;
+    var dashboardCanManage = dashboardUser != null && HrmRoles.CanManagePeople(dashboardUser.RoleCode);
+    var dashboardIsEmployee = dashboardUser != null && dashboardUser.RoleCode == HrmRoles.Employee;
+    var dashboardIsManager = dashboardUser != null && dashboardUser.RoleCode == HrmRoles.Manager;
+    var dashboardProfileAction = dashboardCanManage ? "EmployeeInformation" : "MyProfile";
+    var dashboardTitle = dashboardIsEmployee ? "Tổng quan của tôi" : dashboardIsManager ? "Tổng quan phòng ban" : "Tổng quan nhân sự";
+    var dashboardSubtitle = dashboardIsEmployee ? "Theo dõi lịch làm việc, chấm công và nghỉ phép cá nhân" : dashboardIsManager ? "Theo dõi nhanh nhân sự thuộc phòng ban của bạn" : "Theo dõi nhanh tình hình nhân sự toàn công ty";
 }
 
-<div class="text-center">
-    <h1 class="display-4">HRM Nhị Gia</h1>
-    <p>Phiên bản ASP.NET Core mới đang dùng chung database hiện tại.</p>
-    <p><a class="btn btn-primary" asp-controller="Health" asp-action="Database">Kiểm tra kết nối database</a></p>
+<div class="container-fluid hrm-dashboard">
+    <div class="hrm-page-header">
+        <div>
+            <h1 class="hrm-page-title">@dashboardTitle</h1>
+            <p class="hrm-page-subtitle">Ngày @today.ToString("dd/MM/yyyy") · @dashboardSubtitle</p>
+        </div>
+        <div class="hrm-header-actions">
+            <a class="hrm-btn" href="@Url.Action("WorkSchedules", "Home")">
+                <i class="material-icons">date_range</i> Lịch làm việc
+            </a>
+            @if (dashboardCanManage) { <a class="hrm-btn hrm-btn-primary" href="@Url.Action("EmployeeInformation", "Home")"><i class="material-icons">person_add</i> Quản lý nhân viên</a> }
+        </div>
+    </div>
+
+    @if (dashboardIsEmployee)
+    {
+    <div class="hrm-grid hrm-grid-4">
+        <div class="hrm-card hrm-stat">
+            <div class="hrm-stat-top"><span class="hrm-stat-label">Trạng thái hôm nay</span><span class="hrm-stat-icon green"><i class="material-icons">how_to_reg</i></span></div>
+            <div id="dashboardPersonalStatus" class="hrm-stat-value" style="font-size:21px">--</div>
+            <div class="hrm-stat-note">Theo dữ liệu chấm công cá nhân</div>
+        </div>
+        <div class="hrm-card hrm-stat">
+            <div class="hrm-stat-top"><span class="hrm-stat-label">Giờ vào</span><span class="hrm-stat-icon"><i class="material-icons">login</i></span></div>
+            <div id="dashboardPersonalCheckIn" class="hrm-stat-value">--:--</div>
+            <div class="hrm-stat-note">Bản ghi đầu tiên trong ngày</div>
+        </div>
+        <div class="hrm-card hrm-stat">
+            <div class="hrm-stat-top"><span class="hrm-stat-label">Giờ ra</span><span class="hrm-stat-icon orange"><i class="material-icons">logout</i></span></div>
+            <div id="dashboardPersonalCheckOut" class="hrm-stat-value">--:--</div>
+            <div class="hrm-stat-note">Bản ghi cuối cùng trong ngày</div>
+        </div>
+        <div class="hrm-card hrm-stat">
+            <div class="hrm-stat-top"><span class="hrm-stat-label">Đơn nghỉ đang chờ</span><span class="hrm-stat-icon purple"><i class="material-icons">event_busy</i></span></div>
+            <div id="dashboardPending" class="hrm-stat-value">0</div>
+            <div class="hrm-stat-note">Chờ Trưởng phòng hoặc HR xử lý</div>
+        </div>
+    </div>
+    }
+    else
+    {
+    <div class="hrm-grid hrm-grid-4">
+        <div class="hrm-card hrm-stat">
+            <div class="hrm-stat-top"><span class="hrm-stat-label">@(dashboardIsManager ? "Nhân sự phòng ban" : "Tổng nhân sự")</span><span class="hrm-stat-icon"><i class="material-icons">people</i></span></div>
+            <div id="dashboardEmployees" class="hrm-stat-value">--</div>
+            <div class="hrm-stat-note">Theo phạm vi tài khoản đang đăng nhập</div>
+        </div>
+        <div class="hrm-card hrm-stat">
+            <div class="hrm-stat-top"><span class="hrm-stat-label">Có mặt hôm nay</span><span class="hrm-stat-icon green"><i class="material-icons">how_to_reg</i></span></div>
+            <div id="dashboardPresent" class="hrm-stat-value">--</div>
+            <div class="hrm-stat-note">Dữ liệu từ thiết bị chấm công</div>
+        </div>
+        <div class="hrm-card hrm-stat">
+            <div class="hrm-stat-top"><span class="hrm-stat-label">Đi muộn / về sớm</span><span class="hrm-stat-icon orange"><i class="material-icons">schedule</i></span></div>
+            <div id="dashboardLate" class="hrm-stat-value">--</div>
+            <div class="hrm-stat-note">Theo lịch riêng từng nhân viên</div>
+        </div>
+        <div class="hrm-card hrm-stat">
+            <div class="hrm-stat-top"><span class="hrm-stat-label">Đơn chờ duyệt</span><span class="hrm-stat-icon purple"><i class="material-icons">fact_check</i></span></div>
+            <div id="dashboardPending" class="hrm-stat-value">0</div>
+            <div class="hrm-stat-note">Nghỉ phép, công tác và làm thêm</div>
+        </div>
+    </div>
+    }
+
+    <div class="hrm-content-grid">
+        <div class="hrm-card">
+            <div class="hrm-card-header">
+                <div><h2 class="hrm-card-title">@(dashboardIsEmployee ? "Chấm công hôm nay của tôi" : "Tình hình chấm công hôm nay")</h2><p class="hrm-card-subtitle">@(dashboardIsEmployee ? "Đối chiếu với lịch làm việc được phân" : "Tổng hợp từ thiết bị và lịch làm việc")</p></div>
+                <a class="hrm-btn" href="@Url.Action("Attendance", "Home")">Xem chi tiết</a>
+            </div>
+            <div class="hrm-table-wrap">
+                <table class="hrm-table">
+                    <thead><tr><th>Nhân viên</th><th>Ca làm việc</th><th>Giờ vào</th><th>Giờ ra</th><th>Trạng thái</th></tr></thead>
+                    <tbody id="dashboardAttendance">
+                        <tr><td colspan="5"><div class="hrm-empty"><i class="material-icons">camera_front</i>Chưa có dữ liệu chấm công từ thiết bị.</div></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="hrm-card">
+            @if (dashboardIsEmployee)
+            {
+            <div class="hrm-card-header"><div><h2 class="hrm-card-title">Thông tin cá nhân</h2><p class="hrm-card-subtitle">Phép năm và lịch đang áp dụng</p></div></div>
+            <div class="hrm-card-body">
+                <ul class="hrm-metric-list">
+                    <li><span>Phép năm còn lại</span><strong id="dashboardPersonalLeave">--</strong></li>
+                    <li><span>Phép đã sử dụng</span><strong id="dashboardPersonalLeaveUsed">--</strong></li>
+                    <li><span>Đơn đã duyệt</span><strong id="dashboardPersonalApproved">--</strong></li>
+                    <li><span>Ca làm việc hiện tại</span><strong id="dashboardPersonalShift">Chưa phân ca</strong></li>
+                </ul>
+            </div>
+            }
+            else
+            {
+            <div class="hrm-card-header"><div><h2 class="hrm-card-title">Tỷ lệ hiện diện</h2><p class="hrm-card-subtitle">Theo trạng thái trong ngày</p></div></div>
+            <div class="hrm-card-body">
+                <ul class="hrm-metric-list">
+                    <li><span>Có mặt đúng giờ</span><strong id="dashboardOnTime">--</strong></li>
+                    <li><span>Đi muộn / về sớm</span><strong id="dashboardLateMetric">--</strong></li>
+                    <li><span>Đã ghi nhận</span><strong id="dashboardRecorded">--</strong></li>
+                    <li><span>Chưa ghi nhận</span><strong id="dashboardMissing">--</strong></li>
+                </ul>
+                <div style="margin-top:18px">
+                    <div style="display:flex;justify-content:space-between;margin-bottom:7px;color:#667085;font-size:12px"><span>Tỷ lệ nhân viên đã liên kết thiết bị</span><strong id="dashboardSyncText" style="color:#182230">0%</strong></div>
+                    <div class="hrm-progress"><span id="dashboardSyncProgress" style="width:0%"></span></div>
+                </div>
+            </div>
+            }
+        </div>
+    </div>
+
+    <div class="hrm-grid hrm-grid-2 hrm-section-gap">
+        <div class="hrm-card">
+            <div class="hrm-card-header"><div><h2 class="hrm-card-title">Truy cập nhanh</h2><p class="hrm-card-subtitle">Các nghiệp vụ thường dùng</p></div></div>
+            <div class="hrm-card-body">
+                <div class="hrm-grid hrm-grid-3">
+                    <a class="hrm-btn" href="@Url.Action(dashboardProfileAction, "Home")"><i class="material-icons">badge</i> Hồ sơ</a>
+                    <a class="hrm-btn" href="@Url.Action("Attendance", "Home")"><i class="material-icons">alarm_on</i> Chấm công</a>
+                    <a class="hrm-btn" href="@Url.Action("LeaveRequests", "Home")"><i class="material-icons">event_busy</i> Nghỉ phép</a>
+                    <a class="hrm-btn" href="@Url.Action("InternalCommunications", "Home")"><i class="material-icons">announcement</i> Truyền thông</a>
+                    <a class="hrm-btn" href="@Url.Action("WorkSchedules", "Home")"><i class="material-icons">event_note</i> @(dashboardIsEmployee ? "Lịch của tôi" : "Phân ca")</a>
+                    @if (!dashboardIsEmployee) { <a class="hrm-btn" href="@Url.Action("Evaluate", "Home")"><i class="material-icons">star_outline</i> Đánh giá</a> }
+                </div>
+            </div>
+        </div>
+        <div class="hrm-card">
+            <div class="hrm-card-header"><div><h2 class="hrm-card-title">Bản tin nội bộ</h2><p class="hrm-card-subtitle">Tin tức dành cho toàn thể nhân viên</p></div></div>
+            <div id="dashboardNews" class="hrm-card-body">
+                <div class="hrm-empty" style="padding:22px 12px"><i class="material-icons">forum</i><strong>Chưa có thông báo mới</strong><br /><span>Các thông báo công ty và chính sách HR sẽ hiển thị tại đây.</span></div>
+                <a class="hrm-btn" style="width:100%" href="@Url.Action("InternalCommunications", "Home")">Mở bảng tin nội bộ</a>
+            </div>
+        </div>
+    </div>
 </div>
+<script>
+(function(){
+    $('.home').addClass('active');var isEmployee=@dashboardIsEmployee.ToString().ToLowerInvariant();function esc(v){return $('<div>').text(v==null?'':v).html();}function statusLabel(v){var m={ON_TIME:'Đúng giờ',LATE:'Đi muộn',EARLY:'Về sớm',LATE_EARLY:'Muộn / về sớm',MISSING_CHECK:'Thiếu dữ liệu',MISSING_SCHEDULE:'Chưa có lịch'};return m[v]||v;}
+    $.get('@Url.Action("Dashboard","Hrm")').done(function(r){var d=r.Data||{},a=d.AttendanceToday||[],personal=a.length?a[0]:null,total=d.TotalEmployees||0,present=d.PresentToday||0,mapped=Math.max(0,total-(d.UnmappedHanetUsers||0)),progress=total?Math.round(mapped*100/total):0;$('#dashboardEmployees').text(total);$('#dashboardPresent').text(present);$('#dashboardLate').text(d.LateOrEarlyToday||0);$('#dashboardPending').text(d.PendingApprovals||0);$('#dashboardOnTime').text(a.filter(function(x){return x.StatusCode==='ON_TIME';}).length);$('#dashboardLateMetric').text(d.LateOrEarlyToday||0);$('#dashboardRecorded').text(present);$('#dashboardMissing').text(Math.max(0,total-present));$('#dashboardSyncText').text(progress+'%');$('#dashboardSyncProgress').css('width',progress+'%');if(isEmployee){$('#dashboardPersonalStatus').text(personal?statusLabel(personal.StatusCode):'Chưa chấm công');$('#dashboardPersonalCheckIn').text(personal&&personal.CheckIn?moment(personal.CheckIn).format('HH:mm'):'--:--');$('#dashboardPersonalCheckOut').text(personal&&personal.CheckOut?moment(personal.CheckOut).format('HH:mm'):'--:--');}if(a.length)$('#dashboardAttendance').html(a.map(function(x){return '<tr><td><strong>'+esc(x.DisplayName)+'</strong><small class="hrm-cell-note">'+esc(x.DepartmentName)+'</small></td><td>'+esc(x.ShiftName||'--')+'</td><td>'+(x.CheckIn?moment(x.CheckIn).format('HH:mm'):'--')+'</td><td>'+(x.CheckOut?moment(x.CheckOut).format('HH:mm'):'--')+'</td><td><span class="hrm-badge '+(x.StatusCode==='ON_TIME'?'hrm-badge-success':'hrm-badge-warning')+'">'+esc(statusLabel(x.StatusCode))+'</span></td></tr>';}).join(''));var news=d.Communications||[];if(news.length)$('#dashboardNews').html(news.map(function(x){return '<article style="padding:0 0 14px;margin-bottom:14px;border-bottom:1px solid #edf0f4"><strong>'+esc(x.Title)+'</strong><small class="hrm-cell-note">'+esc(x.AuthorName)+' · '+moment(x.PublishedAt).format('DD/MM HH:mm')+'</small></article>';}).join('')+'<a class="hrm-btn" style="width:100%" href="@Url.Action("InternalCommunications","Home")">Mở bảng tin nội bộ</a>');});
+    if(isEmployee){$.get('@Url.Action("LeaveStats","Hrm")').done(function(r){var s=r.Data||{},remaining=Math.max(0,(s.AnnualAllowance||0)-(s.UsedDays||0));$('#dashboardPersonalLeave').text(remaining+' ngày');$('#dashboardPersonalLeaveUsed').text((s.UsedDays||0)+' ngày');$('#dashboardPersonalApproved').text(s.ApprovedCount||0);});$.get('@Url.Action("Schedules","Hrm")').done(function(r){var today=moment().startOf('day'),schedule=(r.Data||[]).filter(function(x){return !moment(x.EffectiveFrom).isAfter(today)&&(!x.EffectiveTo||!moment(x.EffectiveTo).isBefore(today));})[0];if(schedule)$('#dashboardPersonalShift').text(schedule.ShiftName+' · '+String(schedule.StartTime).substring(0,5)+'–'+String(schedule.EndTime).substring(0,5));});}
+})();
+</script>

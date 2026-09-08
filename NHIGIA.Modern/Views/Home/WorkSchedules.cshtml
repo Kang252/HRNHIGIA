@@ -1,0 +1,126 @@
+@{ var scheduleUser = HrmUser.Current; var canEditSchedule = scheduleUser != null && NHIGIA.Modern.Models.HrmRoles.CanManagePeople(scheduleUser.RoleCode); }
+<div class="container-fluid">
+    <div class="hrm-page-header">
+        <div>
+            <h1 class="hrm-page-title">Lịch làm việc</h1>
+            <p class="hrm-page-subtitle">Thiết lập giờ bắt đầu và kết thúc riêng cho từng nhân viên</p>
+        </div>
+        <div class="hrm-header-actions">
+            <a class="hrm-btn" href="@Url.Action("Attendance", "Home")"><i class="material-icons">alarm_on</i> Xem chấm công</a>
+            @if (canEditSchedule) { <button class="hrm-btn hrm-btn-primary" type="button" data-toggle="modal" data-target="#scheduleModal"><i class="material-icons">add</i> Tạo lịch</button> }
+        </div>
+    </div>
+
+    <div class="hrm-grid hrm-grid-3">
+        <div class="hrm-card hrm-card-body"><span class="hrm-badge hrm-badge-blue">Ca hành chính</span><h3 style="margin:16px 0 6px;font-size:20px">08:00 — 17:00</h3><p class="hrm-page-subtitle">Nghỉ trưa 12:00–13:00 · Cho phép muộn 5 phút</p></div>
+        <div class="hrm-card hrm-card-body"><span class="hrm-badge hrm-badge-success">Ca sáng</span><h3 style="margin:16px 0 6px;font-size:20px">06:00 — 14:00</h3><p class="hrm-page-subtitle">Nghỉ giữa ca 30 phút · Cho phép muộn 5 phút</p></div>
+        <div class="hrm-card hrm-card-body"><span class="hrm-badge hrm-badge-neutral">Ca qua đêm</span><h3 style="margin:16px 0 6px;font-size:20px">20:00 — 05:00</h3><p class="hrm-page-subtitle">Kết thúc vào ngày hôm sau · Cho phép muộn 10 phút</p></div>
+    </div>
+
+    <div class="hrm-card hrm-section-gap">
+        <div class="hrm-toolbar">
+            <div class="hrm-field hrm-field-grow"><label>TÌM NHÂN VIÊN</label><input id="scheduleSearch" class="hrm-control" type="search" placeholder="Nhập mã hoặc tên nhân viên..." /></div>
+            <div class="hrm-field"><label>LOẠI CA</label><select id="scheduleTypeFilter" class="hrm-control"><option value="">Tất cả ca làm việc</option><option>Ca hành chính</option><option>Ca sáng</option><option>Ca qua đêm</option><option>Ca riêng</option></select></div>
+            <div class="hrm-field"><label>TRẠNG THÁI</label><select id="scheduleStatusFilter" class="hrm-control"><option value="">Tất cả trạng thái</option><option>Đang áp dụng</option><option>Sắp áp dụng</option><option>Đã kết thúc</option></select></div>
+            <button id="scheduleFilter" class="hrm-btn hrm-btn-primary" type="button"><i class="material-icons">search</i> Lọc</button>
+        </div>
+        <div class="hrm-table-wrap">
+            <table class="hrm-table">
+                <thead><tr><th>Nhân viên</th><th>Ca làm việc</th><th>Giờ bắt đầu</th><th>Giờ kết thúc</th><th>Áp dụng từ</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>
+                <tbody id="scheduleRows"><tr id="scheduleEmpty"><td colspan="7"><div class="hrm-empty"><i class="material-icons">event_busy</i><strong>Chưa phân lịch cho nhân viên</strong><br /><span>Chọn “Tạo lịch” để thiết lập thời gian làm việc riêng.</span></div></td></tr></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="scheduleModal" tabindex="-1" role="dialog" aria-labelledby="scheduleModalTitle">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content" style="border-radius:12px;overflow:hidden">
+            <div class="modal-header" style="border-bottom:1px solid #e5eaf1"><button type="button" class="close" data-dismiss="modal">&times;</button><h4 id="scheduleModalTitle" class="modal-title">Tạo lịch làm việc</h4></div>
+            <div class="modal-body">
+                <form id="scheduleForm">@Html.AntiForgeryToken()
+                    <div class="form-group"><label>Nhân viên</label><select id="scheduleEmployee" class="hrm-control" required></select></div>
+                    <div class="row" style="margin-top:12px"><div class="col-sm-6"><div class="form-group"><label>Giờ bắt đầu</label><input id="scheduleStart" class="hrm-control" type="time" value="08:00" required /></div></div><div class="col-sm-6"><div class="form-group"><label>Giờ kết thúc</label><input id="scheduleEnd" class="hrm-control" type="time" value="17:00" required /></div></div></div>
+                    <div class="row" style="margin-top:12px"><div class="col-sm-6"><div class="form-group"><label>Ngày áp dụng</label><input id="scheduleDate" class="hrm-control" type="date" required /></div></div><div class="col-sm-6"><div class="form-group"><label>Loại ca</label><select id="scheduleType" class="hrm-control"><option>Ca hành chính</option><option>Ca sáng</option><option>Ca qua đêm</option><option>Ca riêng</option></select></div></div></div>
+                </form>
+            </div>
+            <div class="modal-footer" style="border-top:1px solid #e5eaf1"><button type="button" class="hrm-btn" data-dismiss="modal">Hủy</button><button type="submit" form="scheduleForm" class="hrm-btn hrm-btn-primary">Lưu lịch</button></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    (function () {
+        return; // Luồng cũ chỉ tạo dữ liệu tạm trên trình duyệt; API thật được dùng ở dưới.
+        var dateInput = document.getElementById('scheduleDate');
+        var now = new Date();
+        function todayValue() {
+            return now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+        }
+        dateInput.value = todayValue();
+        document.getElementById('scheduleForm').addEventListener('submit', function (event) {
+            event.preventDefault();
+            var empty = document.getElementById('scheduleEmpty');
+            if (empty) empty.parentNode.removeChild(empty);
+            var employee = document.getElementById('scheduleEmployee').value;
+            var start = document.getElementById('scheduleStart').value;
+            var end = document.getElementById('scheduleEnd').value;
+            var date = document.getElementById('scheduleDate').value.split('-').reverse().join('/');
+            var type = document.getElementById('scheduleType').value;
+            var row = document.createElement('tr');
+            row.setAttribute('data-employee', employee.toLocaleLowerCase());
+            row.setAttribute('data-type', type);
+            row.setAttribute('data-status', 'Đang áp dụng');
+            var values = [employee, type, start, end, date];
+            row.innerHTML = '<td><div class="hrm-person"><span class="hrm-avatar">NV</span><div><strong></strong><small>Lịch cá nhân</small></div></div></td><td></td><td><strong></strong></td><td><strong></strong></td><td></td><td><span class="hrm-badge hrm-badge-success">Đang áp dụng</span></td><td><button class="hrm-btn schedule-remove" type="button" aria-label="Xóa lịch"><i class="material-icons">delete_outline</i></button></td>';
+            row.querySelector('td:nth-child(1) strong').textContent = values[0];
+            row.querySelector('td:nth-child(2)').textContent = values[1];
+            row.querySelector('td:nth-child(3) strong').textContent = values[2];
+            row.querySelector('td:nth-child(4) strong').textContent = values[3];
+            row.querySelector('td:nth-child(5)').textContent = values[4];
+            row.querySelector('.schedule-remove').addEventListener('click', function () {
+                row.parentNode.removeChild(row);
+                if (!document.querySelector('#scheduleRows tr')) {
+                    document.getElementById('scheduleRows').innerHTML = '<tr id="scheduleEmpty"><td colspan="7"><div class="hrm-empty"><i class="material-icons">event_busy</i><strong>Chưa phân lịch cho nhân viên</strong><br><span>Chọn “Tạo lịch” để thiết lập thời gian làm việc riêng.</span></div></td></tr>';
+                }
+            });
+            document.getElementById('scheduleRows').appendChild(row);
+            $('#scheduleModal').modal('hide');
+            this.reset();
+            document.getElementById('scheduleStart').value = '08:00';
+            document.getElementById('scheduleEnd').value = '17:00';
+            dateInput.value = todayValue();
+        });
+        document.getElementById('scheduleFilter').addEventListener('click', function () {
+            var keyword = document.getElementById('scheduleSearch').value.toLocaleLowerCase().trim();
+            var type = document.getElementById('scheduleTypeFilter').value;
+            var status = document.getElementById('scheduleStatusFilter').value;
+            var rows = document.querySelectorAll('#scheduleRows tr:not(#scheduleEmpty)');
+            for (var i = 0; i < rows.length; i++) {
+                var matches = (!keyword || rows[i].getAttribute('data-employee').indexOf(keyword) >= 0) &&
+                    (!type || rows[i].getAttribute('data-type') === type) &&
+                    (!status || rows[i].getAttribute('data-status') === status);
+                rows[i].style.display = matches ? '' : 'none';
+            }
+        });
+    })();
+</script>
+<script>
+(function(){
+    $('.attendance_menu').addClass('active');
+    var allRows=[];
+    function esc(v){return $('<div>').text(v==null?'':v).html();}
+    function time(v){if(!v)return '--';if(typeof v==='string')return v.substring(0,5);return '--';}
+    function date(v){return v?moment(v).format('DD/MM/YYYY'):'--';}
+    function status(item){var now=moment().startOf('day'),start=moment(item.EffectiveFrom),end=item.EffectiveTo?moment(item.EffectiveTo):null;if(start.isAfter(now))return 'Sắp áp dụng';if(end&&end.isBefore(now))return 'Đã kết thúc';return 'Đang áp dụng';}
+    function badge(value){return value==='Đang áp dụng'?'hrm-badge-success':value==='Sắp áp dụng'?'hrm-badge-blue':'hrm-badge-neutral';}
+    function render(){var keyword=$('#scheduleSearch').val().toLocaleLowerCase().trim(),type=$('#scheduleTypeFilter').val(),state=$('#scheduleStatusFilter').val();var rows=allRows.filter(function(x){return(!keyword||(x.DisplayName+' '+x.Username).toLocaleLowerCase().indexOf(keyword)>=0)&&(!type||x.ShiftName===type)&&(!state||status(x)===state);});if(!rows.length){$('#scheduleRows').html('<tr><td colspan="7"><div class="hrm-empty"><i class="material-icons">event_busy</i><strong>Chưa có lịch phù hợp</strong></div></td></tr>');return;}$('#scheduleRows').html(rows.map(function(x){var s=status(x);return '<tr><td><div class="hrm-person"><span class="hrm-avatar">NV</span><div><strong>'+esc(x.DisplayName)+'</strong><small>'+esc(x.DepartmentName||x.Username)+'</small></div></div></td><td>'+esc(x.ShiftName)+'</td><td><strong>'+time(x.StartTime)+'</strong></td><td><strong>'+time(x.EndTime)+'</strong></td><td>'+date(x.EffectiveFrom)+'</td><td><span class="hrm-badge '+badge(s)+'">'+s+'</span></td><td><button class="hrm-btn schedule-delete" data-id="'+x.Id+'"><i class="material-icons">delete_outline</i></button></td></tr>';}).join(''));}
+    function load(){$.get('@Url.Action("Schedules","Hrm")').done(function(r){allRows=r.Data||[];render();});}
+    $.get('@Url.Action("Users","Hrm")').done(function(r){$('#scheduleEmployee').html((r.Data||[]).map(function(x){return '<option value="'+x.Id+'">'+esc(x.DisplayName+' · '+(x.DepartmentName||x.Username))+'</option>';}).join(''));});
+    var today=moment().format('YYYY-MM-DD');$('#scheduleDate').val(today);
+    $('#scheduleType').on('change',function(){var value=$(this).val(),map={'Ca hành chính':['08:00','17:00'],'Ca sáng':['06:00','14:00'],'Ca qua đêm':['20:00','05:00']};if(map[value]){$('#scheduleStart').val(map[value][0]);$('#scheduleEnd').val(map[value][1]);}});
+    $('#scheduleForm').on('submit',function(e){e.preventDefault();$.post('@Url.Action("SaveSchedule","Hrm")',{__RequestVerificationToken:$('#scheduleForm input[name=__RequestVerificationToken]').val(),UserId:$('#scheduleEmployee').val(),ShiftName:$('#scheduleType').val(),StartTime:$('#scheduleStart').val(),EndTime:$('#scheduleEnd').val(),BreakMinutes:60,GraceMinutes:5,EffectiveFrom:$('#scheduleDate').val()}).done(function(){$('#scheduleModal').modal('hide');load();}).fail(function(x){alert((x.responseJSON&&x.responseJSON.Message)||'Không thể lưu lịch.');});});
+    $(document).on('click','.schedule-delete',function(){if(!confirm('Xóa lịch làm việc này?'))return;$.post('@Url.Action("DeleteSchedule","Hrm")',{__RequestVerificationToken:$('#scheduleForm input[name=__RequestVerificationToken]').val(),id:$(this).data('id')}).done(load).fail(function(x){alert((x.responseJSON&&x.responseJSON.Message)||'Không thể xóa lịch.');});});
+    $('#scheduleFilter').off('click').on('click',render);load();
+})();
+</script>

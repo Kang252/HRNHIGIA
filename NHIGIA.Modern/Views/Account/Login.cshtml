@@ -1,0 +1,57 @@
+@model NHIGIA.Modern.Models.LoginViewModel
+@{
+    Layout = null;
+}
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Đăng nhập - HRM Nhị Gia</title>
+    <link href="@Url.Content("~/Content/css/css.css")" rel="stylesheet" />
+    <link href="@Url.Content("~/Content/css/icon.css")" rel="stylesheet" />
+    <link href="@Url.Content("~/Content/plugins/bootstrap/css/bootstrap.css")" rel="stylesheet" />
+    <link href="@Url.Content("~/Content/hrm-modern.css")" rel="stylesheet" />
+</head>
+<body class="hrm-login-body">
+    <main class="hrm-login-shell">
+        <section class="hrm-login-intro">
+            <div class="hrm-login-brand"><span>NG</span> HRM NHỊ GIA</div>
+            <div>
+                <h1>Quản trị nhân sự<br />trên một nền tảng</h1>
+                <p>Hồ sơ, lịch làm việc, chấm công, nghỉ phép và truyền thông nội bộ.</p>
+            </div>
+            <div class="hrm-login-feature"><i class="material-icons">verified_user</i><span>Phân quyền theo Nhân viên, Trưởng phòng, HR và Giám đốc</span></div>
+        </section>
+        <section class="hrm-login-panel">
+            <div class="hrm-login-form-wrap">
+                <h2>Đăng nhập</h2>
+                <p>Sử dụng tài khoản được cấp để truy cập hệ thống.</p>
+                @using (Html.BeginForm("Login", "Account", FormMethod.Post, new { @class = "hrm-login-form" }))
+                {
+                    @Html.AntiForgeryToken()
+                    @Html.HiddenFor(m => m.ReturnUrl)
+                    @Html.ValidationSummary(true, "", new { @class = "hrm-login-error" })
+                    <div class="form-group">
+                        <label for="Username">Tài khoản</label>
+                        @Html.TextBoxFor(m => m.Username, new { @class = "hrm-control", autocomplete = "username", autofocus = "autofocus", placeholder = "Nhập tài khoản" })
+                        @Html.ValidationMessageFor(m => m.Username, "", new { @class = "hrm-login-error" })
+                    </div>
+                    <div class="form-group">
+                        <label for="Password">Mật khẩu</label>
+                        @Html.PasswordFor(m => m.Password, new { @class = "hrm-control", autocomplete = "current-password", placeholder = "Nhập mật khẩu" })
+                        @Html.ValidationMessageFor(m => m.Password, "", new { @class = "hrm-login-error" })
+                    </div>
+                    <label class="hrm-check hrm-login-remember">@Html.CheckBoxFor(m => m.RememberMe) <span>Duy trì đăng nhập</span></label>
+                    <button type="submit" class="hrm-btn hrm-btn-primary hrm-login-submit">Đăng nhập</button>
+                }
+                <div class="hrm-demo-accounts">
+                    <strong>Tài khoản kiểm thử</strong>
+                    <span>Nhân viên: anhvt · Trưởng phòng: huongtm · Giám đốc: thedt</span>
+                    <span>HR: hradmin · Quản trị: admin</span>
+                </div>
+            </div>
+        </section>
+    </main>
+</body>
+</html>

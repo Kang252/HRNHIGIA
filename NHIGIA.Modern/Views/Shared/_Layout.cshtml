@@ -1,49 +1,86 @@
+@{
+    var user = HrmUser.Current;
+    var role = user?.RoleCode ?? string.Empty;
+    var canManage = HrmRoles.CanManagePeople(role);
+    var canConfigure = role == HrmRoles.Admin || role == HrmRoles.Hr || role == HrmRoles.Director;
+    var action = ViewContext.RouteData.Values["action"]?.ToString() ?? "Index";
+}
 <!DOCTYPE html>
-<html lang="en">
+<html lang="vi">
 <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - HRM Nhị Gia</title>
-    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
-    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
-    <link rel="stylesheet" href="~/NHIGIA.Modern.styles.css" asp-append-version="true" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Nhị Gia - @ViewBag.Title</title>
+    <link rel="icon" href="~/favicon.ico" />
+    <link rel="stylesheet" href="~/Content/css/css.css" />
+    <link rel="stylesheet" href="~/Content/css/icon.css" />
+    <link rel="stylesheet" href="~/Content/plugins/bootstrap/css/bootstrap.css" />
+    <link rel="stylesheet" href="~/Content/css/style.css" />
+    <link rel="stylesheet" href="~/Content/hrm-modern.css" asp-append-version="true" />
+    <style>
+        .navbar-brand:before{content:"NG"!important}.hrm-top-user{color:#fff;padding:21px 18px;display:inline-block}.hrm-logout{display:inline-block;margin:13px 16px 0 0}.hrm-logout button{background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.35);color:#fff;border-radius:7px;padding:7px 12px}.sidebar .menu .list a{display:flex;align-items:center;gap:10px}.sidebar .menu .list a i{margin-top:0!important}.sidebar .menu .list li.active>a{background:#eaf2ff;color:#1769e0}.hrm-mobile-menu{display:none}
+        @@media(max-width:900px){.sidebar{display:none}section.content{margin:82px 12px 20px}.hrm-mobile-menu{display:flex;gap:8px;overflow-x:auto;padding:8px 12px;background:#fff;position:fixed;top:64px;left:0;right:0;z-index:8;border-bottom:1px solid #e5eaf1}.hrm-mobile-menu a{white-space:nowrap}.hrm-page-header{margin-top:48px}.hrm-grid-4,.hrm-grid-3,.hrm-grid-2,.hrm-content-grid{grid-template-columns:1fr!important}}
+    </style>
+    <script src="~/Content/plugins/jquery/jquery.min.js"></script>
+    <script src="~/Content/plugins/bootstrap/js/bootstrap.js"></script>
+    <script src="~/Scripts/moment.js"></script>
 </head>
-<body>
-    <header>
-        <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white border-bottom box-shadow mb-3">
-            <div class="container-fluid">
-                <a class="navbar-brand" asp-area="" asp-controller="Home" asp-action="Index">HRM Nhị Gia</a>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent"
-                        aria-expanded="false" aria-label="Toggle navigation">
-                    <span class="navbar-toggler-icon"></span>
-                </button>
-                <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
-                    <ul class="navbar-nav flex-grow-1">
-                        <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Index">Home</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
-                        </li>
-                    </ul>
-                </div>
+<body class="theme-red">
+    <nav class="navbar navbar-fixed-top">
+        <div class="container-fluid">
+            <div class="navbar-header"><a class="navbar-brand" asp-controller="Home" asp-action="Index">HRM NHỊ GIA</a></div>
+            <div class="pull-right">
+                <span class="hrm-top-user">@user?.DisplayName · @user?.RoleLabel</span>
+                <form class="hrm-logout" asp-controller="Account" asp-action="Logout" method="post">
+                    @Html.AntiForgeryToken()
+                    <button type="submit"><i class="material-icons" style="font-size:16px;vertical-align:middle">logout</i> Đăng xuất</button>
+                </form>
             </div>
-        </nav>
-    </header>
-    <div class="container">
-        <main role="main" class="pb-3">
-            @RenderBody()
-        </main>
+        </div>
+    </nav>
+
+    <div class="hrm-mobile-menu">
+        <a class="hrm-btn" asp-action="Index">Tổng quan</a><a class="hrm-btn" asp-action="Attendance">Chấm công</a><a class="hrm-btn" asp-action="LeaveRequests">Nghỉ phép</a><a class="hrm-btn" asp-action="WorkSchedules">Lịch làm việc</a>
     </div>
 
-    <footer class="border-top footer text-muted">
-        <div class="container">
-            &copy; 2026 - HRM Nhị Gia - <a asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
-        </div>
-    </footer>
-    <script src="~/lib/jquery/dist/jquery.min.js"></script>
-    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="~/js/site.js" asp-append-version="true"></script>
+    <section>
+        <aside id="leftsidebar" class="sidebar">
+            <div class="user-info">
+                <div class="image"><span class="hrm-avatar">@((user?.DisplayName ?? "NG").Substring(0, Math.Min(2, (user?.DisplayName ?? "NG").Length)).ToUpperInvariant())</span></div>
+                <div class="info-container">
+                    <div class="name">@user?.DisplayName</div>
+                    <div class="email">@user?.DepartmentName</div>
+                    <small>@user?.RoleLabel</small>
+                </div>
+            </div>
+            <div class="menu">
+                <ul class="list">
+                    <li class="header">NGHIỆP VỤ NHÂN SỰ</li>
+                    <li class="@(action == "Index" ? "active" : "")"><a asp-action="Index"><i class="material-icons">dashboard</i><span>Tổng quan</span></a></li>
+                    <li class="@(action == "MyProfile" ? "active" : "")"><a asp-action="MyProfile"><i class="material-icons">badge</i><span>Hồ sơ của tôi</span></a></li>
+                    <li class="@(action == "Attendance" ? "active" : "")"><a asp-action="Attendance"><i class="material-icons">alarm_on</i><span>Chấm công</span></a></li>
+                    <li class="@(action == "WorkSchedules" ? "active" : "")"><a asp-action="WorkSchedules"><i class="material-icons">event_note</i><span>@(canManage ? "Phân ca làm việc" : "Lịch làm việc")</span></a></li>
+                    <li class="@(action == "LeaveRequests" ? "active" : "")"><a asp-action="LeaveRequests"><i class="material-icons">event_busy</i><span>Nghỉ phép</span></a></li>
+                    @if (canManage)
+                    {
+                        <li class="@(action == "Approvals" ? "active" : "")"><a asp-action="Approvals"><i class="material-icons">fact_check</i><span>Phê duyệt</span></a></li>
+                    }
+                    <li class="@(action == "InternalCommunications" ? "active" : "")"><a asp-action="InternalCommunications"><i class="material-icons">campaign</i><span>Truyền thông nội bộ</span></a></li>
+                    @if (canConfigure)
+                    {
+                        <li class="@(action == "Reports" ? "active" : "")"><a asp-action="Reports"><i class="material-icons">analytics</i><span>Báo cáo</span></a></li>
+                        @if (Configuration.GetValue<bool>("Features:HanetIntegrationUiEnabled"))
+                        {
+                            <li class="@(action == "HanetIntegration" ? "active" : "")"><a asp-action="HanetIntegration"><i class="material-icons">sync</i><span>Tích hợp HANET</span></a></li>
+                        }
+                    }
+                </ul>
+            </div>
+            <div class="legal"><div class="copyright">&copy; @DateTime.Now.Year <a asp-action="Index">HRM NHỊ GIA</a></div></div>
+        </aside>
+    </section>
+
+    <section class="content">@RenderBody()</section>
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

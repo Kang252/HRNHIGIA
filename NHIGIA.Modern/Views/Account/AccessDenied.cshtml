@@ -1,0 +1,7 @@
+@{
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    ViewBag.Title = "Không có quyền truy cập";
+}
+<div class="container-fluid">
+    <div class="hrm-card"><div class="hrm-empty"><i class="material-icons">lock_outline</i><strong>Không có quyền truy cập</strong><br /><span>Tài khoản của bạn không được phép thực hiện chức năng này.</span><div style="margin-top:18px"><a class="hrm-btn hrm-btn-primary" href="@Url.Action("Index", "Home")">Về trang chủ</a></div></div></div>
+</div>

@@ -1,22 +1,23 @@
-using NHIGIA.Modern.Data;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
+using NHIGIA.Modern.Infrastructure;
 
 namespace NHIGIA.Modern.Controllers;
 
-public sealed class HealthController : Controller
+[ApiController]
+[Route("Health")]
+public sealed class HealthController : ControllerBase
 {
-    private readonly HrmDbContext _dbContext;
+    private readonly HrmDataStore _store;
 
-    public HealthController(HrmDbContext dbContext)
-    {
-        _dbContext = dbContext;
-    }
+    public HealthController(HrmDataStore store) => _store = store;
 
     [HttpGet]
-    public async Task<IActionResult> Database(CancellationToken cancellationToken)
+    public IActionResult Index() => Ok(new { Status = "OK" });
+
+    [HttpGet("Database")]
+    public IActionResult Database()
     {
-        var connected = await _dbContext.Database.CanConnectAsync(cancellationToken);
-        return Content(connected ? "Database connection: OK" : "Database connection: FAILED");
+        try { return Ok(new { Status = _store.CanConnect() ? "OK" : "FAILED" }); }
+        catch (Exception exception) { return StatusCode(503, new { Status = "FAILED", Message = exception.Message }); }
     }
 }

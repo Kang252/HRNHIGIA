@@ -1,0 +1,110 @@
+@using NHIGIA.Modern.Models
+@{ var communicationUser = HrmUser.Current; var canPublish = communicationUser != null && HrmRoles.CanManagePeople(communicationUser.RoleCode); var companyWide = communicationUser != null && HrmRoles.CanPublishCompanyWide(communicationUser.RoleCode); }
+<div class="container-fluid">
+    <div class="hrm-page-header">
+        <div>
+            <h1 class="hrm-page-title">Truyền thông nội bộ</h1>
+            <p class="hrm-page-subtitle">Thông báo công ty, chính sách nhân sự và hoạt động dành cho nhân viên</p>
+        </div>
+        <div class="hrm-header-actions">
+            @if (canPublish) { <button class="hrm-btn hrm-btn-primary" type="button" data-toggle="modal" data-target="#communicationModal"><i class="material-icons">announcement</i> Đăng thông báo</button> }
+        </div>
+    </div>
+
+    <div class="hrm-content-grid hrm-communication-grid">
+        <div class="hrm-card">
+            <div class="hrm-toolbar">
+                <div class="hrm-field hrm-field-grow"><label>TÌM KIẾM</label><input id="communicationSearch" class="hrm-control" type="search" placeholder="Tìm theo tiêu đề hoặc nội dung..." /></div>
+                <div class="hrm-field"><label>CHUYÊN MỤC</label><select id="communicationCategoryFilter" class="hrm-control"><option value="">Tất cả chuyên mục</option><option>Thông báo công ty</option><option>Nhân sự</option><option>Hoạt động nội bộ</option><option>Đào tạo</option><option>Khác</option></select></div>
+                <button id="communicationFilter" class="hrm-btn hrm-btn-primary" type="button"><i class="material-icons">search</i> Lọc</button>
+            </div>
+            <div id="communicationFeed" class="hrm-feed">
+                <div id="communicationEmpty" class="hrm-empty"><i class="material-icons">forum</i><strong>Chưa có bài đăng nội bộ</strong><br /><span>Thông báo mới sẽ xuất hiện tại đây theo phạm vi của từng nhân viên.</span></div>
+            </div>
+        </div>
+
+        <div class="hrm-stack">
+            <div class="hrm-card">
+                <div class="hrm-card-header"><div><h2 class="hrm-card-title">Chuyên mục</h2><p class="hrm-card-subtitle">Nội dung được phân loại rõ ràng</p></div></div>
+                <div class="hrm-card-body"><ul class="hrm-side-list"><li><i class="material-icons">business</i><span>Thông báo công ty</span><strong>0</strong></li><li><i class="material-icons">people</i><span>Nhân sự</span><strong>0</strong></li><li><i class="material-icons">celebration</i><span>Hoạt động nội bộ</span><strong>0</strong></li><li><i class="material-icons">school</i><span>Đào tạo</span><strong>0</strong></li></ul></div>
+            </div>
+            <div class="hrm-card">
+                <div class="hrm-card-header"><div><h2 class="hrm-card-title">Quyền xuất bản</h2><p class="hrm-card-subtitle">Sẽ áp dụng sau khi hoàn thiện phân quyền</p></div></div>
+                <div class="hrm-card-body"><ul class="hrm-metric-list"><li><span>Nhân viên</span><strong>Xem theo phạm vi</strong></li><li><span>Trưởng phòng</span><strong>Đăng trong phòng</strong></li><li><span>HR / Giám đốc</span><strong>Đăng toàn công ty</strong></li></ul></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="communicationModal" tabindex="-1" role="dialog" aria-labelledby="communicationModalTitle">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content hrm-modal-content">
+            <div class="modal-header"><button type="button" class="close" data-dismiss="modal">&times;</button><h4 id="communicationModalTitle" class="modal-title">Đăng thông báo nội bộ</h4></div>
+            <div class="modal-body">
+                <form id="communicationForm">@Html.AntiForgeryToken()
+                    <div class="row"><div class="col-sm-6"><div class="form-group"><label>Chuyên mục</label><select id="communicationCategory" class="hrm-control"><option>Thông báo công ty</option><option>Nhân sự</option><option>Hoạt động nội bộ</option><option>Đào tạo</option><option>Khác</option></select></div></div><div class="col-sm-6"><div class="form-group"><label>Phạm vi nhận</label><select id="communicationScope" class="hrm-control">@if (companyWide) { <option value="ALL">Toàn công ty</option> }<option value="DEPARTMENT">Phòng ban của tôi</option><option value="MANAGER">Chỉ cấp quản lý</option></select></div></div></div>
+                    <div class="form-group hrm-form-row"><label>Tiêu đề</label><input id="communicationTitle" class="hrm-control" required maxlength="150" placeholder="Nhập tiêu đề thông báo..." /></div>
+                    <div class="form-group hrm-form-row"><label>Nội dung</label><textarea id="communicationBody" class="hrm-control hrm-textarea hrm-textarea-large" required maxlength="3000" placeholder="Nhập nội dung cần truyền thông..."></textarea></div>
+                    <div class="form-group hrm-form-row"><label>Tệp đính kèm</label><input id="communicationAttachment" class="hrm-control hrm-file-control" type="file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xlsx" /></div>
+                    <label class="hrm-check"><input id="communicationPinned" type="checkbox" /> <span>Ghim bài đăng ở đầu bảng tin</span></label>
+                </form>
+            </div>
+            <div class="modal-footer"><button type="button" class="hrm-btn" data-dismiss="modal">Hủy</button><button type="submit" form="communicationForm" class="hrm-btn hrm-btn-primary">Đăng bài</button></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    (function () {
+        return; // Luồng dữ liệu tạm cũ đã được thay bằng API thật ở dưới.
+        $('.internal_communications').addClass('active');
+        var form = document.getElementById('communicationForm');
+        var feed = document.getElementById('communicationFeed');
+        form.addEventListener('submit', function (event) {
+            event.preventDefault();
+            var empty = document.getElementById('communicationEmpty');
+            if (empty) empty.parentNode.removeChild(empty);
+            var category = document.getElementById('communicationCategory').value;
+            var scope = document.getElementById('communicationScope').value;
+            var title = document.getElementById('communicationTitle').value;
+            var body = document.getElementById('communicationBody').value;
+            var pinned = document.getElementById('communicationPinned').checked;
+            var article = document.createElement('article');
+            article.className = 'hrm-feed-item';
+            article.setAttribute('data-category', category);
+            article.setAttribute('data-search', (title + ' ' + body).toLocaleLowerCase());
+            article.innerHTML = '<div class="hrm-feed-head"><span class="hrm-avatar">HR</span><div class="hrm-feed-heading"><div><strong class="hrm-feed-author">Quản trị nhân sự</strong><span class="hrm-feed-time"> · Vừa xong</span></div><div class="hrm-feed-meta"><span class="hrm-badge hrm-badge-blue"></span><span class="hrm-feed-scope"></span></div></div></div><h2 class="hrm-feed-title"></h2><p class="hrm-feed-copy"></p><div class="hrm-feed-footer"><span><i class="material-icons">visibility</i> Bản xem trước trên giao diện</span></div>';
+            article.querySelector('.hrm-badge').textContent = category;
+            article.querySelector('.hrm-feed-scope').textContent = scope;
+            article.querySelector('.hrm-feed-title').textContent = title;
+            article.querySelector('.hrm-feed-copy').textContent = body;
+            if (pinned) {
+                var pin = document.createElement('span');
+                pin.className = 'hrm-badge hrm-badge-warning';
+                pin.textContent = 'Đã ghim';
+                article.querySelector('.hrm-feed-meta').appendChild(pin);
+            }
+            feed.insertBefore(article, feed.firstChild);
+            $('#communicationModal').modal('hide');
+            form.reset();
+        });
+        document.getElementById('communicationFilter').addEventListener('click', function () {
+            var keyword = document.getElementById('communicationSearch').value.toLocaleLowerCase().trim();
+            var category = document.getElementById('communicationCategoryFilter').value;
+            var articles = document.querySelectorAll('.hrm-feed-item');
+            for (var i = 0; i < articles.length; i++) {
+                var matches = (!keyword || articles[i].getAttribute('data-search').indexOf(keyword) >= 0) && (!category || articles[i].getAttribute('data-category') === category);
+                articles[i].style.display = matches ? '' : 'none';
+            }
+        });
+    })();
+</script>
+<script>
+(function(){
+    $('.internal_communications').addClass('active');
+    function esc(v){return $('<div>').text(v==null?'':v).html();} function scope(v){return v==='ALL'?'Toàn công ty':v==='MANAGER'?'Cấp quản lý':'Phòng ban';}
+    function load(){var query={keyword:$('#communicationSearch').val(),category:$('#communicationCategoryFilter').val()};$.get('@Url.Action("Communications","Hrm")',query).done(function(r){var items=r.Data||[];if(!items.length){$('#communicationFeed').html('<div class="hrm-empty"><i class="material-icons">forum</i><strong>Chưa có bài đăng nội bộ</strong></div>');return;}$('#communicationFeed').html(items.map(function(x){return '<article class="hrm-feed-item"><div class="hrm-feed-head"><span class="hrm-avatar">TT</span><div class="hrm-feed-heading"><div><strong class="hrm-feed-author">'+esc(x.AuthorName)+'</strong><span class="hrm-feed-time"> · '+moment(x.PublishedAt).format('DD/MM/YYYY HH:mm')+'</span></div><div class="hrm-feed-meta"><span class="hrm-badge hrm-badge-blue">'+esc(x.Category)+'</span><span class="hrm-feed-scope">'+scope(x.ScopeCode)+'</span>'+(x.IsPinned?'<span class="hrm-badge hrm-badge-warning">Đã ghim</span>':'')+'</div></div></div><h2 class="hrm-feed-title">'+esc(x.Title)+'</h2><p class="hrm-feed-copy">'+esc(x.Body)+'</p>'+(x.AttachmentName?'<div class="hrm-feed-footer"><span><i class="material-icons">attach_file</i>'+esc(x.AttachmentName)+'</span></div>':'')+'</article>';}).join(''));});}
+    $('#communicationForm').on('submit',function(e){e.preventDefault();var file=$('#communicationAttachment')[0].files[0];$.post('@Url.Action("CreateCommunication","Hrm")',{__RequestVerificationToken:$('#communicationForm input[name=__RequestVerificationToken]').val(),Category:$('#communicationCategory').val(),ScopeCode:$('#communicationScope').val(),Title:$('#communicationTitle').val(),Body:$('#communicationBody').val(),AttachmentName:file?file.name:'',IsPinned:$('#communicationPinned').is(':checked')}).done(function(){$('#communicationModal').modal('hide');$('#communicationForm')[0].reset();load();}).fail(function(x){alert((x.responseJSON&&x.responseJSON.Message)||'Không thể đăng thông báo.');});});
+    $('#communicationFilter').off('click').on('click',load);load();
+})();
+</script>

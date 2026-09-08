@@ -1,0 +1,172 @@
+@model NHIGIA.Modern.Models.EmployeeProfileModel
+@{
+    Func<string, string> value = text => string.IsNullOrWhiteSpace(text) ? "Chưa cập nhật" : text;
+    Func<DateTime?, string> date = item => item.HasValue ? item.Value.ToString("dd/MM/yyyy") : "Chưa cập nhật";
+    Func<decimal?, string> number = item => item.HasValue ? item.Value.ToString("0.#") : "Chưa cập nhật";
+    var name = string.IsNullOrWhiteSpace(Model.DisplayName) ? "Nhân viên" : Model.DisplayName.Trim();
+    var initials = name.Substring(0, Math.Min(2, name.Length)).ToUpperInvariant();
+
+    var personalFields = new[] {
+        new { Label = "Họ và tên", Value = value(Model.DisplayName) },
+        new { Label = "Giới tính", Value = value(Model.Gender) },
+        new { Label = "Ngày sinh", Value = date(Model.DateOfBirth) },
+        new { Label = "Nơi sinh", Value = value(Model.PlaceOfBirth) },
+        new { Label = "Quốc tịch", Value = value(Model.Nationality) },
+        new { Label = "Dân tộc", Value = value(Model.Ethnicity) },
+        new { Label = "Tôn giáo", Value = value(Model.Religion) },
+        new { Label = "Tình trạng hôn nhân", Value = value(Model.MaritalStatus) }
+    };
+    var contactFields = new[] {
+        new { Label = "Điện thoại di động", Value = value(Model.MobilePhone) },
+        new { Label = "Điện thoại cơ quan", Value = value(Model.OfficePhone) },
+        new { Label = "Điện thoại nhà", Value = value(Model.HomePhone) },
+        new { Label = "Email cá nhân", Value = value(Model.PersonalEmail) },
+        new { Label = "Email công ty", Value = value(Model.CompanyEmail) },
+        new { Label = "Địa chỉ thường trú", Value = value(Model.PermanentAddress) },
+        new { Label = "Địa chỉ hiện tại", Value = value(Model.CurrentAddress) }
+    };
+    var identityFields = new[] {
+        new { Label = "Số CCCD/CMND", Value = value(Model.IdentityNumber) },
+        new { Label = "Ngày cấp CCCD/CMND", Value = date(Model.IdentityIssuedDate) },
+        new { Label = "Nơi cấp CCCD/CMND", Value = value(Model.IdentityIssuedPlace) },
+        new { Label = "Ngày hết hạn CCCD/CMND", Value = date(Model.IdentityExpiryDate) },
+        new { Label = "Số hộ chiếu", Value = value(Model.PassportNumber) },
+        new { Label = "Ngày cấp hộ chiếu", Value = date(Model.PassportIssuedDate) },
+        new { Label = "Nơi cấp hộ chiếu", Value = value(Model.PassportIssuedPlace) },
+        new { Label = "Ngày hết hạn hộ chiếu", Value = date(Model.PassportExpiryDate) },
+        new { Label = "Mã số thuế cá nhân", Value = value(Model.PersonalTaxCode) }
+    };
+    var workFields = new[] {
+        new { Label = "Mã nhân viên", Value = value(Model.EmployeeCode) },
+        new { Label = "Tài khoản hệ thống", Value = value(Model.Username) },
+        new { Label = "Đơn vị công tác", Value = value(Model.DepartmentName) },
+        new { Label = "Vị trí công việc", Value = value(Model.JobTitle) },
+        new { Label = "Quản lý trực tiếp", Value = value(Model.SupervisorName) },
+        new { Label = "Địa điểm làm việc", Value = value(Model.WorkLocation) },
+        new { Label = "Trạng thái làm việc", Value = value(Model.EmploymentStatus) },
+        new { Label = "Mã chấm công", Value = value(Model.TimekeepingCode) },
+        new { Label = "Ngày tiếp nhận", Value = date(Model.HireDate) },
+        new { Label = "Ngày thử việc", Value = date(Model.ProbationDate) },
+        new { Label = "Ngày chính thức", Value = date(Model.OfficialDate) },
+        new { Label = "Phép năm tiêu chuẩn", Value = number(Model.AnnualLeaveDays) + (Model.AnnualLeaveDays.HasValue ? " ngày" : string.Empty) }
+    };
+    var contractFields = new[] {
+        new { Label = "Loại hợp đồng", Value = value(Model.ContractType) },
+        new { Label = "Số hợp đồng", Value = value(Model.ContractNumber) },
+        new { Label = "Ngày bắt đầu", Value = date(Model.ContractStartDate) },
+        new { Label = "Ngày kết thúc", Value = date(Model.ContractEndDate) },
+        new { Label = "Mức lương cơ bản", Value = value(Model.BasicSalary) }
+    };
+    var educationFields = new[] {
+        new { Label = "Trình độ văn hóa", Value = value(Model.EducationLevel) },
+        new { Label = "Bằng cấp", Value = value(Model.Degree) },
+        new { Label = "Nơi đào tạo", Value = value(Model.SchoolName) },
+        new { Label = "Khoa", Value = value(Model.Faculty) },
+        new { Label = "Chuyên ngành", Value = value(Model.Major) },
+        new { Label = "Năm tốt nghiệp", Value = value(Model.GraduationYear) },
+        new { Label = "Xếp loại", Value = value(Model.GraduationClassification) }
+    };
+    var financeFields = new[] {
+        new { Label = "Số tài khoản ngân hàng", Value = value(Model.BankAccountNumber) },
+        new { Label = "Ngân hàng", Value = value(Model.BankName) },
+        new { Label = "Chi nhánh ngân hàng", Value = value(Model.BankBranch) },
+        new { Label = "Số sổ BHXH", Value = value(Model.SocialInsuranceNumber) },
+        new { Label = "Ngày tham gia BHXH", Value = date(Model.SocialInsuranceStartDate) },
+        new { Label = "Số thẻ BHYT", Value = value(Model.HealthInsuranceNumber) },
+        new { Label = "Ngày hết hạn BHYT", Value = date(Model.HealthInsuranceExpiryDate) },
+        new { Label = "Nơi đăng ký khám chữa bệnh", Value = value(Model.RegisteredHealthFacility) }
+    };
+    var emergencyFields = new[] {
+        new { Label = "Họ tên người liên hệ", Value = value(Model.EmergencyContactName) },
+        new { Label = "Mối quan hệ", Value = value(Model.EmergencyContactRelationship) },
+        new { Label = "Số điện thoại", Value = value(Model.EmergencyContactPhone) },
+        new { Label = "Email", Value = value(Model.EmergencyContactEmail) },
+        new { Label = "Địa chỉ", Value = value(Model.EmergencyContactAddress) }
+    };
+}
+
+<div class="container-fluid hrm-profile-page">
+    <div class="hrm-page-header">
+        <div>
+            <h1 class="hrm-page-title">Hồ sơ của tôi</h1>
+            <p class="hrm-page-subtitle">Thông tin cá nhân và quá trình làm việc được lưu trên hệ thống</p>
+        </div>
+        <div class="hrm-header-actions">
+            <a class="hrm-btn" href="@Url.Action("Attendance", "Home")"><i class="material-icons">schedule</i> Chấm công</a>
+            <a class="hrm-btn hrm-btn-primary" href="@Url.Action("LeaveRequests", "Home")"><i class="material-icons">event_busy</i> Nghỉ phép</a>
+        </div>
+    </div>
+
+    <div class="hrm-profile-hero hrm-card">
+        <div class="hrm-profile-avatar">@initials</div>
+        <div class="hrm-profile-identity">
+            <div class="hrm-profile-name-row">
+                <h2>@name</h2>
+                <span class="hrm-badge @(Model.IsActive ? "hrm-badge-success" : "hrm-badge-neutral")">@(Model.IsActive ? "Đang hoạt động" : "Ngừng hoạt động")</span>
+            </div>
+            <p>@value(Model.JobTitle) <span>•</span> @value(Model.DepartmentName)</p>
+            <div class="hrm-profile-tags">
+                <span><i class="material-icons">badge</i> @value(Model.EmployeeCode)</span>
+                <span><i class="material-icons">admin_panel_settings</i> @Model.RoleLabel</span>
+                <span><i class="material-icons">supervisor_account</i> Quản lý: @value(Model.SupervisorName)</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="hrm-profile-layout">
+        <aside class="hrm-card hrm-profile-index">
+            <div class="hrm-card-header"><div><h2 class="hrm-card-title">Nội dung hồ sơ</h2><p class="hrm-card-subtitle">Toàn bộ nhóm thông tin nhân viên</p></div></div>
+            <nav class="hrm-profile-nav">
+                <a href="#personal"><i class="material-icons">person</i> Thông tin cá nhân</a>
+                <a href="#contact"><i class="material-icons">contact_phone</i> Liên hệ và địa chỉ</a>
+                <a href="#identity"><i class="material-icons">fingerprint</i> Giấy tờ định danh</a>
+                <a href="#work"><i class="material-icons">work</i> Công việc và hợp đồng</a>
+                <a href="#education"><i class="material-icons">school</i> Học vấn</a>
+                <a href="#finance"><i class="material-icons">account_balance</i> Ngân hàng và bảo hiểm</a>
+                <a href="#emergency"><i class="material-icons">health_and_safety</i> Liên hệ khẩn cấp</a>
+            </nav>
+            <div class="hrm-profile-security-note"><i class="material-icons">lock</i><span>Thông tin này chỉ hiển thị trong hồ sơ của tài khoản đang đăng nhập.</span></div>
+        </aside>
+
+        <main class="hrm-profile-sections">
+            <section class="hrm-card hrm-profile-section" id="personal">
+                <div class="hrm-card-header"><div class="hrm-profile-section-heading"><span><i class="material-icons">person</i></span><div><h2 class="hrm-card-title">Thông tin cá nhân</h2><p class="hrm-card-subtitle">Thông tin cơ bản của nhân viên</p></div></div></div>
+                <div class="hrm-detail-grid">@foreach (var field in personalFields) { <div class="hrm-detail-item"><span>@field.Label</span><strong class="@(field.Value == "Chưa cập nhật" ? "is-empty" : string.Empty)">@field.Value</strong></div> }</div>
+            </section>
+
+            <section class="hrm-card hrm-profile-section" id="contact">
+                <div class="hrm-card-header"><div class="hrm-profile-section-heading"><span><i class="material-icons">contact_phone</i></span><div><h2 class="hrm-card-title">Liên hệ và địa chỉ</h2><p class="hrm-card-subtitle">Các kênh liên lạc và nơi cư trú</p></div></div></div>
+                <div class="hrm-detail-grid">@foreach (var field in contactFields) { <div class="hrm-detail-item"><span>@field.Label</span><strong class="@(field.Value == "Chưa cập nhật" ? "is-empty" : string.Empty)">@field.Value</strong></div> }</div>
+            </section>
+
+            <section class="hrm-card hrm-profile-section" id="identity">
+                <div class="hrm-card-header"><div class="hrm-profile-section-heading"><span><i class="material-icons">fingerprint</i></span><div><h2 class="hrm-card-title">Giấy tờ định danh</h2><p class="hrm-card-subtitle">CCCD, hộ chiếu và thông tin thuế cá nhân</p></div></div></div>
+                <div class="hrm-detail-grid">@foreach (var field in identityFields) { <div class="hrm-detail-item"><span>@field.Label</span><strong class="@(field.Value == "Chưa cập nhật" ? "is-empty" : string.Empty)">@field.Value</strong></div> }</div>
+            </section>
+
+            <section class="hrm-card hrm-profile-section" id="work">
+                <div class="hrm-card-header"><div class="hrm-profile-section-heading"><span><i class="material-icons">work</i></span><div><h2 class="hrm-card-title">Thông tin công việc</h2><p class="hrm-card-subtitle">Vị trí, đơn vị, thời gian công tác và hợp đồng</p></div></div></div>
+                <div class="hrm-detail-subtitle">Quá trình công tác</div>
+                <div class="hrm-detail-grid">@foreach (var field in workFields) { <div class="hrm-detail-item"><span>@field.Label</span><strong class="@(field.Value == "Chưa cập nhật" ? "is-empty" : string.Empty)">@field.Value</strong></div> }</div>
+                <div class="hrm-detail-subtitle">Hợp đồng và lương</div>
+                <div class="hrm-detail-grid">@foreach (var field in contractFields) { <div class="hrm-detail-item"><span>@field.Label</span><strong class="@(field.Value == "Chưa cập nhật" ? "is-empty" : string.Empty)">@field.Value</strong></div> }</div>
+            </section>
+
+            <section class="hrm-card hrm-profile-section" id="education">
+                <div class="hrm-card-header"><div class="hrm-profile-section-heading"><span><i class="material-icons">school</i></span><div><h2 class="hrm-card-title">Học vấn và bằng cấp</h2><p class="hrm-card-subtitle">Thông tin đào tạo chuyên môn</p></div></div></div>
+                <div class="hrm-detail-grid">@foreach (var field in educationFields) { <div class="hrm-detail-item"><span>@field.Label</span><strong class="@(field.Value == "Chưa cập nhật" ? "is-empty" : string.Empty)">@field.Value</strong></div> }</div>
+            </section>
+
+            <section class="hrm-card hrm-profile-section" id="finance">
+                <div class="hrm-card-header"><div class="hrm-profile-section-heading"><span><i class="material-icons">account_balance</i></span><div><h2 class="hrm-card-title">Ngân hàng và bảo hiểm</h2><p class="hrm-card-subtitle">Thông tin phục vụ lương, BHXH và BHYT</p></div></div></div>
+                <div class="hrm-detail-grid">@foreach (var field in financeFields) { <div class="hrm-detail-item"><span>@field.Label</span><strong class="@(field.Value == "Chưa cập nhật" ? "is-empty" : string.Empty)">@field.Value</strong></div> }</div>
+            </section>
+
+            <section class="hrm-card hrm-profile-section" id="emergency">
+                <div class="hrm-card-header"><div class="hrm-profile-section-heading"><span><i class="material-icons">health_and_safety</i></span><div><h2 class="hrm-card-title">Liên hệ khẩn cấp</h2><p class="hrm-card-subtitle">Người cần liên hệ khi phát sinh tình huống khẩn cấp</p></div></div></div>
+                <div class="hrm-detail-grid">@foreach (var field in emergencyFields) { <div class="hrm-detail-item"><span>@field.Label</span><strong class="@(field.Value == "Chưa cập nhật" ? "is-empty" : string.Empty)">@field.Value</strong></div> }</div>
+                <div class="hrm-profile-notes"><span>Ghi chú</span><p class="@(string.IsNullOrWhiteSpace(Model.Notes) ? "is-empty" : string.Empty)">@value(Model.Notes)</p></div>
+            </section>
+        </main>
+    </div>
+</div>
