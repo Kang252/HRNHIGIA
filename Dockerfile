@@ -1,8 +1,9 @@
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
-COPY ["NHIGIA.Modern.csproj", "."]
-RUN dotnet restore "NHIGIA.Modern.csproj"
-COPY . .
+COPY ["NHIGIA.Modern/NHIGIA.Modern.csproj", "NHIGIA.Modern/"]
+RUN dotnet restore "NHIGIA.Modern/NHIGIA.Modern.csproj"
+COPY NHIGIA.Modern/ NHIGIA.Modern/
+WORKDIR /src/NHIGIA.Modern
 RUN dotnet publish "NHIGIA.Modern.csproj" -c Release -o /app/publish /p:UseAppHost=false
 
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final

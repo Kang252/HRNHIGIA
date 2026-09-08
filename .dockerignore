@@ -1,0 +1,17 @@
+.git
+.vs
+bin
+obj
+packages
+_logs
+_mentor_source
+NHIGIA.Common
+NHIGIA.Core
+NHIGIA.Database
+NHIGIA.Repository
+NHIGIA.Services
+NHIGIA.Web
+publish
+*.zip
+*.user
+*.suo
