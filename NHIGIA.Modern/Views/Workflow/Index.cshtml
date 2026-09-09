@@ -1,0 +1,257 @@
+@using NHIGIA.Modern.Models
+@{
+    var activeTab = ViewBag.ActiveTab as string ?? "pending";
+    var definitions = ViewBag.Definitions as List<WorkflowDefinitionModel> ?? new List<WorkflowDefinitionModel>();
+    var pendingList = ViewBag.PendingList as List<WorkflowInstanceModel> ?? new List<WorkflowInstanceModel>();
+    var myRequests = ViewBag.MyRequests as List<WorkflowInstanceModel> ?? new List<WorkflowInstanceModel>();
+}
+
+<div class="container-fluid">
+    <div class="block-header">
+        <h2>HỆ THỐNG QUY TRÌNH DUYỆT ĐỘNG (WORKFLOW AUTOMATION)</h2>
+        <small class="text-muted">Quản lý và phê duyệt trực tuyến các đề xuất: Nghỉ phép, Công tác, Mua sắm, Cấp phát IT, Duyệt chi phí, Tuyển dụng.</small>
+    </div>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success alert-dismissible" role="alert">
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            <i class="material-icons" style="vertical-align:middle;font-size:18px">check_circle</i> @TempData["Success"]
+        </div>
+    }
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible" role="alert">
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            <i class="material-icons" style="vertical-align:middle;font-size:18px">error</i> @TempData["Error"]
+        </div>
+    }
+
+    <!-- THỐNG KÊ NHANH -->
+    <div class="row clearfix" style="margin-bottom:15px">
+        <div class="col-lg-4 col-md-4 col-sm-6 col-xs-12">
+            <div class="info-box bg-orange hover-expand-effect" style="border-radius:8px">
+                <div class="icon"><i class="material-icons">hourglass_top</i></div>
+                <div class="content">
+                    <div class="text">CHỜ TÔI PHÊ DUYỆT</div>
+                    <div class="number">@pendingList.Count</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4 col-md-4 col-sm-6 col-xs-12">
+            <div class="info-box bg-blue hover-expand-effect" style="border-radius:8px">
+                <div class="icon"><i class="material-icons">send</i></div>
+                <div class="content">
+                    <div class="text">ĐỀ XUẤT CỦA TÔI</div>
+                    <div class="number">@myRequests.Count</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4 col-md-4 col-sm-6 col-xs-12">
+            <div class="info-box bg-teal hover-expand-effect" style="border-radius:8px">
+                <div class="icon"><i class="material-icons">alt_route</i></div>
+                <div class="content">
+                    <div class="text">QUY TRÌNH KÍCH HOẠT</div>
+                    <div class="number">@definitions.Count</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- NỘI DUNG TABS -->
+    <div class="card" style="border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.08)">
+        <div class="header" style="padding:15px 20px 0;border-bottom:1px solid #eee">
+            <ul class="nav nav-tabs tab-nav-right" role="tablist">
+                <li role="presentation" class="@(activeTab == "pending" ? "active" : "")">
+                    <a href="#tab-pending" data-toggle="tab" style="font-weight:600">
+                        <i class="material-icons" style="font-size:18px;vertical-align:middle">pending_actions</i>
+                        Chờ tôi duyệt (@pendingList.Count)
+                    </a>
+                </li>
+                <li role="presentation" class="@(activeTab == "my-requests" ? "active" : "")">
+                    <a href="#tab-my-requests" data-toggle="tab" style="font-weight:600">
+                        <i class="material-icons" style="font-size:18px;vertical-align:middle">history_edu</i>
+                        Đề xuất của tôi (@myRequests.Count)
+                    </a>
+                </li>
+                <li role="presentation" class="@(activeTab == "new" ? "active" : "")">
+                    <a href="#tab-new" data-toggle="tab" style="font-weight:600;color:#1769e0">
+                        <i class="material-icons" style="font-size:18px;vertical-align:middle">add_circle</i>
+                        Tạo đề xuất mới
+                    </a>
+                </li>
+            </ul>
+        </div>
+        <div class="body" style="padding:20px">
+            <div class="tab-content">
+                <!-- TAB 1: CHỜ TÔI DUYỆT -->
+                <div role="tabpanel" class="tab-pane fade @(activeTab == "pending" ? "active in" : "")" id="tab-pending">
+                    @if (pendingList.Count == 0)
+                    {
+                        <div class="text-center" style="padding:40px 0;color:#888">
+                            <i class="material-icons" style="font-size:48px;color:#bbb">task_alt</i>
+                            <p style="margin-top:10px;font-size:15px">Bạn không có đề xuất nào đang chờ phê duyệt lúc này.</p>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr style="background:#f8f9fa">
+                                        <th>Mã đơn</th>
+                                        <th>Loại quy trình</th>
+                                        <th>Tiêu đề / Nội dung</th>
+                                        <th>Người gửi</th>
+                                        <th>Phòng ban</th>
+                                        <th>Số tiền (nếu có)</th>
+                                        <th>Ngày gửi</th>
+                                        <th style="text-align:center">Thao tác</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var item in pendingList)
+                                    {
+                                        <tr>
+                                            <td><strong>@item.InstanceCode</strong></td>
+                                            <td><span class="label label-primary">@item.WorkflowName</span></td>
+                                            <td>
+                                                <div style="font-weight:600">@item.Title</div>
+                                                <small class="text-muted">@item.Description</small>
+                                            </td>
+                                            <td>@item.RequesterName</td>
+                                            <td>@item.RequesterDepartment</td>
+                                            <td>@(item.Amount.HasValue ? item.Amount.Value.ToString("N0") + " đ" : "-")</td>
+                                            <td>@item.CreatedAt.ToString("dd/MM/yyyy HH:mm")</td>
+                                            <td style="text-align:center;white-space:nowrap">
+                                                <form asp-controller="Workflow" asp-action="Process" method="post" style="display:inline-block">
+                                                    @Html.AntiForgeryToken()
+                                                    <input type="hidden" name="InstanceId" value="@item.Id" />
+                                                    <input type="hidden" name="Approve" value="true" />
+                                                    <input type="hidden" name="Comment" value="Đồng ý phê duyệt qua Web Portal" />
+                                                    <button type="submit" class="btn btn-sm btn-success waves-effect" title="Đồng ý duyệt">
+                                                        <i class="material-icons" style="font-size:16px;vertical-align:middle">done</i> Duyệt
+                                                    </button>
+                                                </form>
+                                                <form asp-controller="Workflow" asp-action="Process" method="post" style="display:inline-block;margin-left:4px">
+                                                    @Html.AntiForgeryToken()
+                                                    <input type="hidden" name="InstanceId" value="@item.Id" />
+                                                    <input type="hidden" name="Approve" value="false" />
+                                                    <input type="hidden" name="Comment" value="Từ chối yêu cầu" />
+                                                    <button type="submit" class="btn btn-sm btn-danger waves-effect" title="Từ chối" onclick="return confirm('Bạn có chắc muốn từ chối đề xuất này?');">
+                                                        <i class="material-icons" style="font-size:16px;vertical-align:middle">close</i> Từ chối
+                                                    </button>
+                                                </form>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+
+                <!-- TAB 2: ĐỀ XUẤT CỦA TÔI -->
+                <div role="tabpanel" class="tab-pane fade @(activeTab == "my-requests" ? "active in" : "")" id="tab-my-requests">
+                    @if (myRequests.Count == 0)
+                    {
+                        <div class="text-center" style="padding:40px 0;color:#888">
+                            <i class="material-icons" style="font-size:48px;color:#bbb">description</i>
+                            <p style="margin-top:10px;font-size:15px">Bạn chưa tạo đề xuất nào. Bấm vào 'Tạo đề xuất mới' để gửi yêu cầu.</p>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr style="background:#f8f9fa">
+                                        <th>Mã đơn</th>
+                                        <th>Quy trình</th>
+                                        <th>Tiêu đề đề xuất</th>
+                                        <th>Bước hiện tại</th>
+                                        <th>Người duyệt tiếp</th>
+                                        <th>Trạng thái</th>
+                                        <th>Ngày tạo</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var item in myRequests)
+                                    {
+                                        <tr>
+                                            <td><strong>@item.InstanceCode</strong></td>
+                                            <td><span class="label label-default">@item.WorkflowName</span></td>
+                                            <td>
+                                                <div style="font-weight:600">@item.Title</div>
+                                                <small class="text-muted">@item.Description</small>
+                                            </td>
+                                            <td>@(item.CurrentStepName ?? "Đã hoàn thành")</td>
+                                            <td>@(item.CurrentApproverName ?? "-")</td>
+                                            <td>
+                                                @switch (item.StatusCode)
+                                                {
+                                                    case "PENDING":
+                                                        <span class="label label-warning">Đang chờ duyệt</span>
+                                                        break;
+                                                    case "APPROVED":
+                                                        <span class="label label-success">Đã duyệt</span>
+                                                        break;
+                                                    case "REJECTED":
+                                                        <span class="label label-danger">Bị từ chối</span>
+                                                        break;
+                                                    default:
+                                                        <span class="label label-default">@item.StatusCode</span>
+                                                        break;
+                                                }
+                                            </td>
+                                            <td>@item.CreatedAt.ToString("dd/MM/yyyy HH:mm")</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+
+                <!-- TAB 3: TẠO ĐỀ XUẤT MỚI -->
+                <div role="tabpanel" class="tab-pane fade @(activeTab == "new" ? "active in" : "")" id="tab-new">
+                    <div class="row">
+                        <div class="col-md-8 col-md-offset-2">
+                            <form asp-controller="Workflow" asp-action="Create" method="post">
+                                @Html.AntiForgeryToken()
+                                <div class="form-group">
+                                    <label>Chọn Loại Quy Trình Phê Duyệt:</label>
+                                    <select name="WorkflowCode" class="form-control" required style="border:1px solid #ccc;padding:8px">
+                                        <option value="">-- Vui lòng chọn quy trình --</option>
+                                        @foreach (var def in definitions)
+                                        {
+                                            <option value="@def.Code">@def.Name (@def.Description)</option>
+                                        }
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Tiêu đề đề xuất:</label>
+                                    <input type="text" name="Title" class="form-control" placeholder="Ví dụ: Đề xuất công tác Hà Nội 3 ngày / Đăng ký nghỉ phép năm" required style="border:1px solid #ccc;padding:8px" />
+                                </div>
+                                <div class="form-group">
+                                    <label>Nội dung chi tiết / Lý do:</label>
+                                    <textarea name="Description" class="form-control" rows="4" placeholder="Mô tả chi tiết mục đích, thời gian, công việc cụ thể..." required style="border:1px solid #ccc;padding:8px"></textarea>
+                                </div>
+                                <div class="form-group">
+                                    <label>Số tiền / Kinh phí ước tính (VNĐ - nếu có):</label>
+                                    <input type="number" name="Amount" class="form-control" placeholder="Ví dụ: 3500000" style="border:1px solid #ccc;padding:8px" />
+                                </div>
+                                <div class="form-group" style="margin-top:20px;text-align:right">
+                                    <button type="submit" class="btn btn-primary waves-effect" style="padding:10px 24px">
+                                        <i class="material-icons" style="font-size:16px;vertical-align:middle">send</i> Gửi Phê Duyệt
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+

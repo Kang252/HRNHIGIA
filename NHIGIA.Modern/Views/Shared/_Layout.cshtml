@@ -6,9 +6,10 @@
     var isEmployee = role == HrmRoles.Employee;
     var isManager = role == HrmRoles.Manager;
     var isDirector = role == HrmRoles.Director;
-    var workKind = ViewContext.RouteData.Values["controller"]?.ToString() == "Work" ? ((Model as WorkPage)?.Kind ?? "kpi") : "";
+    var controller = ViewContext.RouteData.Values["controller"]?.ToString() ?? "Home";
+    var workKind = controller == "Work" ? ((Model as WorkPage)?.Kind ?? "kpi") : "";
     var action = ViewContext.RouteData.Values["action"]?.ToString() ?? "Index";
-    var isWork = ViewContext.RouteData.Values["controller"]?.ToString() == "Work";
+    var isWork = controller == "Work";
 
     if (isWork) { action = "Work"; }
 }
@@ -84,6 +85,7 @@
                     {
                         <li class="@(action == "Approvals" ? "active" : "")"><a asp-controller="Home" asp-action="Approvals"><i class="material-icons">fact_check</i><span>Phê duyệt</span></a></li>
                     }
+                    <li class="@(controller == "Workflow" ? "active" : "")"><a asp-controller="Workflow" asp-action="Index"><i class="material-icons" style="color:#f59e0b">alt_route</i><span style="font-weight:600">Quy trình duyệt (Workflow)</span></a></li>
                     <li class="@(action == "InternalCommunications" ? "active" : "")"><a asp-controller="Home" asp-action="InternalCommunications"><i class="material-icons">campaign</i><span>Truyền thông nội bộ</span></a></li>
                     <li class="header">TIỆN ÍCH & ĐIỀU PHỐI</li>
                     <li class="@(workKind == "meeting" ? "active" : "")"><a asp-controller="Work" asp-action="Index" asp-route-kind="meeting"><i class="material-icons">meeting_room</i><span>Đặt phòng họp</span></a></li>
@@ -93,6 +95,7 @@
                     @if (canConfigure)
                     {
                         <li class="@(action == "Reports" ? "active" : "")"><a asp-controller="Home" asp-action="Reports"><i class="material-icons">analytics</i><span>Báo cáo</span></a></li>
+                        <li class="@(controller == "AiReport" ? "active" : "")"><a asp-controller="AiReport" asp-action="Index"><i class="material-icons" style="color:#2563eb">psychology</i><span style="font-weight:600;color:#1d4ed8">AI Báo cáo Giám đốc</span></a></li>
                         @if (Configuration.GetValue<bool>("Features:HanetIntegrationUiEnabled"))
                         {
                             <li class="@(action == "HanetIntegration" ? "active" : "")"><a asp-controller="Home" asp-action="HanetIntegration"><i class="material-icons">sync</i><span>Tích hợp HANET</span></a></li>

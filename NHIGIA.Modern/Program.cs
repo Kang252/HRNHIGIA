@@ -1,7 +1,11 @@
+using System.Text;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.IdentityModel.Tokens;
 using NHIGIA.Modern.Infrastructure;
+using NHIGIA.Modern.Infrastructure.Workflow;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -11,8 +15,13 @@ builder.Logging.AddConsole();
 builder.Services
     .AddControllersWithViews()
     .AddJsonOptions(options => options.JsonSerializerOptions.PropertyNamingPolicy = null);
-builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
-    .AddCookie(options =>
+
+builder.Services.AddAuthentication(options =>
+    {
+        options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+        options.DefaultSignInScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+    })
+    .AddCookie(CookieAuthenticationDefaults.AuthenticationScheme, options =>
     {
         options.LoginPath = "/Account/Login";
         options.AccessDeniedPath = "/Account/AccessDenied";
@@ -21,7 +30,25 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         options.Cookie.SameSite = SameSiteMode.Lax;
         options.SlidingExpiration = true;
         options.ExpireTimeSpan = TimeSpan.FromHours(8);
+    })
+    .AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, options =>
+    {
+        var secretKey = builder.Configuration["JWT_SECRET_KEY"] ?? JwtService.DefaultSecretKey;
+        options.RequireHttpsMetadata = false;
+        options.SaveToken = true;
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey)),
+            ValidateIssuer = true,
+            ValidIssuer = JwtService.Issuer,
+            ValidateAudience = true,
+            ValidAudience = JwtService.Audience,
+            ValidateLifetime = true,
+            ClockSkew = TimeSpan.FromMinutes(5)
+        };
     });
+
 builder.Services.AddAuthorization();
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
@@ -38,9 +65,15 @@ if (!string.IsNullOrWhiteSpace(dataProtectionPath))
 }
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton<HrmDataStore>();
+builder.Services.AddSingleton<JwtService>();
 
 builder.Services.AddScoped<WorkItemStore>();
 builder.Services.AddScoped<HrmUserAccessor>();
+builder.Services.AddScoped<AiAnalyticsEngine>();
+builder.Services.AddScoped<HrmWorkflowEngine>();
+builder.Services.AddScoped<GpsAttendanceService>();
+builder.Services.AddScoped<EmployeeSelfServiceStore>();
+builder.Services.AddScoped<AiHrAssistantService>();
 
 var app = builder.Build();
 
@@ -65,6 +98,7 @@ try
 {
     var store = app.Services.GetRequiredService<HrmDataStore>();
     store.EnsureSchema(Path.Combine(app.Environment.ContentRootPath, "App_Data", "hrm-mvp.sql"));
+    store.EnsureSchema(Path.Combine(app.Environment.ContentRootPath, "App_Data", "hrm-upgrade-v2.sql"));
 }
 catch (Exception exception)
 {

@@ -1,0 +1,852 @@
+@model NHIGIA.Modern.Models.AiReportDashboardViewModel
+@{
+    Layout = "_Layout";
+}
+
+<div class="container-fluid" style="padding-bottom: 50px;">
+    <!-- HEADER -->
+    <div class="hrm-page-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:12px;">
+        <div>
+            <h1 class="hrm-page-title" style="display:flex; align-items:center; gap:8px; font-size:24px; font-weight:700; color:#1e293b;">
+                <i class="material-icons" style="color:#2563eb; font-size:30px;">psychology</i>
+                AI Báo Cáo Điều Hành Ban Giám Đốc
+            </h1>
+            <p class="hrm-page-subtitle" style="margin:4px 0 0; color:#64748b;">
+                Báo cáo tự động tổng hợp số liệu nhân sự, phân tích bất thường và dự báo chiến lược cho Nhị Gia Group
+            </p>
+        </div>
+        <div style="display:flex; align-items:center; gap:10px;">
+            <div class="btn-group">
+                <a href="@Url.Action("Index", "AiReport", new { period = "current_month" })" class="btn @(ViewBag.ActivePeriod == "current_month" ? "btn-primary" : "btn-default")" style="border-radius:6px; font-weight:600;">
+                    Tháng này
+                </a>
+                <a href="@Url.Action("Index", "AiReport", new { period = "last_month" })" class="btn @(ViewBag.ActivePeriod == "last_month" ? "btn-primary" : "btn-default")" style="border-radius:6px; font-weight:600;">
+                    Tháng trước
+                </a>
+            </div>
+            <button onclick="window.print()" class="btn btn-default" style="border-radius:6px; display:inline-flex; align-items:center; gap:4px;">
+                <i class="material-icons" style="font-size:18px;">print</i> In Báo Cáo
+            </button>
+        </div>
+    </div>
+
+    <!-- AI EXECUTIVE SUMMARY BANNER -->
+    <div class="card" style="background:linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #2563eb 100%); color:#fff; border-radius:12px; box-shadow:0 10px 25px -5px rgba(30, 58, 138, 0.25); margin-bottom:24px; overflow:hidden;">
+        <div class="body" style="padding:24px;">
+            <div class="row" style="display:flex; align-items:center; flex-wrap:wrap; margin:0;">
+                <div class="col-md-3 col-sm-12 text-center" style="border-right: 1px solid rgba(255,255,255,0.15); padding:10px 20px;">
+                    <div style="font-size:12px; text-transform:uppercase; letter-spacing:1px; opacity:0.85; margin-bottom:6px;">HR Health Score</div>
+                    <div style="display:inline-flex; width:92px; height:92px; border-radius:50%; background:rgba(255,255,255,0.12); border:4px solid #38bdf8; align-items:center; justify-content:center; font-size:32px; font-weight:800; color:#fff;">
+                        @Model.HrHealthScore
+                    </div>
+                    <div style="margin-top:8px; font-size:13px; font-weight:600; color:#e0f2fe;">@Model.HealthScoreAssessment</div>
+                </div>
+                <div class="col-md-9 col-sm-12" style="padding:10px 24px;">
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+                        <span class="badge" style="background:#38bdf8; color:#0f172a; font-weight:700; padding:5px 10px; border-radius:4px; font-size:11px;">AI EXECUTIVE INSIGHT</span>
+                        <span style="font-size:12px; opacity:0.85;">Dữ liệu tổng hợp lúc: @Model.GeneratedAt.ToString("HH:mm - dd/MM/yyyy")</span>
+                    </div>
+                    <div style="font-size:15px; line-height:1.6; font-weight:500; margin-bottom:12px; color:#f8fafc;">
+                        @Model.Insight.ExecutiveSummary
+                    </div>
+                    <div style="display:flex; flex-wrap:wrap; gap:16px;">
+                        @foreach (var hl in Model.Insight.Highlights)
+                        {
+                            <div style="display:flex; align-items:center; gap:6px; font-size:13px; background:rgba(255,255,255,0.1); padding:4px 12px; border-radius:20px;">
+                                <i class="material-icons" style="font-size:16px; color:#38bdf8;">check_circle</i>
+                                <span>@hl</span>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 5 CORE METRIC CARDS -->
+    <div class="row" style="margin-bottom:24px;">
+        <!-- 1. Tỷ lệ nghỉ việc -->
+        <div class="col-lg-2 col-md-4 col-sm-6 col-xs-12">
+            <div class="card hrm-metric-card" style="border-radius:10px; border-left:4px solid #ef4444; padding:16px; margin-bottom:16px;">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                    <span style="font-size:12px; font-weight:600; color:#64748b; text-transform:uppercase;">Tỷ Lệ Nghỉ Việc</span>
+                    <i class="material-icons" style="color:#ef4444; font-size:20px;">person_remove</i>
+                </div>
+                <div style="font-size:26px; font-weight:800; color:#0f172a; margin:6px 0 2px;">@Model.TurnoverRate%</div>
+                <div style="font-size:12px; color:#475569;">
+                    <span>@Model.ResignedThisPeriod nghỉ kỳ này</span> &bull; <span style="color:#d97706; font-weight:600;">@Model.Turnover.HighRiskCount nguy cơ</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. Chi phí nhân sự -->
+        <div class="col-lg-3 col-md-4 col-sm-6 col-xs-12">
+            <div class="card hrm-metric-card" style="border-radius:10px; border-left:4px solid #10b981; padding:16px; margin-bottom:16px;">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                    <span style="font-size:12px; font-weight:600; color:#64748b; text-transform:uppercase;">Quỹ Lương & Chi Phí</span>
+                    <i class="material-icons" style="color:#10b981; font-size:20px;">payments</i>
+                </div>
+                <div style="font-size:24px; font-weight:800; color:#0f172a; margin:6px 0 2px;">@Model.TotalPayrollCost.ToString("N0") <small style="font-size:13px; font-weight:500;">VNĐ</small></div>
+                <div style="font-size:12px; color:#475569;">
+                    <span>Bình quân: @Model.PersonnelCost.AvgSalaryPerHead.ToString("N0") đ/người</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. OT Bất thường -->
+        <div class="col-lg-2 col-md-4 col-sm-6 col-xs-12">
+            <div class="card hrm-metric-card" style="border-radius:10px; border-left:4px solid #f59e0b; padding:16px; margin-bottom:16px;">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                    <span style="font-size:12px; font-weight:600; color:#64748b; text-transform:uppercase;">OT Bất Thường</span>
+                    <i class="material-icons" style="color:#f59e0b; font-size:20px;">more_time</i>
+                </div>
+                <div style="font-size:26px; font-weight:800; color:#b45309; margin:6px 0 2px;">@Model.AbnormalOtCount <small style="font-size:13px; font-weight:600;">nhân sự</small></div>
+                <div style="font-size:12px; color:#475569;">
+                    <span>Tổng: @Model.TotalOtHours.ToString("0.0")h</span> &bull; <span style="color:#b45309;">@Model.PersonnelCost.OtCostRatioPercent% quỹ lương</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 4. Hiệu suất phòng ban -->
+        <div class="col-lg-2 col-md-6 col-sm-6 col-xs-12">
+            <div class="card hrm-metric-card" style="border-radius:10px; border-left:4px solid #6366f1; padding:16px; margin-bottom:16px;">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                    <span style="font-size:12px; font-weight:600; color:#64748b; text-transform:uppercase;">KPI Toàn Công Ty</span>
+                    <i class="material-icons" style="color:#6366f1; font-size:20px;">track_changes</i>
+                </div>
+                <div style="font-size:26px; font-weight:800; color:#0f172a; margin:6px 0 2px;">@Model.CompanyKpiRate%</div>
+                <div style="font-size:12px; color:#475569;">
+                    <span>Top: @Model.DepartmentPerformance.TopPerformingDepartment</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 5. Tình trạng tuyển dụng -->
+        <div class="col-lg-3 col-md-6 col-sm-6 col-xs-12">
+            <div class="card hrm-metric-card" style="border-radius:10px; border-left:4px solid #0ea5e9; padding:16px; margin-bottom:16px;">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                    <span style="font-size:12px; font-weight:600; color:#64748b; text-transform:uppercase;">Tiến Độ Tuyển Dụng</span>
+                    <i class="material-icons" style="color:#0ea5e9; font-size:20px;">person_search</i>
+                </div>
+                <div style="font-size:26px; font-weight:800; color:#0f172a; margin:6px 0 2px;">@Model.Recruitment.FillRatePercent%</div>
+                <div style="font-size:12px; color:#475569;">
+                    <span>Đã nhận: @Model.Recruitment.HiredCount/@Model.Recruitment.TotalTargetHeadcount</span> &bull; <span>Cần thêm: @Model.OpenRecruitmentCount</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- AI RISKS & RECOMMENDATIONS BAR -->
+    <div class="row" style="margin-bottom:24px;">
+        <div class="col-md-6">
+            <div class="card" style="border-radius:10px; box-shadow:0 2px 8px rgba(0,0,0,0.05); height:100%;">
+                <div class="header" style="border-bottom:1px solid #f1f5f9; padding:14px 18px; display:flex; align-items:center; gap:8px;">
+                    <i class="material-icons" style="color:#e11d48;">warning</i>
+                    <h2 style="font-size:15px; font-weight:700; color:#0f172a; margin:0;">CẢNH BÁO RỦI RO CẦN BAN GIÁM ĐỐC LƯU Ý</h2>
+                </div>
+                <div class="body" style="padding:16px 18px;">
+                    @if (Model.Insight.KeyRisks.Any())
+                    {
+                        <ul style="list-style:none; padding:0; margin:0;">
+                            @foreach (var risk in Model.Insight.KeyRisks)
+                            {
+                                <li style="display:flex; align-items:flex-start; gap:10px; margin-bottom:10px; font-size:13px; color:#334155; line-height:1.5;">
+                                    <span class="badge" style="background:#ffe4e6; color:#e11d48; font-weight:700; border-radius:4px; padding:3px 6px;">RỦI RO</span>
+                                    <span>@risk</span>
+                                </li>
+                            }
+                        </ul>
+                    }
+                    else
+                    {
+                        <div style="color:#10b981; font-size:13px; display:flex; align-items:center; gap:6px;">
+                            <i class="material-icons">check_circle</i> Các chỉ số rủi ro đều nằm trong giới hạn an toàn.
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card" style="border-radius:10px; box-shadow:0 2px 8px rgba(0,0,0,0.05); height:100%;">
+                <div class="header" style="border-bottom:1px solid #f1f5f9; padding:14px 18px; display:flex; align-items:center; gap:8px;">
+                    <i class="material-icons" style="color:#2563eb;">lightbulb</i>
+                    <h2 style="font-size:15px; font-weight:700; color:#0f172a; margin:0;">KHUYẾN NGHỊ HÀNH ĐỘNG CHIẾN LƯỢC TỪ AI</h2>
+                </div>
+                <div class="body" style="padding:16px 18px;">
+                    <ul style="list-style:none; padding:0; margin:0;">
+                        @foreach (var rec in Model.Insight.StrategicRecommendations)
+                        {
+                            <li style="display:flex; align-items:flex-start; gap:10px; margin-bottom:10px; font-size:13px; color:#334155; line-height:1.5;">
+                                <i class="material-icons" style="font-size:18px; color:#2563eb; margin-top:2px;">arrow_forward</i>
+                                <span>@rec</span>
+                            </li>
+                        }
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 5 TABS CHI TIẾT -->
+    <div class="card" style="border-radius:10px; box-shadow:0 2px 10px rgba(0,0,0,0.05); margin-bottom:28px;">
+        <div class="header" style="padding:0; border-bottom:1px solid #e2e8f0; background:#f8fafc; border-top-left-radius:10px; border-top-right-radius:10px;">
+            <ul class="nav nav-tabs" style="border-bottom:none; margin:0; display:flex; flex-wrap:wrap;">
+                <li class="active"><a href="#tab-turnover" data-toggle="tab" style="padding:14px 20px; font-weight:600; color:#334155;"><i class="material-icons" style="font-size:18px; vertical-align:middle; margin-right:4px;">person_remove</i> 1. Tỷ Lệ Nghỉ Việc</a></li>
+                <li><a href="#tab-cost" data-toggle="tab" style="padding:14px 20px; font-weight:600; color:#334155;"><i class="material-icons" style="font-size:18px; vertical-align:middle; margin-right:4px;">payments</i> 2. Chi Phí Nhân Sự</a></li>
+                <li><a href="#tab-ot" data-toggle="tab" style="padding:14px 20px; font-weight:600; color:#334155;"><i class="material-icons" style="font-size:18px; vertical-align:middle; margin-right:4px;">alarm_on</i> 3. OT Bất Thường</a></li>
+                <li><a href="#tab-kpi" data-toggle="tab" style="padding:14px 20px; font-weight:600; color:#334155;"><i class="material-icons" style="font-size:18px; vertical-align:middle; margin-right:4px;">track_changes</i> 4. Hiệu Suất Phòng Ban</a></li>
+                <li><a href="#tab-recruitment" data-toggle="tab" style="padding:14px 20px; font-weight:600; color:#334155;"><i class="material-icons" style="font-size:18px; vertical-align:middle; margin-right:4px;">person_search</i> 5. Tình Trạng Tuyển Dụng</a></li>
+            </ul>
+        </div>
+        <div class="body" style="padding:22px;">
+            <div class="tab-content">
+                <!-- TAB 1: NGHỈ VIỆC -->
+                <div class="tab-pane active" id="tab-turnover">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                        <h3 style="font-size:16px; font-weight:700; color:#1e293b; margin:0;">Phân tích tỷ lệ nghỉ việc & Cảnh báo giữ chân nhân tài</h3>
+                        <span class="badge" style="background:#e0f2fe; color:#0369a1; padding:6px 12px; font-size:12px;">Đánh giá: @Model.Turnover.RetentionAssessment</span>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-7">
+                            <div style="font-weight:600; margin-bottom:8px; font-size:14px; color:#475569;">Biến động nhân sự theo phòng ban</div>
+                            <div class="table-responsive">
+                                <table class="table table-hover" style="font-size:13px;">
+                                    <thead style="background:#f1f5f9;">
+                                        <tr>
+                                            <th>Phòng Ban</th>
+                                            <th>Nhân sự</th>
+                                            <th>Nghỉ kỳ này</th>
+                                            <th>Tỷ lệ Turnover</th>
+                                            <th>Mức độ rủi ro</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var dept in Model.Turnover.DepartmentBreakdown)
+                                        {
+                                            <tr>
+                                                <td style="font-weight:600;">@dept.DepartmentName</td>
+                                                <td>@dept.TotalHeadcount</td>
+                                                <td>@dept.ResignCount</td>
+                                                <td style="font-weight:700; color:@(dept.TurnoverRate > 8 ? "#ef4444" : (dept.TurnoverRate > 4 ? "#f59e0b" : "#10b981"));">@dept.TurnoverRate%</td>
+                                                <td>
+                                                    <span class="badge" style="background:@(dept.RiskLevel == "CAO" ? "#fee2e2; color:#ef4444;" : (dept.RiskLevel == "TRUNG BÌNH" ? "#fef3c7; color:#d97706;" : "#dcfce7; color:#15803d;"));">@dept.RiskLevel</span>
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="col-md-5">
+                            <div style="font-weight:600; margin-bottom:8px; font-size:14px; color:#475569;">Nhận diện dấu hiệu thôi việc tiềm ẩn (Flight Risk)</div>
+                            @if (Model.Turnover.FlightRisks.Any())
+                            {
+                                foreach (var fr in Model.Turnover.FlightRisks)
+                                {
+                                    <div style="background:#fffbeb; border-left:4px solid #f59e0b; padding:12px; border-radius:6px; margin-bottom:10px; font-size:13px;">
+                                        <div style="display:flex; justify-content:space-between;">
+                                            <strong style="color:#92400e;">@fr.EmployeeName (@fr.DepartmentName)</strong>
+                                            <span class="badge" style="background:#fde68a; color:#92400e;">MỨC @fr.WarningLevel</span>
+                                        </div>
+                                        <div style="margin:4px 0; color:#78350f;">@fr.RiskFactor</div>
+                                        <div style="font-size:12px; color:#451a03; font-style:italic;">Khuyến nghị: @fr.SuggestedAction</div>
+                                    </div>
+                                }
+                            }
+                            else
+                            {
+                                <div style="color:#64748b; font-size:13px;">Chưa phát hiện nhân sự có dấu hiệu nguy cơ thôi việc.</div>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 2: CHI PHÍ NHÂN SỰ -->
+                <div class="tab-pane" id="tab-cost">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                        <h3 style="font-size:16px; font-weight:700; color:#1e293b; margin:0;">Cơ cấu chi phí lương & Xu hướng ngân sách nhân sự</h3>
+                        <span class="badge" style="background:#ecfdf5; color:#047857; padding:6px 12px; font-size:12px;">@Model.PersonnelCost.CostEfficiencyVerdict</span>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div style="font-weight:600; margin-bottom:8px; font-size:14px; color:#475569;">Phân bổ chi phí theo phòng ban</div>
+                            <div class="table-responsive">
+                                <table class="table table-hover" style="font-size:13px;">
+                                    <thead style="background:#f1f5f9;">
+                                        <tr>
+                                            <th>Phòng Ban</th>
+                                            <th>Lương cơ sở</th>
+                                            <th>Chi phí OT</th>
+                                            <th>Tổng chi phí</th>
+                                            <th>Tỷ trọng</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var c in Model.PersonnelCost.DepartmentCosts)
+                                        {
+                                            <tr>
+                                                <td style="font-weight:600;">@c.DepartmentName</td>
+                                                <td>@c.TotalSalary.ToString("N0") đ</td>
+                                                <td>@c.OvertimeCost.ToString("N0") đ</td>
+                                                <td style="font-weight:700;">@c.TotalCost.ToString("N0") đ</td>
+                                                <td><span class="badge" style="background:#e0e7ff; color:#3730a3;">@c.PercentageOfTotal%</span></td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div style="font-weight:600; margin-bottom:8px; font-size:14px; color:#475569;">Biến động quỹ lương qua các tháng</div>
+                            <div class="table-responsive">
+                                <table class="table table-bordered" style="font-size:13px;">
+                                    <thead style="background:#f8fafc;">
+                                        <tr>
+                                            <th>Thời kỳ</th>
+                                            <th>Lương cơ sở</th>
+                                            <th>Chi phí OT</th>
+                                            <th>Tổng ngân sách</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var t in Model.PersonnelCost.MonthlyTrends)
+                                        {
+                                            <tr>
+                                                <td style="font-weight:600;">@t.MonthLabel</td>
+                                                <td>@t.BaseSalary.ToString("N0") đ</td>
+                                                <td style="color:#d97706; font-weight:600;">@t.OvertimeCost.ToString("N0") đ</td>
+                                                <td style="font-weight:700; color:#1e3a8a;">@t.Total.ToString("N0") đ</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div style="background:#f0f9ff; border-radius:6px; padding:12px; font-size:13px; color:#0369a1; margin-top:10px;">
+                                <i class="material-icons" style="font-size:16px; vertical-align:middle;">insights</i>
+                                <strong>Nhận định AI:</strong> Tỷ trọng chi phí làm thêm giờ (OT) đang ở mức <strong>@Model.PersonnelCost.OtCostRatioPercent%</strong>, duy trì trong ngưỡng an toàn tài chính. Để mở rộng đa dịch vụ, doanh nghiệp nên chuẩn bị quỹ dự phòng ngân sách lương tăng 12-15% trong quý tới.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 3: OT BẤT THƯỜNG -->
+                <div class="tab-pane" id="tab-ot">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                        <h3 style="font-size:16px; font-weight:700; color:#1e293b; margin:0;">Phát hiện tăng ca (OT) bất thường & Kiểm soát tuân thủ luật</h3>
+                        <span class="badge" style="background:@(Model.OvertimeAnomaly.ComplianceStatus.Contains("CẢNH BÁO") ? "#fee2e2; color:#ef4444;" : "#dcfce7; color:#15803d;"); padding:6px 12px; font-size:12px;">
+                            @Model.OvertimeAnomaly.ComplianceStatus
+                        </span>
+                    </div>
+                    <div class="alert alert-warning" style="border-radius:6px; font-size:13px; margin-bottom:16px;">
+                        <i class="material-icons" style="vertical-align:middle; font-size:18px;">info</i>
+                        <strong>Quy định pháp lý:</strong> Theo Điều 107 Bộ luật Lao động, số giờ làm thêm tối đa không quá <strong>40 giờ/tháng</strong> và <strong>200 giờ/năm</strong> (trừ một số trường hợp đặc thù tối đa 300 giờ). Hệ thống AI tự động phát hiện các nhân sự tiệm cận hoặc vượt trần để tránh rủi ro thanh tra lao động.
+                    </div>
+                    <div class="row">
+                        <div class="col-md-12">
+                            <div style="font-weight:600; margin-bottom:8px; font-size:14px; color:#475569;">Danh sách nhân sự tăng ca bất thường cần can thiệp</div>
+                            <div class="table-responsive">
+                                <table class="table table-hover" style="font-size:13px;">
+                                    <thead style="background:#f1f5f9;">
+                                        <tr>
+                                            <th>Nhân viên</th>
+                                            <th>Phòng ban</th>
+                                            <th>Số giờ OT</th>
+                                            <th>Dấu hiệu bất thường</th>
+                                            <th>Hiệu suất KPI</th>
+                                            <th>Khuyến nghị điều chỉnh từ AI</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var an in Model.OvertimeAnomaly.AnomalousEmployees)
+                                        {
+                                            <tr>
+                                                <td style="font-weight:700; color:#0f172a;">@an.EmployeeName</td>
+                                                <td>@an.DepartmentName</td>
+                                                <td style="font-weight:800; color:@(an.OtHours > 40 ? "#dc2626" : "#d97706");">@an.OtHours.ToString("0.0") giờ</td>
+                                                <td>
+                                                    <span class="badge" style="background:#fee2e2; color:#b91c1c; font-weight:700;">@an.AnomalyType</span>
+                                                </td>
+                                                <td><span class="badge" style="background:#f1f5f9; color:#334155;">@an.KpiStatus</span></td>
+                                                <td style="color:#475569;">@an.Recommendation</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 4: HIỆU SUẤT PHÒNG BAN -->
+                <div class="tab-pane" id="tab-kpi">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                        <h3 style="font-size:16px; font-weight:700; color:#1e293b; margin:0;">Đánh giá tiến độ hoàn thành mục tiêu & Xếp hạng phòng ban</h3>
+                        <span class="badge" style="background:#ede9fe; color:#6d28d9; padding:6px 12px; font-size:12px;">Đạt mục tiêu: @Model.DepartmentPerformance.CompletedKpisCount/@Model.DepartmentPerformance.TotalKpisTracked KPIs</span>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div style="font-weight:600; margin-bottom:8px; font-size:14px; color:#475569;">Xếp hạng hiệu suất theo phòng ban</div>
+                            <div class="table-responsive">
+                                <table class="table table-hover" style="font-size:13px;">
+                                    <thead style="background:#f1f5f9;">
+                                        <tr>
+                                            <th>Phòng Ban</th>
+                                            <th>Tỷ lệ hoàn thành</th>
+                                            <th>Tiến độ</th>
+                                            <th>Xếp loại</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var d in Model.DepartmentPerformance.DepartmentSummaries)
+                                        {
+                                            <tr>
+                                                <td style="font-weight:600;">@d.DepartmentName</td>
+                                                <td style="font-weight:700;">@d.AverageCompletionRate%</td>
+                                                <td style="vertical-align:middle; width:35%;">
+                                                    <div class="progress" style="height:8px; margin:0; background:#e2e8f0; border-radius:4px;">
+                                                        <div class="progress-bar" style="width:@d.AverageCompletionRate%; background:@(d.AverageCompletionRate >= 90 ? "#10b981" : (d.AverageCompletionRate >= 80 ? "#3b82f6" : "#f59e0b"));"></div>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <span class="badge" style="background:@(d.PerformanceRank == "XUẤT SẮC" ? "#d1fae5; color:#065f46;" : (d.PerformanceRank == "ĐẠT" ? "#dbeafe; color:#1e40af;" : "#fee2e2; color:#991b1b;"));">@d.PerformanceRank</span>
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div style="font-weight:600; margin-bottom:8px; font-size:14px; color:#475569;">Tiến độ các chỉ tiêu KPI chiến lược</div>
+                            @foreach (var k in Model.DepartmentPerformance.HighPriorityKpis)
+                            {
+                                <div style="border:1px solid #e2e8f0; border-radius:6px; padding:12px; margin-bottom:10px;">
+                                    <div style="display:flex; justify-content:space-between; font-size:13px;">
+                                        <strong style="color:#1e293b;">@k.Title</strong>
+                                        <span class="badge" style="background:#e0f2fe; color:#0284c7;">@k.CompletionRate%</span>
+                                    </div>
+                                    <div style="font-size:12px; color:#64748b; margin:4px 0 8px;">
+                                        Phụ trách: <strong>@k.EmployeeName</strong> &bull; Đơn vị: @k.DepartmentName
+                                    </div>
+                                    <div class="progress" style="height:6px; margin:0; background:#e2e8f0; border-radius:3px;">
+                                        <div class="progress-bar" style="width:@k.CompletionRate%; background:@(k.CompletionRate >= 100 ? "#10b981" : "#3b82f6");"></div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 5: TUYỂN DỤNG -->
+                <div class="tab-pane" id="tab-recruitment">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                        <h3 style="font-size:16px; font-weight:700; color:#1e293b; margin:0;">Tiến độ tuyển dụng & Phễu nhân tài đáp ứng đa dịch vụ</h3>
+                        <span class="badge" style="background:#e0f2fe; color:#0369a1; padding:6px 12px; font-size:12px;">Thời gian tuyển TB: @Model.Recruitment.AverageDaysToHire ngày</span>
+                    </div>
+                    <div class="alert alert-info" style="border-radius:6px; font-size:13px; margin-bottom:16px;">
+                        <i class="material-icons" style="vertical-align:middle; font-size:18px;">lightbulb</i>
+                        <strong>Đánh giá điểm nghẽn:</strong> @Model.Recruitment.PipelineBottleneck
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-hover" style="font-size:13px;">
+                            <thead style="background:#f1f5f9;">
+                                <tr>
+                                    <th>Vị Trí Tuyển Dụng</th>
+                                    <th>Phòng Ban / Khối</th>
+                                    <th>Chỉ tiêu</th>
+                                    <th>Đã nhận việc</th>
+                                    <th>Tiến độ</th>
+                                    <th>Hạn hoàn thành</th>
+                                    <th>Ưu tiên</th>
+                                    <th>Trạng thái</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var camp in Model.Recruitment.Campaigns)
+                                {
+                                    <tr>
+                                        <td style="font-weight:700; color:#0f172a;">@camp.PositionTitle</td>
+                                        <td>@camp.DepartmentName</td>
+                                        <td>@camp.TargetHeadcount</td>
+                                        <td style="font-weight:700; color:#10b981;">@camp.CurrentHired</td>
+                                        <td style="width:20%; vertical-align:middle;">
+                                            <div style="display:flex; align-items:center; gap:8px;">
+                                                <div class="progress" style="height:6px; flex:1; margin:0; background:#e2e8f0; border-radius:3px;">
+                                                    <div class="progress-bar" style="width:@camp.ProgressPercent%; background:#0ea5e9;"></div>
+                                                </div>
+                                                <span style="font-size:11px; font-weight:600;">@camp.ProgressPercent%</span>
+                                            </div>
+                                        </td>
+                                        <td>@camp.DueDateString</td>
+                                        <td>
+                                            <span class="badge" style="background:@(camp.Priority == "URGENT" ? "#fee2e2; color:#dc2626;" : (camp.Priority == "HIGH" ? "#fef3c7; color:#d97706;" : "#f1f5f9; color:#475569;")); font-weight:700;">@camp.Priority</span>
+                                        </td>
+                                        <td>
+                                            <span class="badge" style="background:#e0f2fe; color:#0369a1;">@camp.Status</span>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- AI EXECUTIVE ASSISTANT (HỎI ĐÁP THÔNG MINH CHO BAN GIÁM ĐỐC) -->
+    <div class="card" style="border-radius:12px; border:2px solid #93c5fd; box-shadow:0 8px 24px rgba(37, 99, 235, 0.12); overflow:hidden;">
+        <div class="header" style="background:linear-gradient(90deg, #eff6ff 0%, #dbeafe 100%); padding:18px 24px; border-bottom:1px solid #bfdbfe; display:flex; justify-content:space-between; align-items:center;">
+            <div style="display:flex; align-items:center; gap:10px;">
+                <div style="width:36px; height:36px; border-radius:8px; background:#2563eb; color:#fff; display:flex; align-items:center; justify-content:center;">
+                    <i class="material-icons" style="font-size:22px;">smart_toy</i>
+                </div>
+                <div>
+                    <h2 style="font-size:16px; font-weight:700; color:#1e3a8a; margin:0;">Trợ Lý AI Điều Hành (Executive HR Copilot)</h2>
+                    <span style="font-size:12px; color:#475569;">Đặt câu hỏi trực tiếp để nhận phân tích tức thì từ cơ sở dữ liệu nhân sự Nhị Gia Group</span>
+                </div>
+            </div>
+            <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+                <label style="margin:0; font-size:12px; font-weight:600; color:#1e40af; display:inline-flex; align-items:center; gap:6px; cursor:pointer; background:rgba(255,255,255,0.8); padding:4px 10px; border-radius:16px; border:1px solid #bfdbfe;">
+                    <input type="checkbox" id="chkAutoVoice" style="cursor:pointer;" checked />
+                    <i class="material-icons" style="font-size:18px; color:#2563eb;">volume_up</i> Tự động đọc bằng giọng nói
+                </label>
+                <span class="badge" style="background:#2563eb; color:#fff; padding:6px 12px; font-size:12px; border-radius:20px;">AI Connected</span>
+            </div>
+        </div>
+        <div class="body" style="padding:22px;">
+            <!-- GỢI Ý CÂU HỎI NHANH -->
+            <div style="margin-bottom:16px;">
+                <div style="font-size:12px; font-weight:600; color:#64748b; margin-bottom:8px; text-transform:uppercase;">Gợi ý câu hỏi nhanh cho Ban Giám Đốc (bấm để hỏi ngay):</div>
+                <div style="display:flex; flex-wrap:wrap; gap:8px;">
+                    <button type="button" class="btn btn-default btn-sm prompt-chip" data-question="Phân tích chi phí OT tháng này và các trường hợp bất thường" style="border-radius:20px; border:1px solid #cbd5e1; font-size:12px; background:#fff; cursor:pointer;">
+                        💡 Phân tích chi phí OT & tăng ca bất thường
+                    </button>
+                    <button type="button" class="btn btn-default btn-sm prompt-chip" data-question="Báo cáo tỷ lệ nghỉ việc và nguy cơ Flight Risk" style="border-radius:20px; border:1px solid #cbd5e1; font-size:12px; background:#fff; cursor:pointer;">
+                        💡 Tỷ lệ nghỉ việc & nhân sự có nguy cơ thôi việc
+                    </button>
+                    <button type="button" class="btn btn-default btn-sm prompt-chip" data-question="Đánh giá hiệu suất KPI phòng ban toàn công ty" style="border-radius:20px; border:1px solid #cbd5e1; font-size:12px; background:#fff; cursor:pointer;">
+                        💡 Hiệu suất KPI và xếp hạng các phòng ban
+                    </button>
+                    <button type="button" class="btn btn-default btn-sm prompt-chip" data-question="Tình trạng tuyển dụng cho các mảng dịch vụ mới" style="border-radius:20px; border:1px solid #cbd5e1; font-size:12px; background:#fff; cursor:pointer;">
+                        💡 Tiến độ phễu tuyển dụng nhân sự mới
+                    </button>
+                </div>
+            </div>
+
+            <!-- CHAT OUTPUT BOX -->
+            <div id="aiChatOutput" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:16px; margin-bottom:16px; min-height:110px; font-size:14px; line-height:1.6; color:#1e293b;">
+                <div style="display:flex; gap:10px; align-items:flex-start;">
+                    <i class="material-icons" style="color:#2563eb; font-size:24px; margin-top:2px;">psychology</i>
+                    <div style="flex:1;">
+                        <div style="margin-bottom:8px;">
+                            <strong>Trợ lý AI Nhị Gia:</strong> Kính chào Ban Giám Đốc! Tôi đã sẵn sàng hỗ trợ tra cứu và phân tích sâu các chỉ số nhân sự về tỷ lệ nghỉ việc, chi phí quỹ lương, tình trạng OT vượt trần, hiệu suất KPI và tiến độ tuyển dụng. Xin mời Ban Giám Đốc đặt câu hỏi hoặc bấm vào các câu hỏi gợi ý để AI phân tích và đọc to báo cáo bằng giọng tiếng Việt.
+                        </div>
+                        <div style="margin-top:10px; display:flex; gap:8px; align-items:center;">
+                            <button type="button" id="btnSpeakAi" class="btn btn-default btn-xs" style="border-radius:6px; font-weight:600; display:inline-flex; align-items:center; gap:4px; padding:4px 10px; color:#1e40af; border:1px solid #93c5fd; background:#eff6ff;">
+                                <i class="material-icons" style="font-size:16px;">volume_up</i> Nghe Lời Chào Tiếng Việt
+                            </button>
+                            <button type="button" id="btnStopSpeakAi" class="btn btn-default btn-xs" style="border-radius:6px; display:inline-flex; align-items:center; gap:4px; padding:4px 10px; color:#64748b;">
+                                <i class="material-icons" style="font-size:16px;">stop</i> Dừng
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- INPUT FORM -->
+            <div style="display:flex; gap:10px; align-items:center;">
+                <input type="text" id="aiQuestionInput" class="form-control" placeholder="Nhập câu hỏi cho AI hoặc bấm vào gợi ý bên trên..." style="border-radius:8px; height:44px; font-size:14px;" />
+                <button type="button" id="btnMicAi" class="btn btn-default" style="border-radius:8px; height:44px; width:44px; padding:0; display:inline-flex; align-items:center; justify-content:center; color:#2563eb; border:1px solid #cbd5e1;" title="Nói để đặt câu hỏi bằng giọng nói">
+                    <i class="material-icons" style="font-size:22px;">mic</i>
+                </button>
+                <button type="button" id="btnAskAi" class="btn btn-primary" style="border-radius:8px; height:44px; padding:0 24px; font-weight:600; display:inline-flex; align-items:center; gap:6px;">
+                    <i class="material-icons" style="font-size:18px;">send</i> Gửi Hỏi AI
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+$(document).ready(function() {
+    var synth = window.speechSynthesis;
+    var currentUtterance = null;
+    var audioPlayer = null;
+    var initialGreeting = 'Kính chào Ban Giám Đốc! Tôi đã sẵn sàng hỗ trợ tra cứu và phân tích sâu các chỉ số nhân sự về tỷ lệ nghỉ việc, chi phí quỹ lương, tình trạng làm thêm giờ, hiệu suất và tuyển dụng.';
+    var lastAnswerText = initialGreeting;
+    var cachedVoices = [];
+
+    function loadVoices() {
+        if (!synth) return;
+        cachedVoices = synth.getVoices();
+    }
+    loadVoices();
+    if (synth && synth.onvoiceschanged !== undefined) {
+        synth.onvoiceschanged = loadVoices;
+    }
+
+    function getVietnameseVoice() {
+        if (!synth) return null;
+        var voices = cachedVoices.length ? cachedVoices : synth.getVoices();
+        var vi = voices.find(function(v) {
+            return v.lang && (v.lang.toLowerCase().replace('_', '-').startsWith('vi'));
+        });
+        if (vi) return vi;
+        return voices.find(function(v) {
+            return /vietnam|vietnamese|hoaimy|namminh/i.test(v.name);
+        }) || null;
+    }
+
+    // Khởi tạo phát âm thanh chuẩn Tiếng Việt (100% Vietnamese audio)
+    function speakText(text) {
+        stopSpeaking();
+        if (!text) return;
+
+        // Chuẩn bị văn bản ngắn gọn súc tích để phát thanh
+        var spokenText = text.replace(/[*#_`]/g, '')
+                             .replace(/\s+/g, ' ')
+                             .trim();
+
+        // Rút gọn nếu câu trả lời quá dài (>350 ký tự) để stream nhanh và phát tức thì
+        if (spokenText.length > 350) {
+            var endPeriod = spokenText.indexOf('.', 250);
+            if (endPeriod > 0 && endPeriod < 360) {
+                spokenText = spokenText.substring(0, endPeriod + 1);
+            } else {
+                spokenText = spokenText.substring(0, 320) + '...';
+            }
+        }
+
+        var speakUrl = '@Url.Action("Speak", "AiReport")?text=' + encodeURIComponent(spokenText);
+        audioPlayer = new Audio(speakUrl);
+
+        $('#btnSpeakAi').html('<i class="material-icons" style="font-size:16px;">volume_up</i> Đang phát tiếng Việt...').css({'background':'#dcfce7', 'color':'#15803d', 'border-color':'#86efac'});
+
+        audioPlayer.onended = function() {
+            $('#btnSpeakAi').html('<i class="material-icons" style="font-size:16px;">volume_up</i> Nghe Giọng Tiếng Việt').css({'background':'#eff6ff', 'color':'#1e40af', 'border-color':'#93c5fd'});
+        };
+
+        audioPlayer.onerror = function(err) {
+            console.warn('Online audio error, fallback to browser synthesis:', err);
+            fallbackLocalSpeech(text);
+        };
+
+        var playPromise = audioPlayer.play();
+        if (playPromise !== undefined) {
+            playPromise.catch(function(error) {
+                console.log('Autoplay prevented by browser:', error);
+                $('#btnSpeakAi').html('<i class="material-icons" style="font-size:16px;">play_circle</i> Bấm Để Nghe Tiếng Việt').css({'background':'#fef3c7', 'color':'#b45309', 'border-color':'#fde68a'});
+            });
+        }
+    }
+
+    function fallbackLocalSpeech(text) {
+        if (!synth) return;
+        synth.cancel();
+
+        var viVoice = getVietnameseVoice();
+        if (!viVoice) {
+            console.warn('Không tìm thấy giọng tiếng Việt cục bộ trong hệ thống.');
+            $('#btnSpeakAi').html('<i class="material-icons" style="font-size:16px;">volume_off</i> Không có giọng tiếng Việt').css({'background':'#fee2e2', 'color':'#b91c1c', 'border-color':'#fca5a5'});
+            return;
+        }
+
+        var cleanText = text.replace(/[*#_`]/g, '')
+                            .replace(/VNĐ/g, ' đồng ')
+                            .replace(/đ\/người/g, ' đồng một người ')
+                            .replace(/%/g, ' phần trăm ')
+                            .replace(/\//g, ' trên ')
+                            .replace(/\bOT\b/gi, 'ô ti')
+                            .replace(/\bKPI\b/gi, 'ca bê i');
+
+        currentUtterance = new SpeechSynthesisUtterance(cleanText);
+        currentUtterance.voice = viVoice;
+        currentUtterance.lang = viVoice.lang || 'vi-VN';
+        currentUtterance.rate = 0.95;
+
+        currentUtterance.onstart = function() {
+            $('#btnSpeakAi').html('<i class="material-icons" style="font-size:16px;">volume_up</i> Đang đọc tiếng Việt...').css({'background':'#dcfce7', 'color':'#15803d', 'border-color':'#86efac'});
+        };
+        currentUtterance.onend = function() {
+            $('#btnSpeakAi').html('<i class="material-icons" style="font-size:16px;">volume_up</i> Nghe Giọng Tiếng Việt').css({'background':'#eff6ff', 'color':'#1e40af', 'border-color':'#93c5fd'});
+        };
+        currentUtterance.onerror = function() {
+            $('#btnSpeakAi').html('<i class="material-icons" style="font-size:16px;">volume_up</i> Nghe Giọng Tiếng Việt').css({'background':'#eff6ff', 'color':'#1e40af', 'border-color':'#93c5fd'});
+        };
+
+        synth.speak(currentUtterance);
+    }
+
+    function stopSpeaking() {
+        if (audioPlayer) {
+            audioPlayer.pause();
+            audioPlayer.currentTime = 0;
+        }
+        if (synth) {
+            synth.cancel();
+        }
+        $('#btnSpeakAi').html('<i class="material-icons" style="font-size:16px;">volume_up</i> Nghe Giọng Tiếng Việt').css({'background':'#eff6ff', 'color':'#1e40af', 'border-color':'#93c5fd'});
+    }
+
+    $(document).on('click', '#btnSpeakAi', function() {
+        if (lastAnswerText) speakText(lastAnswerText);
+    });
+
+    $(document).on('click', '#btnStopSpeakAi', function() {
+        stopSpeaking();
+    });
+
+    // Voice Speech-To-Text (Microphone)
+    var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SpeechRecognition) {
+        var recognition = new SpeechRecognition();
+        recognition.lang = 'vi-VN';
+        recognition.continuous = false;
+        recognition.interimResults = false;
+
+        $('#btnMicAi').click(function() {
+            try {
+                recognition.start();
+                $('#btnMicAi').css({'background':'#fee2e2', 'color':'#b91c1c', 'border-color':'#fca5a5'});
+            } catch (e) {
+                recognition.stop();
+            }
+        });
+
+        recognition.onresult = function(event) {
+            var transcript = event.results[0][0].transcript;
+            $('#aiQuestionInput').val(transcript);
+            $('#btnMicAi').css({'background':'', 'color':'#2563eb', 'border-color':'#cbd5e1'});
+            submitAiQuestion();
+        };
+
+        recognition.onerror = function() {
+            $('#btnMicAi').css({'background':'', 'color':'#2563eb', 'border-color':'#cbd5e1'});
+        };
+
+        recognition.onend = function() {
+            $('#btnMicAi').css({'background':'', 'color':'#2563eb', 'border-color':'#cbd5e1'});
+        };
+    } else {
+        $('#btnMicAi').hide();
+    }
+
+    // Xử lý sự kiện click gợi ý câu hỏi (Event Delegation đảm bảo 100% ăn click)
+    $(document).on('click', '.prompt-chip', function() {
+        var question = $(this).data('question') || $(this).text().trim().replace(/^💡\s*/, '');
+        $('#aiQuestionInput').val(question);
+        submitAiQuestion();
+    });
+
+    $(document).on('click', '.follow-up-chip', function() {
+        var question = $(this).text().trim();
+        $('#aiQuestionInput').val(question);
+        submitAiQuestion();
+    });
+
+    $('#btnAskAi').click(function() {
+        submitAiQuestion();
+    });
+
+    $('#aiQuestionInput').keypress(function(e) {
+        if (e.which == 13) {
+            submitAiQuestion();
+        }
+    });
+
+    function submitAiQuestion() {
+        var q = $('#aiQuestionInput').val().trim();
+        if (!q) {
+            var firstFollowUp = $('.follow-up-chip').first().text().trim();
+            var firstPrompt = $('.prompt-chip').first().data('question') || $('.prompt-chip').first().text().trim().replace(/^💡\s*/, '');
+            q = firstFollowUp || firstPrompt;
+            if (q) {
+                $('#aiQuestionInput').val(q);
+            } else {
+                $('#aiQuestionInput').focus().css('border-color', '#ef4444');
+                setTimeout(function() { $('#aiQuestionInput').css('border-color', ''); }, 1500);
+                return;
+            }
+        }
+
+        stopSpeaking();
+
+        $('#aiChatOutput').html(
+            '<div style="display:flex; gap:10px; align-items:center; color:#2563eb; padding:8px 0;">' +
+            '<i class="material-icons" style="animation: spin 1s infinite linear;">refresh</i>' +
+            '<span>AI đang đối chiếu cơ sở dữ liệu nhân sự và tổng hợp câu trả lời cho Ban Giám Đốc...</span>' +
+            '</div>'
+        );
+
+        $('#btnAskAi').prop('disabled', true);
+
+        $.ajax({
+            url: '@Url.Action("Ask", "AiReport")',
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ question: q, period: '@ViewBag.ActivePeriod' }),
+            success: function(res) {
+                $('#btnAskAi').prop('disabled', false);
+                if (res && res.Success) {
+                    lastAnswerText = res.Answer;
+                    var followUpsHtml = '';
+                    if (res.SuggestedFollowUps && res.SuggestedFollowUps.length > 0) {
+                        followUpsHtml = '<div style="margin-top:14px; padding-top:10px; border-top:1px dashed #cbd5e1; font-size:12px; color:#64748b;">' +
+                            '<strong>Gợi ý câu hỏi tiếp theo (bấm để xem tiếp):</strong><div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:6px;">' +
+                            res.SuggestedFollowUps.map(function(item) {
+                                return '<button type="button" class="btn btn-default btn-xs follow-up-chip" style="border-radius:14px; font-size:11px; background:#fff; border:1px solid #94a3b8; cursor:pointer;">' + item + '</button>';
+                            }).join('') +
+                            '</div></div>';
+                    }
+
+                    var voiceButtonsHtml = '<div style="margin-top:12px; display:flex; gap:8px; align-items:center;">' +
+                        '<button type="button" id="btnSpeakAi" class="btn btn-default btn-xs" style="border-radius:6px; font-weight:600; display:inline-flex; align-items:center; gap:4px; padding:4px 10px; color:#1e40af; border:1px solid #93c5fd; background:#eff6ff;">' +
+                        '<i class="material-icons" style="font-size:16px;">volume_up</i> Nghe AI Đọc Báo Cáo' +
+                        '</button>' +
+                        '<button type="button" id="btnStopSpeakAi" class="btn btn-default btn-xs" style="border-radius:6px; display:inline-flex; align-items:center; gap:4px; padding:4px 10px; color:#64748b;">' +
+                        '<i class="material-icons" style="font-size:16px;">stop</i> Dừng' +
+                        '</button>' +
+                        '</div>';
+
+                    $('#aiChatOutput').html(
+                        '<div style="display:flex; gap:10px; align-items:flex-start;">' +
+                        '<i class="material-icons" style="color:#2563eb; font-size:24px; margin-top:2px;">psychology</i>' +
+                        '<div style="flex:1;">' +
+                        '<div style="color:#0f172a; line-height:1.6; font-size:14px;">' + res.Answer + '</div>' +
+                        voiceButtonsHtml +
+                        followUpsHtml +
+                        '</div></div>'
+                    );
+
+                    // Tự động phát giọng nói nếu bật tính năng
+                    if ($('#chkAutoVoice').is(':checked')) {
+                        speakText(res.Answer);
+                    }
+                } else {
+                    $('#aiChatOutput').html('<div style="color:#dc2626;">' + (res.Answer || 'Không thể xử lý yêu cầu lúc này.') + '</div>');
+                }
+            },
+            error: function() {
+                $('#btnAskAi').prop('disabled', false);
+                $('#aiChatOutput').html('<div style="color:#dc2626;">Lỗi kết nối máy chủ khi xử lý câu hỏi AI.</div>');
+            }
+        });
+    }
+});
+</script>
+
+<style>
+@@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+.hrm-metric-card {
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+.hrm-metric-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.08);
+}
+</style>
+
