@@ -31,13 +31,30 @@ namespace NHIGIA.Web.Infrastructure
         {
             EnsureLocalDbStarted();
             var connection = new SqlConnection(ConnectionString);
-            connection.Open();
-            return connection;
+            try
+            {
+                connection.Open();
+                return connection;
+            }
+            catch (SqlException) when (IsLocalDbConnection())
+            {
+                connection.Dispose();
+                EnsureLocalDbStarted(true);
+                connection = new SqlConnection(ConnectionString);
+                connection.Open();
+                return connection;
+            }
         }
 
-        private void EnsureLocalDbStarted()
+        private bool IsLocalDbConnection()
         {
-            if (_localDbStarted) return;
+            var builder = new SqlConnectionStringBuilder(ConnectionString);
+            return Regex.IsMatch(builder.DataSource ?? string.Empty, @"^\(localdb\)\\[A-Za-z0-9_-]+$", RegexOptions.IgnoreCase);
+        }
+
+        private void EnsureLocalDbStarted(bool force = false)
+        {
+            if (_localDbStarted && !force) return;
             var builder = new SqlConnectionStringBuilder(ConnectionString);
             var match = Regex.Match(builder.DataSource ?? string.Empty, @"^\(localdb\)\\(?<name>[A-Za-z0-9_-]+)$", RegexOptions.IgnoreCase);
             if (!match.Success)
@@ -48,7 +65,7 @@ namespace NHIGIA.Web.Infrastructure
 
             lock (LocalDbLock)
             {
-                if (_localDbStarted) return;
+                if (_localDbStarted && !force) return;
                 var startInfo = new ProcessStartInfo
                 {
                     FileName = "sqllocaldb.exe",
