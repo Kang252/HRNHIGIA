@@ -98,14 +98,14 @@
                 {
                     <tr class="@(showRowPreview ? "hrm-preview-row" : null)" tabindex="@(showRowPreview ? "0" : null)" aria-label="@(showRowPreview ? "Xem chi tiết " + item.Title : null)">
                         <td>
-                            <strong>@item.Title</strong><small class="work-muted">#@item.Id.ToString("D5") @(string.IsNullOrWhiteSpace(item.Reference) ? "" : "· " + item.Reference)</small><p class="work-description">@item.Description</p>
+                            <strong>@item.Title</strong><small class="work-muted">@item.RecordCode @(string.IsNullOrWhiteSpace(item.Reference) ? "" : "· " + item.Reference)</small><p class="work-description">@item.Description</p>
                             @if (showRowPreview)
                             {
                                 <span class="hrm-preview-hint"><i class="material-icons">visibility</i> Rê chuột để xem chi tiết</span>
                                 <template class="hrm-preview-template">
                                     <div class="hrm-preview-title">@item.Title</div>
                                     <div class="hrm-preview-grid">
-                                        <span>Mã bản ghi</span><strong>#@item.Id.ToString("D5")</strong>
+                                        <span>Mã bản ghi</span><strong>@item.RecordCode</strong>
                                         <span>Nhân viên</span><strong>@(item.EmployeeName ?? "Chưa phân công")</strong>
                                         <span>Phòng ban</span><strong>@(item.DepartmentName ?? "Chưa phân phòng")</strong>
                                         @if (Model.Kind == "training") { <span>Mã khóa học</span><strong>@(item.Reference ?? "—")</strong><span>Hình thức</span><strong>@(item.Category ?? "—")</strong><span>Ngày tổ chức</span><strong>@(item.DueDate?.ToString("dd/MM/yyyy") ?? "—")</strong> }

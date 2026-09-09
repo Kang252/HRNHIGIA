@@ -68,13 +68,49 @@ public sealed class HrmController : BaseController
     public IActionResult LeaveStats() => Execute(() => Store.GetLeaveStats(CurrentHrmUser));
 
     [HttpPost, ValidateAntiForgeryToken]
-    public IActionResult CreateLeave(CreateLeaveRequest request) => Execute(() =>
+    [RequestSizeLimit(11 * 1024 * 1024)]
+    public async Task<IActionResult> CreateLeave(CreateLeaveRequest request, IFormFile attachment)
     {
-        if (request == null || string.IsNullOrWhiteSpace(request.LeaveType)) throw new InvalidOperationException("Vui lòng chọn loại nghỉ.");
-        if (request.StartDate == default || request.EndDate == default || request.EndDate.Date < request.StartDate.Date) throw new InvalidOperationException("Khoảng ngày nghỉ không hợp lệ.");
-        if (string.IsNullOrWhiteSpace(request.Reason)) throw new InvalidOperationException("Vui lòng nhập lý do nghỉ.");
-        return Store.CreateLeave(request, CurrentHrmUser, ClientIp);
-    });
+        try
+        {
+            if (request == null || string.IsNullOrWhiteSpace(request.LeaveType)) throw new InvalidOperationException("Vui lòng chọn loại nghỉ.");
+            if (request.StartDate == default || request.EndDate == default || request.EndDate.Date < request.StartDate.Date) throw new InvalidOperationException("Khoảng ngày nghỉ không hợp lệ.");
+            if (string.IsNullOrWhiteSpace(request.Reason)) throw new InvalidOperationException("Vui lòng nhập lý do nghỉ.");
+            if (attachment != null && attachment.Length > 0)
+            {
+                if (attachment.Length > 10 * 1024 * 1024) throw new InvalidOperationException("Tệp đính kèm không được vượt quá 10 MB.");
+                var safeName = Path.GetFileName(attachment.FileName);
+                if (safeName.Length > 255) throw new InvalidOperationException("Tên tệp đính kèm không được vượt quá 255 ký tự.");
+                var extension = Path.GetExtension(safeName).ToLowerInvariant();
+                request.AttachmentContentType = extension switch
+                {
+                    ".pdf" => "application/pdf", ".jpg" or ".jpeg" => "image/jpeg", ".png" => "image/png",
+                    ".doc" => "application/msword", ".docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    _ => throw new InvalidOperationException("Chỉ hỗ trợ tệp PDF, JPG, PNG, DOC hoặc DOCX.")
+                };
+                await using var stream = new MemoryStream();
+                await attachment.CopyToAsync(stream);
+                request.AttachmentContent = stream.ToArray();
+                if (!IsSupportedLeaveAttachment(request.AttachmentContent, extension)) throw new InvalidOperationException("Nội dung tệp đính kèm không hợp lệ.");
+                request.AttachmentName = safeName;
+            }
+            return Json(ApiResponse.Ok(Store.CreateLeave(request, CurrentHrmUser, ClientIp)));
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(exception, "Cannot create leave request");
+            return BadRequest(ApiResponse.Fail(exception.Message));
+        }
+    }
+
+    [HttpGet]
+    public IActionResult LeaveAttachment(int id)
+    {
+        var attachment = Store.GetLeaveAttachment(id, CurrentHrmUser);
+        return attachment?.Content == null
+            ? NotFound()
+            : File(attachment.Content, attachment.ContentType ?? "application/octet-stream", attachment.FileName ?? $"dinh-kem-{id}");
+    }
 
     [HttpPost, ValidateAntiForgeryToken]
     public IActionResult CancelLeave(int id) => Execute(() =>
@@ -153,6 +189,20 @@ public sealed class HrmController : BaseController
             ".png" => content.Take(8).SequenceEqual(new byte[] { 0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a }),
             ".gif" => System.Text.Encoding.ASCII.GetString(content, 0, 6) is "GIF87a" or "GIF89a",
             ".webp" => System.Text.Encoding.ASCII.GetString(content, 0, 4) == "RIFF" && System.Text.Encoding.ASCII.GetString(content, 8, 4) == "WEBP",
+            _ => false
+        };
+    }
+
+    private static bool IsSupportedLeaveAttachment(byte[] content, string extension)
+    {
+        if (content == null || content.Length < 4) return false;
+        return extension switch
+        {
+            ".pdf" => content.Take(4).SequenceEqual("%PDF"u8.ToArray()),
+            ".jpg" or ".jpeg" => content[0] == 0xff && content[1] == 0xd8 && content[2] == 0xff,
+            ".png" => content.Length >= 8 && content.Take(8).SequenceEqual(new byte[] { 0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a }),
+            ".doc" => content.Length >= 8 && content.Take(8).SequenceEqual(new byte[] { 0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1 }),
+            ".docx" => content[0] == 0x50 && content[1] == 0x4b && content[2] == 0x03 && content[3] == 0x04,
             _ => false
         };
     }

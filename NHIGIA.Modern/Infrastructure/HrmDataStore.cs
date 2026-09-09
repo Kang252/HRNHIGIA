@@ -207,6 +207,7 @@ namespace NHIGIA.Modern.Infrastructure
         {
             const string sql = @"SELECT r.Id, r.RequestCode, r.UserId, u.Username, u.DisplayName, d.Name DepartmentName,
                 r.LeaveType, r.StartDate, r.EndDate, r.SessionCode, r.HandoverTo, r.Reason, r.AttachmentName,
+                CAST(CASE WHEN r.AttachmentContent IS NULL THEN 0 ELSE 1 END AS BIT) HasAttachment,
                 r.StatusCode, r.ManagerNote, r.HrNote, r.CreatedAt
                 FROM dbo.HrmLeaveRequest r INNER JOIN dbo.HrmUserAccount u ON u.Id=r.UserId
                 LEFT JOIN dbo.HrmDepartment d ON d.Id=u.DepartmentId
@@ -229,16 +230,17 @@ namespace NHIGIA.Modern.Infrastructure
 
         public LeaveRequestModel CreateLeave(CreateLeaveRequest request, HrmUserAccountModel actor, string ipAddress)
         {
-            const string sql = @"INSERT dbo.HrmLeaveRequest(UserId, LeaveType, StartDate, EndDate, SessionCode, HandoverTo, Reason, AttachmentName)
-                VALUES(@UserId, @LeaveType, @StartDate, @EndDate, @SessionCode, @HandoverTo, @Reason, @AttachmentName);
+            const string sql = @"INSERT dbo.HrmLeaveRequest(UserId, LeaveType, StartDate, EndDate, SessionCode, HandoverTo, Reason, AttachmentName, AttachmentContentType, AttachmentContent)
+                VALUES(@UserId, @LeaveType, @StartDate, @EndDate, @SessionCode, @HandoverTo, @Reason, @AttachmentName, @AttachmentContentType, @AttachmentContent);
                 DECLARE @Id INT=CAST(SCOPE_IDENTITY() AS INT);
                 SELECT r.Id, r.RequestCode, r.UserId, u.Username, u.DisplayName, d.Name DepartmentName,
-                    r.LeaveType, r.StartDate, r.EndDate, r.SessionCode, r.HandoverTo, r.Reason, r.AttachmentName, r.StatusCode, r.CreatedAt
+                    r.LeaveType, r.StartDate, r.EndDate, r.SessionCode, r.HandoverTo, r.Reason, r.AttachmentName,
+                    CAST(CASE WHEN r.AttachmentContent IS NULL THEN 0 ELSE 1 END AS BIT) HasAttachment, r.StatusCode, r.CreatedAt
                 FROM dbo.HrmLeaveRequest r INNER JOIN dbo.HrmUserAccount u ON u.Id=r.UserId
                 LEFT JOIN dbo.HrmDepartment d ON d.Id=u.DepartmentId WHERE r.Id=@Id;";
             using (var connection = OpenConnection())
             {
-                var result = connection.QuerySingle<LeaveRequestModel>(sql, new { UserId = actor.Id, request.LeaveType, request.StartDate, request.EndDate, request.SessionCode, request.HandoverTo, request.Reason, request.AttachmentName });
+                var result = connection.QuerySingle<LeaveRequestModel>(sql, new { UserId = actor.Id, request.LeaveType, request.StartDate, request.EndDate, request.SessionCode, request.HandoverTo, request.Reason, request.AttachmentName, request.AttachmentContentType, request.AttachmentContent });
                 AddAudit(connection, actor.Id, "CREATE", "HrmLeaveRequest", result.Id.ToString(), "Gửi đơn nghỉ phép " + result.RequestCode, ipAddress);
                 return result;
             }
@@ -252,6 +254,20 @@ namespace NHIGIA.Modern.Infrastructure
                 if (changed) AddAudit(connection, actor.Id, "CANCEL", "HrmLeaveRequest", id.ToString(), "Hủy đơn nghỉ phép", ipAddress);
                 return changed;
             }
+        }
+
+        public CommunicationAttachmentModel GetLeaveAttachment(int id, HrmUserAccountModel actor)
+        {
+            const string sql = @"SELECT r.AttachmentName FileName, r.AttachmentContentType ContentType,
+                    r.AttachmentContent Content
+                FROM dbo.HrmLeaveRequest r
+                INNER JOIN dbo.HrmUserAccount u ON u.Id=r.UserId
+                WHERE r.Id=@Id AND r.AttachmentContent IS NOT NULL
+                  AND (@CanSeeAll=1 OR r.UserId=@ActorId OR (@IsManager=1 AND u.DepartmentId=@DepartmentId))";
+            var canSeeAll = actor.RoleCode is HrmRoles.Admin or HrmRoles.Hr or HrmRoles.Director;
+            using var connection = OpenConnection();
+            return connection.QuerySingleOrDefault<CommunicationAttachmentModel>(sql,
+                new { Id = id, CanSeeAll = canSeeAll, IsManager = actor.RoleCode == HrmRoles.Manager, ActorId = actor.Id, actor.DepartmentId });
         }
 
         public bool ApproveLeave(ApprovalRequest request, HrmUserAccountModel actor, string ipAddress)

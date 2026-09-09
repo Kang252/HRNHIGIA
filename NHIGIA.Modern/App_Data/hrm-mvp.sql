@@ -176,6 +176,13 @@ BEGIN
 END;
 GO
 
+IF COL_LENGTH('dbo.HrmLeaveRequest', 'AttachmentContentType') IS NULL
+    ALTER TABLE dbo.HrmLeaveRequest ADD AttachmentContentType NVARCHAR(100) NULL;
+GO
+IF COL_LENGTH('dbo.HrmLeaveRequest', 'AttachmentContent') IS NULL
+    ALTER TABLE dbo.HrmLeaveRequest ADD AttachmentContent VARBINARY(MAX) NULL;
+GO
+
 IF OBJECT_ID('dbo.HrmCommunication', 'U') IS NULL
 BEGIN
     CREATE TABLE dbo.HrmCommunication (

@@ -63,6 +63,7 @@ try
         Console.WriteLine($"PASS removed content {path}");
     }
     await Check("/Work?kind=kpi", null, HttpStatusCode.Redirect);
+    await Check("/Hrm/LeaveAttachment?id=1", null, HttpStatusCode.Redirect);
     await Check("/Account/Login", null, HttpStatusCode.OK, "images/nhigia-logo.png", "hrm-login-logo");
     await Check("/", "ADMIN", HttpStatusCode.OK, "Tổng quan hệ thống", "Tài khoản nhân sự", "Helpdesk IT", "images/nhigia-logo.png", "Mở thông báo", "hrmRowPreview");
     await CheckMissing("/", "ADMIN", "Ứng dụng eHRM", "hrm-app-grid", "inventory_2");
@@ -76,6 +77,7 @@ try
         await Check("/Work?kind=" + kind, "ADMIN", HttpStatusCode.OK, "Chưa kết nối", "disabled", "href=\"/Home/Attendance\"");
     await Check("/Work?kind=kpi", "ADMIN", HttpStatusCode.OK, "Tổng tỷ trọng", "Tên tiêu chí KPI", "Mã KPI / Từ khóa", "Phòng ban nhận KPI", "Chọn một nhân viên hoặc một phòng ban", "Cách đo / Nguồn dữ liệu");
     await Check("/Home/InternalCommunications", "ADMIN", HttpStatusCode.OK, "Ảnh đính kèm", "communicationImagePreview", "image/webp", "FormData");
+    await Check("/Home/LeaveRequests", "EMPLOYEE", HttpStatusCode.OK, "name=\"attachment\"", "FormData(this)", "LeaveAttachment", "Tệp cũ chưa lưu nội dung");
     await Check("/Work?kind=helpdesk", "EMPLOYEE", HttpStatusCode.OK, "Tạo yêu cầu Helpdesk IT");
     await Check("/Work?kind=overtime", "EMPLOYEE", HttpStatusCode.OK, "Số giờ tăng ca", "Lý do tăng ca");
     await Check("/Work?kind=resignation", "EMPLOYEE", HttpStatusCode.OK, "Ngày làm việc cuối cùng", "Lý do nghỉ việc");

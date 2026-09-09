@@ -24,6 +24,20 @@ public sealed class WorkItem
     public string LastActionNote { get; set; }
     public string EmployeeName { get; set; }
     public string DepartmentName { get; set; }
+
+    public string RecordCode => FormatCode(Kind, Id);
+
+    public static string FormatCode(string kind, int id)
+    {
+        var prefix = kind?.ToLowerInvariant() switch
+        {
+            "kpi" => "KPI", "payroll" => "BL", "recruitment" => "TD",
+            "training" => "DT", "overtime" => "TC", "resignation" => "NV",
+            "transfer" => "DC", "assets" => "TS", "helpdesk" => "HD",
+            _ => "HS"
+        };
+        return $"{prefix}{id:D8}";
+    }
 }
 
 public sealed class WorkPage

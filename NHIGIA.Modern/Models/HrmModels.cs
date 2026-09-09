@@ -201,6 +201,7 @@ namespace NHIGIA.Modern.Models
         public string HandoverTo { get; set; }
         public string Reason { get; set; }
         public string AttachmentName { get; set; }
+        public bool HasAttachment { get; set; }
         public string StatusCode { get; set; }
         public string ManagerNote { get; set; }
         public string HrNote { get; set; }
@@ -216,6 +217,8 @@ namespace NHIGIA.Modern.Models
         public string HandoverTo { get; set; }
         public string Reason { get; set; }
         public string AttachmentName { get; set; }
+        public string AttachmentContentType { get; set; }
+        public byte[] AttachmentContent { get; set; }
     }
 
     public class ApprovalRequest

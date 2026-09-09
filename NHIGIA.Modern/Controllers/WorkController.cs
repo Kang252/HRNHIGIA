@@ -160,7 +160,7 @@ public sealed class WorkController : Controller
         try
         {
             var id = _store.Create(draft);
-            TempData["WorkSuccess"] = $"Đã lưu #{id:D5} vào hệ thống.";
+            TempData["WorkSuccess"] = $"Đã lưu {WorkItem.FormatCode(draft.Kind, id)} vào hệ thống.";
             return RedirectToAction("Index", new { kind = draft.Kind });
         }
         catch (Exception ex)
@@ -192,7 +192,7 @@ public sealed class WorkController : Controller
             ModelState.AddModelError("", "KPI không còn tồn tại hoặc không thể cập nhật.");
             return View("Index", page);
         }
-        TempData["WorkSuccess"] = $"Đã cập nhật KPI #{draft.Id:D5}.";
+        TempData["WorkSuccess"] = $"Đã cập nhật {WorkItem.FormatCode("kpi", draft.Id)}.";
         return RedirectToAction("Index", new { kind = "kpi" });
     }
 
@@ -212,7 +212,7 @@ public sealed class WorkController : Controller
             ModelState.AddModelError("", "Bảng lương không còn ở trạng thái có thể chỉnh sửa.");
             return View("Index", page);
         }
-        TempData["WorkSuccess"] = $"Đã cập nhật bảng lương #{draft.Id:D5}.";
+        TempData["WorkSuccess"] = $"Đã cập nhật {WorkItem.FormatCode("payroll", draft.Id)}.";
         return RedirectToAction("Index", new { kind = "payroll" });
     }
 
@@ -246,7 +246,7 @@ public sealed class WorkController : Controller
         if (!_store.TransitionPayroll(id, rule.Item1, rule.Item2, rule.Item3, note, _user.Current.Id, rule.Item4, ClientIp))
             TempData["WorkError"] = "Bảng lương đã đổi trạng thái hoặc bạn không có quyền xử lý.";
         else
-            TempData["WorkSuccess"] = $"Đã cập nhật trạng thái bảng lương #{id:D5}.";
+            TempData["WorkSuccess"] = $"Đã cập nhật trạng thái {WorkItem.FormatCode("payroll", id)}.";
         return RedirectToAction("Index", new { kind = "payroll" });
     }
 
