@@ -57,7 +57,9 @@ namespace NHIGIA.Modern.Models
         public string DisplayName { get; set; }
         public string RoleCode { get; set; }
         public string RoleLabel { get { return HrmRoles.Label(RoleCode); } }
+        public int? DepartmentId { get; set; }
         public string DepartmentName { get; set; }
+        public int? SupervisorUserId { get; set; }
         public string SupervisorName { get; set; }
         public bool IsActive { get; set; }
 

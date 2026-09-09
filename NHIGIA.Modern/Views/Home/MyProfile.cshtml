@@ -92,6 +92,7 @@
             <p class="hrm-page-subtitle">Thông tin cá nhân và quá trình làm việc được lưu trên hệ thống</p>
         </div>
         <div class="hrm-header-actions">
+            @if (HrmUser.Current?.RoleCode is HrmRoles.Hr or HrmRoles.Director) { <a class="hrm-btn" asp-action="EditEmployeeProfile" asp-route-id="@Model.UserId"><i class="material-icons">edit</i> Cập nhật hồ sơ</a> }
             <a class="hrm-btn" href="@Url.Action("Attendance", "Home")"><i class="material-icons">schedule</i> Chấm công</a>
             <a class="hrm-btn hrm-btn-primary" href="@Url.Action("LeaveRequests", "Home")"><i class="material-icons">event_busy</i> Nghỉ phép</a>
         </div>

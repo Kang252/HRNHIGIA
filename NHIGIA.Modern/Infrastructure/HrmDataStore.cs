@@ -63,8 +63,8 @@ namespace NHIGIA.Modern.Infrastructure
 
         public EmployeeProfileModel GetEmployeeProfile(int userId)
         {
-            const string sql = @"SELECT u.Id UserId, u.Username, u.DisplayName, u.RoleCode, d.Name DepartmentName,
-                supervisor.DisplayName SupervisorName, u.IsActive,
+            const string sql = @"SELECT u.Id UserId, u.Username, u.DisplayName, u.RoleCode, u.DepartmentId,
+                d.Name DepartmentName, u.SupervisorUserId, supervisor.DisplayName SupervisorName, u.IsActive,
                 p.EmployeeCode, p.AvatarUrl, p.Gender, p.DateOfBirth, p.PlaceOfBirth, p.Nationality,
                 p.Ethnicity, p.Religion, p.MaritalStatus, p.MobilePhone, p.OfficePhone, p.HomePhone,
                 p.PersonalEmail, p.CompanyEmail, p.PermanentAddress, p.CurrentAddress,
@@ -85,6 +85,57 @@ namespace NHIGIA.Modern.Infrastructure
                 LEFT JOIN dbo.HrmEmployeeProfile p ON p.UserId=u.Id
                 WHERE u.Id=@UserId";
             using (var connection = OpenConnection()) return connection.QuerySingleOrDefault<EmployeeProfileModel>(sql, new { UserId = userId });
+        }
+
+        public IList<WorkDepartment> GetDepartments()
+        {
+            using var connection = OpenConnection();
+            return connection.Query<WorkDepartment>("SELECT Id,Name FROM dbo.HrmDepartment WHERE IsActive=1 ORDER BY Name").ToList();
+        }
+
+        public void UpdateEmployeeProfile(EmployeeProfileModel profile, HrmUserAccountModel actor, string ipAddress)
+        {
+            const string profileSql = @"UPDATE dbo.HrmEmployeeProfile SET
+                    EmployeeCode=@EmployeeCode, Gender=@Gender, DateOfBirth=@DateOfBirth, PlaceOfBirth=@PlaceOfBirth,
+                    Nationality=@Nationality, Ethnicity=@Ethnicity, Religion=@Religion, MaritalStatus=@MaritalStatus,
+                    MobilePhone=@MobilePhone, OfficePhone=@OfficePhone, HomePhone=@HomePhone,
+                    PersonalEmail=@PersonalEmail, CompanyEmail=@CompanyEmail, PermanentAddress=@PermanentAddress,
+                    CurrentAddress=@CurrentAddress, IdentityNumber=@IdentityNumber, IdentityIssuedDate=@IdentityIssuedDate,
+                    IdentityIssuedPlace=@IdentityIssuedPlace, IdentityExpiryDate=@IdentityExpiryDate,
+                    PassportNumber=@PassportNumber, PassportIssuedDate=@PassportIssuedDate,
+                    PassportIssuedPlace=@PassportIssuedPlace, PassportExpiryDate=@PassportExpiryDate,
+                    PersonalTaxCode=@PersonalTaxCode, JobTitle=@JobTitle, EmploymentStatus=@EmploymentStatus,
+                    WorkLocation=@WorkLocation, TimekeepingCode=@TimekeepingCode, HireDate=@HireDate,
+                    ProbationDate=@ProbationDate, OfficialDate=@OfficialDate, ContractType=@ContractType,
+                    ContractNumber=@ContractNumber, ContractStartDate=@ContractStartDate,
+                    ContractEndDate=@ContractEndDate, AnnualLeaveDays=@AnnualLeaveDays,
+                    EducationLevel=@EducationLevel, Degree=@Degree, SchoolName=@SchoolName, Faculty=@Faculty,
+                    Major=@Major, GraduationYear=@GraduationYear, GraduationClassification=@GraduationClassification,
+                    BasicSalary=@BasicSalary, BankAccountNumber=@BankAccountNumber, BankName=@BankName,
+                    BankBranch=@BankBranch, SocialInsuranceNumber=@SocialInsuranceNumber,
+                    SocialInsuranceStartDate=@SocialInsuranceStartDate, HealthInsuranceNumber=@HealthInsuranceNumber,
+                    HealthInsuranceExpiryDate=@HealthInsuranceExpiryDate, RegisteredHealthFacility=@RegisteredHealthFacility,
+                    EmergencyContactName=@EmergencyContactName,
+                    EmergencyContactRelationship=@EmergencyContactRelationship,
+                    EmergencyContactPhone=@EmergencyContactPhone, EmergencyContactEmail=@EmergencyContactEmail,
+                    EmergencyContactAddress=@EmergencyContactAddress, Notes=@Notes, UpdatedAt=SYSDATETIME()
+                WHERE UserId=@UserId";
+            using var connection = OpenConnection();
+            using var transaction = connection.BeginTransaction();
+            connection.Execute(@"UPDATE dbo.HrmUserAccount SET DisplayName=@DisplayName,
+                    DepartmentId=@DepartmentId, SupervisorUserId=@SupervisorUserId WHERE Id=@UserId",
+                profile, transaction);
+            if (connection.Execute(profileSql, profile, transaction) == 0)
+            {
+                connection.Execute(@"INSERT dbo.HrmEmployeeProfile(UserId,EmployeeCode,JobTitle,EmploymentStatus,
+                        CompanyEmail,TimekeepingCode,AnnualLeaveDays) VALUES
+                        (@UserId,@EmployeeCode,@JobTitle,@EmploymentStatus,@CompanyEmail,@TimekeepingCode,@AnnualLeaveDays)",
+                    profile, transaction);
+                connection.Execute(profileSql, profile, transaction);
+            }
+            AddAudit(connection, actor.Id, "UPDATE", "HrmEmployeeProfile", profile.UserId.ToString(),
+                "Cập nhật hồ sơ nhân viên " + profile.EmployeeCode, ipAddress, transaction);
+            transaction.Commit();
         }
 
         public void MarkLogin(int userId, string ipAddress)
@@ -411,9 +462,9 @@ namespace NHIGIA.Modern.Infrastructure
             }
         }
 
-        private static void AddAudit(IDbConnection connection, int? userId, string action, string entityType, string entityId, string detail, string ipAddress)
+        private static void AddAudit(IDbConnection connection, int? userId, string action, string entityType, string entityId, string detail, string ipAddress, IDbTransaction transaction = null)
         {
-            connection.Execute("INSERT dbo.HrmAuditLog(UserId, ActionCode, EntityType, EntityId, Detail, IpAddress) VALUES(@UserId,@Action,@EntityType,@EntityId,@Detail,@IpAddress)", new { UserId = userId, Action = action, EntityType = entityType, EntityId = entityId, Detail = detail, IpAddress = ipAddress });
+            connection.Execute("INSERT dbo.HrmAuditLog(UserId, ActionCode, EntityType, EntityId, Detail, IpAddress) VALUES(@UserId,@Action,@EntityType,@EntityId,@Detail,@IpAddress)", new { UserId = userId, Action = action, EntityType = entityType, EntityId = entityId, Detail = detail, IpAddress = ipAddress }, transaction);
         }
 
         private string Protect(string value)

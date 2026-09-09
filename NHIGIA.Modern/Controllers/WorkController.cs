@@ -101,6 +101,13 @@ public sealed class WorkController : Controller
             if (item == null) return NotFound();
             page.Draft = item;
         }
+        else if (kind == "kpi" && editId.HasValue)
+        {
+            if (!page.CanManage) return Forbid();
+            var item = page.Items.FirstOrDefault(x => x.Id == editId);
+            if (item == null) return NotFound();
+            page.Draft = item;
+        }
         return View(page);
     }
 
@@ -118,24 +125,7 @@ public sealed class WorkController : Controller
             ModelState.AddModelError("", "Phòng ban được chọn không hợp lệ.");
         if (draft.Kind is "transfer" or "payroll" or "overtime" or "resignation" && !draft.EmployeeId.HasValue && page.CanManage)
             ModelState.AddModelError("", "Vui lòng chọn nhân viên.");
-        if (draft.Kind == "kpi" && !draft.EmployeeId.HasValue && !draft.DepartmentId.HasValue)
-            ModelState.AddModelError("", "Vui lòng chọn nhân viên hoặc phòng ban nhận KPI.");
-        if (draft.Kind == "kpi" && draft.EmployeeId.HasValue && draft.DepartmentId.HasValue)
-            ModelState.AddModelError("", "Mỗi tiêu chí KPI chỉ giao cho một nhân viên hoặc một phòng ban.");
-        if (draft.Kind == "kpi" && (!draft.Target.HasValue || draft.Target <= 0 || !draft.Weight.HasValue || !draft.DueDate.HasValue
-            || string.IsNullOrWhiteSpace(draft.Reference) || string.IsNullOrWhiteSpace(draft.Category) || string.IsNullOrWhiteSpace(draft.Description)))
-            ModelState.AddModelError("", "KPI cần mã KPI, đơn vị đo, chỉ tiêu, tỷ trọng, hạn hoàn thành và cách đo kết quả.");
-        if (draft.Kind == "kpi" && draft.Weight.HasValue && (draft.EmployeeId.HasValue || draft.DepartmentId.HasValue))
-        {
-            var assignedWeight = page.Items
-                .Where(item => item.Kind == "kpi"
-                    && (draft.EmployeeId.HasValue
-                        ? item.EmployeeId == draft.EmployeeId
-                        : !item.EmployeeId.HasValue && item.DepartmentId == draft.DepartmentId))
-                .Sum(item => item.Weight ?? 0);
-            if (assignedWeight + draft.Weight > 100)
-                ModelState.AddModelError("", $"Tổng tỷ trọng KPI của đối tượng nhận không được vượt 100% (hiện có {assignedWeight:N0}%).");
-        }
+        if (draft.Kind == "kpi") ValidateKpi(draft, page);
         if (draft.Kind == "transfer" && (!draft.DepartmentId.HasValue || !draft.DueDate.HasValue))
             ModelState.AddModelError("", "Vui lòng chọn phòng ban mới và ngày dự kiến.");
         if (draft.Kind == "payroll" && (!draft.EmployeeId.HasValue || string.IsNullOrWhiteSpace(draft.Category) || !draft.Target.HasValue || !draft.Actual.HasValue || !draft.DueDate.HasValue))
@@ -150,8 +140,6 @@ public sealed class WorkController : Controller
             ModelState.AddModelError("", "Đăng ký tăng ca cần ngày, số giờ và lý do.");
         if (draft.Kind == "resignation" && (!draft.DueDate.HasValue || string.IsNullOrWhiteSpace(draft.Description)))
             ModelState.AddModelError("", "Đề nghị nghỉ việc cần ngày làm việc cuối cùng và lý do.");
-        if (draft.DepartmentId.HasValue && !page.Departments.Any(x => x.Id == draft.DepartmentId))
-            ModelState.AddModelError("", "Phòng ban không hợp lệ.");
         if (draft.Kind == "assets" && string.IsNullOrWhiteSpace(draft.Reference))
             ModelState.AddModelError("", "Vui lòng nhập mã tài sản.");
         if (draft.Kind == "helpdesk" && (string.IsNullOrWhiteSpace(draft.Description) || !new[] { "LOW", "NORMAL", "HIGH", "URGENT" }.Contains(draft.Priority)))
@@ -181,6 +169,31 @@ public sealed class WorkController : Controller
             ModelState.AddModelError("", "Không thể lưu dữ liệu. Vui lòng thử lại; mã tài sản có thể đã tồn tại.");
             return View("Index", page);
         }
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public IActionResult UpdateKpi([Bind("Id,Kind,Title,Description,Category,Reference,EmployeeId,DepartmentId,DueDate,Target,Actual,Weight")] WorkItem draft)
+    {
+        if (draft.Kind != "kpi") return NotFound();
+        var page = Page("kpi");
+        page.EditId = draft.Id;
+        page.Draft = draft;
+        Load(page);
+        if (!page.CanManage) return Forbid();
+        if (!page.Items.Any(x => x.Id == draft.Id)) return NotFound();
+        if (draft.EmployeeId.HasValue && !page.People.Any(x => x.Id == draft.EmployeeId))
+            ModelState.AddModelError("", "Nhân viên được chọn không hợp lệ.");
+        if (draft.DepartmentId.HasValue && !page.Departments.Any(x => x.Id == draft.DepartmentId))
+            ModelState.AddModelError("", "Phòng ban được chọn không hợp lệ.");
+        ValidateKpi(draft, page, draft.Id);
+        if (!page.Available || !ModelState.IsValid) return View("Index", page);
+        if (!_store.UpdateKpi(draft, _user.Current.Id, ClientIp))
+        {
+            ModelState.AddModelError("", "KPI không còn tồn tại hoặc không thể cập nhật.");
+            return View("Index", page);
+        }
+        TempData["WorkSuccess"] = $"Đã cập nhật KPI #{draft.Id:D5}.";
+        return RedirectToAction("Index", new { kind = "kpi" });
     }
 
     [HttpPost, ValidateAntiForgeryToken]
@@ -245,5 +258,25 @@ public sealed class WorkController : Controller
             ModelState.AddModelError("", "Nhân viên được chọn không hợp lệ.");
         if (draft.Target < 0 || draft.Actual < 0 || draft.Actual > draft.Target)
             ModelState.AddModelError("", "Số tiền thực nhận phải từ 0 đến tổng thu nhập.");
+    }
+
+    private void ValidateKpi(WorkItem draft, WorkPage page, int? excludeId = null)
+    {
+        if (!draft.EmployeeId.HasValue && !draft.DepartmentId.HasValue)
+            ModelState.AddModelError("", "Vui lòng chọn nhân viên hoặc phòng ban nhận KPI.");
+        if (draft.EmployeeId.HasValue && draft.DepartmentId.HasValue)
+            ModelState.AddModelError("", "Mỗi tiêu chí KPI chỉ giao cho một nhân viên hoặc một phòng ban.");
+        if (!draft.Target.HasValue || draft.Target <= 0 || !draft.Weight.HasValue || !draft.DueDate.HasValue
+            || string.IsNullOrWhiteSpace(draft.Reference) || string.IsNullOrWhiteSpace(draft.Category) || string.IsNullOrWhiteSpace(draft.Description))
+            ModelState.AddModelError("", "KPI cần mã KPI, đơn vị đo, chỉ tiêu, tỷ trọng, hạn hoàn thành và cách đo kết quả.");
+        if (!draft.Weight.HasValue || (!draft.EmployeeId.HasValue && !draft.DepartmentId.HasValue)) return;
+        var assignedWeight = page.Items
+            .Where(item => item.Kind == "kpi" && item.Id != excludeId
+                && (draft.EmployeeId.HasValue
+                    ? item.EmployeeId == draft.EmployeeId
+                    : !item.EmployeeId.HasValue && item.DepartmentId == draft.DepartmentId))
+            .Sum(item => item.Weight ?? 0);
+        if (assignedWeight + draft.Weight > 100)
+            ModelState.AddModelError("", $"Tổng tỷ trọng KPI của đối tượng nhận không được vượt 100% (hiện có {assignedWeight:N0}%).");
     }
 }

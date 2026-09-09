@@ -2,6 +2,7 @@
 @{
     var current = HrmUser.Current;
     var isManager = current?.RoleCode == HrmRoles.Manager;
+    var canEditProfile = current?.RoleCode is HrmRoles.Hr or HrmRoles.Director;
     var title = isManager ? "Nhân sự phòng ban" : "Quản lý nhân sự";
 }
 
@@ -17,6 +18,8 @@
         </div>
     </div>
 
+    @if (TempData["ProfileSuccess"] is string success) { <div class="alert alert-success" role="status">@success</div> }
+
     <div class="hrm-grid hrm-grid-3">
         <div class="hrm-card hrm-stat"><div class="hrm-stat-top"><span class="hrm-stat-label">Nhân sự hiển thị</span><span class="hrm-stat-icon"><i class="material-icons">groups</i></span></div><div class="hrm-stat-value">@Model.Count</div><div class="hrm-stat-note">Theo phạm vi quyền tài khoản</div></div>
         <div class="hrm-card hrm-stat"><div class="hrm-stat-top"><span class="hrm-stat-label">Phòng ban</span><span class="hrm-stat-icon green"><i class="material-icons">business</i></span></div><div class="hrm-stat-value">@Model.Select(x => x.DepartmentId).Where(x => x.HasValue).Distinct().Count()</div><div class="hrm-stat-note">Có nhân viên đang hoạt động</div></div>
@@ -27,11 +30,11 @@
         <div class="hrm-card-header"><div><h2 class="hrm-card-title">Danh sách nhân viên</h2><p class="hrm-card-subtitle">Thông tin tài khoản, chức vụ và đơn vị công tác</p></div></div>
         <div class="hrm-table-wrap">
             <table class="hrm-table">
-                <thead><tr><th>Nhân viên</th><th>Tài khoản</th><th>Chức vụ</th><th>Phòng ban</th><th>Trạng thái</th></tr></thead>
+                <thead><tr><th>Nhân viên</th><th>Tài khoản</th><th>Chức vụ</th><th>Phòng ban</th><th>Trạng thái</th>@if (canEditProfile) { <th>Thao tác</th> }</tr></thead>
                 <tbody>
                 @if (Model.Count == 0)
                 {
-                    <tr><td colspan="5"><div class="hrm-empty"><i class="material-icons">group_off</i><strong>Chưa có nhân viên trong phạm vi quản lý</strong></div></td></tr>
+                    <tr><td colspan="@(canEditProfile ? 6 : 5)"><div class="hrm-empty"><i class="material-icons">group_off</i><strong>Chưa có nhân viên trong phạm vi quản lý</strong></div></td></tr>
                 }
                 else
                 {
@@ -43,6 +46,7 @@
                             <td><span class="hrm-badge hrm-badge-blue">@employee.RoleLabel</span></td>
                             <td>@(employee.DepartmentName ?? "Chưa phân phòng")</td>
                             <td><span class="hrm-badge @(employee.IsActive ? "hrm-badge-success" : "hrm-badge-warning")">@(employee.IsActive ? "Đang hoạt động" : "Tạm khóa")</span></td>
+                            @if (canEditProfile) { <td><a class="hrm-btn" asp-action="EditEmployeeProfile" asp-route-id="@employee.Id"><i class="material-icons">edit</i> Cập nhật</a></td> }
                         </tr>
                     }
                 }

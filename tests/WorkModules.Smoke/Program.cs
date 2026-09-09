@@ -84,6 +84,8 @@ try
     await Check("/Work?kind=payroll", "EMPLOYEE", HttpStatusCode.OK, "Phiếu lương", "Chưa kết nối");
     await Check("/Work?kind=recruitment", "EMPLOYEE", HttpStatusCode.Redirect);
     await Check("/Work?kind=recruitment", "MANAGER", HttpStatusCode.Redirect);
+    await Check("/Home/EditEmployeeProfile/1", "EMPLOYEE", HttpStatusCode.Redirect);
+    await Check("/Home/EditEmployeeProfile/1", "MANAGER", HttpStatusCode.Redirect);
     await Check("/Work?kind=unknown", "ADMIN", HttpStatusCode.NotFound);
     using var post = new HttpRequestMessage(HttpMethod.Post, "/Work/Create");
     post.Headers.Add("Cookie", Cookie("ADMIN"));

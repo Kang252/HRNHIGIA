@@ -16,6 +16,9 @@
     var isDirector = currentUser?.RoleCode == HrmRoles.Director;
     var canEditPayroll = isAdmin || isHr;
     var canApprovePayroll = isAdmin || isDirector;
+    var canEditKpi = Model.Kind == "kpi" && Model.CanManage;
+    var showEditor = Model.CanCreate || (canEditKpi && Model.EditId.HasValue);
+    var formAction = Model.EditId.HasValue ? (Model.Kind == "kpi" ? "UpdateKpi" : "UpdatePayroll") : "Create";
     var showEmployee = Model.Kind is "kpi" or "transfer" or "payroll" or "assets" or "training"
         || (Model.CanManage && Model.Kind is "overtime" or "resignation");
     var employeeRequired = Model.Kind is "transfer" or "payroll" or "overtime" or "resignation";
@@ -84,7 +87,7 @@
         else
         {
             <div class="table-responsive"><table class="table table-hover">
-                <thead><tr><th>Nội dung</th><th>@(Model.Kind == "kpi" ? "Đối tượng nhận" : Model.Kind == "recruitment" ? "Phòng ban" : "Nhân viên")</th><th>Thông tin chính</th><th>Trạng thái</th>@if (Model.Kind == "payroll") { <th>Thao tác</th> }</tr></thead>
+                <thead><tr><th>Nội dung</th><th>@(Model.Kind == "kpi" ? "Đối tượng nhận" : Model.Kind == "recruitment" ? "Phòng ban" : "Nhân viên")</th><th>Thông tin chính</th><th>Trạng thái</th>@if (Model.Kind == "payroll" || canEditKpi) { <th>Thao tác</th> }</tr></thead>
                 <tbody>
                 @foreach (var item in Model.Items)
                 {
@@ -114,6 +117,10 @@
                             @if (Model.Kind == "helpdesk") { <span>@item.Priority</span> }
                         </td>
                         <td><span class="work-status work-status-@item.Status?.ToLowerInvariant()">@(statusLabels.GetValueOrDefault(item.Status, item.Status))</span>@if (!string.IsNullOrWhiteSpace(item.LastActionNote)) { <small class="work-muted">@item.LastActionNote</small> }</td>
+                        @if (canEditKpi)
+                        {
+                            <td><a class="hrm-btn" asp-controller="Work" asp-action="Index" asp-route-kind="kpi" asp-route-editId="@item.Id"><i class="material-icons">edit</i> Cập nhật</a></td>
+                        }
                         @if (Model.Kind == "payroll")
                         {
                             <td class="payroll-actions">
@@ -153,11 +160,11 @@
         }
     </section>
 
-    @if (Model.CanCreate)
+    @if (showEditor)
     {
         <section class="work-panel">
-            <h3>@(Model.Kind == "kpi" ? "Giao tiêu chí KPI" : Model.Kind == "helpdesk" ? "Tạo yêu cầu Helpdesk IT" : Model.EditId.HasValue ? "Cập nhật bảng lương" : "Thêm mới")</h3>
-            <form method="post" asp-controller="Work" asp-action="@(Model.EditId.HasValue ? "UpdatePayroll" : "Create")">
+            <h3>@(Model.Kind == "kpi" ? (Model.EditId.HasValue ? "Cập nhật KPI" : "Giao tiêu chí KPI") : Model.Kind == "helpdesk" ? "Tạo yêu cầu Helpdesk IT" : Model.EditId.HasValue ? "Cập nhật bảng lương" : "Thêm mới")</h3>
+            <form method="post" asp-controller="Work" asp-action="@formAction">
                 <fieldset disabled="@(!Model.Available)">
                     <input type="hidden" name="Kind" value="@Model.Kind" />
                     @if (Model.EditId.HasValue) { <input type="hidden" name="Id" value="@Model.EditId" /> }
@@ -204,14 +211,14 @@
                     <label for="Description">@(Model.Kind switch { "kpi" => "Cách đo / Nguồn dữ liệu", "overtime" => "Lý do tăng ca", "resignation" => "Lý do nghỉ việc", _ => "Mô tả" }) @(Model.Kind is "kpi" or "helpdesk" or "overtime" or "resignation" ? "*" : "")</label>
                     <textarea id="Description" name="Description" class="form-control" rows="4" maxlength="2000" required="@(Model.Kind is "kpi" or "helpdesk" or "overtime" or "resignation")" placeholder="@(Model.Kind == "kpi" ? "Mô tả công thức, nguồn số liệu và điều kiện ghi nhận hoàn thành" : null)">@Model.Draft.Description</textarea>
                     <button type="submit" class="hrm-btn hrm-btn-primary work-submit">@(Model.Kind == "helpdesk" ? "Gửi yêu cầu" : Model.EditId.HasValue ? "Lưu thay đổi" : "Lưu bản ghi")</button>
-                    @if (Model.EditId.HasValue) { <a class="hrm-btn work-cancel" asp-controller="Work" asp-action="Index" asp-route-kind="payroll">Hủy sửa</a> }
+                    @if (Model.EditId.HasValue) { <a class="hrm-btn work-cancel" asp-controller="Work" asp-action="Index" asp-route-kind="@Model.Kind">Hủy sửa</a> }
                 </fieldset>
             </form>
         </section>
     }
 </div>
 
-@if (Model.Kind == "kpi" && Model.CanCreate)
+@if (Model.Kind == "kpi" && showEditor)
 {
     <script>
         (() => {

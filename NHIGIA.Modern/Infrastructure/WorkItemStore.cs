@@ -46,7 +46,9 @@ public sealed class WorkItemStore
                 UserId = actor.Id,
                 actor.DepartmentId
             }).ToList();
-            page.Departments = db.Query<WorkDepartment>("SELECT Id,Name FROM dbo.HrmDepartment WHERE IsActive=1 ORDER BY Name").ToList();
+            page.Departments = db.Query<WorkDepartment>(@"SELECT Id,Name FROM dbo.HrmDepartment
+                WHERE IsActive=1 AND (@CanSeeAll=1 OR Id=@DepartmentId) ORDER BY Name",
+                new { CanSeeAll = canSeeAll, actor.DepartmentId }).ToList();
         }
         if (!string.IsNullOrWhiteSpace(page.Query))
             page.Items = page.Items.Where(x => $"{x.Title} {x.Reference} {x.EmployeeName} {x.Category}".Contains(page.Query, StringComparison.OrdinalIgnoreCase)).ToList();
@@ -59,6 +61,19 @@ public sealed class WorkItemStore
             (Kind,Title,Description,Category,Reference,EmployeeId,DepartmentId,DueDate,Target,Actual,Weight,Priority,Status,CreatedBy)
             OUTPUT INSERTED.Id VALUES
             (@Kind,@Title,@Description,@Category,@Reference,@EmployeeId,@DepartmentId,@DueDate,@Target,@Actual,@Weight,@Priority,@Status,@CreatedBy)", item);
+    }
+
+    public bool UpdateKpi(WorkItem item, int actorId, string ipAddress)
+    {
+        using var db = Open();
+        using var transaction = db.BeginTransaction();
+        var changed = db.Execute(@"UPDATE dbo.HrmWorkItem SET Title=@Title, Description=@Description,
+                Category=@Category, Reference=@Reference, EmployeeId=@EmployeeId, DepartmentId=@DepartmentId,
+                DueDate=@DueDate, Target=@Target, Actual=@Actual, Weight=@Weight, UpdatedAt=SYSUTCDATETIME()
+            WHERE Id=@Id AND Kind='kpi'", item, transaction) > 0;
+        if (changed) AddAudit(db, transaction, actorId, "UPDATE", item.Id, "Cập nhật KPI", ipAddress);
+        transaction.Commit();
+        return changed;
     }
 
     public bool UpdatePayrollDraft(WorkItem item, int actorId, string ipAddress)
