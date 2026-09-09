@@ -2,6 +2,8 @@
 @{
     var departments = ViewBag.Departments as IList<WorkDepartment> ?? new List<WorkDepartment>();
     var supervisors = ViewBag.Supervisors as IList<HrmUserAccountModel> ?? new List<HrmUserAccountModel>();
+    Func<IEnumerable<string>, string, IEnumerable<string>> options = (items, current) =>
+        items.Concat(string.IsNullOrWhiteSpace(current) ? Array.Empty<string>() : new[] { current }).Distinct();
 }
 
 <div class="container-fluid profile-edit-page">
@@ -12,6 +14,7 @@
 
     <form method="post" asp-action="EditEmployeeProfile">
         <input asp-for="UserId" type="hidden" />
+        @if (TempData["ProfileSuccess"] is string success) { <div class="alert alert-success" role="status"><i class="material-icons">check_circle</i> @success</div> }
         <div asp-validation-summary="All" class="alert alert-danger"></div>
 
         <section class="hrm-card edit-section">
@@ -21,13 +24,13 @@
                 <label>Mã nhân viên *<input asp-for="EmployeeCode" class="form-control" maxlength="30" required /></label>
                 <label>Phòng ban<select asp-for="DepartmentId" class="form-control"><option value="">Chưa phân phòng</option>@foreach (var item in departments) { <option value="@item.Id">@item.Name</option> }</select></label>
                 <label>Quản lý trực tiếp<select asp-for="SupervisorUserId" class="form-control"><option value="">Chưa phân công</option>@foreach (var item in supervisors) { <option value="@item.Id">@item.DisplayName</option> }</select></label>
-                <label>Giới tính<input asp-for="Gender" class="form-control" maxlength="20" /></label>
+                <label>Giới tính<select asp-for="Gender" class="form-control"><option value="">Chọn giới tính</option>@foreach (var item in options(EmployeeProfileOptions.Genders, Model.Gender)) { <option value="@item">@item</option> }</select></label>
                 <label>Ngày sinh<input asp-for="DateOfBirth" type="date" class="form-control" /></label>
                 <label>Nơi sinh<input asp-for="PlaceOfBirth" class="form-control" maxlength="250" /></label>
-                <label>Quốc tịch<input asp-for="Nationality" class="form-control" maxlength="100" /></label>
-                <label>Dân tộc<input asp-for="Ethnicity" class="form-control" maxlength="100" /></label>
-                <label>Tôn giáo<input asp-for="Religion" class="form-control" maxlength="100" /></label>
-                <label>Tình trạng hôn nhân<input asp-for="MaritalStatus" class="form-control" maxlength="50" /></label>
+                <label>Quốc tịch<select asp-for="Nationality" class="form-control"><option value="">Chọn quốc tịch</option>@foreach (var item in options(EmployeeProfileOptions.Nationalities, Model.Nationality)) { <option value="@item">@item</option> }</select></label>
+                <label>Dân tộc<select asp-for="Ethnicity" class="form-control"><option value="">Chọn dân tộc</option>@foreach (var item in options(EmployeeProfileOptions.Ethnicities, Model.Ethnicity)) { <option value="@item">@item</option> }</select></label>
+                <label>Tôn giáo<select asp-for="Religion" class="form-control"><option value="">Chọn tôn giáo</option>@foreach (var item in options(EmployeeProfileOptions.Religions, Model.Religion)) { <option value="@item">@item</option> }</select></label>
+                <label>Tình trạng hôn nhân<select asp-for="MaritalStatus" class="form-control"><option value="">Chọn tình trạng</option>@foreach (var item in options(EmployeeProfileOptions.MaritalStatuses, Model.MaritalStatus)) { <option value="@item">@item</option> }</select></label>
             </div>
         </section>
 
@@ -63,13 +66,13 @@
             <div class="hrm-card-header"><h2 class="hrm-card-title">Công việc và hợp đồng</h2></div>
             <div class="profile-edit-grid">
                 <label>Vị trí công việc<input asp-for="JobTitle" class="form-control" maxlength="150" /></label>
-                <label>Trạng thái làm việc<input asp-for="EmploymentStatus" class="form-control" maxlength="50" /></label>
+                <label>Trạng thái làm việc<select asp-for="EmploymentStatus" class="form-control"><option value="">Chọn trạng thái</option>@foreach (var item in options(EmployeeProfileOptions.EmploymentStatuses, Model.EmploymentStatus)) { <option value="@item">@item</option> }</select></label>
                 <label>Địa điểm làm việc<input asp-for="WorkLocation" class="form-control" maxlength="250" /></label>
                 <label>Mã chấm công<input asp-for="TimekeepingCode" class="form-control" maxlength="50" /></label>
                 <label>Ngày tiếp nhận<input asp-for="HireDate" type="date" class="form-control" /></label>
                 <label>Ngày thử việc<input asp-for="ProbationDate" type="date" class="form-control" /></label>
                 <label>Ngày chính thức<input asp-for="OfficialDate" type="date" class="form-control" /></label>
-                <label>Loại hợp đồng<input asp-for="ContractType" class="form-control" maxlength="100" /></label>
+                <label>Loại hợp đồng<select asp-for="ContractType" class="form-control"><option value="">Chọn loại hợp đồng</option>@foreach (var item in options(EmployeeProfileOptions.ContractTypes, Model.ContractType)) { <option value="@item">@item</option> }</select></label>
                 <label>Số hợp đồng<input asp-for="ContractNumber" class="form-control" maxlength="50" /></label>
                 <label>Ngày bắt đầu<input asp-for="ContractStartDate" type="date" class="form-control" /></label>
                 <label>Ngày kết thúc<input asp-for="ContractEndDate" type="date" class="form-control" /></label>
@@ -81,13 +84,13 @@
         <section class="hrm-card edit-section">
             <div class="hrm-card-header"><h2 class="hrm-card-title">Học vấn</h2></div>
             <div class="profile-edit-grid">
-                <label>Trình độ<input asp-for="EducationLevel" class="form-control" maxlength="100" /></label>
+                <label>Trình độ<select asp-for="EducationLevel" class="form-control"><option value="">Chọn trình độ</option>@foreach (var item in options(EmployeeProfileOptions.EducationLevels, Model.EducationLevel)) { <option value="@item">@item</option> }</select></label>
                 <label>Bằng cấp<input asp-for="Degree" class="form-control" maxlength="150" /></label>
                 <label>Nơi đào tạo<input asp-for="SchoolName" class="form-control" maxlength="250" /></label>
                 <label>Khoa<input asp-for="Faculty" class="form-control" maxlength="150" /></label>
                 <label>Chuyên ngành<input asp-for="Major" class="form-control" maxlength="150" /></label>
                 <label>Năm tốt nghiệp<input asp-for="GraduationYear" class="form-control" maxlength="4" /></label>
-                <label>Xếp loại<input asp-for="GraduationClassification" class="form-control" maxlength="100" /></label>
+                <label>Xếp loại<select asp-for="GraduationClassification" class="form-control"><option value="">Chọn xếp loại</option>@foreach (var item in options(EmployeeProfileOptions.GraduationClassifications, Model.GraduationClassification)) { <option value="@item">@item</option> }</select></label>
             </div>
         </section>
 
@@ -109,7 +112,7 @@
             <div class="hrm-card-header"><h2 class="hrm-card-title">Liên hệ khẩn cấp và ghi chú</h2></div>
             <div class="profile-edit-grid">
                 <label>Họ tên người liên hệ<input asp-for="EmergencyContactName" class="form-control" maxlength="150" /></label>
-                <label>Mối quan hệ<input asp-for="EmergencyContactRelationship" class="form-control" maxlength="100" /></label>
+                <label>Mối quan hệ<select asp-for="EmergencyContactRelationship" class="form-control"><option value="">Chọn mối quan hệ</option>@foreach (var item in options(EmployeeProfileOptions.EmergencyRelationships, Model.EmergencyContactRelationship)) { <option value="@item">@item</option> }</select></label>
                 <label>Số điện thoại<input asp-for="EmergencyContactPhone" class="form-control" maxlength="30" /></label>
                 <label>Email<input asp-for="EmergencyContactEmail" type="email" class="form-control" maxlength="150" /></label>
                 <label class="wide">Địa chỉ<input asp-for="EmergencyContactAddress" class="form-control" maxlength="500" /></label>

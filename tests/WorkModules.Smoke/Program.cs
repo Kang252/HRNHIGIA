@@ -63,7 +63,7 @@ try
         Console.WriteLine($"PASS removed content {path}");
     }
     await Check("/Work?kind=kpi", null, HttpStatusCode.Redirect);
-    await Check("/Account/Login", null, HttpStatusCode.OK, "images/nhigia-logo.png");
+    await Check("/Account/Login", null, HttpStatusCode.OK, "images/nhigia-logo.png", "hrm-login-logo");
     await Check("/", "ADMIN", HttpStatusCode.OK, "Tổng quan hệ thống", "Tài khoản nhân sự", "Helpdesk IT", "images/nhigia-logo.png", "Mở thông báo");
     await CheckMissing("/", "ADMIN", "Ứng dụng eHRM", "hrm-app-grid", "inventory_2");
     await Check("/", "EMPLOYEE", HttpStatusCode.OK, "Tổng quan của tôi", "KPI của tôi", "Phiếu lương", "Yêu cầu IT");

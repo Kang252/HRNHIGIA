@@ -79,7 +79,7 @@ public sealed class HomeController : BaseController
             profile.EmployeeCode = profile.EmployeeCode.Trim();
             Store.UpdateEmployeeProfile(profile, CurrentHrmUser, HttpContext.Connection.RemoteIpAddress?.ToString());
             TempData["ProfileSuccess"] = $"Đã cập nhật hồ sơ {profile.DisplayName}.";
-            return RedirectToAction(nameof(EmployeeInformation));
+            return RedirectToAction(nameof(EditEmployeeProfile), new { id = profile.UserId });
         }
         catch (Exception exception)
         {

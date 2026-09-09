@@ -19,6 +19,14 @@ body.theme-red {
     font-family: "Segoe UI", Arial, sans-serif;
 }
 
+.hrm-login-logo {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    object-fit: cover;
+    background: #fff;
+}
+
 .theme-red .navbar {
     min-height: 64px;
     background: linear-gradient(100deg, #115fcf 0%, #2378e9 100%);
