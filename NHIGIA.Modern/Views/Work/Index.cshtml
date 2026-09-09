@@ -18,8 +18,8 @@
     var canApprovePayroll = isAdmin || isDirector;
     var showEmployee = Model.Kind is "kpi" or "transfer" or "payroll" or "assets" or "training"
         || (Model.CanManage && Model.Kind is "overtime" or "resignation");
-    var employeeRequired = Model.Kind is "kpi" or "transfer" or "payroll" or "overtime" or "resignation";
-    var showDepartment = Model.Kind is "transfer" or "recruitment" or "training";
+    var employeeRequired = Model.Kind is "transfer" or "payroll" or "overtime" or "resignation";
+    var showDepartment = Model.Kind is "kpi" or "transfer" or "recruitment" or "training";
     var showReference = Model.Kind is "kpi" or "assets" or "payroll" or "recruitment" or "training";
     var referenceRequired = Model.Kind is "kpi" or "assets" or "recruitment";
     var showCategory = Model.Kind is "kpi" or "payroll" or "recruitment" or "training";
@@ -47,6 +47,7 @@
     <div><h2>@Model.Title</h2><p>@Model.Subtitle</p></div>
     <span class="hrm-badge">@Model.Items.Count bản ghi</span>
 </div>
+
 <div asp-validation-summary="All" class="alert alert-danger" role="alert"></div>
 @if (TempData["WorkSuccess"] is string success) { <div class="alert alert-success" role="status">@success</div> }
 @if (TempData["WorkError"] is string error) { <div class="alert alert-danger" role="alert">@error</div> }
@@ -62,7 +63,7 @@
 {
     <div class="hrm-grid hrm-grid-3" style="margin-bottom:18px">
         <div class="hrm-card hrm-stat"><div class="hrm-stat-top"><span class="hrm-stat-label">Tiêu chí KPI</span><span class="hrm-stat-icon"><i class="material-icons">checklist</i></span></div><div class="hrm-stat-value">@Model.Items.Count</div><div class="hrm-stat-note">Trong phạm vi đang xem</div></div>
-        <div class="hrm-card hrm-stat"><div class="hrm-stat-top"><span class="hrm-stat-label">Tổng tỷ trọng</span><span class="hrm-stat-icon orange"><i class="material-icons">donut_small</i></span></div><div class="hrm-stat-value">@kpiWeight.ToString("N0")%</div><div class="hrm-stat-note">Mỗi nhân viên tối đa 100%</div></div>
+        <div class="hrm-card hrm-stat"><div class="hrm-stat-top"><span class="hrm-stat-label">Tổng tỷ trọng hiển thị</span><span class="hrm-stat-icon orange"><i class="material-icons">donut_small</i></span></div><div class="hrm-stat-value">@kpiWeight.ToString("N0")%</div><div class="hrm-stat-note">Mỗi đối tượng nhận tối đa 100%</div></div>
         <div class="hrm-card hrm-stat"><div class="hrm-stat-top"><span class="hrm-stat-label">Tiến độ trung bình</span><span class="hrm-stat-icon green"><i class="material-icons">trending_up</i></span></div><div class="hrm-stat-value">@averageKpiProgress.ToString("N0")%</div><div class="hrm-stat-note">@completedKpis tiêu chí đã đạt chỉ tiêu</div></div>
     </div>
 }
@@ -83,13 +84,20 @@
         else
         {
             <div class="table-responsive"><table class="table table-hover">
-                <thead><tr><th>Nội dung</th><th>@(Model.Kind == "recruitment" ? "Phòng ban" : "Nhân viên")</th><th>Thông tin chính</th><th>Trạng thái</th>@if (Model.Kind == "payroll") { <th>Thao tác</th> }</tr></thead>
+                <thead><tr><th>Nội dung</th><th>@(Model.Kind == "kpi" ? "Đối tượng nhận" : Model.Kind == "recruitment" ? "Phòng ban" : "Nhân viên")</th><th>Thông tin chính</th><th>Trạng thái</th>@if (Model.Kind == "payroll") { <th>Thao tác</th> }</tr></thead>
                 <tbody>
                 @foreach (var item in Model.Items)
                 {
                     <tr>
                         <td><strong>@item.Title</strong><small class="work-muted">#@item.Id.ToString("D5") @(string.IsNullOrWhiteSpace(item.Reference) ? "" : "· " + item.Reference)</small><p class="work-description">@item.Description</p></td>
-                        <td>@(Model.Kind == "recruitment" ? item.DepartmentName : item.EmployeeName ?? "Chưa phân công")<small class="work-muted">@(Model.Kind == "recruitment" ? item.Category : item.DepartmentName)</small></td>
+                        @if (Model.Kind == "kpi")
+                        {
+                            <td><strong>@(item.EmployeeName ?? item.DepartmentName ?? "Chưa phân công")</strong><small class="work-muted">@(item.EmployeeName == null && item.DepartmentName != null ? "Phòng ban" : item.DepartmentName)</small></td>
+                        }
+                        else
+                        {
+                            <td>@(Model.Kind == "recruitment" ? item.DepartmentName : item.EmployeeName ?? "Chưa phân công")<small class="work-muted">@(Model.Kind == "recruitment" ? item.Category : item.DepartmentName)</small></td>
+                        }
                         <td>
                             @if (Model.Kind == "kpi")
                             {
@@ -158,13 +166,14 @@
 
                     @if (showEmployee)
                     {
-                        <label for="EmployeeId">Nhân viên @(employeeRequired ? "*" : "")</label>
+                        <label for="EmployeeId">@(Model.Kind == "kpi" ? "Nhân viên nhận KPI" : "Nhân viên") @(employeeRequired ? "*" : "")</label>
                         <select id="EmployeeId" name="EmployeeId" class="form-control" required="@employeeRequired"><option value="">Chọn nhân viên</option>@foreach (var person in Model.People) { <option value="@person.Id" selected="@(Model.Draft.EmployeeId == person.Id)">@person.DisplayName</option> }</select>
                     }
                     @if (showDepartment)
                     {
-                        <label for="DepartmentId">@(Model.Kind == "transfer" ? "Phòng ban mới" : "Phòng ban") @(Model.Kind is "transfer" or "recruitment" ? "*" : "")</label>
+                        <label for="DepartmentId">@(Model.Kind == "kpi" ? "Phòng ban nhận KPI" : Model.Kind == "transfer" ? "Phòng ban mới" : "Phòng ban") @(Model.Kind is "transfer" or "recruitment" ? "*" : "")</label>
                         <select id="DepartmentId" name="DepartmentId" class="form-control" required="@(Model.Kind is "transfer" or "recruitment")"><option value="">Chọn phòng ban</option>@foreach (var department in Model.Departments) { <option value="@department.Id" selected="@(Model.Draft.DepartmentId == department.Id)">@department.Name</option> }</select>
+                        @if (Model.Kind == "kpi") { <small class="work-muted">Chọn một nhân viên hoặc một phòng ban.</small> }
                     }
                     @if (showReference)
                     {
@@ -201,3 +210,21 @@
         </section>
     }
 </div>
+
+@if (Model.Kind == "kpi" && Model.CanCreate)
+{
+    <script>
+        (() => {
+            const employee = document.getElementById("EmployeeId");
+            const department = document.getElementById("DepartmentId");
+            if (!employee || !department) return;
+
+            employee.addEventListener("change", () => {
+                if (employee.value) department.value = "";
+            });
+            department.addEventListener("change", () => {
+                if (department.value) employee.value = "";
+            });
+        })();
+    </script>
+}

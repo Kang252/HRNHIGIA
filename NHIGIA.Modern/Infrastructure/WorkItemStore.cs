@@ -23,7 +23,8 @@ public sealed class WorkItemStore
             LEFT JOIN dbo.HrmDepartment d ON d.Id=w.DepartmentId
             WHERE w.Kind=@Kind
               AND (@CanSeeAll=1 OR w.EmployeeId=@UserId OR w.CreatedBy=@UserId
-                   OR (@IsManager=1 AND u.DepartmentId=@DepartmentId))
+                   OR (w.Kind='kpi' AND w.DepartmentId=@DepartmentId)
+                   OR (@IsManager=1 AND (u.DepartmentId=@DepartmentId OR w.DepartmentId=@DepartmentId)))
               AND (@Kind<>'payroll' OR @CanSeeAll=1 OR w.Status IN ('PUBLISHED','PAID','DISPUTED','RESOLVED'))
             ORDER BY w.CreatedAt DESC, w.Id DESC", new
             {
