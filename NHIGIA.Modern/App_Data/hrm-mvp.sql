@@ -313,6 +313,59 @@ GO
 
 IF NOT EXISTS (SELECT 1 FROM dbo.HrmHanetSettings WHERE Id=1) INSERT dbo.HrmHanetSettings(Id, ApiBaseUrl, OAuthTokenUrl, IsEnabled, LastSyncStatus, LastSyncMessage) VALUES (1, 'https://partner.hanet.ai', 'https://oauth.hanet.com/token', 0, 'NOT_CONFIGURED', N'Chưa cấu hình thông tin ứng dụng HANET');
 GO
+
+-- Repair seed labels that were previously imported by sqlcmd with the wrong
+-- input code page. Only known seed rows containing mojibake markers are changed.
+UPDATE dbo.HrmDepartment
+SET Name = CASE Code
+    WHEN 'BOD' THEN N'Ban Giám đốc'
+    WHEN 'HR' THEN N'Phòng Nhân sự'
+    WHEN 'IT' THEN N'Phòng Công nghệ thông tin'
+END
+WHERE Code IN ('BOD', 'HR', 'IT')
+  AND (Name LIKE N'%Ã%' OR Name LIKE N'%Æ%' OR Name LIKE N'%Ä%' OR Name LIKE N'%º%' OR Name LIKE N'%»%');
+
+UPDATE dbo.HrmUserAccount
+SET DisplayName = CASE Username
+    WHEN 'admin' THEN N'Quản trị hệ thống'
+    WHEN 'hradmin' THEN N'Quản trị nhân sự'
+    WHEN 'thedt' THEN N'Giám đốc'
+    WHEN 'huongtm' THEN N'Trưởng phòng'
+    WHEN 'anhvt' THEN N'Nhân viên'
+END
+WHERE Username IN ('admin', 'hradmin', 'thedt', 'huongtm', 'anhvt')
+  AND (DisplayName LIKE N'%Ã%' OR DisplayName LIKE N'%Æ%' OR DisplayName LIKE N'%Ä%' OR DisplayName LIKE N'%º%' OR DisplayName LIKE N'%»%');
+
+UPDATE p
+SET JobTitle = CASE u.Username
+        WHEN 'admin' THEN N'Quản trị hệ thống'
+        WHEN 'hradmin' THEN N'Chuyên viên nhân sự'
+        WHEN 'thedt' THEN N'Giám đốc'
+        WHEN 'huongtm' THEN N'Trưởng phòng'
+        WHEN 'anhvt' THEN N'Nhân viên'
+    END,
+    EmploymentStatus = N'Đang làm việc'
+FROM dbo.HrmEmployeeProfile p
+INNER JOIN dbo.HrmUserAccount u ON u.Id = p.UserId
+WHERE u.Username IN ('admin', 'hradmin', 'thedt', 'huongtm', 'anhvt')
+  AND (p.JobTitle LIKE N'%Ã%' OR p.JobTitle LIKE N'%Æ%' OR p.JobTitle LIKE N'%Ä%' OR p.JobTitle LIKE N'%º%' OR p.JobTitle LIKE N'%»%'
+       OR p.EmploymentStatus LIKE N'%Ã%' OR p.EmploymentStatus LIKE N'%Æ%' OR p.EmploymentStatus LIKE N'%Ä%' OR p.EmploymentStatus LIKE N'%º%' OR p.EmploymentStatus LIKE N'%»%');
+
+UPDATE dbo.HrmShiftTemplate
+SET Name = CASE Code
+    WHEN 'HC' THEN N'Ca hành chính'
+    WHEN 'SANG' THEN N'Ca sáng'
+    WHEN 'DEM' THEN N'Ca qua đêm'
+END
+WHERE Code IN ('HC', 'SANG', 'DEM')
+  AND (Name LIKE N'%Ã%' OR Name LIKE N'%Æ%' OR Name LIKE N'%Ä%' OR Name LIKE N'%º%' OR Name LIKE N'%»%');
+
+UPDATE dbo.HrmHanetSettings
+SET LastSyncMessage = N'Chưa cấu hình thông tin ứng dụng HANET'
+WHERE Id = 1 AND LastSyncStatus = 'NOT_CONFIGURED'
+  AND (LastSyncMessage LIKE N'%Ã%' OR LastSyncMessage LIKE N'%Æ%' OR LastSyncMessage LIKE N'%Ä%' OR LastSyncMessage LIKE N'%º%' OR LastSyncMessage LIKE N'%»%');
+GO
+
 SET ANSI_NULLS ON;
 SET QUOTED_IDENTIFIER ON;
 
