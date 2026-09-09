@@ -8,6 +8,8 @@ namespace NHIGIA.Modern.Controllers;
 [Authorize]
 public sealed class WorkController : Controller
 {
+    private static readonly string[] MeetingRooms = ["Phòng họp 1 · 8 người", "Phòng họp 2 · 16 người", "Phòng đào tạo · 30 người"];
+    private static readonly string[] VehicleTypes = ["Xe 4 chỗ", "Xe 7 chỗ", "Xe 16 chỗ", "Xe tải", "Khác"];
     private readonly WorkItemStore _store;
     private readonly HrmUserAccessor _user;
     private readonly ILogger<WorkController> _logger;
@@ -23,11 +25,12 @@ public sealed class WorkController : Controller
         var page = new WorkPage
         {
             Kind = kind,
-            CanManage = kind is "kpi" or "training" or "overtime" or "resignation" or "assets" ? managePeople : configure,
+            CanManage = kind is "kpi" or "training" or "overtime" or "resignation" or "assets" or "vehicle" or "meeting" or "business-trip" or "offboarding" ? managePeople : configure,
             CanCreate = kind switch
             {
-                "helpdesk" or "overtime" or "resignation" => true,
-                "training" => managePeople,
+                "helpdesk" or "overtime" or "resignation" or "vehicle" or "meeting" => true,
+                "training" or "business-trip" => managePeople,
+                "offboarding" => configure,
                 "payroll" => User.IsInRole(HrmRoles.Admin) || User.IsInRole(HrmRoles.Hr),
                 _ => configure
             },
@@ -44,6 +47,10 @@ public sealed class WorkController : Controller
             "transfer" => ("Điều chuyển nhân sự", "Theo dõi đề nghị điều chuyển. Hồ sơ nhân viên chỉ thay đổi sau quy trình phê duyệt riêng."),
             "assets" => ("Quản lý tài sản", "Danh mục tài sản, người sử dụng và tình trạng bàn giao."),
             "helpdesk" => ("Helpdesk IT", "Gửi yêu cầu hỗ trợ và theo dõi các yêu cầu của bạn."),
+            "vehicle" => ("Đặt xe", "Đăng ký xe phục vụ công việc và theo dõi trạng thái điều phối."),
+            "meeting" => ("Đặt phòng họp", "Đặt phòng theo khung giờ và tránh trùng lịch sử dụng."),
+            "business-trip" => ("Phân công công tác", "Phân công nhân viên, địa điểm và thời gian thực hiện công tác."),
+            "offboarding" => ("Thủ tục thôi việc", "Theo dõi bàn giao công việc, tài sản và hồ sơ khi nhân viên thôi việc."),
             _ => (null, null)
         };
         if (kind == "payroll" && !configure)
@@ -57,6 +64,9 @@ public sealed class WorkController : Controller
                 "overtime" => ("Đăng ký tăng ca", "Gửi đăng ký làm thêm và theo dõi trạng thái phê duyệt."),
                 "resignation" => ("Yêu cầu nghỉ việc", "Gửi đề nghị nghỉ việc và theo dõi quá trình xử lý."),
                 "assets" => ("Tài sản của tôi", "Xem thiết bị và tài sản đang được bàn giao cho bạn."),
+                "vehicle" => ("Đặt xe", "Đăng ký xe phục vụ công việc và theo dõi kết quả điều phối."),
+                "meeting" => ("Đặt phòng họp", "Đăng ký phòng họp theo khung giờ cần sử dụng."),
+                "business-trip" => ("Công tác của tôi", "Theo dõi các nhiệm vụ công tác được phân công."),
                 _ => (page.Title, page.Subtitle)
             };
         }
@@ -112,7 +122,7 @@ public sealed class WorkController : Controller
     }
 
     [HttpPost, ValidateAntiForgeryToken]
-    public IActionResult Create([Bind("Kind,Title,Description,Category,Reference,EmployeeId,DepartmentId,DueDate,Target,Actual,Weight,Priority")] WorkItem draft)
+    public IActionResult Create([Bind("Kind,Title,Description,Category,Reference,EmployeeId,DepartmentId,DueDate,StartAt,EndAt,Location,Destination,Target,Actual,Weight,Priority")] WorkItem draft)
     {
         var page = Page(draft.Kind);
         if (page == null) return NotFound();
@@ -144,12 +154,37 @@ public sealed class WorkController : Controller
             ModelState.AddModelError("", "Vui lòng nhập mã tài sản.");
         if (draft.Kind == "helpdesk" && (string.IsNullOrWhiteSpace(draft.Description) || !new[] { "LOW", "NORMAL", "HIGH", "URGENT" }.Contains(draft.Priority)))
             ModelState.AddModelError("", "Vui lòng nhập mô tả và mức ưu tiên hợp lệ.");
+        if (draft.Kind is "vehicle" or "meeting" or "business-trip")
+        {
+            if (!draft.StartAt.HasValue || !draft.EndAt.HasValue || draft.EndAt <= draft.StartAt)
+                ModelState.AddModelError("", "Vui lòng chọn thời gian bắt đầu và kết thúc hợp lệ.");
+            if (draft.StartAt < DateTime.Now.AddMinutes(-5))
+                ModelState.AddModelError("", "Thời gian bắt đầu không được ở trong quá khứ.");
+        }
+        if (draft.Kind == "vehicle" && (string.IsNullOrWhiteSpace(draft.Location) || string.IsNullOrWhiteSpace(draft.Destination) || string.IsNullOrWhiteSpace(draft.Category) || !draft.Target.HasValue || draft.Target <= 0))
+            ModelState.AddModelError("", "Đặt xe cần loại xe, số người, điểm đón và điểm đến.");
+        if (draft.Kind == "vehicle" && !VehicleTypes.Contains(draft.Category))
+            ModelState.AddModelError("", "Loại xe được chọn không hợp lệ.");
+        if (draft.Kind == "meeting" && (string.IsNullOrWhiteSpace(draft.Location) || !draft.Target.HasValue || draft.Target <= 0))
+            ModelState.AddModelError("", "Đặt phòng họp cần phòng, số người và khung giờ sử dụng.");
+        if (draft.Kind == "meeting" && !MeetingRooms.Contains(draft.Location))
+            ModelState.AddModelError("", "Phòng họp được chọn không hợp lệ.");
+        var roomCapacity = draft.Location switch { "Phòng họp 1 · 8 người" => 8, "Phòng họp 2 · 16 người" => 16, "Phòng đào tạo · 30 người" => 30, _ => 0 };
+        if (draft.Kind == "meeting" && draft.Target > roomCapacity && roomCapacity > 0)
+            ModelState.AddModelError("", $"Số người tham dự vượt sức chứa {roomCapacity} người của phòng.");
+        if (draft.Kind == "business-trip" && (!draft.EmployeeId.HasValue || string.IsNullOrWhiteSpace(draft.Destination)))
+            ModelState.AddModelError("", "Phân công công tác cần nhân viên, nơi công tác và thời gian.");
+        if (draft.Kind == "offboarding" && (!draft.EmployeeId.HasValue || !draft.DueDate.HasValue || string.IsNullOrWhiteSpace(draft.Description)))
+            ModelState.AddModelError("", "Thủ tục thôi việc cần nhân viên, ngày nghỉ và nội dung bàn giao.");
+        if (draft.Kind == "meeting" && draft.StartAt.HasValue && draft.EndAt.HasValue && !string.IsNullOrWhiteSpace(draft.Location)
+            && page.Available && _store.HasMeetingConflict(draft.Location, draft.StartAt.Value, draft.EndAt.Value))
+            ModelState.AddModelError("", "Phòng họp đã có lịch trong khung giờ này. Vui lòng chọn thời gian hoặc phòng khác.");
         if (!page.Available || !ModelState.IsValid) return View("Index", page);
         draft.CreatedBy = _user.Current.Id;
         draft.Status = draft.Kind switch
         {
             "assets" => draft.EmployeeId.HasValue ? "ASSIGNED" : "AVAILABLE",
-            "transfer" or "overtime" or "resignation" => "PENDING",
+            "transfer" or "overtime" or "resignation" or "vehicle" or "meeting" or "business-trip" or "offboarding" => "PENDING",
             "kpi" => "TRACKING",
             "payroll" => "DRAFT",
             "training" => "PLANNED",
@@ -157,6 +192,10 @@ public sealed class WorkController : Controller
         };
         if (draft.Kind == "helpdesk" || (!page.CanManage && draft.Kind is "overtime" or "resignation"))
             draft.EmployeeId = _user.Current.Id;
+        if (!draft.EmployeeId.HasValue && draft.Kind is "vehicle" or "meeting")
+            draft.EmployeeId = _user.Current.Id;
+        if (draft.Kind is "vehicle" or "meeting" or "business-trip")
+            draft.DueDate = draft.StartAt?.Date;
         try
         {
             var id = _store.Create(draft);
@@ -169,6 +208,27 @@ public sealed class WorkController : Controller
             ModelState.AddModelError("", "Không thể lưu dữ liệu. Vui lòng thử lại; mã tài sản có thể đã tồn tại.");
             return View("Index", page);
         }
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public IActionResult BookingAction(int id, string kind, string command, string note)
+    {
+        if (kind is not ("vehicle" or "meeting" or "business-trip" or "offboarding")) return NotFound();
+        var page = Page(kind);
+        Load(page);
+        var item = page.Items.FirstOrDefault(x => x.Id == id);
+        if (item == null) return NotFound();
+        var normalized = command?.ToLowerInvariant();
+        string newStatus;
+        if (normalized == "cancel" && (item.EmployeeId == _user.Current.Id || item.CreatedBy == _user.Current.Id)) newStatus = "CANCELLED";
+        else if (normalized == "approve" && page.CanManage) newStatus = "APPROVED";
+        else if (normalized == "reject" && page.CanManage && !string.IsNullOrWhiteSpace(note)) newStatus = "REJECTED";
+        else return Forbid();
+        if (!_store.TransitionBooking(id, kind, "PENDING", newStatus, note, _user.Current.Id, ClientIp))
+            TempData["WorkError"] = "Bản ghi đã được xử lý hoặc không còn ở trạng thái chờ.";
+        else
+            TempData["WorkSuccess"] = $"Đã cập nhật {WorkItem.FormatCode(kind, id)}.";
+        return RedirectToAction("Index", new { kind });
     }
 
     [HttpPost, ValidateAntiForgeryToken]

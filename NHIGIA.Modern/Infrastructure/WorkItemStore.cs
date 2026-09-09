@@ -51,16 +51,36 @@ public sealed class WorkItemStore
                 new { CanSeeAll = canSeeAll, actor.DepartmentId }).ToList();
         }
         if (!string.IsNullOrWhiteSpace(page.Query))
-            page.Items = page.Items.Where(x => $"{x.Title} {x.Reference} {x.EmployeeName} {x.Category}".Contains(page.Query, StringComparison.OrdinalIgnoreCase)).ToList();
+            page.Items = page.Items.Where(x => $"{x.Title} {x.Reference} {x.EmployeeName} {x.Category} {x.Location} {x.Destination}".Contains(page.Query, StringComparison.OrdinalIgnoreCase)).ToList();
         page.Available = true;
     }
     public int Create(WorkItem item)
     {
         using var db = Open();
         return db.QuerySingle<int>(@"INSERT dbo.HrmWorkItem
-            (Kind,Title,Description,Category,Reference,EmployeeId,DepartmentId,DueDate,Target,Actual,Weight,Priority,Status,CreatedBy)
+            (Kind,Title,Description,Category,Reference,EmployeeId,DepartmentId,DueDate,StartAt,EndAt,Location,Destination,Target,Actual,Weight,Priority,Status,CreatedBy)
             OUTPUT INSERTED.Id VALUES
-            (@Kind,@Title,@Description,@Category,@Reference,@EmployeeId,@DepartmentId,@DueDate,@Target,@Actual,@Weight,@Priority,@Status,@CreatedBy)", item);
+            (@Kind,@Title,@Description,@Category,@Reference,@EmployeeId,@DepartmentId,@DueDate,@StartAt,@EndAt,@Location,@Destination,@Target,@Actual,@Weight,@Priority,@Status,@CreatedBy)", item);
+    }
+
+    public bool HasMeetingConflict(string location, DateTime startAt, DateTime endAt)
+    {
+        using var db = Open();
+        return db.ExecuteScalar<int>(@"SELECT COUNT(1) FROM dbo.HrmWorkItem
+            WHERE Kind='meeting' AND Location=@Location AND Status IN ('PENDING','APPROVED')
+              AND StartAt < @EndAt AND EndAt > @StartAt", new { Location = location, StartAt = startAt, EndAt = endAt }) > 0;
+    }
+
+    public bool TransitionBooking(int id, string kind, string expectedStatus, string newStatus, string note, int actorId, string ipAddress)
+    {
+        using var db = Open();
+        using var transaction = db.BeginTransaction();
+        var changed = db.Execute(@"UPDATE dbo.HrmWorkItem SET Status=@NewStatus, LastActionNote=@Note, UpdatedAt=SYSUTCDATETIME()
+            WHERE Id=@Id AND Kind=@Kind AND Status=@ExpectedStatus",
+            new { Id = id, Kind = kind, ExpectedStatus = expectedStatus, NewStatus = newStatus, Note = string.IsNullOrWhiteSpace(note) ? null : note.Trim() }, transaction) > 0;
+        if (changed) AddAudit(db, transaction, actorId, newStatus, id, $"{kind}: {expectedStatus} -> {newStatus}. {note}".Trim(), ipAddress);
+        transaction.Commit();
+        return changed;
     }
 
     public bool UpdateKpi(WorkItem item, int actorId, string ipAddress)

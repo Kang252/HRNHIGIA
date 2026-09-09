@@ -485,3 +485,22 @@ section.content {
     .hrm-row-preview { right: 12px; bottom: 12px; left: 12px !important; top: auto !important; width: auto !important; max-height: 65vh; }
     .hrm-preview-grid { grid-template-columns: 105px minmax(0, 1fr); }
 }
+
+/* Bookings, business trips and offboarding */
+.booking-time-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.request-flow { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 0 0 20px; padding: 0; list-style: none; }
+.request-flow li { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border: 1px solid #dce6f3; border-radius: 10px; color: #475467; background: #fff; }
+.request-flow .material-icons { color: #1769e0; font-size: 22px; }
+.request-flow span, .request-flow small { display: block; }
+.request-flow strong { color: #1d3557; font-size: 12px; }
+.request-flow small { margin-top: 2px; color: #7b8798; font-size: 10px; }
+.booking-time-grid label { margin-bottom: 0; }
+.booking-actions { min-width: 210px; }
+.booking-action-form { display: flex; flex-wrap: wrap; gap: 6px; }
+.booking-action-form .form-control { width: 100%; min-width: 185px; }
+.booking-action-form .hrm-btn { padding: 6px 9px; font-size: 12px; }
+.work-status-cancelled { color: #667085; background: #f2f4f7; }
+@media (max-width: 767px) {
+    .booking-time-grid { grid-template-columns: 1fr; gap: 0; }
+    .request-flow { grid-template-columns: 1fr; }
+}

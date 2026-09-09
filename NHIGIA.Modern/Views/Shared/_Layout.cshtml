@@ -78,6 +78,11 @@
                         <li class="@(action == "Approvals" ? "active" : "")"><a asp-controller="Home" asp-action="Approvals"><i class="material-icons">fact_check</i><span>Phê duyệt</span></a></li>
                     }
                     <li class="@(action == "InternalCommunications" ? "active" : "")"><a asp-controller="Home" asp-action="InternalCommunications"><i class="material-icons">campaign</i><span>Truyền thông nội bộ</span></a></li>
+                    <li class="header">TIỆN ÍCH & ĐIỀU PHỐI</li>
+                    <li class="@(workKind == "meeting" ? "active" : "")"><a asp-controller="Work" asp-action="Index" asp-route-kind="meeting"><i class="material-icons">meeting_room</i><span>Đặt phòng họp</span></a></li>
+                    <li class="@(workKind == "vehicle" ? "active" : "")"><a asp-controller="Work" asp-action="Index" asp-route-kind="vehicle"><i class="material-icons">directions_car</i><span>Đặt xe</span></a></li>
+                    <li class="@(workKind == "business-trip" ? "active" : "")"><a asp-controller="Work" asp-action="Index" asp-route-kind="business-trip"><i class="material-icons">flight_takeoff</i><span>@(isEmployee ? "Công tác của tôi" : "Phân công công tác")</span></a></li>
+                    <li class="@(workKind == "offboarding" ? "active" : "")"><a asp-controller="Work" asp-action="Index" asp-route-kind="offboarding"><i class="material-icons">assignment_return</i><span>@(isEmployee ? "Thủ tục thôi việc" : "Quản lý thôi việc")</span></a></li>
                     @if (canConfigure)
                     {
                         <li class="@(action == "Reports" ? "active" : "")"><a asp-controller="Home" asp-action="Reports"><i class="material-icons">analytics</i><span>Báo cáo</span></a></li>

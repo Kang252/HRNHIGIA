@@ -387,7 +387,7 @@ IF OBJECT_ID('dbo.HrmWorkItem', 'U') IS NULL
 BEGIN
  CREATE TABLE dbo.HrmWorkItem (
   Id INT IDENTITY PRIMARY KEY,
-  Kind NVARCHAR(20) NOT NULL CHECK (Kind IN ('kpi','payroll','recruitment','training','overtime','resignation','transfer','assets','helpdesk')),
+  Kind NVARCHAR(20) NOT NULL CHECK (Kind IN ('kpi','payroll','recruitment','training','overtime','resignation','transfer','assets','helpdesk','vehicle','meeting','business-trip','offboarding')),
   Title NVARCHAR(200) NOT NULL, Description NVARCHAR(2000) NULL,
   Category NVARCHAR(100) NULL, Reference NVARCHAR(100) NULL,
   EmployeeId INT NULL REFERENCES dbo.HrmUserAccount(Id),
@@ -416,11 +416,28 @@ BEGIN
 END;
 IF OBJECT_ID('dbo.CK_HrmWorkItem_Kind', 'C') IS NULL
     ALTER TABLE dbo.HrmWorkItem WITH CHECK ADD CONSTRAINT CK_HrmWorkItem_Kind
-    CHECK (Kind IN ('kpi','payroll','recruitment','training','overtime','resignation','transfer','assets','helpdesk'));
+    CHECK (Kind IN ('kpi','payroll','recruitment','training','overtime','resignation','transfer','assets','helpdesk','vehicle','meeting','business-trip','offboarding'));
+GO
+
+IF OBJECT_ID('dbo.CK_HrmWorkItem_Kind', 'C') IS NOT NULL
+   AND NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE name='CK_HrmWorkItem_Kind' AND definition LIKE '%business-trip%')
+BEGIN
+    ALTER TABLE dbo.HrmWorkItem DROP CONSTRAINT CK_HrmWorkItem_Kind;
+    ALTER TABLE dbo.HrmWorkItem WITH CHECK ADD CONSTRAINT CK_HrmWorkItem_Kind
+        CHECK (Kind IN ('kpi','payroll','recruitment','training','overtime','resignation','transfer','assets','helpdesk','vehicle','meeting','business-trip','offboarding'));
+END;
 GO
 
 IF COL_LENGTH('dbo.HrmWorkItem', 'UpdatedAt') IS NULL
     ALTER TABLE dbo.HrmWorkItem ADD UpdatedAt DATETIME2 NULL;
 IF COL_LENGTH('dbo.HrmWorkItem', 'LastActionNote') IS NULL
     ALTER TABLE dbo.HrmWorkItem ADD LastActionNote NVARCHAR(1000) NULL;
+IF COL_LENGTH('dbo.HrmWorkItem', 'StartAt') IS NULL
+    ALTER TABLE dbo.HrmWorkItem ADD StartAt DATETIME2 NULL;
+IF COL_LENGTH('dbo.HrmWorkItem', 'EndAt') IS NULL
+    ALTER TABLE dbo.HrmWorkItem ADD EndAt DATETIME2 NULL;
+IF COL_LENGTH('dbo.HrmWorkItem', 'Location') IS NULL
+    ALTER TABLE dbo.HrmWorkItem ADD Location NVARCHAR(250) NULL;
+IF COL_LENGTH('dbo.HrmWorkItem', 'Destination') IS NULL
+    ALTER TABLE dbo.HrmWorkItem ADD Destination NVARCHAR(250) NULL;
 GO
