@@ -10,9 +10,7 @@ public sealed class WorkItemStore
     public WorkItemStore(IConfiguration configuration) => _configuration = configuration;
     private SqlConnection Open()
     {
-        var connection = new SqlConnection(DatabaseConfiguration.Resolve(_configuration));
-        try { connection.Open(); return connection; }
-        catch { connection.Dispose(); throw; }
+        return DatabaseConfiguration.OpenConnection(_configuration);
     }
     public void Load(WorkPage page, int userId)
     {

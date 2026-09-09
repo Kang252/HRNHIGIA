@@ -24,9 +24,7 @@ namespace NHIGIA.Modern.Infrastructure
 
         private SqlConnection OpenConnection()
         {
-            var connection = new SqlConnection(DatabaseConfiguration.Resolve(_configuration));
-            try { connection.Open(); return connection; }
-            catch { connection.Dispose(); throw; }
+            return DatabaseConfiguration.OpenConnection(_configuration);
         }
 
         public bool CanConnect()
