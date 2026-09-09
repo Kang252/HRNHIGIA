@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.DataProtection.KeyManagement;
 using Microsoft.AspNetCore.HttpOverrides;
 using NHIGIA.Modern.Infrastructure;
 
@@ -23,18 +24,30 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         options.ExpireTimeSpan = TimeSpan.FromHours(8);
     });
 builder.Services.AddAuthorization();
+builder.Services.AddAntiforgery(options =>
+{
+    options.Cookie.Name = "NHIGIA.Antiforgery.v2";
+    options.Cookie.HttpOnly = true;
+    options.Cookie.SameSite = SameSiteMode.Lax;
+});
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
     options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
     options.KnownNetworks.Clear();
     options.KnownProxies.Clear();
 });
-var dataProtection = builder.Services.AddDataProtection();
+builder.Services.AddSingleton<SqlDataProtectionKeyRepository>();
+var dataProtection = builder.Services.AddDataProtection().SetApplicationName("NHIGIA.Modern.v1");
 var dataProtectionPath = builder.Configuration["HRM_DATA_PROTECTION_PATH"];
 if (!string.IsNullOrWhiteSpace(dataProtectionPath))
 {
     Directory.CreateDirectory(dataProtectionPath);
     dataProtection.PersistKeysToFileSystem(new DirectoryInfo(dataProtectionPath));
+}
+else
+{
+    builder.Services.AddOptions<KeyManagementOptions>()
+        .Configure<SqlDataProtectionKeyRepository>((options, repository) => options.XmlRepository = repository);
 }
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton<HrmDataStore>();

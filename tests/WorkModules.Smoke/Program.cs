@@ -36,7 +36,7 @@ try
             throw new Exception("Forwarded HTTPS scheme was not preserved in the login redirect.");
         Console.WriteLine("PASS forwarded HTTPS redirect");
     }
-    var provider = DataProtectionProvider.Create(new DirectoryInfo(keys), b => b.SetApplicationName(root + Path.DirectorySeparatorChar));
+    var provider = DataProtectionProvider.Create(new DirectoryInfo(keys), b => b.SetApplicationName("NHIGIA.Modern.v1"));
     var format = new TicketDataFormat(provider.CreateProtector("Microsoft.AspNetCore.Authentication.Cookies.CookieAuthenticationMiddleware", "Cookies", "v2"));
     string Cookie(string role)
     {
@@ -65,6 +65,13 @@ try
     await Check("/Work?kind=kpi", null, HttpStatusCode.Redirect);
     await Check("/Hrm/LeaveAttachment?id=1", null, HttpStatusCode.Redirect);
     await Check("/Account/Login", null, HttpStatusCode.OK, "images/nhigia-logo.png", "hrm-login-logo");
+    using (var antiforgeryClient = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false, UseCookies = false }) { BaseAddress = client.BaseAddress })
+    using (var antiforgeryPage = await antiforgeryClient.GetAsync("/Account/Login"))
+    {
+        var cookies = string.Join(";", antiforgeryPage.Headers.TryGetValues("Set-Cookie", out var values) ? values : []);
+        if (!cookies.Contains("NHIGIA.Antiforgery.v2=")) throw new Exception("Stable antiforgery cookie was not issued.");
+        Console.WriteLine("PASS stable antiforgery cookie");
+    }
     await Check("/", "ADMIN", HttpStatusCode.OK, "Tổng quan hệ thống", "Tài khoản nhân sự", "Helpdesk IT", "images/nhigia-logo.png", "Mở thông báo", "/Work/Notifications", "hrmNotificationBadge", "hrmRowPreview");
     await CheckMissing("/", "ADMIN", "Ứng dụng eHRM", "hrm-app-grid", "inventory_2");
     await Check("/", "EMPLOYEE", HttpStatusCode.OK, "Tổng quan của tôi", "KPI của tôi", "Phiếu lương", "Yêu cầu IT");

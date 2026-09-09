@@ -2,6 +2,17 @@ SET NOCOUNT ON;
 SET QUOTED_IDENTIFIER ON;
 SET ANSI_NULLS ON;
 
+IF OBJECT_ID('dbo.HrmDataProtectionKey', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.HrmDataProtectionKey (
+        Id INT IDENTITY(1,1) NOT NULL CONSTRAINT PK_HrmDataProtectionKey PRIMARY KEY,
+        FriendlyName NVARCHAR(200) NULL,
+        Xml NVARCHAR(MAX) NOT NULL,
+        CreatedAt DATETIME2 NOT NULL CONSTRAINT DF_HrmDataProtectionKey_CreatedAt DEFAULT (SYSUTCDATETIME())
+    );
+END;
+GO
+
 
 IF OBJECT_ID('dbo.HrmDepartment', 'U') IS NULL
 BEGIN
