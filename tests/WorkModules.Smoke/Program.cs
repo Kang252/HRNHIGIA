@@ -92,7 +92,7 @@ try
     await Check("/Work?kind=business-trip", "MANAGER", HttpStatusCode.OK, "Tạo phân công công tác", "Nơi công tác", "Số quyết định", "work-layout-editor-primary", "Danh sách và phê duyệt");
     await Check("/Work?kind=offboarding", "HR", HttpStatusCode.OK, "Mở thủ tục thôi việc", "Ngày thôi việc", "Nội dung bàn giao", "work-layout-editor-primary", "Danh sách và phê duyệt");
     await Check("/Work?kind=kpi", "MANAGER", HttpStatusCode.OK, "KPI phòng ban", "Chưa kết nối");
-    await Check("/Work?kind=assets", "MANAGER", HttpStatusCode.OK, "Tài sản phòng ban", "Chưa kết nối", "assetSearch", "Cấp phát", "Thu hồi", "In QR code", "Export");
+    await Check("/Work?kind=assets", "MANAGER", HttpStatusCode.OK, "Tài sản phòng ban", "Chưa kết nối", "assetSearch", "Cấp phát", "Thu hồi", "In QR code", "Export", "readonly", "Hệ thống tự cấp mã kế tiếp");
     await Check("/Work?kind=transfer", "EMPLOYEE", HttpStatusCode.Redirect);
     await Check("/Work?kind=payroll", "EMPLOYEE", HttpStatusCode.OK, "Phiếu lương", "Chưa kết nối");
     await Check("/Work?kind=recruitment", "EMPLOYEE", HttpStatusCode.Redirect);

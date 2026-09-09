@@ -105,6 +105,8 @@ public sealed class WorkController : Controller
         if (kind is "transfer" or "recruitment" && !page.CanManage) return Forbid();
         page.EditId = editId;
         Load(page);
+        if (kind == "assets" && page.CanCreate && page.Available)
+            page.Draft.Reference = _store.GetNextAssetReference();
         if (kind == "payroll" && editId.HasValue)
         {
             if (!(User.IsInRole(HrmRoles.Admin) || User.IsInRole(HrmRoles.Hr))) return Forbid();
@@ -130,6 +132,8 @@ public sealed class WorkController : Controller
         if (!page.CanCreate) return Forbid();
         page.Draft = draft;
         Load(page);
+        if (draft.Kind == "assets" && page.Available)
+            draft.Reference = _store.GetNextAssetReference();
         if (draft.EmployeeId.HasValue && !page.People.Any(x => x.Id == draft.EmployeeId))
             ModelState.AddModelError("", "Nhân viên được chọn không hợp lệ.");
         if (draft.DepartmentId.HasValue && !page.Departments.Any(x => x.Id == draft.DepartmentId))
@@ -155,12 +159,6 @@ public sealed class WorkController : Controller
             || !draft.DueDate.HasValue || !draft.Target.HasValue || draft.Target <= 0 || draft.Target != decimal.Truncate(draft.Target.Value)
             || !draft.Actual.HasValue || draft.Actual < 0))
             ModelState.AddModelError("", "Tài sản cần mã, loại, ngày mua, số lượng nguyên và nguyên giá hợp lệ.");
-        if (draft.Kind == "assets" && !string.IsNullOrWhiteSpace(draft.Reference) && page.Available)
-        {
-            draft.Reference = draft.Reference.Trim();
-            if (_store.AssetReferenceExists(draft.Reference))
-                ModelState.AddModelError("Reference", $"Mã tài sản {draft.Reference} đã tồn tại. Vui lòng sử dụng mã khác.");
-        }
         if (draft.Kind == "helpdesk" && (string.IsNullOrWhiteSpace(draft.Description) || !new[] { "LOW", "NORMAL", "HIGH", "URGENT" }.Contains(draft.Priority)))
             ModelState.AddModelError("", "Vui lòng nhập mô tả và mức ưu tiên hợp lệ.");
         if (draft.Kind is "vehicle" or "meeting" or "business-trip")
@@ -219,14 +217,15 @@ public sealed class WorkController : Controller
             draft.DueDate = draft.StartAt?.Date;
         try
         {
-            var id = _store.Create(draft, participantIds);
+            var id = draft.Kind == "assets" ? _store.CreateAsset(draft, ClientIp) : _store.Create(draft, participantIds);
             TempData["WorkSuccess"] = $"Đã lưu {WorkItem.FormatCode(draft.Kind, id)} vào hệ thống.";
             return RedirectToAction("Index", new { kind = draft.Kind });
         }
         catch (SqlException ex) when (draft.Kind == "assets" && ex.Number is 2601 or 2627)
         {
             _logger.LogWarning(ex, "Duplicate asset reference {Reference}", draft.Reference);
-            ModelState.AddModelError("Reference", $"Mã tài sản {draft.Reference} đã tồn tại. Vui lòng sử dụng mã khác.");
+            draft.Reference = _store.GetNextAssetReference();
+            ModelState.AddModelError("Reference", "Hệ thống vừa cấp mã này cho tài sản khác. Mã mới đã được tạo, vui lòng lưu lại.");
             return View("Assets", page);
         }
         catch (Exception ex)

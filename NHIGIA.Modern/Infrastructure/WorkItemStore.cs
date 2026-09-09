@@ -84,10 +84,28 @@ public sealed class WorkItemStore
         return id;
     }
 
-    public bool AssetReferenceExists(string reference)
+    public string GetNextAssetReference()
     {
         using var db = Open();
-        return db.ExecuteScalar<int>("SELECT COUNT(1) FROM dbo.HrmWorkItem WHERE Kind='assets' AND Reference=@Reference", new { Reference = reference }) > 0;
+        var sequence = db.ExecuteScalar<int>(@"SELECT ISNULL(MAX(TRY_CONVERT(INT,SUBSTRING(Reference,4,97))),0)+1
+            FROM dbo.HrmWorkItem WHERE Kind='assets' AND Reference LIKE 'TS.%'");
+        return $"TS.{sequence:D3}";
+    }
+
+    public int CreateAsset(WorkItem item, string ipAddress)
+    {
+        using var db = Open();
+        using var transaction = db.BeginTransaction(System.Data.IsolationLevel.Serializable);
+        var sequence = db.ExecuteScalar<int>(@"SELECT ISNULL(MAX(TRY_CONVERT(INT,SUBSTRING(Reference,4,97))),0)+1
+            FROM dbo.HrmWorkItem WITH (UPDLOCK,HOLDLOCK) WHERE Kind='assets' AND Reference LIKE 'TS.%'", transaction: transaction);
+        item.Reference = $"TS.{sequence:D3}";
+        var id = db.QuerySingle<int>(@"INSERT dbo.HrmWorkItem
+            (Kind,Title,Description,Category,Reference,EmployeeId,DueDate,Target,Actual,Priority,Status,CreatedBy,AssetInUse)
+            OUTPUT INSERTED.Id VALUES
+            ('assets',@Title,@Description,@Category,@Reference,@EmployeeId,@DueDate,@Target,@Actual,@Priority,@Status,@CreatedBy,@AssetInUse)", item, transaction);
+        AddAudit(db, transaction, item.CreatedBy, "CREATE", id, $"Tạo tài sản {item.Reference}", ipAddress);
+        transaction.Commit();
+        return id;
     }
 
     public bool HasMeetingConflict(string location, DateTime startAt, DateTime endAt)
