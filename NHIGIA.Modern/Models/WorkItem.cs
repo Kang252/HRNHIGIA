@@ -20,6 +20,11 @@ public sealed class WorkItem
     [Range(0, 1000000000)] public decimal? Target { get; set; }
     [Range(0, 1000000000)] public decimal? Actual { get; set; }
     [Range(1, 100)] public decimal? Weight { get; set; }
+    public int AssetInUse { get; set; }
+    public int AssetMaintenance { get; set; }
+    public int AssetLost { get; set; }
+    public int AssetDisposed { get; set; }
+    public int AssetDamaged { get; set; }
     [StringLength(20)] public string Priority { get; set; } = "NORMAL";
     public string Status { get; set; }
     public int CreatedBy { get; set; }

@@ -73,7 +73,7 @@ try
     await CheckMissing("/", "MANAGER", "Tuyển dụng", "Điều chuyển nhân sự");
     await Check("/", "HR", HttpStatusCode.OK, "Điều hành nhân sự", "Tính lương", "Tuyển dụng", "Điều chuyển");
     await Check("/", "DIRECTOR", HttpStatusCode.OK, "Tổng quan điều hành", "Duyệt bảng lương", "Báo cáo điều hành");
-    foreach (var kind in new[] { "kpi", "payroll", "recruitment", "training", "overtime", "resignation", "transfer", "assets", "helpdesk", "vehicle", "meeting", "business-trip", "offboarding" })
+    foreach (var kind in new[] { "kpi", "payroll", "recruitment", "training", "overtime", "resignation", "transfer", "helpdesk", "vehicle", "meeting", "business-trip", "offboarding" })
         await Check("/Work?kind=" + kind, "ADMIN", HttpStatusCode.OK, "Chưa kết nối", "disabled", "href=\"/Home/Attendance\"");
     await Check("/Work?kind=kpi", "ADMIN", HttpStatusCode.OK, "Tổng tỷ trọng", "Tên tiêu chí KPI", "Mã KPI / Từ khóa", "Phòng ban nhận KPI", "Chọn một nhân viên hoặc một phòng ban", "Cách đo / Nguồn dữ liệu");
     await Check("/Home/InternalCommunications", "ADMIN", HttpStatusCode.OK, "Ảnh đính kèm", "communicationImagePreview", "image/webp", "FormData");
@@ -92,7 +92,7 @@ try
     await Check("/Work?kind=business-trip", "MANAGER", HttpStatusCode.OK, "Tạo phân công công tác", "Nơi công tác", "Số quyết định", "work-layout-editor-primary", "Danh sách và phê duyệt");
     await Check("/Work?kind=offboarding", "HR", HttpStatusCode.OK, "Mở thủ tục thôi việc", "Ngày thôi việc", "Nội dung bàn giao", "work-layout-editor-primary", "Danh sách và phê duyệt");
     await Check("/Work?kind=kpi", "MANAGER", HttpStatusCode.OK, "KPI phòng ban", "Chưa kết nối");
-    await Check("/Work?kind=assets", "MANAGER", HttpStatusCode.OK, "Tài sản phòng ban", "Chưa kết nối");
+    await Check("/Work?kind=assets", "MANAGER", HttpStatusCode.OK, "Tài sản phòng ban", "Chưa kết nối", "assetSearch", "Cấp phát", "Thu hồi", "In QR code", "Export");
     await Check("/Work?kind=transfer", "EMPLOYEE", HttpStatusCode.Redirect);
     await Check("/Work?kind=payroll", "EMPLOYEE", HttpStatusCode.OK, "Phiếu lương", "Chưa kết nối");
     await Check("/Work?kind=recruitment", "EMPLOYEE", HttpStatusCode.Redirect);

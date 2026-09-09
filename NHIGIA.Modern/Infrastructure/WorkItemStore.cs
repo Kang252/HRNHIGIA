@@ -25,7 +25,7 @@ public sealed class WorkItemStore
              WHERE wp.WorkItemId=w.Id ORDER BY pu.DisplayName
              FOR XML PATH(''),TYPE).value('.','nvarchar(max)'),1,2,N'') ParticipantNames
             FROM dbo.HrmWorkItem w LEFT JOIN dbo.HrmUserAccount u ON u.Id=w.EmployeeId
-            LEFT JOIN dbo.HrmDepartment d ON d.Id=w.DepartmentId
+            LEFT JOIN dbo.HrmDepartment d ON d.Id=COALESCE(w.DepartmentId,u.DepartmentId)
             WHERE w.Kind=@Kind
               AND (@CanSeeAll=1 OR w.EmployeeId=@UserId OR w.CreatedBy=@UserId
                    OR EXISTS (SELECT 1 FROM dbo.HrmWorkItemParticipant wp WHERE wp.WorkItemId=w.Id AND wp.UserId=@UserId)
@@ -67,9 +67,9 @@ public sealed class WorkItemStore
         using var db = Open();
         using var transaction = db.BeginTransaction();
         var id = db.QuerySingle<int>(@"INSERT dbo.HrmWorkItem
-            (Kind,Title,Description,Category,Reference,EmployeeId,DepartmentId,DueDate,StartAt,EndAt,Location,Destination,Target,Actual,Weight,Priority,Status,CreatedBy)
+            (Kind,Title,Description,Category,Reference,EmployeeId,DepartmentId,DueDate,StartAt,EndAt,Location,Destination,Target,Actual,Weight,Priority,Status,CreatedBy,AssetInUse)
             OUTPUT INSERTED.Id VALUES
-            (@Kind,@Title,@Description,@Category,@Reference,@EmployeeId,@DepartmentId,@DueDate,@StartAt,@EndAt,@Location,@Destination,@Target,@Actual,@Weight,@Priority,@Status,@CreatedBy)", item, transaction);
+            (@Kind,@Title,@Description,@Category,@Reference,@EmployeeId,@DepartmentId,@DueDate,@StartAt,@EndAt,@Location,@Destination,@Target,@Actual,@Weight,@Priority,@Status,@CreatedBy,@AssetInUse)", item, transaction);
         if (item.Kind is "meeting" or "vehicle" && participantIds?.Count > 0)
         {
             foreach (var userId in participantIds.Distinct())
@@ -175,6 +175,40 @@ public sealed class WorkItemStore
         if (changed) AddAudit(db, transaction, actorId, "UPDATE", item.Id, "Cập nhật KPI", ipAddress);
         transaction.Commit();
         return changed;
+    }
+
+    public int UpdateAssets(IReadOnlyCollection<int> ids, string command, int? employeeId, string note, int actorId, string ipAddress)
+    {
+        using var db = Open();
+        using var transaction = db.BeginTransaction();
+        var status = command switch
+        {
+            "allocate" => "ASSIGNED", "recover" => "AVAILABLE", "maintenance" => "MAINTENANCE",
+            "damaged" => "DAMAGED", "lost" => "LOST", "dispose" => "DISPOSED", _ => null
+        };
+        if (status == null) return 0;
+        var changedIds = db.Query<int>(@"UPDATE dbo.HrmWorkItem SET
+                Status=CASE WHEN @Command='recover' AND AssetInUse>1 THEN 'ASSIGNED' ELSE @Status END,
+                EmployeeId=CASE WHEN @Command='allocate' THEN @EmployeeId
+                    WHEN @Command='recover' AND AssetInUse>1 THEN EmployeeId
+                    WHEN @Command IN ('recover','maintenance','damaged','lost','dispose') THEN NULL ELSE EmployeeId END,
+                AssetInUse=CASE WHEN @Command='allocate' THEN AssetInUse+1 WHEN @Command='recover' THEN AssetInUse-1 ELSE AssetInUse END,
+                AssetMaintenance=AssetMaintenance+CASE WHEN @Command='maintenance' THEN 1 ELSE 0 END,
+                AssetDamaged=AssetDamaged+CASE WHEN @Command='damaged' THEN 1 ELSE 0 END,
+                AssetLost=AssetLost+CASE WHEN @Command='lost' THEN 1 ELSE 0 END,
+                AssetDisposed=AssetDisposed+CASE WHEN @Command='dispose' THEN 1 ELSE 0 END,
+                LastActionNote=@Note,UpdatedAt=SYSUTCDATETIME()
+            OUTPUT INSERTED.Id
+            WHERE Kind='assets' AND Id IN @Ids
+              AND ((@Command='allocate' AND COALESCE(Target,1)>AssetInUse+AssetMaintenance+AssetDamaged+AssetLost+AssetDisposed)
+                OR (@Command='recover' AND AssetInUse>0)
+                OR (@Command IN ('maintenance','damaged','lost','dispose')
+                    AND COALESCE(Target,1)>AssetInUse+AssetMaintenance+AssetDamaged+AssetLost+AssetDisposed))",
+            new { Ids = ids, Command = command, Status = status, EmployeeId = employeeId, Note = string.IsNullOrWhiteSpace(note) ? null : note.Trim() }, transaction).ToList();
+        foreach (var id in changedIds)
+            AddAudit(db, transaction, actorId, command.ToUpperInvariant(), id, $"Tài sản -> {status}. {note}".Trim(), ipAddress);
+        transaction.Commit();
+        return changedIds.Count;
     }
 
     public bool UpdatePayrollDraft(WorkItem item, int actorId, string ipAddress)

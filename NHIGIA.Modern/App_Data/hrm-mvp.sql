@@ -440,6 +440,18 @@ IF COL_LENGTH('dbo.HrmWorkItem', 'Location') IS NULL
     ALTER TABLE dbo.HrmWorkItem ADD Location NVARCHAR(250) NULL;
 IF COL_LENGTH('dbo.HrmWorkItem', 'Destination') IS NULL
     ALTER TABLE dbo.HrmWorkItem ADD Destination NVARCHAR(250) NULL;
+IF COL_LENGTH('dbo.HrmWorkItem', 'AssetInUse') IS NULL
+    ALTER TABLE dbo.HrmWorkItem ADD AssetInUse INT NOT NULL CONSTRAINT DF_HrmWorkItem_AssetInUse DEFAULT (0);
+IF COL_LENGTH('dbo.HrmWorkItem', 'AssetMaintenance') IS NULL
+    ALTER TABLE dbo.HrmWorkItem ADD AssetMaintenance INT NOT NULL CONSTRAINT DF_HrmWorkItem_AssetMaintenance DEFAULT (0);
+IF COL_LENGTH('dbo.HrmWorkItem', 'AssetLost') IS NULL
+    ALTER TABLE dbo.HrmWorkItem ADD AssetLost INT NOT NULL CONSTRAINT DF_HrmWorkItem_AssetLost DEFAULT (0);
+IF COL_LENGTH('dbo.HrmWorkItem', 'AssetDisposed') IS NULL
+    ALTER TABLE dbo.HrmWorkItem ADD AssetDisposed INT NOT NULL CONSTRAINT DF_HrmWorkItem_AssetDisposed DEFAULT (0);
+IF COL_LENGTH('dbo.HrmWorkItem', 'AssetDamaged') IS NULL
+    ALTER TABLE dbo.HrmWorkItem ADD AssetDamaged INT NOT NULL CONSTRAINT DF_HrmWorkItem_AssetDamaged DEFAULT (0);
+UPDATE dbo.HrmWorkItem SET AssetInUse=1
+WHERE Kind='assets' AND Status='ASSIGNED' AND EmployeeId IS NOT NULL AND AssetInUse=0;
 GO
 
 IF OBJECT_ID('dbo.HrmWorkItemParticipant', 'U') IS NULL

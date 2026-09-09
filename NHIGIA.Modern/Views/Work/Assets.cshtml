@@ -1,0 +1,110 @@
+@model WorkPage
+@{
+    var canManage = Model.CanManage;
+    var available = Model.Items.Count(x => x.Status == "AVAILABLE");
+    var assigned = Model.Items.Count(x => x.Status == "ASSIGNED");
+    var maintenance = Model.Items.Count(x => x.Status == "MAINTENANCE");
+    var damaged = Model.Items.Count(x => x.Status == "DAMAGED");
+    var lost = Model.Items.Count(x => x.Status == "LOST");
+    var disposed = Model.Items.Count(x => x.Status == "DISPOSED");
+    var labels = new Dictionary<string, string> { ["AVAILABLE"] = "Chưa cấp phát", ["ASSIGNED"] = "Đang sử dụng", ["MAINTENANCE"] = "Bảo trì, sửa chữa", ["DAMAGED"] = "Hỏng", ["LOST"] = "Mất", ["DISPOSED"] = "Thanh lý" };
+}
+
+<div class="asset-page">
+    <header class="asset-titlebar">
+        <div class="asset-title"><i class="material-icons">inventory_2</i><div><h2>@Model.Title</h2><p>@Model.Subtitle</p></div></div>
+        <div class="asset-title-actions">
+            <label class="asset-search"><i class="material-icons">search</i><input id="assetSearch" type="search" value="@Model.Query" placeholder="Tìm mã, tên, loại, nhân viên..." /></label>
+            @if (canManage) { <button id="toggleAssetForm" class="asset-add" type="button" disabled="@(!Model.Available)"><i class="material-icons">add</i> Thêm tài sản</button> }
+        </div>
+    </header>
+
+    <div asp-validation-summary="All" class="alert alert-danger" role="alert"></div>
+    @if (TempData["WorkSuccess"] is string success) { <div class="alert alert-success" role="status">@success</div> }
+    @if (TempData["WorkError"] is string error) { <div class="alert alert-danger" role="alert">@error</div> }
+
+    @if (canManage)
+    {
+        <section id="assetCreatePanel" class="asset-create-panel @(ViewData.ModelState.IsValid ? "" : "is-open")">
+            <div class="asset-panel-heading"><div><h3>Thêm tài sản mới</h3><p>Nhập thông tin mua và tình trạng cấp phát ban đầu.</p></div><button id="closeAssetForm" type="button" aria-label="Đóng"><i class="material-icons">close</i></button></div>
+            <form method="post" asp-controller="Work" asp-action="Create" class="asset-create-grid">
+                <input type="hidden" name="Kind" value="assets" />
+                <label>Mã tài sản *<input name="Reference" class="form-control" required maxlength="100" value="@Model.Draft.Reference" /></label>
+                <label>Tên tài sản *<input name="Title" class="form-control" required maxlength="200" value="@Model.Draft.Title" /></label>
+                <label>Loại tài sản *<input name="Category" class="form-control" required maxlength="100" value="@Model.Draft.Category" placeholder="Máy tính, màn hình, thiết bị..." /></label>
+                <label>Ngày mua *<input name="DueDate" type="date" class="form-control" required value="@Model.Draft.DueDate?.ToString("yyyy-MM-dd")" /></label>
+                <label>Số lượng *<input name="Target" type="number" min="1" step="1" class="form-control" required value="@Model.Draft.Target" /></label>
+                <label>Nguyên giá *<input name="Actual" type="number" min="0" step="1000" class="form-control" required value="@Model.Draft.Actual" /></label>
+                <label class="asset-create-wide">Nhân viên sử dụng<select name="EmployeeId" class="form-control"><option value="">Chưa cấp phát</option>@foreach (var person in Model.People) { <option value="@person.Id" selected="@(Model.Draft.EmployeeId == person.Id)">@person.DisplayName · @(person.DepartmentName ?? "Chưa phân phòng")</option> }</select></label>
+                <label class="asset-create-wide">Ghi chú<textarea name="Description" class="form-control" rows="2" maxlength="2000">@Model.Draft.Description</textarea></label>
+                <div class="asset-create-wide asset-form-actions"><button class="hrm-btn hrm-btn-primary" type="submit"><i class="material-icons">save</i> Lưu tài sản</button><button id="cancelAssetForm" class="hrm-btn" type="button">Hủy</button></div>
+            </form>
+        </section>
+
+        <form id="assetActionForm" method="post" asp-controller="Work" asp-action="AssetAction" class="asset-toolbar">
+            <div id="assetSelectedInputs"></div>
+            <span id="assetSelectedCount">Chưa chọn bản ghi</span>
+            <select id="assetEmployee" name="employeeId" class="form-control"><option value="">Chọn nhân viên cấp phát</option>@foreach (var person in Model.People) { <option value="@person.Id">@person.DisplayName · @(person.DepartmentName ?? "Chưa phân phòng")</option> }</select>
+            <button class="asset-command" name="command" value="allocate"><i class="material-icons">assignment_ind</i>Cấp phát</button>
+            <button class="asset-command" name="command" value="recover"><i class="material-icons">keyboard_return</i>Thu hồi</button>
+            <button class="asset-command" name="command" value="maintenance"><i class="material-icons">build</i>Bảo trì</button>
+            <button class="asset-command" name="command" value="damaged"><i class="material-icons">report_problem</i>Báo hỏng</button>
+            <button class="asset-command" name="command" value="lost"><i class="material-icons">search_off</i>Báo mất</button>
+            <button class="asset-command" name="command" value="dispose"><i class="material-icons">delete_sweep</i>Thanh lý</button>
+            <button id="printAssetCodes" type="button"><i class="material-icons">qr_code_2</i>In QR code</button>
+            <button id="exportAssets" type="button"><i class="material-icons">file_download</i>Export</button>
+        </form>
+    }
+
+    <nav class="asset-tabs" aria-label="Lọc trạng thái tài sản">
+        <button class="active" data-status="">Tất cả <strong>@Model.Items.Count</strong></button>
+        <button data-status="AVAILABLE">Chưa cấp phát <strong>@available</strong></button>
+        <button data-status="ASSIGNED">Đang sử dụng <strong>@assigned</strong></button>
+        <button data-status="DISPOSED">Thanh lý <strong>@disposed</strong></button>
+        <button data-status="MAINTENANCE">Bảo trì, sửa chữa <strong>@maintenance</strong></button>
+        <button data-status="LOST">Mất <strong>@lost</strong></button>
+        <button data-status="DAMAGED">Hỏng <strong>@damaged</strong></button>
+    </nav>
+
+    <div class="asset-list-meta"><span id="assetVisibleCount">Hiển thị @Model.Items.Count bản ghi</span><span>Trang: 01 / 01</span></div>
+    <div class="asset-table-wrap">
+        <table id="assetTable" class="asset-table">
+            <thead><tr>@if (canManage) { <th><input id="assetSelectAll" type="checkbox" aria-label="Chọn tất cả" /></th> }<th>Mã TS</th><th>Tên tài sản</th><th>Loại tài sản</th><th>Ngày mua</th><th>Số lượng</th><th>Đang sử dụng</th><th>SL còn lại</th><th>Nguyên giá</th><th>Nhân sự sử dụng</th><th>Phòng ban sử dụng</th><th>Barcode</th><th>SL bảo trì</th><th>SL mất</th><th>SL thanh lý</th><th>SL hỏng</th><th>Trạng thái</th></tr></thead>
+            <tbody>
+            @foreach (var item in Model.Items)
+            {
+                var quantity = (int)(item.Target ?? 1);
+                var inUse = Math.Max(0, item.AssetInUse);
+                var remaining = Math.Max(0, quantity - inUse - item.AssetMaintenance - item.AssetLost - item.AssetDisposed - item.AssetDamaged);
+                var searchable = $"{item.Reference} {item.Title} {item.Category} {item.EmployeeName} {item.DepartmentName}".ToLowerInvariant();
+                <tr data-status="@item.Status" data-search="@searchable" data-code="@item.Reference" data-name="@item.Title">
+                    @if (canManage) { <td><input class="asset-row-check" type="checkbox" value="@item.Id" aria-label="Chọn @item.Reference" /></td> }
+                    <td><strong>@item.Reference</strong></td><td>@item.Title<small>@item.Description</small></td><td>@(item.Category ?? "—")</td><td>@(item.DueDate?.ToString("dd/MM/yyyy") ?? "—")</td><td>@quantity.ToString("N0")</td><td>@inUse.ToString("N0")</td><td>@remaining.ToString("N0")</td><td>@(item.Actual?.ToString("N0") ?? "0")</td>
+                    <td>@if (item.EmployeeName != null) { <span class="asset-person">@item.EmployeeName</span> } else { <span>—</span> }</td><td>@(item.DepartmentName ?? "—")</td><td>@(item.Reference ?? "—")</td><td>@item.AssetMaintenance</td><td>@item.AssetLost</td><td>@item.AssetDisposed</td><td>@item.AssetDamaged</td><td><span class="asset-status asset-status-@item.Status.ToLowerInvariant()">@labels.GetValueOrDefault(item.Status, item.Status)</span></td>
+                </tr>
+            }
+            </tbody>
+        </table>
+        <div id="assetEmpty" class="work-empty" hidden><i class="material-icons">inventory_2</i><h4>Không có tài sản phù hợp</h4><p>Thử từ khóa hoặc trạng thái khác.</p></div>
+    </div>
+</div>
+
+<script>
+(function(){
+    var panel=document.getElementById('assetCreatePanel'),toggle=document.getElementById('toggleAssetForm');
+    function closePanel(){if(panel)panel.classList.remove('is-open');}
+    if(toggle)toggle.addEventListener('click',function(){panel.classList.toggle('is-open');});
+    ['closeAssetForm','cancelAssetForm'].forEach(function(id){var button=document.getElementById(id);if(button)button.addEventListener('click',closePanel);});
+    var search=document.getElementById('assetSearch'),rows=Array.prototype.slice.call(document.querySelectorAll('#assetTable tbody tr')),activeStatus='';
+    function filter(){var keyword=(search.value||'').trim().toLocaleLowerCase('vi'),visible=0;rows.forEach(function(row){var show=(!activeStatus||row.dataset.status===activeStatus)&&(!keyword||row.dataset.search.indexOf(keyword)>=0);row.hidden=!show;if(show)visible++;});document.getElementById('assetVisibleCount').textContent='Hiển thị '+visible+' / '+rows.length+' bản ghi';document.getElementById('assetEmpty').hidden=visible>0;}
+    search.addEventListener('input',filter);
+    document.querySelectorAll('.asset-tabs button').forEach(function(button){button.addEventListener('click',function(){document.querySelectorAll('.asset-tabs button').forEach(function(x){x.classList.remove('active');});button.classList.add('active');activeStatus=button.dataset.status;filter();});});
+    var checks=Array.prototype.slice.call(document.querySelectorAll('.asset-row-check')),selectedInputs=document.getElementById('assetSelectedInputs'),selectedCount=document.getElementById('assetSelectedCount'),selectAll=document.getElementById('assetSelectAll');
+    function sync(){if(!selectedInputs)return;var selected=checks.filter(function(x){return x.checked;});selectedInputs.innerHTML=selected.map(function(x){return '<input type="hidden" name="ids" value="'+x.value+'">';}).join('');selectedCount.textContent=selected.length?('Đã chọn '+selected.length+' bản ghi'):'Chưa chọn bản ghi';if(selectAll)selectAll.checked=checks.filter(function(x){return !x.closest('tr').hidden;}).every(function(x){return x.checked;})&&checks.some(function(x){return !x.closest('tr').hidden;});}
+    checks.forEach(function(x){x.addEventListener('change',sync);});if(selectAll)selectAll.addEventListener('change',function(){checks.forEach(function(x){if(!x.closest('tr').hidden)x.checked=selectAll.checked;});sync();});
+    document.querySelectorAll('.asset-command').forEach(function(button){button.addEventListener('click',function(event){sync();if(!checks.some(function(x){return x.checked;})){event.preventDefault();alert('Vui lòng chọn ít nhất một tài sản.');return;}if(button.value==='allocate'&&!document.getElementById('assetEmployee').value){event.preventDefault();alert('Vui lòng chọn nhân viên nhận tài sản.');}});});
+    var exportButton=document.getElementById('exportAssets');if(exportButton)exportButton.addEventListener('click',function(){var visible=rows.filter(function(row){return !row.hidden;}),csv=['Mã TS,Tên tài sản,Loại tài sản,Ngày mua,Số lượng,Đang sử dụng,SL còn lại,Nguyên giá,Nhân sự,Phòng ban,Barcode,Trạng thái'];visible.forEach(function(row){csv.push(Array.prototype.slice.call(row.cells,1).map(function(cell){return '"'+cell.innerText.replace(/"/g,'""').replace(/\n/g,' ')+'"';}).join(','));});var blob=new Blob(['\ufeff'+csv.join('\n')],{type:'text/csv;charset=utf-8'}),link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download='danh-sach-tai-san.csv';link.click();URL.revokeObjectURL(link.href);});
+    var printButton=document.getElementById('printAssetCodes');if(printButton)printButton.addEventListener('click',function(){var selected=rows.filter(function(row){var box=row.querySelector('.asset-row-check');return box&&box.checked;});if(!selected.length){alert('Vui lòng chọn tài sản cần in mã.');return;}var popup=window.open('','_blank','width=800,height=600');popup.document.write('<title>Mã tài sản</title><style>body{font-family:Arial;display:grid;grid-template-columns:repeat(3,1fr);gap:16px;padding:20px}.label{border:1px solid #111;padding:18px;text-align:center}.code{font-size:20px;font-weight:bold;margin:12px 0}.qr{font-size:72px}</style>'+selected.map(function(row){return '<div class="label"><div class="qr">▦</div><div class="code">'+row.dataset.code+'</div><div>'+row.dataset.name+'</div></div>';}).join(''));popup.document.close();popup.print();});
+    filter();sync();
+})();
+</script>

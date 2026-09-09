@@ -118,7 +118,7 @@ public sealed class WorkController : Controller
             if (item == null) return NotFound();
             page.Draft = item;
         }
-        return View(page);
+        return View(kind == "assets" ? "Assets" : "Index", page);
     }
 
     [HttpPost, ValidateAntiForgeryToken]
@@ -150,8 +150,10 @@ public sealed class WorkController : Controller
             ModelState.AddModelError("", "Đăng ký tăng ca cần ngày, số giờ và lý do.");
         if (draft.Kind == "resignation" && (!draft.DueDate.HasValue || string.IsNullOrWhiteSpace(draft.Description)))
             ModelState.AddModelError("", "Đề nghị nghỉ việc cần ngày làm việc cuối cùng và lý do.");
-        if (draft.Kind == "assets" && string.IsNullOrWhiteSpace(draft.Reference))
-            ModelState.AddModelError("", "Vui lòng nhập mã tài sản.");
+        if (draft.Kind == "assets" && (string.IsNullOrWhiteSpace(draft.Reference) || string.IsNullOrWhiteSpace(draft.Category)
+            || !draft.DueDate.HasValue || !draft.Target.HasValue || draft.Target <= 0 || draft.Target != decimal.Truncate(draft.Target.Value)
+            || !draft.Actual.HasValue || draft.Actual < 0))
+            ModelState.AddModelError("", "Tài sản cần mã, loại, ngày mua, số lượng nguyên và nguyên giá hợp lệ.");
         if (draft.Kind == "helpdesk" && (string.IsNullOrWhiteSpace(draft.Description) || !new[] { "LOW", "NORMAL", "HIGH", "URGENT" }.Contains(draft.Priority)))
             ModelState.AddModelError("", "Vui lòng nhập mô tả và mức ưu tiên hợp lệ.");
         if (draft.Kind is "vehicle" or "meeting" or "business-trip")
@@ -189,7 +191,7 @@ public sealed class WorkController : Controller
         if (draft.Kind == "meeting" && draft.StartAt.HasValue && draft.EndAt.HasValue && !string.IsNullOrWhiteSpace(draft.Location)
             && page.Available && _store.HasMeetingConflict(draft.Location, draft.StartAt.Value, draft.EndAt.Value))
             ModelState.AddModelError("", "Phòng họp đã có lịch hoặc chưa đủ khoảng nghỉ 10 phút. Vui lòng chọn thời gian hoặc phòng khác.");
-        if (!page.Available || !ModelState.IsValid) return View("Index", page);
+        if (!page.Available || !ModelState.IsValid) return View(draft.Kind == "assets" ? "Assets" : "Index", page);
         draft.CreatedBy = _user.Current.Id;
         draft.Status = draft.Kind switch
         {
@@ -201,6 +203,7 @@ public sealed class WorkController : Controller
             "training" => "PLANNED",
             _ => "OPEN"
         };
+        if (draft.Kind == "assets" && draft.EmployeeId.HasValue) draft.AssetInUse = 1;
         if (draft.Kind == "helpdesk" || (!page.CanManage && draft.Kind is "overtime" or "resignation"))
             draft.EmployeeId = _user.Current.Id;
         if (!draft.EmployeeId.HasValue && draft.Kind is "vehicle" or "meeting")
@@ -219,6 +222,31 @@ public sealed class WorkController : Controller
             ModelState.AddModelError("", "Không thể lưu dữ liệu. Vui lòng thử lại; mã tài sản có thể đã tồn tại.");
             return View("Index", page);
         }
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public IActionResult AssetAction(List<int> ids, string command, int? employeeId, string note)
+    {
+        var page = Page("assets");
+        if (page == null || !page.CanManage) return Forbid();
+        Load(page);
+        var selected = (ids ?? []).Distinct().Where(id => page.Items.Any(item => item.Id == id)).ToList();
+        if (selected.Count == 0)
+        {
+            TempData["WorkError"] = "Vui lòng chọn ít nhất một tài sản.";
+            return RedirectToAction("Index", new { kind = "assets" });
+        }
+        if (command == "allocate" && (!employeeId.HasValue || !page.People.Any(person => person.Id == employeeId)))
+        {
+            TempData["WorkError"] = "Vui lòng chọn nhân viên nhận tài sản hợp lệ.";
+            return RedirectToAction("Index", new { kind = "assets" });
+        }
+        if (command is not ("allocate" or "recover" or "maintenance" or "damaged" or "lost" or "dispose")) return Forbid();
+        var changed = _store.UpdateAssets(selected, command, employeeId, note, _user.Current.Id, ClientIp);
+        TempData[changed > 0 ? "WorkSuccess" : "WorkError"] = changed > 0
+            ? $"Đã cập nhật {changed} tài sản."
+            : "Không có tài sản nào phù hợp với thao tác đã chọn.";
+        return RedirectToAction("Index", new { kind = "assets" });
     }
 
     [HttpGet]
