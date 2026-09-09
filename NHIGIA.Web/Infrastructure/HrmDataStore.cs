@@ -9,6 +9,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Threading;
 
 namespace NHIGIA.Web.Infrastructure
 {
@@ -77,22 +78,43 @@ namespace NHIGIA.Web.Infrastructure
                 if (_localDbStarted && !force) return;
                 var instanceName = match.Groups["name"].Value;
                 RunLocalDb("start \"" + instanceName + "\"");
-                var instanceInfo = RunLocalDb("info \"" + instanceName + "\"");
-                var pipeMatch = Regex.Match(instanceInfo, @"Instance pipe name:\s*(?<pipe>np:[^\r\n]+)", RegexOptions.IgnoreCase);
-                if (!pipeMatch.Success)
+                _localDbPipeName = WaitForLocalDbPipe(instanceName);
+                if (string.IsNullOrWhiteSpace(_localDbPipeName))
                 {
                     throw new InvalidOperationException("SQL LocalDB đã khởi động nhưng không cung cấp named pipe cho instance " + instanceName + ".");
                 }
-                _localDbPipeName = pipeMatch.Groups["pipe"].Value.Trim();
                 _localDbStarted = true;
             }
+        }
+
+        private static string WaitForLocalDbPipe(string instanceName)
+        {
+            for (var attempt = 0; attempt < 30; attempt++)
+            {
+                var instanceInfo = RunLocalDb("info \"" + instanceName + "\"");
+                var pipeMatch = Regex.Match(instanceInfo, @"np:[^\r\n]+", RegexOptions.IgnoreCase);
+                if (pipeMatch.Success) return pipeMatch.Value.Trim();
+                Thread.Sleep(200);
+            }
+            return null;
+        }
+
+        private static string FindLocalDbExecutable()
+        {
+            var programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
+            foreach (var version in new[] { "170", "160", "150", "140", "130" })
+            {
+                var candidate = Path.Combine(programFiles, "Microsoft SQL Server", version, "Tools", "Binn", "SqlLocalDB.exe");
+                if (File.Exists(candidate)) return candidate;
+            }
+            return "sqllocaldb.exe";
         }
 
         private static string RunLocalDb(string arguments)
         {
             var startInfo = new ProcessStartInfo
             {
-                FileName = "sqllocaldb.exe",
+                FileName = FindLocalDbExecutable(),
                 Arguments = arguments,
                 UseShellExecute = false,
                 CreateNoWindow = true,
