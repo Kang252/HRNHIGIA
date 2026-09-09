@@ -92,20 +92,16 @@ public sealed class WorkItemStore
         return $"TS.{sequence:D3}";
     }
 
-    public int CreateAsset(WorkItem item, string ipAddress)
+    public int CreateAsset(WorkItem item)
     {
-        using var db = Open();
-        using var transaction = db.BeginTransaction(System.Data.IsolationLevel.Serializable);
-        var sequence = db.ExecuteScalar<int>(@"SELECT ISNULL(MAX(TRY_CONVERT(INT,SUBSTRING(Reference,4,97))),0)+1
-            FROM dbo.HrmWorkItem WITH (UPDLOCK,HOLDLOCK) WHERE Kind='assets' AND Reference LIKE 'TS.%'", transaction: transaction);
-        item.Reference = $"TS.{sequence:D3}";
-        var id = db.QuerySingle<int>(@"INSERT dbo.HrmWorkItem
-            (Kind,Title,Description,Category,Reference,EmployeeId,DueDate,Target,Actual,Priority,Status,CreatedBy,AssetInUse)
-            OUTPUT INSERTED.Id VALUES
-            ('assets',@Title,@Description,@Category,@Reference,@EmployeeId,@DueDate,@Target,@Actual,@Priority,@Status,@CreatedBy,@AssetInUse)", item, transaction);
-        AddAudit(db, transaction, item.CreatedBy, "CREATE", id, $"Tạo tài sản {item.Reference}", ipAddress);
-        transaction.Commit();
-        return id;
+        SqlException duplicate = null;
+        for (var attempt = 0; attempt < 5; attempt++)
+        {
+            item.Reference = GetNextAssetReference();
+            try { return Create(item); }
+            catch (SqlException exception) when (exception.Number is 2601 or 2627) { duplicate = exception; }
+        }
+        throw new InvalidOperationException("Không thể cấp mã tài sản duy nhất sau nhiều lần thử.", duplicate);
     }
 
     public bool HasMeetingConflict(string location, DateTime startAt, DateTime endAt)

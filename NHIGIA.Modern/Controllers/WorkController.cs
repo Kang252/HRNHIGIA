@@ -217,7 +217,7 @@ public sealed class WorkController : Controller
             draft.DueDate = draft.StartAt?.Date;
         try
         {
-            var id = draft.Kind == "assets" ? _store.CreateAsset(draft, ClientIp) : _store.Create(draft, participantIds);
+            var id = draft.Kind == "assets" ? _store.CreateAsset(draft) : _store.Create(draft, participantIds);
             TempData["WorkSuccess"] = $"Đã lưu {WorkItem.FormatCode(draft.Kind, id)} vào hệ thống.";
             return RedirectToAction("Index", new { kind = draft.Kind });
         }

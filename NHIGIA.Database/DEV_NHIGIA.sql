@@ -76,6 +76,109 @@ ALTER DATABASE [DEV_NHIGIA] SET QUERY_STORE = OFF
 GO
 USE [DEV_NHIGIA]
 GO
+
+IF OBJECT_ID(N'dbo.HrmWorkItem', N'U') IS NULL
+BEGIN
+CREATE TABLE [dbo].[HrmWorkItem](
+	[Id] [int] IDENTITY(1,1) NOT NULL,
+	[Kind] [nvarchar](50) NOT NULL,
+	[Title] [nvarchar](200) NOT NULL,
+	[Description] [nvarchar](2000) NULL,
+	[Category] [nvarchar](100) NULL,
+	[Reference] [nvarchar](100) NULL,
+	[EmployeeId] [int] NULL,
+	[DepartmentId] [int] NULL,
+	[DueDate] [date] NULL,
+	[StartAt] [datetime] NULL,
+	[EndAt] [datetime] NULL,
+	[Location] [nvarchar](250) NULL,
+	[Destination] [nvarchar](250) NULL,
+	[Target] [decimal](18, 2) NULL,
+	[Actual] [decimal](18, 2) NULL,
+	[Weight] [decimal](18, 2) NULL,
+	[Priority] [nvarchar](20) NOT NULL CONSTRAINT [DF_HrmWorkItem_Priority] DEFAULT (N'NORMAL'),
+	[Status] [nvarchar](50) NULL,
+	[CreatedBy] [int] NOT NULL,
+	[CreatedAt] [datetime] NOT NULL CONSTRAINT [DF_HrmWorkItem_CreatedAt] DEFAULT (GETDATE()),
+	[UpdatedAt] [datetime] NULL,
+	[LastActionNote] [nvarchar](1000) NULL,
+	[AssetInUse] [int] NOT NULL CONSTRAINT [DF_HrmWorkItem_AssetInUse] DEFAULT ((0)),
+	[AssetMaintenance] [int] NOT NULL CONSTRAINT [DF_HrmWorkItem_AssetMaintenance] DEFAULT ((0)),
+	[AssetDamaged] [int] NOT NULL CONSTRAINT [DF_HrmWorkItem_AssetDamaged] DEFAULT ((0)),
+	[AssetLost] [int] NOT NULL CONSTRAINT [DF_HrmWorkItem_AssetLost] DEFAULT ((0)),
+	[AssetDisposed] [int] NOT NULL CONSTRAINT [DF_HrmWorkItem_AssetDisposed] DEFAULT ((0)),
+ CONSTRAINT [PK_HrmWorkItem] PRIMARY KEY CLUSTERED 
+(
+	[Id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+END
+ELSE
+BEGIN
+	IF COL_LENGTH(N'dbo.HrmWorkItem', N'AssetInUse') IS NULL
+		ALTER TABLE [dbo].[HrmWorkItem] ADD [AssetInUse] [int] NOT NULL CONSTRAINT [DF_HrmWorkItem_AssetInUse] DEFAULT ((0));
+	IF COL_LENGTH(N'dbo.HrmWorkItem', N'AssetMaintenance') IS NULL
+		ALTER TABLE [dbo].[HrmWorkItem] ADD [AssetMaintenance] [int] NOT NULL CONSTRAINT [DF_HrmWorkItem_AssetMaintenance] DEFAULT ((0));
+	IF COL_LENGTH(N'dbo.HrmWorkItem', N'AssetDamaged') IS NULL
+		ALTER TABLE [dbo].[HrmWorkItem] ADD [AssetDamaged] [int] NOT NULL CONSTRAINT [DF_HrmWorkItem_AssetDamaged] DEFAULT ((0));
+	IF COL_LENGTH(N'dbo.HrmWorkItem', N'AssetLost') IS NULL
+		ALTER TABLE [dbo].[HrmWorkItem] ADD [AssetLost] [int] NOT NULL CONSTRAINT [DF_HrmWorkItem_AssetLost] DEFAULT ((0));
+	IF COL_LENGTH(N'dbo.HrmWorkItem', N'AssetDisposed') IS NULL
+		ALTER TABLE [dbo].[HrmWorkItem] ADD [AssetDisposed] [int] NOT NULL CONSTRAINT [DF_HrmWorkItem_AssetDisposed] DEFAULT ((0));
+END
+GO
+
+IF OBJECT_ID(N'dbo.HrmWorkItemParticipant', N'U') IS NULL
+BEGIN
+CREATE TABLE [dbo].[HrmWorkItemParticipant](
+	[WorkItemId] [int] NOT NULL,
+	[UserId] [int] NOT NULL,
+	CONSTRAINT [PK_HrmWorkItemParticipant] PRIMARY KEY CLUSTERED 
+(
+	[WorkItemId] ASC,
+	[UserId] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+END
+GO
+
+IF OBJECT_ID(N'dbo.HrmNotification', N'U') IS NULL
+BEGIN
+CREATE TABLE [dbo].[HrmNotification](
+	[Id] [bigint] IDENTITY(1,1) NOT NULL,
+	[UserId] [int] NOT NULL,
+	[Title] [nvarchar](200) NULL,
+	[Message] [nvarchar](max) NULL,
+	[LinkUrl] [nvarchar](500) NULL,
+	[IsRead] [bit] NOT NULL CONSTRAINT [DF_HrmNotification_IsRead] DEFAULT ((0)),
+	[CreatedAt] [datetime] NOT NULL CONSTRAINT [DF_HrmNotification_CreatedAt] DEFAULT (GETDATE()),
+ CONSTRAINT [PK_HrmNotification] PRIMARY KEY CLUSTERED 
+(
+	[Id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
+END
+GO
+
+IF OBJECT_ID(N'dbo.HrmAuditLog', N'U') IS NULL
+BEGIN
+CREATE TABLE [dbo].[HrmAuditLog](
+	[Id] [bigint] IDENTITY(1,1) NOT NULL,
+	[UserId] [int] NOT NULL,
+	[ActionCode] [nvarchar](50) NOT NULL,
+	[EntityType] [nvarchar](100) NOT NULL,
+	[EntityId] [nvarchar](100) NOT NULL,
+	[Detail] [nvarchar](max) NULL,
+	[IpAddress] [nvarchar](100) NULL,
+	[CreatedAt] [datetime] NOT NULL CONSTRAINT [DF_HrmAuditLog_CreatedAt] DEFAULT (GETDATE()),
+ CONSTRAINT [PK_HrmAuditLog] PRIMARY KEY CLUSTERED 
+(
+	[Id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
+END
+GO
+
 /****** Object:  UserDefinedTableType [dbo].[TypeAllowanceInformation]    Script Date: 6/10/2022 2:47:01 PM ******/
 CREATE TYPE [dbo].[TypeAllowanceInformation] AS TABLE(
 	[Id] [int] NULL,
