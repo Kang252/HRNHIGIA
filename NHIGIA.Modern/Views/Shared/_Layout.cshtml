@@ -22,8 +22,8 @@
     <link rel="stylesheet" href="~/Content/css/style.css" />
     <link rel="stylesheet" href="~/Content/hrm-modern.css" asp-append-version="true" />
     <style>
-        .navbar-brand,.navbar-brand:hover,.navbar-brand:focus{color:#111827!important}.navbar-brand:before{content:"NG"!important}.hrm-top-user{color:#fff;padding:21px 18px;display:inline-block}.hrm-logout{display:inline-block;margin:13px 16px 0 0}.hrm-logout button{background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.35);color:#fff;border-radius:7px;padding:7px 12px}.sidebar .menu .list a{display:flex;align-items:center;gap:10px}.sidebar .menu .list a i{margin-top:0!important;flex:0 0 24px;width:24px}.sidebar .menu .list a span{margin-left:12px;min-width:0}.sidebar .menu .list li.active>a{background:#eaf2ff;color:#1769e0}.hrm-menu-toggle{display:none}.hrm-sidebar-overlay{display:none}
-        @@media(max-width:900px){body.hrm-menu-open{overflow:hidden}.navbar .container-fluid{display:flex;align-items:center;height:64px}.navbar .navbar-header{display:flex;align-items:center;min-width:0;flex:1}.navbar .navbar-brand{min-width:0;padding-left:8px;white-space:nowrap}.navbar .pull-right{display:flex;align-items:center;flex:0 0 auto}.hrm-top-user{display:none}.hrm-logout{margin:0 8px 0 0}.hrm-logout button{padding:7px 9px}.hrm-logout button .material-icons{margin:0}.hrm-logout-label{display:none}.hrm-menu-toggle{display:inline-flex;width:42px;height:42px;flex:0 0 42px;align-items:center;justify-content:center;margin-left:8px;border:0;border-radius:9px;background:rgba(255,255,255,.16);color:#fff}.hrm-menu-toggle .material-icons{font-size:25px}.sidebar{display:flex!important;top:64px;left:0;width:min(82vw,300px);height:calc(100vh - 64px);z-index:1001;transform:translateX(-105%);transition:transform .22s ease;box-shadow:8px 0 24px rgba(15,35,65,.22)}body.hrm-menu-open .sidebar{transform:translateX(0)}.hrm-sidebar-overlay{position:fixed;inset:64px 0 0;background:rgba(15,23,42,.45);z-index:1000}body.hrm-menu-open .hrm-sidebar-overlay{display:block}.sidebar .menu{max-height:none}.sidebar .user-info{height:108px;min-height:108px;flex-basis:108px}section.content{width:auto;max-width:none;margin:80px 12px 18px}.hrm-page-header{margin-top:0}.hrm-grid-4,.hrm-grid-3,.hrm-grid-2,.hrm-content-grid{grid-template-columns:1fr!important}}
+        .navbar-brand,.navbar-brand:hover,.navbar-brand:focus{color:#111827!important}.navbar-brand:before{content:"NG"!important}.navbar .navbar-header{display:flex;align-items:center}.hrm-top-user{color:#fff;padding:21px 18px;display:inline-block}.hrm-logout{display:inline-block;margin:13px 16px 0 0}.hrm-logout button{background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.35);color:#fff;border-radius:7px;padding:7px 12px}.hrm-menu-toggle{display:inline-flex;width:40px;height:40px;flex:0 0 40px;align-items:center;justify-content:center;margin-left:5px;border:0;border-radius:9px;background:rgba(255,255,255,.16);color:#fff}.hrm-menu-toggle:hover,.hrm-menu-toggle:focus{background:rgba(255,255,255,.26);outline:0}.hrm-menu-toggle .material-icons{font-size:24px}.sidebar,.sidebar .menu,.sidebar .menu .list{overflow-x:hidden!important}.sidebar .menu .list{width:100%;margin:0}.sidebar .menu .list a{display:flex;align-items:center;gap:10px;width:calc(100% - 20px);box-sizing:border-box}.sidebar .menu .list a i{margin-top:0!important;flex:0 0 24px;width:24px}.sidebar .menu .list a span{margin-left:12px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.sidebar .menu .list li.active>a{background:#eaf2ff;color:#1769e0}.hrm-sidebar-overlay{display:none}body.hrm-menu-collapsed .sidebar{transform:translateX(-105%)}body.hrm-menu-collapsed section.content{margin-left:22px}
+        @@media(max-width:900px){body.hrm-menu-open{overflow:hidden}.navbar{z-index:1003!important}.navbar .container-fluid{display:flex;align-items:center;height:64px}.navbar .navbar-header{min-width:0;flex:1}.navbar .navbar-brand{min-width:0;padding-left:8px;white-space:nowrap}.navbar .pull-right{display:flex;align-items:center;flex:0 0 auto}.hrm-top-user{display:none}.hrm-logout{margin:0 8px 0 0}.hrm-logout button{padding:7px 9px}.hrm-logout button .material-icons{margin:0}.hrm-logout-label{display:none}.hrm-menu-toggle{width:42px;height:42px;flex-basis:42px;margin-left:0}.sidebar,body.hrm-menu-collapsed .sidebar{display:flex!important;top:64px;left:0;width:min(84vw,300px);height:calc(100dvh - 64px);z-index:1002!important;transform:translate3d(-105%,0,0);transition:transform .22s ease;box-shadow:8px 0 24px rgba(15,35,65,.22);visibility:hidden}body.hrm-menu-open .sidebar,body.hrm-menu-open.hrm-menu-collapsed .sidebar{transform:translate3d(0,0,0);visibility:visible}.hrm-sidebar-overlay{position:fixed;inset:64px 0 0;background:rgba(15,23,42,.45);z-index:1001!important}body.hrm-menu-open .hrm-sidebar-overlay{display:block}.sidebar .menu{max-height:none;overscroll-behavior:contain}.sidebar .user-info{height:108px;min-height:108px;flex-basis:108px}section.content,body.hrm-menu-collapsed section.content{width:auto;max-width:none;margin:80px 12px 18px}.hrm-page-header{margin-top:0}.hrm-grid-4,.hrm-grid-3,.hrm-grid-2,.hrm-content-grid{grid-template-columns:1fr!important}}
     </style>
     <script src="~/Content/plugins/jquery/jquery.min.js"></script>
     <script src="~/Content/plugins/bootstrap/js/bootstrap.js"></script>
@@ -113,12 +113,32 @@
 
             function setMenu(open) {
                 body.classList.toggle('hrm-menu-open', open);
-                toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
-                toggle.setAttribute('aria-label', open ? 'Đóng menu' : 'Mở menu');
-                toggle.querySelector('.material-icons').textContent = open ? 'close' : 'menu';
+                updateToggle();
             }
 
-            toggle.addEventListener('click', function () { setMenu(!body.classList.contains('hrm-menu-open')); });
+            function updateToggle() {
+                var expanded = window.innerWidth <= 900
+                    ? body.classList.contains('hrm-menu-open')
+                    : !body.classList.contains('hrm-menu-collapsed');
+                toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+                toggle.setAttribute('aria-label', expanded ? 'Ẩn menu' : 'Mở menu');
+                toggle.querySelector('.material-icons').textContent = expanded ? 'menu_open' : 'menu';
+            }
+
+            if (window.innerWidth > 900 && window.localStorage.getItem('hrm-menu-collapsed') === 'true') {
+                body.classList.add('hrm-menu-collapsed');
+            }
+            updateToggle();
+
+            toggle.addEventListener('click', function () {
+                if (window.innerWidth <= 900) {
+                    setMenu(!body.classList.contains('hrm-menu-open'));
+                    return;
+                }
+                body.classList.toggle('hrm-menu-collapsed');
+                window.localStorage.setItem('hrm-menu-collapsed', body.classList.contains('hrm-menu-collapsed') ? 'true' : 'false');
+                updateToggle();
+            });
             overlay.addEventListener('click', function () { setMenu(false); });
             sidebar.addEventListener('click', function (event) {
                 if (event.target.closest('a') && window.innerWidth <= 900) setMenu(false);
@@ -127,7 +147,7 @@
                 if (event.key === 'Escape') setMenu(false);
             });
             window.addEventListener('resize', function () {
-                if (window.innerWidth > 900) setMenu(false);
+                setMenu(false);
             });
         })();
     </script>
