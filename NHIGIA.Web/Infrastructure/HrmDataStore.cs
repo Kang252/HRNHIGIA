@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Configuration;
 using System.Data;
 using System.Data.SqlClient;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -14,6 +15,8 @@ namespace NHIGIA.Web.Infrastructure
     public class HrmDataStore
     {
         public static readonly HrmDataStore Instance = new HrmDataStore();
+        private static readonly object LocalDbLock = new object();
+        private static bool _localDbStarted;
         private string ConnectionString
         {
             get
@@ -26,9 +29,51 @@ namespace NHIGIA.Web.Infrastructure
 
         private SqlConnection OpenConnection()
         {
+            EnsureLocalDbStarted();
             var connection = new SqlConnection(ConnectionString);
             connection.Open();
             return connection;
+        }
+
+        private void EnsureLocalDbStarted()
+        {
+            if (_localDbStarted) return;
+            var builder = new SqlConnectionStringBuilder(ConnectionString);
+            var match = Regex.Match(builder.DataSource ?? string.Empty, @"^\(localdb\)\\(?<name>[A-Za-z0-9_-]+)$", RegexOptions.IgnoreCase);
+            if (!match.Success)
+            {
+                _localDbStarted = true;
+                return;
+            }
+
+            lock (LocalDbLock)
+            {
+                if (_localDbStarted) return;
+                var startInfo = new ProcessStartInfo
+                {
+                    FileName = "sqllocaldb.exe",
+                    Arguments = "start \"" + match.Groups["name"].Value + "\"",
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true
+                };
+                using (var process = Process.Start(startInfo))
+                {
+                    process.WaitForExit(15000);
+                    if (!process.HasExited)
+                    {
+                        process.Kill();
+                        throw new InvalidOperationException("Không thể khởi động SQL LocalDB trong 15 giây.");
+                    }
+                    if (process.ExitCode != 0)
+                    {
+                        var error = process.StandardError.ReadToEnd();
+                        throw new InvalidOperationException("Không thể khởi động SQL LocalDB: " + error);
+                    }
+                }
+                _localDbStarted = true;
+            }
         }
 
         public void EnsureSchema(string scriptPath)
