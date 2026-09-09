@@ -197,6 +197,13 @@ BEGIN
 END;
 GO
 
+IF COL_LENGTH('dbo.HrmCommunication', 'AttachmentContentType') IS NULL
+    ALTER TABLE dbo.HrmCommunication ADD AttachmentContentType NVARCHAR(100) NULL;
+GO
+IF COL_LENGTH('dbo.HrmCommunication', 'AttachmentContent') IS NULL
+    ALTER TABLE dbo.HrmCommunication ADD AttachmentContent VARBINARY(MAX) NULL;
+GO
+
 IF OBJECT_ID('dbo.HrmHanetSettings', 'U') IS NULL
 BEGIN
     CREATE TABLE dbo.HrmHanetSettings (

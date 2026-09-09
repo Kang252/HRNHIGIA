@@ -236,6 +236,7 @@ namespace NHIGIA.Modern.Models
         public string Title { get; set; }
         public string Body { get; set; }
         public string AttachmentName { get; set; }
+        public string AttachmentContentType { get; set; }
         public bool IsPinned { get; set; }
         public DateTime PublishedAt { get; set; }
     }
@@ -247,7 +248,16 @@ namespace NHIGIA.Modern.Models
         public string Title { get; set; }
         public string Body { get; set; }
         public string AttachmentName { get; set; }
+        public string AttachmentContentType { get; set; }
+        public byte[] AttachmentContent { get; set; }
         public bool IsPinned { get; set; }
+    }
+
+    public class CommunicationAttachmentModel
+    {
+        public string FileName { get; set; }
+        public string ContentType { get; set; }
+        public byte[] Content { get; set; }
     }
 
     public class AttendanceRecordModel

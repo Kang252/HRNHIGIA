@@ -98,15 +98,64 @@ public sealed class HrmController : BaseController
 
     [HttpPost, ValidateAntiForgeryToken]
     [HrmAuthorize(HrmRoles.Admin, HrmRoles.Hr, HrmRoles.Director, HrmRoles.Manager)]
-    public IActionResult CreateCommunication(CreateCommunicationRequest request) => Execute(() =>
+    [RequestSizeLimit(6 * 1024 * 1024)]
+    public async Task<IActionResult> CreateCommunication(CreateCommunicationRequest request, IFormFile attachment)
     {
-        if (request == null || string.IsNullOrWhiteSpace(request.Title) || string.IsNullOrWhiteSpace(request.Body)) throw new InvalidOperationException("Vui lòng nhập tiêu đề và nội dung.");
-        request.ScopeCode = (request.ScopeCode ?? "DEPARTMENT").ToUpperInvariant();
-        if (!new[] { "ALL", "DEPARTMENT", "MANAGER" }.Contains(request.ScopeCode)) throw new InvalidOperationException("Phạm vi đăng tin không hợp lệ.");
-        if (request.ScopeCode == "ALL" && !HrmRoles.CanPublishCompanyWide(CurrentHrmUser.RoleCode)) throw new InvalidOperationException("Trưởng phòng chỉ được đăng trong phòng ban hoặc nhóm quản lý.");
-        request.Category = string.IsNullOrWhiteSpace(request.Category) ? "Thông báo" : request.Category.Trim();
-        return Store.CreateCommunication(request, CurrentHrmUser, ClientIp);
-    });
+        try
+        {
+            if (request == null || string.IsNullOrWhiteSpace(request.Title) || string.IsNullOrWhiteSpace(request.Body)) throw new InvalidOperationException("Vui lòng nhập tiêu đề và nội dung.");
+            request.ScopeCode = (request.ScopeCode ?? "DEPARTMENT").ToUpperInvariant();
+            if (!new[] { "ALL", "DEPARTMENT", "MANAGER" }.Contains(request.ScopeCode)) throw new InvalidOperationException("Phạm vi đăng tin không hợp lệ.");
+            if (request.ScopeCode == "ALL" && !HrmRoles.CanPublishCompanyWide(CurrentHrmUser.RoleCode)) throw new InvalidOperationException("Trưởng phòng chỉ được đăng trong phòng ban hoặc nhóm quản lý.");
+            request.Category = string.IsNullOrWhiteSpace(request.Category) ? "Thông báo" : request.Category.Trim();
+            if (attachment != null && attachment.Length > 0)
+            {
+                if (attachment.Length > 5 * 1024 * 1024) throw new InvalidOperationException("Ảnh đính kèm không được vượt quá 5 MB.");
+                var extension = Path.GetExtension(attachment.FileName).ToLowerInvariant();
+                var contentType = extension switch
+                {
+                    ".jpg" or ".jpeg" => "image/jpeg",
+                    ".png" => "image/png",
+                    ".gif" => "image/gif",
+                    ".webp" => "image/webp",
+                    _ => throw new InvalidOperationException("Chỉ hỗ trợ ảnh JPG, PNG, GIF hoặc WebP.")
+                };
+                await using var stream = new MemoryStream();
+                await attachment.CopyToAsync(stream);
+                var content = stream.ToArray();
+                if (!IsSupportedImage(content, extension)) throw new InvalidOperationException("Nội dung tệp ảnh không hợp lệ.");
+                request.AttachmentName = Path.GetFileName(attachment.FileName);
+                request.AttachmentContentType = contentType;
+                request.AttachmentContent = content;
+            }
+            return Json(ApiResponse.Ok(Store.CreateCommunication(request, CurrentHrmUser, ClientIp)));
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(exception, "Cannot publish internal communication");
+            return BadRequest(ApiResponse.Fail(exception.Message));
+        }
+    }
+
+    [HttpGet]
+    public IActionResult CommunicationAttachment(int id)
+    {
+        var attachment = Store.GetCommunicationAttachment(id, CurrentHrmUser);
+        return attachment?.Content == null ? NotFound() : File(attachment.Content, attachment.ContentType ?? "application/octet-stream");
+    }
+
+    private static bool IsSupportedImage(byte[] content, string extension)
+    {
+        if (content == null || content.Length < 12) return false;
+        return extension switch
+        {
+            ".jpg" or ".jpeg" => content[0] == 0xff && content[1] == 0xd8 && content[2] == 0xff,
+            ".png" => content.Take(8).SequenceEqual(new byte[] { 0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a }),
+            ".gif" => System.Text.Encoding.ASCII.GetString(content, 0, 6) is "GIF87a" or "GIF89a",
+            ".webp" => System.Text.Encoding.ASCII.GetString(content, 0, 4) == "RIFF" && System.Text.Encoding.ASCII.GetString(content, 8, 4) == "WEBP",
+            _ => false
+        };
+    }
 
     [HttpGet]
     public IActionResult Attendance(DateTime? fromDate, DateTime? toDate) => Execute(() =>

@@ -282,7 +282,7 @@ namespace NHIGIA.Modern.Infrastructure
         public IList<CommunicationModel> GetCommunications(HrmUserAccountModel actor, string keyword, string category, int take = 100)
         {
             const string sql = @"SELECT TOP (@Take) c.Id, c.AuthorUserId, u.DisplayName AuthorName, c.Category, c.ScopeCode,
-                c.DepartmentId, c.Title, c.Body, c.AttachmentName, c.IsPinned, c.PublishedAt
+                c.DepartmentId, c.Title, c.Body, c.AttachmentName, c.AttachmentContentType, c.IsPinned, c.PublishedAt
                 FROM dbo.HrmCommunication c INNER JOIN dbo.HrmUserAccount u ON u.Id=c.AuthorUserId
                 WHERE c.IsPublished=1
                   AND (c.ScopeCode='ALL' OR (c.ScopeCode='DEPARTMENT' AND c.DepartmentId=@DepartmentId)
@@ -298,18 +298,32 @@ namespace NHIGIA.Modern.Infrastructure
         {
             var scope = (request.ScopeCode ?? "DEPARTMENT").ToUpperInvariant();
             var departmentId = scope == "DEPARTMENT" ? actor.DepartmentId : null;
-            const string sql = @"INSERT dbo.HrmCommunication(AuthorUserId, Category, ScopeCode, DepartmentId, Title, Body, AttachmentName, IsPinned)
-                VALUES(@AuthorUserId, @Category, @ScopeCode, @DepartmentId, @Title, @Body, @AttachmentName, @IsPinned);
+            const string sql = @"INSERT dbo.HrmCommunication(AuthorUserId, Category, ScopeCode, DepartmentId, Title, Body, AttachmentName, AttachmentContentType, AttachmentContent, IsPinned)
+                VALUES(@AuthorUserId, @Category, @ScopeCode, @DepartmentId, @Title, @Body, @AttachmentName, @AttachmentContentType, @AttachmentContent, @IsPinned);
                 DECLARE @Id INT=CAST(SCOPE_IDENTITY() AS INT);
                 SELECT c.Id, c.AuthorUserId, u.DisplayName AuthorName, c.Category, c.ScopeCode, c.DepartmentId,
-                    c.Title, c.Body, c.AttachmentName, c.IsPinned, c.PublishedAt
+                    c.Title, c.Body, c.AttachmentName, c.AttachmentContentType, c.IsPinned, c.PublishedAt
                 FROM dbo.HrmCommunication c INNER JOIN dbo.HrmUserAccount u ON u.Id=c.AuthorUserId WHERE c.Id=@Id;";
             using (var connection = OpenConnection())
             {
-                var result = connection.QuerySingle<CommunicationModel>(sql, new { AuthorUserId = actor.Id, request.Category, ScopeCode = scope, DepartmentId = departmentId, request.Title, request.Body, request.AttachmentName, request.IsPinned });
+                var result = connection.QuerySingle<CommunicationModel>(sql, new { AuthorUserId = actor.Id, request.Category, ScopeCode = scope, DepartmentId = departmentId, request.Title, request.Body, request.AttachmentName, request.AttachmentContentType, request.AttachmentContent, request.IsPinned });
                 AddAudit(connection, actor.Id, "PUBLISH", "HrmCommunication", result.Id.ToString(), result.Title, ipAddress);
                 return result;
             }
+        }
+
+        public CommunicationAttachmentModel GetCommunicationAttachment(int id, HrmUserAccountModel actor)
+        {
+            const string sql = @"SELECT c.AttachmentName FileName, c.AttachmentContentType ContentType,
+                    c.AttachmentContent Content
+                FROM dbo.HrmCommunication c
+                WHERE c.Id=@Id AND c.IsPublished=1 AND c.AttachmentContent IS NOT NULL
+                  AND (c.ScopeCode='ALL' OR (c.ScopeCode='DEPARTMENT' AND c.DepartmentId=@DepartmentId)
+                    OR (c.ScopeCode='MANAGER' AND @IsManager=1) OR c.AuthorUserId=@ActorId)";
+            var isManager = actor.RoleCode is HrmRoles.Manager or HrmRoles.Hr or HrmRoles.Director or HrmRoles.Admin;
+            using var connection = OpenConnection();
+            return connection.QuerySingleOrDefault<CommunicationAttachmentModel>(sql,
+                new { Id = id, actor.DepartmentId, IsManager = isManager, ActorId = actor.Id });
         }
 
         private class AttendanceProjection : AttendanceRecordModel
