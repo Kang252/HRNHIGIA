@@ -1,0 +1,11 @@
+[
+  {
+    "Name": "NHIGIA.Modern",
+    "Projects": [
+      {
+        "Path": "NHIGIA.Modern\\NHIGIA.Modern.csproj",
+        "Action": "Start"
+      }
+    ]
+  }
+]
