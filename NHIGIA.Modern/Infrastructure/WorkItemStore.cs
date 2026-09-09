@@ -18,11 +18,16 @@ public sealed class WorkItemStore
         var canSeeAll = actor.RoleCode == HrmRoles.Admin || actor.RoleCode == HrmRoles.Hr || actor.RoleCode == HrmRoles.Director;
         var isManager = actor.RoleCode == HrmRoles.Manager;
         var canManageDepartment = isManager && page.CanManage;
-        page.Items = db.Query<WorkItem>(@"SELECT w.*, u.DisplayName EmployeeName, d.Name DepartmentName
+        page.Items = db.Query<WorkItem>(@"SELECT w.*, u.DisplayName EmployeeName, d.Name DepartmentName,
+            (SELECT STRING_AGG(pu.DisplayName, N', ')
+             FROM dbo.HrmWorkItemParticipant wp
+             INNER JOIN dbo.HrmUserAccount pu ON pu.Id=wp.UserId
+             WHERE wp.WorkItemId=w.Id) ParticipantNames
             FROM dbo.HrmWorkItem w LEFT JOIN dbo.HrmUserAccount u ON u.Id=w.EmployeeId
             LEFT JOIN dbo.HrmDepartment d ON d.Id=w.DepartmentId
             WHERE w.Kind=@Kind
               AND (@CanSeeAll=1 OR w.EmployeeId=@UserId OR w.CreatedBy=@UserId
+                   OR EXISTS (SELECT 1 FROM dbo.HrmWorkItemParticipant wp WHERE wp.WorkItemId=w.Id AND wp.UserId=@UserId)
                    OR (w.Kind='kpi' AND w.DepartmentId=@DepartmentId)
                    OR (@IsManager=1 AND (u.DepartmentId=@DepartmentId OR w.DepartmentId=@DepartmentId)))
               AND (@Kind<>'payroll' OR @CanSeeAll=1 OR w.Status IN ('PUBLISHED','PAID','DISPUTED','RESOLVED'))
@@ -34,13 +39,15 @@ public sealed class WorkItemStore
                 UserId = actor.Id,
                 actor.DepartmentId
             }).ToList();
-        if (page.CanManage)
+        if (page.CanManage || page.Kind == "meeting")
         {
-            page.People = db.Query<WorkPerson>(@"SELECT Id,DisplayName FROM dbo.HrmUserAccount
-                WHERE IsActive=1 AND RoleCode<>'ADMIN'
-                  AND (@CanSeeAll=1 OR Id=@UserId OR (@IsManager=1 AND DepartmentId=@DepartmentId))
-                ORDER BY DisplayName", new
+            page.People = db.Query<WorkPerson>(@"SELECT u.Id,u.DisplayName,d.Name DepartmentName FROM dbo.HrmUserAccount u
+                LEFT JOIN dbo.HrmDepartment d ON d.Id=u.DepartmentId
+                WHERE u.IsActive=1 AND u.RoleCode<>'ADMIN'
+                  AND (@Meeting=1 OR @CanSeeAll=1 OR u.Id=@UserId OR (@IsManager=1 AND u.DepartmentId=@DepartmentId))
+                ORDER BY u.DisplayName", new
             {
+                Meeting = page.Kind == "meeting",
                 CanSeeAll = canSeeAll,
                 IsManager = canManageDepartment,
                 UserId = actor.Id,
@@ -51,16 +58,27 @@ public sealed class WorkItemStore
                 new { CanSeeAll = canSeeAll, actor.DepartmentId }).ToList();
         }
         if (!string.IsNullOrWhiteSpace(page.Query))
-            page.Items = page.Items.Where(x => $"{x.Title} {x.Reference} {x.EmployeeName} {x.Category} {x.Location} {x.Destination}".Contains(page.Query, StringComparison.OrdinalIgnoreCase)).ToList();
+            page.Items = page.Items.Where(x => $"{x.Title} {x.Reference} {x.EmployeeName} {x.ParticipantNames} {x.Category} {x.Location} {x.Destination}".Contains(page.Query, StringComparison.OrdinalIgnoreCase)).ToList();
         page.Available = true;
     }
-    public int Create(WorkItem item)
+    public int Create(WorkItem item, IReadOnlyCollection<int> participantIds = null)
     {
         using var db = Open();
-        return db.QuerySingle<int>(@"INSERT dbo.HrmWorkItem
+        using var transaction = db.BeginTransaction();
+        var id = db.QuerySingle<int>(@"INSERT dbo.HrmWorkItem
             (Kind,Title,Description,Category,Reference,EmployeeId,DepartmentId,DueDate,StartAt,EndAt,Location,Destination,Target,Actual,Weight,Priority,Status,CreatedBy)
             OUTPUT INSERTED.Id VALUES
-            (@Kind,@Title,@Description,@Category,@Reference,@EmployeeId,@DepartmentId,@DueDate,@StartAt,@EndAt,@Location,@Destination,@Target,@Actual,@Weight,@Priority,@Status,@CreatedBy)", item);
+            (@Kind,@Title,@Description,@Category,@Reference,@EmployeeId,@DepartmentId,@DueDate,@StartAt,@EndAt,@Location,@Destination,@Target,@Actual,@Weight,@Priority,@Status,@CreatedBy)", item, transaction);
+        if (item.Kind == "meeting" && participantIds?.Count > 0)
+        {
+            foreach (var userId in participantIds.Distinct())
+                db.Execute("INSERT dbo.HrmWorkItemParticipant(WorkItemId,UserId) VALUES(@WorkItemId,@UserId)", new { WorkItemId = id, UserId = userId }, transaction);
+            var state = item.Status == "APPROVED" ? "Lịch đã được xác nhận." : "Lịch đang chờ phê duyệt.";
+            AddParticipantNotifications(db, transaction, id, $"Lời mời họp: {item.Title}",
+                $"{item.Location} · {item.StartAt:dd/MM/yyyy HH:mm}–{item.EndAt:HH:mm}. {state}");
+        }
+        transaction.Commit();
+        return id;
     }
 
     public bool HasMeetingConflict(string location, DateTime startAt, DateTime endAt)
@@ -79,9 +97,40 @@ public sealed class WorkItemStore
         var changed = db.Execute(@"UPDATE dbo.HrmWorkItem SET Status=@NewStatus, LastActionNote=@Note, UpdatedAt=SYSUTCDATETIME()
             WHERE Id=@Id AND Kind=@Kind AND Status=@ExpectedStatus",
             new { Id = id, Kind = kind, ExpectedStatus = expectedStatus, NewStatus = newStatus, Note = string.IsNullOrWhiteSpace(note) ? null : note.Trim() }, transaction) > 0;
-        if (changed) AddAudit(db, transaction, actorId, newStatus, id, $"{kind}: {expectedStatus} -> {newStatus}. {note}".Trim(), ipAddress);
+        if (changed)
+        {
+            AddAudit(db, transaction, actorId, newStatus, id, $"{kind}: {expectedStatus} -> {newStatus}. {note}".Trim(), ipAddress);
+            if (kind == "meeting")
+            {
+                var item = db.QuerySingle<WorkItem>("SELECT * FROM dbo.HrmWorkItem WHERE Id=@Id", new { Id = id }, transaction);
+                var statusLabel = newStatus switch { "APPROVED" => "đã được duyệt", "REJECTED" => "đã bị từ chối", "CANCELLED" => "đã bị hủy", _ => "đã được cập nhật" };
+                AddParticipantNotifications(db, transaction, id, $"Lịch họp {statusLabel}: {item.Title}",
+                    $"{item.Location} · {item.StartAt:dd/MM/yyyy HH:mm}–{item.EndAt:HH:mm}. {note}".Trim());
+            }
+        }
         transaction.Commit();
         return changed;
+    }
+
+    public IReadOnlyList<WorkNotification> GetNotifications(int userId)
+    {
+        using var db = Open();
+        return db.Query<WorkNotification>(@"SELECT TOP (100) Id,Title,Message,LinkUrl,IsRead,CreatedAt
+            FROM dbo.HrmNotification WHERE UserId=@UserId ORDER BY CreatedAt DESC,Id DESC", new { UserId = userId }).ToList();
+    }
+
+    public int GetUnreadNotificationCount(int userId)
+    {
+        using var db = Open();
+        return db.ExecuteScalar<int>("SELECT COUNT(1) FROM dbo.HrmNotification WHERE UserId=@UserId AND IsRead=0", new { UserId = userId });
+    }
+
+    public string ReadNotification(long id, int userId)
+    {
+        using var db = Open();
+        var link = db.QuerySingleOrDefault<string>("SELECT LinkUrl FROM dbo.HrmNotification WHERE Id=@Id AND UserId=@UserId", new { Id = id, UserId = userId });
+        if (link != null) db.Execute("UPDATE dbo.HrmNotification SET IsRead=1 WHERE Id=@Id AND UserId=@UserId", new { Id = id, UserId = userId });
+        return link;
     }
 
     public bool UpdateKpi(WorkItem item, int actorId, string ipAddress)
@@ -129,5 +178,13 @@ public sealed class WorkItemStore
         db.Execute(@"INSERT dbo.HrmAuditLog(UserId,ActionCode,EntityType,EntityId,Detail,IpAddress)
             VALUES(@UserId,@Action,'HrmWorkItem',@EntityId,@Detail,@IpAddress)",
             new { UserId = actorId, Action = action, EntityId = id.ToString(), Detail = detail, IpAddress = ipAddress }, transaction);
+    }
+
+    private static void AddParticipantNotifications(SqlConnection db, SqlTransaction transaction, int workItemId, string title, string message)
+    {
+        db.Execute(@"INSERT dbo.HrmNotification(UserId,Title,Message,LinkUrl)
+            SELECT UserId,@Title,@Message,N'/Work?kind=meeting'
+            FROM dbo.HrmWorkItemParticipant WHERE WorkItemId=@WorkItemId",
+            new { WorkItemId = workItemId, Title = title.Length > 200 ? title[..200] : title, Message = message.Length > 1000 ? message[..1000] : message }, transaction);
     }
 }

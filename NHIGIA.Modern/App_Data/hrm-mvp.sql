@@ -441,3 +441,33 @@ IF COL_LENGTH('dbo.HrmWorkItem', 'Location') IS NULL
 IF COL_LENGTH('dbo.HrmWorkItem', 'Destination') IS NULL
     ALTER TABLE dbo.HrmWorkItem ADD Destination NVARCHAR(250) NULL;
 GO
+
+IF OBJECT_ID('dbo.HrmWorkItemParticipant', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.HrmWorkItemParticipant (
+        WorkItemId INT NOT NULL,
+        UserId INT NOT NULL,
+        CreatedAt DATETIME2 NOT NULL CONSTRAINT DF_HrmWorkItemParticipant_CreatedAt DEFAULT (SYSDATETIME()),
+        CONSTRAINT PK_HrmWorkItemParticipant PRIMARY KEY (WorkItemId, UserId),
+        CONSTRAINT FK_HrmWorkItemParticipant_WorkItem FOREIGN KEY (WorkItemId) REFERENCES dbo.HrmWorkItem(Id) ON DELETE CASCADE,
+        CONSTRAINT FK_HrmWorkItemParticipant_User FOREIGN KEY (UserId) REFERENCES dbo.HrmUserAccount(Id)
+    );
+    CREATE INDEX IX_HrmWorkItemParticipant_User ON dbo.HrmWorkItemParticipant(UserId, WorkItemId);
+END;
+GO
+
+IF OBJECT_ID('dbo.HrmNotification', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.HrmNotification (
+        Id BIGINT IDENTITY(1,1) NOT NULL CONSTRAINT PK_HrmNotification PRIMARY KEY,
+        UserId INT NOT NULL,
+        Title NVARCHAR(200) NOT NULL,
+        Message NVARCHAR(1000) NOT NULL,
+        LinkUrl NVARCHAR(500) NULL,
+        IsRead BIT NOT NULL CONSTRAINT DF_HrmNotification_IsRead DEFAULT (0),
+        CreatedAt DATETIME2 NOT NULL CONSTRAINT DF_HrmNotification_CreatedAt DEFAULT (SYSDATETIME()),
+        CONSTRAINT FK_HrmNotification_User FOREIGN KEY (UserId) REFERENCES dbo.HrmUserAccount(Id)
+    );
+    CREATE INDEX IX_HrmNotification_User ON dbo.HrmNotification(UserId, IsRead, CreatedAt DESC);
+END;
+GO

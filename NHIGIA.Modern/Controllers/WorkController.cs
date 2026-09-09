@@ -122,7 +122,7 @@ public sealed class WorkController : Controller
     }
 
     [HttpPost, ValidateAntiForgeryToken]
-    public IActionResult Create([Bind("Kind,Title,Description,Category,Reference,EmployeeId,DepartmentId,DueDate,StartAt,EndAt,Location,Destination,Target,Actual,Weight,Priority")] WorkItem draft)
+    public IActionResult Create([Bind("Kind,Title,Description,Category,Reference,EmployeeId,DepartmentId,DueDate,StartAt,EndAt,Location,Destination,Target,Actual,Weight,Priority,ParticipantIds")] WorkItem draft)
     {
         var page = Page(draft.Kind);
         if (page == null) return NotFound();
@@ -167,6 +167,13 @@ public sealed class WorkController : Controller
             ModelState.AddModelError("", "Loại xe được chọn không hợp lệ.");
         if (draft.Kind == "meeting" && (string.IsNullOrWhiteSpace(draft.Location) || !draft.Target.HasValue || draft.Target <= 0))
             ModelState.AddModelError("", "Đặt phòng họp cần phòng, số người và khung giờ sử dụng.");
+        var participantIds = draft.Kind == "meeting" ? (draft.ParticipantIds ?? new List<int>()).Distinct().ToList() : new List<int>();
+        if (draft.Kind == "meeting" && participantIds.Count == 0)
+            ModelState.AddModelError("", "Vui lòng chọn ít nhất một nhân viên tham dự.");
+        if (draft.Kind == "meeting" && participantIds.Any(id => !page.People.Any(person => person.Id == id)))
+            ModelState.AddModelError("", "Danh sách nhân viên tham dự không hợp lệ.");
+        if (draft.Kind == "meeting" && draft.Target.HasValue && (draft.Target != decimal.Truncate(draft.Target.Value) || participantIds.Count != (int)draft.Target.Value))
+            ModelState.AddModelError("", "Vui lòng chọn đủ nhân viên tương ứng với số người tham dự.");
         if (draft.Kind == "meeting" && !MeetingRooms.Contains(draft.Location))
             ModelState.AddModelError("", "Phòng họp được chọn không hợp lệ.");
         var roomCapacity = draft.Location switch { "Phòng họp 1 · 8 người" => 8, "Phòng họp 2 · 16 người" => 16, "Phòng đào tạo · 30 người" => 30, _ => 0 };
@@ -199,7 +206,7 @@ public sealed class WorkController : Controller
             draft.DueDate = draft.StartAt?.Date;
         try
         {
-            var id = _store.Create(draft);
+            var id = _store.Create(draft, participantIds);
             TempData["WorkSuccess"] = $"Đã lưu {WorkItem.FormatCode(draft.Kind, id)} vào hệ thống.";
             return RedirectToAction("Index", new { kind = draft.Kind });
         }
@@ -209,6 +216,36 @@ public sealed class WorkController : Controller
             ModelState.AddModelError("", "Không thể lưu dữ liệu. Vui lòng thử lại; mã tài sản có thể đã tồn tại.");
             return View("Index", page);
         }
+    }
+
+    [HttpGet]
+    public IActionResult Notifications()
+    {
+        ViewBag.Title = "Thông báo";
+        try { return View(_store.GetNotifications(_user.Current.Id)); }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Cannot load notifications");
+            return View(Array.Empty<WorkNotification>());
+        }
+    }
+
+    [HttpGet]
+    public IActionResult NotificationCount()
+    {
+        try { return Json(new { Count = _store.GetUnreadNotificationCount(_user.Current.Id) }); }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Cannot load notification count");
+            return Json(new { Count = 0 });
+        }
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public IActionResult OpenNotification(long id)
+    {
+        var link = _store.ReadNotification(id, _user.Current.Id);
+        return Redirect(Url.IsLocalUrl(link) ? link : Url.Action(nameof(Notifications))!);
     }
 
     [HttpPost, ValidateAntiForgeryToken]

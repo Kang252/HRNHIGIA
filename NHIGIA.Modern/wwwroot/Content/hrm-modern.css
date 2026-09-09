@@ -500,6 +500,35 @@ section.content {
 .booking-action-form .form-control { width: 100%; min-width: 185px; }
 .booking-action-form .hrm-btn { padding: 6px 9px; font-size: 12px; }
 .work-status-cancelled { color: #667085; background: #f2f4f7; }
+.meeting-employee-picker { margin-top: 14px; border: 1px solid #d8e0ea; border-radius: 10px; overflow: hidden; background: #fff; }
+.meeting-picker-head { display: flex; justify-content: space-between; gap: 10px; padding: 12px 14px; border-bottom: 1px solid #e7ecf2; background: #f8fafc; }
+.meeting-picker-head strong { color: #243b5a; }
+.meeting-picker-head span { color: #b54708; font-size: 12px; font-weight: 700; }
+.meeting-picker-head span.is-complete { color: #16834a; }
+.meeting-picker-search { display: flex; align-items: center; gap: 8px; margin: 12px; padding: 0 10px; border: 1px solid #d8e0ea; border-radius: 8px; }
+.meeting-picker-search .material-icons { color: #718096; font-size: 20px; }
+.meeting-picker-search input { width: 100%; height: 38px; border: 0; outline: 0; background: transparent; }
+.meeting-employee-list { max-height: 310px; overflow-y: auto; border-top: 1px solid #edf0f4; }
+.meeting-employee-option { display: grid !important; grid-template-columns: 20px 34px minmax(0, 1fr); align-items: center; gap: 10px; margin: 0 !important; padding: 10px 14px; border-bottom: 1px solid #edf0f4; cursor: pointer; }
+.meeting-employee-option[hidden] { display: none !important; }
+.meeting-employee-option:hover { background: #f5f9ff; }
+.meeting-employee-option input { margin: 0; }
+.meeting-employee-option input:disabled + .hrm-avatar { opacity: .5; }
+.meeting-employee-option .hrm-avatar { width: 34px; height: 34px; font-size: 10px; }
+.meeting-employee-option > span:last-child { display: grid; min-width: 0; }
+.meeting-employee-option strong { overflow: hidden; color: #253858; text-overflow: ellipsis; white-space: nowrap; }
+.meeting-employee-option small { overflow: hidden; color: #718096; text-overflow: ellipsis; white-space: nowrap; }
+.meeting-employee-empty { padding: 24px; color: #718096; text-align: center; }
+.hrm-notification { position: relative; }
+.hrm-notification-badge { position: absolute; top: -5px; right: -6px; min-width: 18px; height: 18px; padding: 0 5px; border: 2px solid #2874d7; border-radius: 10px; color: #fff; background: #e3323d; font-size: 10px; font-weight: 750; line-height: 14px; text-align: center; }
+.notification-list { display: grid; gap: 10px; }
+.notification-item { display: flex; align-items: flex-start; gap: 12px; width: 100%; padding: 15px; border: 1px solid #e1e8f0; border-radius: 10px; color: #344054; background: #fff; text-align: left; }
+.notification-item:hover, .notification-item:focus { border-color: #9ec4f5; background: #f7faff; }
+.notification-item.is-unread { border-left: 4px solid #1769e0; background: #f4f8ff; }
+.notification-item .material-icons { color: #1769e0; }
+.notification-copy { display: grid; flex: 1; gap: 4px; }
+.notification-copy strong { color: #16355d; }
+.notification-copy small { color: #718096; }
 @media (max-width: 767px) {
     .booking-time-grid { grid-template-columns: 1fr; gap: 0; }
     .request-flow { grid-template-columns: 1fr; }

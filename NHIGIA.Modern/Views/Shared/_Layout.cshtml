@@ -47,7 +47,7 @@
                 <a class="navbar-brand" asp-controller="Home" asp-action="Index"><img class="hrm-brand-logo" src="~/images/nhigia-logo.png" asp-append-version="true" alt="Nhị Gia" />HRM NHỊ GIA</a>
             </div>
             <div class="pull-right">
-                <a class="hrm-notification" asp-controller="Home" asp-action="InternalCommunications" title="Thông báo" aria-label="Mở thông báo"><i class="material-icons">notifications_none</i></a>
+                <a class="hrm-notification" asp-controller="Work" asp-action="Notifications" title="Thông báo" aria-label="Mở thông báo"><i class="material-icons">notifications_none</i><span id="hrmNotificationBadge" class="hrm-notification-badge" hidden></span></a>
                 <form class="hrm-logout" asp-controller="Account" asp-action="Logout" method="post">
                     @Html.AntiForgeryToken()
                     <button type="submit"><i class="material-icons" style="font-size:16px;vertical-align:middle">logout</i><span class="hrm-logout-label"> Đăng xuất</span></button>
@@ -190,6 +190,20 @@
                 document.documentElement.classList.remove('hrm-menu-collapsed-persisted');
                 setMenu(false);
             });
+        })();
+    </script>
+    <script>
+        (function () {
+            var badge = document.getElementById('hrmNotificationBadge');
+            if (!badge) return;
+            fetch('@Url.Action("NotificationCount", "Work")', { credentials: 'same-origin' })
+                .then(function (response) { return response.ok ? response.json() : { Count: 0 }; })
+                .then(function (data) {
+                    var count = Number(data.Count) || 0;
+                    badge.textContent = count > 99 ? '99+' : String(count);
+                    badge.hidden = count < 1;
+                })
+                .catch(function () { badge.hidden = true; });
         })();
     </script>
     <script>

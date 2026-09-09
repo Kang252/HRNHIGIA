@@ -28,6 +28,8 @@ public sealed class WorkItem
     public string LastActionNote { get; set; }
     public string EmployeeName { get; set; }
     public string DepartmentName { get; set; }
+    public string ParticipantNames { get; set; }
+    public List<int> ParticipantIds { get; set; } = new();
 
     public string RecordCode => FormatCode(Kind, Id);
 
@@ -60,5 +62,15 @@ public sealed class WorkPage
     public List<WorkPerson> People { get; set; } = new();
     public List<WorkDepartment> Departments { get; set; } = new();
 }
-public sealed class WorkPerson { public int Id { get; set; } public string DisplayName { get; set; } }
+public sealed class WorkPerson { public int Id { get; set; } public string DisplayName { get; set; } public string DepartmentName { get; set; } }
 public sealed class WorkDepartment { public int Id { get; set; } public string Name { get; set; } }
+
+public sealed class WorkNotification
+{
+    public long Id { get; set; }
+    public string Title { get; set; }
+    public string Message { get; set; }
+    public string LinkUrl { get; set; }
+    public bool IsRead { get; set; }
+    public DateTime CreatedAt { get; set; }
+}

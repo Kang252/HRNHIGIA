@@ -26,7 +26,7 @@
     var showEditor = Model.CanCreate || (canEditKpi && Model.EditId.HasValue);
     var formAction = Model.EditId.HasValue ? (Model.Kind == "kpi" ? "UpdateKpi" : "UpdatePayroll") : "Create";
     var showEmployee = Model.Kind is "kpi" or "transfer" or "payroll" or "assets" or "training" or "business-trip" or "offboarding"
-        || (Model.CanManage && Model.Kind is "overtime" or "resignation" or "vehicle" or "meeting");
+        || (Model.CanManage && Model.Kind is "overtime" or "resignation" or "vehicle");
     var employeeRequired = Model.Kind is "transfer" or "payroll" or "overtime" or "resignation" or "business-trip" or "offboarding";
     var showDepartment = Model.Kind is "kpi" or "transfer" or "recruitment" or "training";
     var showReference = Model.Kind is "kpi" or "assets" or "payroll" or "recruitment" or "training" or "business-trip" or "offboarding";
@@ -105,7 +105,7 @@
         else
         {
             <div class="table-responsive"><table class="table table-hover">
-                <thead><tr><th>Nội dung</th><th>@(Model.Kind == "kpi" ? "Đối tượng nhận" : Model.Kind == "recruitment" ? "Phòng ban" : "Nhân viên")</th><th>Thông tin chính</th><th>Trạng thái</th>@if (Model.Kind == "payroll" || canEditKpi || isRequestFlow) { <th>Thao tác</th> }</tr></thead>
+                <thead><tr><th>Nội dung</th><th>@(Model.Kind == "kpi" ? "Đối tượng nhận" : Model.Kind == "recruitment" ? "Phòng ban" : Model.Kind == "meeting" ? "Người tham dự" : "Nhân viên")</th><th>Thông tin chính</th><th>Trạng thái</th>@if (Model.Kind == "payroll" || canEditKpi || isRequestFlow) { <th>Thao tác</th> }</tr></thead>
                 <tbody>
                 @foreach (var item in Model.Items)
                 {
@@ -119,7 +119,7 @@
                                     <div class="hrm-preview-title">@item.Title</div>
                                     <div class="hrm-preview-grid">
                                         <span>Mã bản ghi</span><strong>@item.RecordCode</strong>
-                                        <span>Nhân viên</span><strong>@(item.EmployeeName ?? "Chưa phân công")</strong>
+                                        <span>@(Model.Kind == "meeting" ? "Người tham dự" : "Nhân viên")</span><strong>@(Model.Kind == "meeting" ? item.ParticipantNames ?? "Chưa chọn" : item.EmployeeName ?? "Chưa phân công")</strong>
                                         <span>Phòng ban</span><strong>@(item.DepartmentName ?? "Chưa phân phòng")</strong>
                                         @if (Model.Kind == "training") { <span>Mã khóa học</span><strong>@(item.Reference ?? "—")</strong><span>Hình thức</span><strong>@(item.Category ?? "—")</strong><span>Ngày tổ chức</span><strong>@(item.DueDate?.ToString("dd/MM/yyyy") ?? "—")</strong> }
                                         @if (Model.Kind == "overtime") { <span>Ngày tăng ca</span><strong>@(item.DueDate?.ToString("dd/MM/yyyy") ?? "—")</strong><span>Số giờ</span><strong>@(item.Target?.ToString("0.##") ?? "—") giờ</strong> }
@@ -142,7 +142,7 @@
                         }
                         else
                         {
-                            <td>@(Model.Kind == "recruitment" ? item.DepartmentName : item.EmployeeName ?? "Chưa phân công")<small class="work-muted">@(Model.Kind == "recruitment" ? item.Category : item.DepartmentName)</small></td>
+                            <td>@(Model.Kind == "recruitment" ? item.DepartmentName : Model.Kind == "meeting" ? item.ParticipantNames ?? "Chưa chọn" : item.EmployeeName ?? "Chưa phân công")<small class="work-muted">@(Model.Kind == "recruitment" ? item.Category : Model.Kind == "meeting" ? $"{item.Target:0} người tham dự" : item.DepartmentName)</small></td>
                         }
                         <td>
                             @if (Model.Kind == "kpi")
@@ -271,7 +271,27 @@
                     @if (Model.Kind is "kpi" or "payroll" or "recruitment" or "overtime" or "vehicle" or "meeting")
                     {
                         <label for="Target">@(Model.Kind switch { "payroll" => "Tổng thu nhập", "recruitment" => "Số lượng cần tuyển", "overtime" => "Số giờ tăng ca", "vehicle" => "Số người đi", "meeting" => "Số người tham dự", _ => "Mục tiêu" }) *</label>
-                        <input id="Target" name="Target" class="form-control" type="number" min="0.01" max="1000000000" step="0.01" required value="@Model.Draft.Target" />
+                        <input id="Target" name="Target" class="form-control" type="number" min="@(Model.Kind is "meeting" or "vehicle" ? "1" : "0.01")" max="@(Model.Kind == "meeting" ? "30" : "1000000000")" step="@(Model.Kind is "meeting" or "vehicle" ? "1" : "0.01")" required value="@Model.Draft.Target" />
+                        @if (Model.Kind == "meeting")
+                        {
+                            <section class="meeting-employee-picker" aria-labelledby="meetingEmployeePickerTitle">
+                                <div class="meeting-picker-head"><strong id="meetingEmployeePickerTitle">Chọn nhân viên tham dự</strong><span id="meetingParticipantCount">0 / 0 đã chọn</span></div>
+                                <div class="meeting-picker-search"><i class="material-icons">search</i><input id="meetingEmployeeSearch" type="search" placeholder="Tìm theo tên hoặc phòng ban..." autocomplete="off" /></div>
+                                <div id="meetingEmployeeList" class="meeting-employee-list">
+                                    @foreach (var person in Model.People)
+                                    {
+                                        var checkedParticipant = Model.Draft.ParticipantIds?.Contains(person.Id) == true;
+                                        <label class="meeting-employee-option" data-search="@($"{person.DisplayName} {person.DepartmentName}".ToLowerInvariant())">
+                                            <input type="checkbox" name="ParticipantIds" value="@person.Id" checked="@checkedParticipant" />
+                                            <span class="hrm-avatar">@(person.DisplayName.Substring(0, Math.Min(2, person.DisplayName.Length)).ToUpperInvariant())</span>
+                                            <span><strong>@person.DisplayName</strong><small>@(person.DepartmentName ?? "Chưa phân phòng")</small></span>
+                                        </label>
+                                    }
+                                    <div id="meetingEmployeeEmpty" class="meeting-employee-empty" hidden>Không tìm thấy nhân viên phù hợp.</div>
+                                </div>
+                            </section>
+                            <small class="work-muted">Nhập số người trước, sau đó tìm kiếm và chọn đủ nhân viên trong danh sách.</small>
+                        }
                     }
                     @if (Model.Kind is "kpi" or "payroll" or "recruitment")
                     {
@@ -313,6 +333,55 @@
         </section>
     }
 </div>
+
+@if (Model.Kind == "meeting")
+{
+    <script>
+        (function () {
+            var countInput = document.getElementById('Target');
+            var searchInput = document.getElementById('meetingEmployeeSearch');
+            var list = document.getElementById('meetingEmployeeList');
+            var counter = document.getElementById('meetingParticipantCount');
+            var empty = document.getElementById('meetingEmployeeEmpty');
+            if (!countInput || !searchInput || !list || !counter) return;
+            var checkboxes = Array.prototype.slice.call(list.querySelectorAll('input[type="checkbox"]'));
+            var rows = Array.prototype.slice.call(list.querySelectorAll('.meeting-employee-option'));
+
+            function targetCount() { return Math.max(0, Math.min(30, parseInt(countInput.value, 10) || 0)); }
+            function checkedBoxes() { return checkboxes.filter(function (checkbox) { return checkbox.checked; }); }
+            function updateSelection(changed) {
+                var target = targetCount();
+                var selected = checkedBoxes();
+                if (changed && changed.checked && (!target || selected.length > target)) {
+                    changed.checked = false;
+                    selected = checkedBoxes();
+                }
+                counter.textContent = selected.length + ' / ' + target + ' đã chọn';
+                counter.classList.toggle('is-complete', target > 0 && selected.length === target);
+                countInput.setCustomValidity(target > 0 && selected.length !== target ? 'Vui lòng chọn đủ ' + target + ' nhân viên tham dự.' : '');
+                checkboxes.forEach(function (checkbox) { checkbox.disabled = !checkbox.checked && (!target || selected.length >= target); });
+            }
+            function filterEmployees() {
+                var keyword = searchInput.value.trim().toLocaleLowerCase('vi');
+                var visible = 0;
+                rows.forEach(function (row) {
+                    var matches = !keyword || row.getAttribute('data-search').indexOf(keyword) >= 0;
+                    row.hidden = !matches;
+                    if (matches) visible++;
+                });
+                empty.hidden = visible > 0;
+            }
+            checkboxes.forEach(function (checkbox) { checkbox.addEventListener('change', function () { updateSelection(checkbox); }); });
+            countInput.addEventListener('input', function () {
+                var target = targetCount();
+                checkedBoxes().slice(target).forEach(function (checkbox) { checkbox.checked = false; });
+                updateSelection();
+            });
+            searchInput.addEventListener('input', filterEmployees);
+            updateSelection();
+        })();
+    </script>
+}
 
 @if (Model.Kind == "kpi" && showEditor)
 {
