@@ -68,7 +68,8 @@ public sealed class WorkItemStore
         using var db = Open();
         return db.ExecuteScalar<int>(@"SELECT COUNT(1) FROM dbo.HrmWorkItem
             WHERE Kind='meeting' AND Location=@Location AND Status IN ('PENDING','APPROVED')
-              AND StartAt < @EndAt AND EndAt > @StartAt", new { Location = location, StartAt = startAt, EndAt = endAt }) > 0;
+              AND StartAt < DATEADD(MINUTE, 10, @EndAt)
+              AND EndAt > DATEADD(MINUTE, -10, @StartAt)", new { Location = location, StartAt = startAt, EndAt = endAt }) > 0;
     }
 
     public bool TransitionBooking(int id, string kind, string expectedStatus, string newStatus, string note, int actorId, string ipAddress)

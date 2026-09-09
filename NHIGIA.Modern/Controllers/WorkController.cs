@@ -48,7 +48,7 @@ public sealed class WorkController : Controller
             "assets" => ("Quản lý tài sản", "Danh mục tài sản, người sử dụng và tình trạng bàn giao."),
             "helpdesk" => ("Helpdesk IT", "Gửi yêu cầu hỗ trợ và theo dõi các yêu cầu của bạn."),
             "vehicle" => ("Đặt xe", "Đăng ký xe phục vụ công việc và theo dõi trạng thái điều phối."),
-            "meeting" => ("Đặt phòng họp", "Đặt phòng theo khung giờ và tránh trùng lịch sử dụng."),
+            "meeting" => ("Đặt phòng họp", "Đặt phòng theo khung giờ; mỗi lịch sử dụng cùng phòng phải cách nhau ít nhất 10 phút."),
             "business-trip" => ("Phân công công tác", "Phân công nhân viên, địa điểm và thời gian thực hiện công tác."),
             "offboarding" => ("Thủ tục thôi việc", "Theo dõi bàn giao công việc, tài sản và hồ sơ khi nhân viên thôi việc."),
             _ => (null, null)
@@ -178,12 +178,13 @@ public sealed class WorkController : Controller
             ModelState.AddModelError("", "Thủ tục thôi việc cần nhân viên, ngày nghỉ và nội dung bàn giao.");
         if (draft.Kind == "meeting" && draft.StartAt.HasValue && draft.EndAt.HasValue && !string.IsNullOrWhiteSpace(draft.Location)
             && page.Available && _store.HasMeetingConflict(draft.Location, draft.StartAt.Value, draft.EndAt.Value))
-            ModelState.AddModelError("", "Phòng họp đã có lịch trong khung giờ này. Vui lòng chọn thời gian hoặc phòng khác.");
+            ModelState.AddModelError("", "Phòng họp đã có lịch hoặc chưa đủ khoảng nghỉ 10 phút. Vui lòng chọn thời gian hoặc phòng khác.");
         if (!page.Available || !ModelState.IsValid) return View("Index", page);
         draft.CreatedBy = _user.Current.Id;
         draft.Status = draft.Kind switch
         {
             "assets" => draft.EmployeeId.HasValue ? "ASSIGNED" : "AVAILABLE",
+            "meeting" when page.CanManage => "APPROVED",
             "transfer" or "overtime" or "resignation" or "vehicle" or "meeting" or "business-trip" or "offboarding" => "PENDING",
             "kpi" => "TRACKING",
             "payroll" => "DRAFT",

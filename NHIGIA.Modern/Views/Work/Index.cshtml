@@ -75,7 +75,7 @@
 {
     <ol class="request-flow" aria-label="Quy trình xử lý">
         <li><i class="material-icons">edit_note</i><span><strong>Tạo yêu cầu</strong><small>Nhập đủ thông tin và thời gian</small></span></li>
-        <li><i class="material-icons">fact_check</i><span><strong>Phê duyệt</strong><small>Quản lý kiểm tra và phản hồi</small></span></li>
+        <li><i class="material-icons">fact_check</i><span><strong>@(Model.Kind == "meeting" && Model.CanManage ? "Tự động xác nhận" : "Phê duyệt")</strong><small>@(Model.Kind == "meeting" && Model.CanManage ? "Quản lý, HR và Ban giám đốc không cần chờ duyệt" : "Quản lý kiểm tra và phản hồi")</small></span></li>
         <li><i class="material-icons">notifications_active</i><span><strong>Thực hiện</strong><small>Theo dõi kết quả trên hệ thống</small></span></li>
     </ol>
 }
@@ -290,6 +290,7 @@
                     @if (Model.Kind == "meeting")
                     {
                         <label for="Location">Phòng họp *<select id="Location" name="Location" class="form-control" required><option value="">Chọn phòng họp</option>@foreach (var room in new[] { "Phòng họp 1 · 8 người", "Phòng họp 2 · 16 người", "Phòng đào tạo · 30 người" }) { <option selected="@(Model.Draft.Location == room)">@room</option> }</select></label>
+                        <small class="work-muted">Các lịch trong cùng phòng phải cách nhau ít nhất 10 phút.</small>
                     }
                     @if (Model.Kind == "vehicle")
                     {
@@ -305,7 +306,7 @@
                     }
                     <label for="Description">@(Model.Kind switch { "kpi" => "Cách đo / Nguồn dữ liệu", "overtime" => "Lý do tăng ca", "resignation" => "Lý do nghỉ việc", "vehicle" => "Yêu cầu chuyến xe", "meeting" => "Thiết bị và ghi chú", "business-trip" => "Nhiệm vụ công tác", "offboarding" => "Nội dung bàn giao", _ => "Mô tả" }) @(Model.Kind is "kpi" or "helpdesk" or "overtime" or "resignation" or "offboarding" ? "*" : "")</label>
                     <textarea id="Description" name="Description" class="form-control" rows="4" maxlength="2000" required="@(Model.Kind is "kpi" or "helpdesk" or "overtime" or "resignation" or "offboarding")" placeholder="@(Model.Kind == "kpi" ? "Mô tả công thức, nguồn số liệu và điều kiện ghi nhận hoàn thành" : Model.Kind == "offboarding" ? "Bàn giao công việc, tài sản, hồ sơ và công nợ" : null)">@Model.Draft.Description</textarea>
-                    <button type="submit" class="hrm-btn hrm-btn-primary work-submit">@(Model.Kind switch { "helpdesk" or "vehicle" or "meeting" => "Gửi yêu cầu", "business-trip" => "Lưu phân công", "offboarding" => "Tạo thủ tục", _ => Model.EditId.HasValue ? "Lưu thay đổi" : "Lưu bản ghi" })</button>
+                    <button type="submit" class="hrm-btn hrm-btn-primary work-submit">@(Model.Kind switch { "meeting" when Model.CanManage => "Đặt và xác nhận", "helpdesk" or "vehicle" or "meeting" => "Gửi yêu cầu", "business-trip" => "Lưu phân công", "offboarding" => "Tạo thủ tục", _ => Model.EditId.HasValue ? "Lưu thay đổi" : "Lưu bản ghi" })</button>
                     @if (Model.EditId.HasValue) { <a class="hrm-btn work-cancel" asp-controller="Work" asp-action="Index" asp-route-kind="@Model.Kind">Hủy sửa</a> }
                 </fieldset>
             </form>
