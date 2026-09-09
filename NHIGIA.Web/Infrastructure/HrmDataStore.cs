@@ -101,11 +101,18 @@ namespace NHIGIA.Web.Infrastructure
 
         private static string FindLocalDbExecutable()
         {
-            var programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
-            foreach (var version in new[] { "170", "160", "150", "140", "130" })
+            var programFileRoots = new[]
             {
-                var candidate = Path.Combine(programFiles, "Microsoft SQL Server", version, "Tools", "Binn", "SqlLocalDB.exe");
-                if (File.Exists(candidate)) return candidate;
+                Environment.GetEnvironmentVariable("ProgramW6432"),
+                Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles)
+            };
+            foreach (var programFiles in programFileRoots.Where(x => !string.IsNullOrWhiteSpace(x)).Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                foreach (var version in new[] { "170", "160", "150", "140", "130" })
+                {
+                    var candidate = Path.Combine(programFiles, "Microsoft SQL Server", version, "Tools", "Binn", "SqlLocalDB.exe");
+                    if (File.Exists(candidate)) return candidate;
+                }
             }
             return "sqllocaldb.exe";
         }
