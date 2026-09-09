@@ -86,10 +86,21 @@ public sealed class WorkItemStore
 
     public string GetNextAssetReference()
     {
+        return GetNextReference("assets", "TS");
+    }
+
+    public string GetNextOffboardingReference()
+    {
+        return GetNextReference("offboarding", "TV");
+    }
+
+    private string GetNextReference(string kind, string prefix)
+    {
         using var db = Open();
         var sequence = db.ExecuteScalar<int>(@"SELECT ISNULL(MAX(TRY_CONVERT(INT,SUBSTRING(Reference,4,97))),0)+1
-            FROM dbo.HrmWorkItem WHERE Kind='assets' AND Reference LIKE 'TS.%'");
-        return $"TS.{sequence:D3}";
+            FROM dbo.HrmWorkItem WHERE Kind=@Kind AND Reference LIKE @PrefixPattern",
+            new { Kind = kind, PrefixPattern = $"{prefix}.%" });
+        return $"{prefix}.{sequence:D3}";
     }
 
     public int CreateAsset(WorkItem item)

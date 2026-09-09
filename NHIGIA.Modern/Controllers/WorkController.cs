@@ -105,8 +105,8 @@ public sealed class WorkController : Controller
         if (kind is "transfer" or "recruitment" && !page.CanManage) return Forbid();
         page.EditId = editId;
         Load(page);
-        if (kind == "assets" && page.CanCreate && page.Available)
-            page.Draft.Reference = _store.GetNextAssetReference();
+        if (kind is "assets" or "offboarding" && page.CanCreate && page.Available)
+            page.Draft.Reference = kind == "assets" ? _store.GetNextAssetReference() : _store.GetNextOffboardingReference();
         if (kind == "payroll" && editId.HasValue)
         {
             if (!(User.IsInRole(HrmRoles.Admin) || User.IsInRole(HrmRoles.Hr))) return Forbid();
@@ -132,8 +132,8 @@ public sealed class WorkController : Controller
         if (!page.CanCreate) return Forbid();
         page.Draft = draft;
         Load(page);
-        if (draft.Kind == "assets" && page.Available)
-            draft.Reference = _store.GetNextAssetReference();
+        if (draft.Kind is "assets" or "offboarding")
+            draft.Reference = draft.Kind == "assets" ? _store.GetNextAssetReference() : _store.GetNextOffboardingReference();
         if (draft.EmployeeId.HasValue && !page.People.Any(x => x.Id == draft.EmployeeId))
             ModelState.AddModelError("", "Nhân viên được chọn không hợp lệ.");
         if (draft.DepartmentId.HasValue && !page.Departments.Any(x => x.Id == draft.DepartmentId))

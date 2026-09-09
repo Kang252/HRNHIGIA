@@ -30,7 +30,7 @@
         || (Model.CanManage && Model.Kind is "overtime" or "resignation");
     var employeeRequired = Model.Kind is "transfer" or "payroll" or "overtime" or "resignation" or "business-trip" or "offboarding";
     var showDepartment = Model.Kind is "kpi" or "transfer" or "recruitment" or "training";
-    var showReference = Model.Kind is "kpi" or "assets" or "payroll" or "recruitment" or "training" or "business-trip" or "offboarding";
+    var showReference = Model.Kind is "kpi" or "assets" or "payroll" or "recruitment" or "training" or "business-trip";
     var referenceRequired = Model.Kind is "kpi" or "assets" or "recruitment";
     var showCategory = Model.Kind is "kpi" or "payroll" or "recruitment" or "training" or "vehicle" or "business-trip" or "offboarding";
     var showDate = Model.Kind is "kpi" or "payroll" or "recruitment" or "training" or "overtime" or "resignation" or "transfer" or "offboarding";
