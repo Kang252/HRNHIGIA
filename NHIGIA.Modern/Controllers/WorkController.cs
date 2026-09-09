@@ -116,8 +116,17 @@ public sealed class WorkController : Controller
             ModelState.AddModelError("", "Nhân viên được chọn không hợp lệ.");
         if (draft.Kind is "kpi" or "transfer" or "payroll" or "overtime" or "resignation" && !draft.EmployeeId.HasValue && page.CanManage)
             ModelState.AddModelError("", "Vui lòng chọn nhân viên.");
-        if (draft.Kind == "kpi" && (!draft.Target.HasValue || draft.Target <= 0 || !draft.Weight.HasValue || !draft.DueDate.HasValue))
-            ModelState.AddModelError("", "KPI cần mục tiêu lớn hơn 0, trọng số và hạn hoàn thành.");
+        if (draft.Kind == "kpi" && (!draft.Target.HasValue || draft.Target <= 0 || !draft.Weight.HasValue || !draft.DueDate.HasValue
+            || string.IsNullOrWhiteSpace(draft.Reference) || string.IsNullOrWhiteSpace(draft.Category) || string.IsNullOrWhiteSpace(draft.Description)))
+            ModelState.AddModelError("", "KPI cần mã KPI, đơn vị đo, chỉ tiêu, tỷ trọng, hạn hoàn thành và cách đo kết quả.");
+        if (draft.Kind == "kpi" && draft.EmployeeId.HasValue && draft.Weight.HasValue)
+        {
+            var assignedWeight = page.Items
+                .Where(item => item.Kind == "kpi" && item.EmployeeId == draft.EmployeeId)
+                .Sum(item => item.Weight ?? 0);
+            if (assignedWeight + draft.Weight > 100)
+                ModelState.AddModelError("", $"Tổng tỷ trọng KPI của nhân viên không được vượt 100% (hiện có {assignedWeight:N0}%).");
+        }
         if (draft.Kind == "transfer" && (!draft.DepartmentId.HasValue || !draft.DueDate.HasValue))
             ModelState.AddModelError("", "Vui lòng chọn phòng ban mới và ngày dự kiến.");
         if (draft.Kind == "payroll" && (!draft.EmployeeId.HasValue || string.IsNullOrWhiteSpace(draft.Category) || !draft.Target.HasValue || !draft.Actual.HasValue || !draft.DueDate.HasValue))
