@@ -25,12 +25,19 @@
     <link rel="stylesheet" href="~/Content/css/style.css" />
     <link rel="stylesheet" href="~/Content/hrm-modern.css" asp-append-version="true" />
     <style>
-        .theme-red .navbar{min-height:56px}.navbar .container-fluid{display:flex;align-items:center;height:56px}.navbar .navbar-header{display:flex;align-items:center;flex:1;padding:0 7px}.navbar-brand,.navbar-brand:hover,.navbar-brand:focus{height:56px!important;color:#111827!important}.navbar-brand:before{display:none!important}.hrm-brand-logo{width:36px;height:36px;flex:0 0 36px;border-radius:10px;background:#fff;object-fit:cover}.navbar .pull-right{display:flex;align-items:center;height:56px;gap:8px}.hrm-notification{display:inline-flex;width:38px;height:38px;align-items:center;justify-content:center;border:1px solid rgba(255,255,255,.35);border-radius:9px;background:rgba(255,255,255,.16);color:#fff}.hrm-notification:hover,.hrm-notification:focus{background:rgba(255,255,255,.26);color:#fff;text-decoration:none;outline:0}.hrm-notification .material-icons{font-size:21px}.hrm-logout{display:inline-flex;margin:0 16px 0 0}.hrm-logout button{height:38px;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.35);color:#fff;border-radius:9px;padding:7px 12px}.hrm-menu-toggle{display:inline-flex;width:38px;height:38px;flex:0 0 38px;align-items:center;justify-content:center;margin-left:5px;border:0;border-radius:9px;background:rgba(255,255,255,.16);color:#fff}.hrm-menu-toggle:hover,.hrm-menu-toggle:focus{background:rgba(255,255,255,.26);outline:0}.hrm-menu-toggle .material-icons{font-size:23px}.sidebar{top:56px!important;height:calc(100vh - 56px)!important}.sidebar,.sidebar .menu,.sidebar .menu .list{overflow-x:hidden!important}.sidebar .menu .list{width:100%;margin:0}.sidebar .menu .list a{display:flex;align-items:center;gap:10px;width:calc(100% - 20px);box-sizing:border-box}.sidebar .menu .list a i{margin-top:0!important;flex:0 0 24px;width:24px}.sidebar .menu .list a span{margin-left:12px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.sidebar .menu .list li.active>a{background:#eaf2ff;color:#1769e0}.hrm-sidebar-overlay{display:none}section.content{margin-top:72px}body.hrm-menu-collapsed .sidebar{transform:translateX(-105%)}body.hrm-menu-collapsed section.content{margin-left:22px}
+        .theme-red .navbar{min-height:56px}.navbar .container-fluid{display:flex;align-items:center;height:56px}.navbar .navbar-header{display:flex;align-items:center;flex:1;padding:0 7px}.navbar-brand,.navbar-brand:hover,.navbar-brand:focus{height:56px!important;color:#111827!important}.navbar-brand:before{display:none!important}.hrm-brand-logo{width:36px;height:36px;flex:0 0 36px;border-radius:10px;background:#fff;object-fit:cover}.navbar .pull-right{display:flex;align-items:center;height:56px;gap:8px}.hrm-notification{display:inline-flex;width:38px;height:38px;align-items:center;justify-content:center;border:1px solid rgba(255,255,255,.35);border-radius:9px;background:rgba(255,255,255,.16);color:#fff}.hrm-notification:hover,.hrm-notification:focus{background:rgba(255,255,255,.26);color:#fff;text-decoration:none;outline:0}.hrm-notification .material-icons{font-size:21px}.hrm-logout{display:inline-flex;margin:0 16px 0 0}.hrm-logout button{height:38px;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.35);color:#fff;border-radius:9px;padding:7px 12px}.hrm-menu-toggle{display:inline-flex;width:38px;height:38px;flex:0 0 38px;align-items:center;justify-content:center;margin-left:5px;border:0;border-radius:9px;background:rgba(255,255,255,.16);color:#fff}.hrm-menu-toggle:hover,.hrm-menu-toggle:focus{background:rgba(255,255,255,.26);outline:0}.hrm-menu-toggle .material-icons{font-size:23px}.sidebar{top:56px!important;height:calc(100vh - 56px)!important}.sidebar,.sidebar .menu,.sidebar .menu .list{overflow-x:hidden!important}.sidebar .menu .list{width:100%;margin:0}.sidebar .menu .list a{display:flex;align-items:center;gap:10px;width:calc(100% - 20px);box-sizing:border-box}.sidebar .menu .list a i{margin-top:0!important;flex:0 0 24px;width:24px}.sidebar .menu .list a span{margin-left:12px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.sidebar .menu .list li.active>a{background:#eaf2ff;color:#1769e0}.hrm-sidebar-overlay{display:none}section.content{margin-top:72px}body.hrm-menu-collapsed .sidebar,html.hrm-menu-collapsed-persisted .sidebar{transform:translateX(-105%)}body.hrm-menu-collapsed section.content,html.hrm-menu-collapsed-persisted section.content{margin-left:22px}
         @@media(max-width:900px){body.hrm-menu-open{overflow:hidden}.navbar{z-index:1003!important}.navbar .container-fluid{height:56px}.navbar .navbar-header{min-width:0;flex:1}.navbar .navbar-brand{min-width:0;margin-left:0!important;padding-left:0;white-space:nowrap}.navbar .pull-right{flex:0 0 auto}.hrm-notification{width:36px;height:36px}.hrm-logout{margin:0 8px 0 0}.hrm-logout button{height:36px;padding:7px 9px}.hrm-logout button .material-icons{margin:0}.hrm-logout-label{display:none}.hrm-menu-toggle{width:38px;height:38px;flex-basis:38px;margin-left:0;margin-right:10px}.sidebar,body.hrm-menu-collapsed .sidebar{display:flex!important;top:56px!important;left:0;width:min(84vw,300px);height:calc(100dvh - 56px)!important;z-index:1002!important;transform:translate3d(-105%,0,0);transition:transform .22s ease;box-shadow:8px 0 24px rgba(15,35,65,.22);visibility:hidden}body.hrm-menu-open .sidebar,body.hrm-menu-open.hrm-menu-collapsed .sidebar{transform:translate3d(0,0,0);visibility:visible}.hrm-sidebar-overlay{position:fixed;inset:56px 0 0;background:rgba(15,23,42,.45);z-index:1001!important}body.hrm-menu-open .hrm-sidebar-overlay{display:block}.sidebar .menu{max-height:none;overscroll-behavior:contain}.sidebar .user-info{height:108px;min-height:108px;flex-basis:108px}section.content,body.hrm-menu-collapsed section.content{width:auto;max-width:none;margin:72px 12px 18px}.hrm-page-header{margin-top:0}.hrm-grid-4,.hrm-grid-3,.hrm-grid-2,.hrm-content-grid{grid-template-columns:1fr!important}}
     </style>
     <script src="~/Content/plugins/jquery/jquery.min.js"></script>
     <script src="~/Content/plugins/bootstrap/js/bootstrap.js"></script>
     <script src="~/Scripts/moment.js"></script>
+    <script>
+        try {
+            if (window.innerWidth > 900 && window.localStorage.getItem('hrm-menu-collapsed') === 'true') {
+                document.documentElement.classList.add('hrm-menu-collapsed-persisted');
+            }
+        } catch (ignore) { }
+    </script>
 </head>
 <body class="theme-red">
     <nav class="navbar navbar-fixed-top">
@@ -120,7 +127,22 @@
             var toggle = document.querySelector('.hrm-menu-toggle');
             var overlay = document.querySelector('.hrm-sidebar-overlay');
             var sidebar = document.getElementById('leftsidebar');
+            var menu = sidebar && sidebar.querySelector('.menu');
+            var scrollStorageKey = 'hrm-sidebar-scroll';
             if (!toggle || !overlay || !sidebar) return;
+
+            function restoreMenuPosition() {
+                if (!menu) return;
+                try {
+                    var storedPosition = Number(window.sessionStorage.getItem(scrollStorageKey));
+                    if (Number.isFinite(storedPosition) && storedPosition >= 0) menu.scrollTop = storedPosition;
+                } catch (ignore) { }
+            }
+
+            function rememberMenuPosition() {
+                if (!menu) return;
+                try { window.sessionStorage.setItem(scrollStorageKey, String(menu.scrollTop)); } catch (ignore) { }
+            }
 
             function setMenu(open) {
                 body.classList.toggle('hrm-menu-open', open);
@@ -139,7 +161,12 @@
             if (window.innerWidth > 900 && window.localStorage.getItem('hrm-menu-collapsed') === 'true') {
                 body.classList.add('hrm-menu-collapsed');
             }
+            document.documentElement.classList.remove('hrm-menu-collapsed-persisted');
+            restoreMenuPosition();
             updateToggle();
+
+            if (menu) menu.addEventListener('scroll', rememberMenuPosition, { passive: true });
+            window.addEventListener('pagehide', rememberMenuPosition);
 
             toggle.addEventListener('click', function () {
                 if (window.innerWidth <= 900) {
@@ -152,12 +179,15 @@
             });
             overlay.addEventListener('click', function () { setMenu(false); });
             sidebar.addEventListener('click', function (event) {
-                if (event.target.closest('a') && window.innerWidth <= 900) setMenu(false);
+                if (!event.target.closest('a')) return;
+                rememberMenuPosition();
+                if (window.innerWidth <= 900) setMenu(false);
             });
             document.addEventListener('keydown', function (event) {
                 if (event.key === 'Escape') setMenu(false);
             });
             window.addEventListener('resize', function () {
+                document.documentElement.classList.remove('hrm-menu-collapsed-persisted');
                 setMenu(false);
             });
         })();
