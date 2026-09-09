@@ -459,9 +459,12 @@ section.content {
     .hrm-login-panel { padding: 24px; }
 }
 .work-layout{display:grid;grid-template-columns:minmax(0,2fr) minmax(290px,1fr);gap:24px;align-items:start}.work-panel{background:#fff;border:1px solid #e5eaf1;border-radius:12px;padding:24px}.work-panel h3{margin:0 0 20px;font-size:19px}.work-panel label{display:block;margin:15px 0 7px}.work-panel .form-control{border:1px solid #d8e0ea;border-radius:6px;padding:8px 10px;height:auto;box-shadow:none}.work-search{display:flex;gap:8px;margin-bottom:20px}.work-muted{display:block;color:#738096;margin-top:6px}.work-status{display:inline-block;background:#edf4ff;color:#225ea8;padding:5px 9px;border-radius:20px;white-space:nowrap}.work-empty{text-align:center;padding:50px 10px;color:#738096}.work-empty i{font-size:44px}.work-description{white-space:pre-wrap;overflow-wrap:anywhere;margin-top:8px;color:#657084}.work-submit{margin-top:20px}.validation-summary-valid{display:none}.sidebar .menu{overflow-y:auto;max-height:calc(100vh - 280px)}@media(max-width:1100px){.work-layout{grid-template-columns:1fr}}
-.work-layout-vehicle { grid-template-columns: 1fr; }
-.work-layout-vehicle > .work-panel:first-child { order: 2; }
-.work-layout-vehicle > .work-panel:last-child { order: 1; }
+.work-layout-editor-primary { grid-template-columns: 1fr; }
+.work-layout-editor-primary > .work-panel:first-child { order: 2; }
+.work-layout-editor-primary > .work-panel:last-child { order: 1; }
+.work-layout-management-primary { grid-template-columns: 1fr; }
+.work-layout-management-primary > .work-panel:first-child { order: 1; }
+.work-layout-management-primary > .work-panel:last-child { order: 2; }
 .payroll-flow{display:grid;grid-template-columns:repeat(6,1fr);gap:0;list-style:none;padding:0;margin:0 0 22px;counter-reset:payroll}.payroll-flow li{counter-increment:payroll;background:#fff;border:1px solid #dce4ee;padding:13px 8px;text-align:center;color:#536579;font-size:12px;font-weight:600}.payroll-flow li:before{content:counter(payroll);display:inline-grid;place-items:center;width:22px;height:22px;margin-right:6px;border-radius:50%;background:#1769e0;color:#fff}.payroll-flow li:first-child{border-radius:9px 0 0 9px}.payroll-flow li:last-child{border-radius:0 9px 9px 0}.payroll-actions{min-width:180px}.payroll-action-form{display:flex;flex-wrap:wrap;gap:6px;margin-top:7px}.payroll-action-form .form-control{width:100%;min-width:150px}.payroll-action-form .hrm-btn,.payroll-actions>.hrm-btn{padding:6px 9px;font-size:12px}.work-cancel{display:block;text-align:center;margin-top:9px}.work-status-rejected,.work-status-disputed{background:#fff0f0;color:#a93434}.work-status-paid,.work-status-resolved{background:#eaf8ef;color:#24723c}.work-status-pending_approval{background:#fff5df;color:#8c6200}@media(max-width:760px){.payroll-flow{grid-template-columns:repeat(2,1fr)}.payroll-flow li,.payroll-flow li:first-child,.payroll-flow li:last-child{border-radius:0}}
 
 /* Row detail preview */
@@ -512,15 +515,16 @@ section.content {
 .meeting-picker-search .material-icons { color: #718096; font-size: 20px; }
 .meeting-picker-search input { width: 100%; height: 38px; border: 0; outline: 0; background: transparent; }
 .meeting-employee-list { max-height: 310px; overflow-y: auto; border-top: 1px solid #edf0f4; }
-.meeting-employee-option { display: grid !important; grid-template-columns: 20px 34px minmax(0, 1fr); align-items: center; gap: 10px; margin: 0 !important; padding: 10px 14px; border-bottom: 1px solid #edf0f4; cursor: pointer; }
+.meeting-employee-option { display: flex !important; align-items: center; gap: 10px; width: 100% !important; max-width: none !important; box-sizing: border-box; margin: 0 !important; padding: 10px 14px; border-bottom: 1px solid #edf0f4; cursor: pointer; }
 .meeting-employee-option[hidden] { display: none !important; }
 .meeting-employee-option:hover { background: #f5f9ff; }
-.meeting-employee-option input { margin: 0; }
+.meeting-employee-option:has(input:checked) { background: #eaf3ff; box-shadow: inset 3px 0 #1769e0; }
+.meeting-employee-option input { position: static !important; display: block !important; width: 16px !important; height: 16px !important; flex: 0 0 16px; margin: 0 !important; opacity: 1 !important; appearance: auto !important; }
 .meeting-employee-option input:disabled + .hrm-avatar { opacity: .5; }
 .meeting-employee-option .hrm-avatar { width: 34px; height: 34px; font-size: 10px; }
-.meeting-employee-option > span:last-child { display: grid; min-width: 0; }
-.meeting-employee-option strong { overflow: hidden; color: #253858; text-overflow: ellipsis; white-space: nowrap; }
-.meeting-employee-option small { overflow: hidden; color: #718096; text-overflow: ellipsis; white-space: nowrap; }
+.meeting-employee-option > span:last-child { display: block !important; min-width: 0; width: auto !important; max-width: none !important; flex: 1 1 0; }
+.meeting-employee-option strong { display: block; width: 100%; overflow: hidden; color: #253858; text-overflow: ellipsis; white-space: nowrap; }
+.meeting-employee-option small { display: block; width: 100%; overflow: hidden; color: #718096; text-overflow: ellipsis; white-space: nowrap; }
 .meeting-employee-empty { padding: 24px; color: #718096; text-align: center; }
 .single-employee-picker { margin-top: 0; }
 .single-employee-picker .meeting-employee-list { max-height: 260px; }

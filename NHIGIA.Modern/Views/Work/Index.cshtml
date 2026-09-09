@@ -23,6 +23,8 @@
     var canApprovePayroll = isAdmin || isDirector;
     var canEditKpi = Model.Kind == "kpi" && Model.CanManage;
     var isRequestFlow = Model.Kind is "vehicle" or "meeting" or "business-trip" or "offboarding";
+    var vehicleEditorIsPrimary = Model.Kind == "vehicle";
+    var managementListIsPrimary = Model.Kind is "business-trip" or "offboarding";
     var showEditor = Model.CanCreate || (canEditKpi && Model.EditId.HasValue);
     var formAction = Model.EditId.HasValue ? (Model.Kind == "kpi" ? "UpdateKpi" : "UpdatePayroll") : "Create";
     var showEmployee = Model.Kind is "kpi" or "transfer" or "payroll" or "assets" or "training" or "business-trip" or "offboarding"
@@ -89,9 +91,9 @@
     </div>
 }
 
-<div class="work-layout @(Model.Kind == "vehicle" ? "work-layout-vehicle" : "")">
+<div class="work-layout @(vehicleEditorIsPrimary ? "work-layout-editor-primary work-layout-vehicle" : "") @(managementListIsPrimary ? "work-layout-management-primary" : "")">
     <section class="work-panel">
-        <h3>Danh sách @Model.Title</h3>
+        <h3>@(managementListIsPrimary ? "Danh sách quản lý " : "Danh sách ")@Model.Title</h3>
         <form method="get" asp-controller="Work" asp-action="Index" class="work-search">
             <input type="hidden" name="kind" value="@Model.Kind" />
             <input class="form-control" name="q" value="@Model.Query" placeholder="Tìm theo tên, mã, nhân viên…" aria-label="Tìm kiếm" />
