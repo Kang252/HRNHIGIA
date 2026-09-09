@@ -17,6 +17,7 @@ namespace NHIGIA.Web.Infrastructure
         public static readonly HrmDataStore Instance = new HrmDataStore();
         private static readonly object LocalDbLock = new object();
         private static bool _localDbStarted;
+        private static string _localDbPipeName;
         private string ConnectionString
         {
             get
@@ -29,8 +30,7 @@ namespace NHIGIA.Web.Infrastructure
 
         private SqlConnection OpenConnection()
         {
-            EnsureLocalDbStarted();
-            var connection = new SqlConnection(ConnectionString);
+            var connection = new SqlConnection(GetEffectiveConnectionString());
             try
             {
                 connection.Open();
@@ -39,11 +39,20 @@ namespace NHIGIA.Web.Infrastructure
             catch (SqlException) when (IsLocalDbConnection())
             {
                 connection.Dispose();
-                EnsureLocalDbStarted(true);
-                connection = new SqlConnection(ConnectionString);
+                connection = new SqlConnection(GetEffectiveConnectionString(true));
                 connection.Open();
                 return connection;
             }
+        }
+
+        private string GetEffectiveConnectionString(bool forceLocalDbRestart = false)
+        {
+            if (!IsLocalDbConnection()) return ConnectionString;
+            EnsureLocalDbStarted(forceLocalDbRestart);
+            if (string.IsNullOrWhiteSpace(_localDbPipeName)) return ConnectionString;
+
+            var builder = new SqlConnectionStringBuilder(ConnectionString) { DataSource = _localDbPipeName };
+            return builder.ConnectionString;
         }
 
         private bool IsLocalDbConnection()
@@ -66,30 +75,45 @@ namespace NHIGIA.Web.Infrastructure
             lock (LocalDbLock)
             {
                 if (_localDbStarted && !force) return;
-                var startInfo = new ProcessStartInfo
+                var instanceName = match.Groups["name"].Value;
+                RunLocalDb("start \"" + instanceName + "\"");
+                var instanceInfo = RunLocalDb("info \"" + instanceName + "\"");
+                var pipeMatch = Regex.Match(instanceInfo, @"Instance pipe name:\s*(?<pipe>np:[^\r\n]+)", RegexOptions.IgnoreCase);
+                if (!pipeMatch.Success)
                 {
-                    FileName = "sqllocaldb.exe",
-                    Arguments = "start \"" + match.Groups["name"].Value + "\"",
-                    UseShellExecute = false,
-                    CreateNoWindow = true,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true
-                };
-                using (var process = Process.Start(startInfo))
-                {
-                    process.WaitForExit(15000);
-                    if (!process.HasExited)
-                    {
-                        process.Kill();
-                        throw new InvalidOperationException("Không thể khởi động SQL LocalDB trong 15 giây.");
-                    }
-                    if (process.ExitCode != 0)
-                    {
-                        var error = process.StandardError.ReadToEnd();
-                        throw new InvalidOperationException("Không thể khởi động SQL LocalDB: " + error);
-                    }
+                    throw new InvalidOperationException("SQL LocalDB đã khởi động nhưng không cung cấp named pipe cho instance " + instanceName + ".");
                 }
+                _localDbPipeName = pipeMatch.Groups["pipe"].Value.Trim();
                 _localDbStarted = true;
+            }
+        }
+
+        private static string RunLocalDb(string arguments)
+        {
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = "sqllocaldb.exe",
+                Arguments = arguments,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true
+            };
+            using (var process = Process.Start(startInfo))
+            {
+                var output = process.StandardOutput.ReadToEnd();
+                var error = process.StandardError.ReadToEnd();
+                process.WaitForExit(15000);
+                if (!process.HasExited)
+                {
+                    process.Kill();
+                    throw new InvalidOperationException("SQL LocalDB không phản hồi trong 15 giây.");
+                }
+                if (process.ExitCode != 0)
+                {
+                    throw new InvalidOperationException("Không thể điều khiển SQL LocalDB: " + error);
+                }
+                return output;
             }
         }
 
