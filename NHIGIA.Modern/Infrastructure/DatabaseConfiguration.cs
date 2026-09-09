@@ -6,6 +6,9 @@ namespace NHIGIA.Modern.Infrastructure;
 
 public static class DatabaseConfiguration
 {
+    private static readonly object LocalDbStartLock = new();
+    private static readonly int[] LocalDbRetryDelays = [250, 500, 1000, 1500, 2000];
+
     public static string Resolve(IConfiguration configuration)
     {
         var raw = new[] { configuration["HRM_CONNECTION_STRING"], configuration.GetConnectionString("MainConnectionString") }
@@ -31,11 +34,34 @@ public static class DatabaseConfiguration
         catch (SqlException) when (TryGetLocalDbInstance(connectionString, out var instanceName))
         {
             connection.Dispose();
-            StartLocalDb(instanceName);
-            SqlConnection.ClearAllPools();
-            connection = new SqlConnection(connectionString);
-            connection.Open();
-            return connection;
+
+            lock (LocalDbStartLock)
+            {
+                TryStartLocalDb(instanceName);
+
+                SqlException lastError = null;
+                foreach (var delay in LocalDbRetryDelays)
+                {
+                    Thread.Sleep(delay);
+                    SqlConnection.ClearAllPools();
+                    connection = new SqlConnection(connectionString);
+                    try
+                    {
+                        connection.Open();
+                        return connection;
+                    }
+                    catch (SqlException error)
+                    {
+                        lastError = error;
+                        connection.Dispose();
+                    }
+                }
+
+                throw new InvalidOperationException(
+                    $"Không thể kết nối SQL LocalDB instance {instanceName} sau nhiều lần thử. " +
+                    "Hãy kiểm tra dịch vụ LocalDB và cơ sở dữ liệu DEV_NHIGIA.",
+                    lastError);
+            }
         }
     }
 
@@ -47,26 +73,32 @@ public static class DatabaseConfiguration
         return match.Success;
     }
 
-    private static void StartLocalDb(string instanceName)
+    private static void TryStartLocalDb(string instanceName)
     {
-        using var process = Process.Start(new ProcessStartInfo
+        try
         {
-            FileName = "sqllocaldb.exe",
-            Arguments = $"start \"{instanceName}\"",
-            UseShellExecute = false,
-            CreateNoWindow = true,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true
-        }) ?? throw new InvalidOperationException("Không thể chạy SqlLocalDB.exe.");
+            using var process = Process.Start(new ProcessStartInfo
+            {
+                FileName = "sqllocaldb.exe",
+                Arguments = $"start \"{instanceName}\"",
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true
+            });
 
-        var output = process.StandardOutput.ReadToEnd();
-        var error = process.StandardError.ReadToEnd();
-        if (!process.WaitForExit(15000))
-        {
-            process.Kill(true);
-            throw new InvalidOperationException("SQL LocalDB không phản hồi trong 15 giây.");
+            if (process is null)
+                return;
+
+            process.BeginOutputReadLine();
+            process.BeginErrorReadLine();
+            if (!process.WaitForExit(15000))
+                process.Kill(true);
         }
-        if (process.ExitCode != 0)
-            throw new InvalidOperationException("Không thể khởi động SQL LocalDB: " + (error + output).Trim());
+        catch
+        {
+            // The connection retries below provide the authoritative result. The
+            // LocalDB command can fail transiently while another request starts it.
+        }
     }
 }
