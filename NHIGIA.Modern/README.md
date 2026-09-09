@@ -10,12 +10,13 @@ dotnet run --urls http://localhost:5090
 
 Open `http://localhost:5090`. Unauthenticated users are redirected to `/Account/Login`; use `/Health/Database` to check the configured SQL Server connection.
 
-The development connection targets `DEV_NHIGIA` on the SQL Server 2019 LocalDB instance `(localdb)\NHIGIA`. Initialize it from the repository root:
+The development connection targets `DEV_NHIGIA` on the standard LocalDB instance `(localdb)\MSSQLLocalDB`. Initialize it from the repository root:
 
 ```powershell
 sqllocaldb create NHIGIA 15.0 -s
 sqlcmd -S "(localdb)\NHIGIA" -E -b -i "NHIGIA.Database\DEV_NHIGIA.sql"
-sqlcmd -S "(localdb)\NHIGIA" -d DEV_NHIGIA -E -b -i "NHIGIA.Modern\App_Data\hrm-mvp.sql"
+sqlcmd -S "(localdb)\MSSQLLocalDB" -Q "IF DB_ID('DEV_NHIGIA') IS NULL CREATE DATABASE DEV_NHIGIA"
+sqlcmd -S "(localdb)\MSSQLLocalDB" -d DEV_NHIGIA -E -b -i "NHIGIA.Modern\App_Data\hrm-mvp.sql"
 ```
 
 For deployment, provide `ConnectionStrings__MainConnectionString` as an environment variable.

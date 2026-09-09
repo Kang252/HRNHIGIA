@@ -16,9 +16,9 @@ chạy nhầm ứng dụng ASP.NET Framework cũ. Mã nguồn cũ được lưu 
 ## Chạy bằng dòng lệnh
 
 ```powershell
-sqllocaldb start NHIGIA
+sqllocaldb start MSSQLLocalDB
 dotnet run --project NHIGIA.Modern --launch-profile http
 ```
 
 Ứng dụng chạy tại `http://localhost:5116`. Cấu hình Development dùng database
-`DEV_NHIGIA` trên SQL Server 2019 LocalDB instance `(localdb)\NHIGIA`.
+`DEV_NHIGIA` trên instance chuẩn `(localdb)\MSSQLLocalDB`.
