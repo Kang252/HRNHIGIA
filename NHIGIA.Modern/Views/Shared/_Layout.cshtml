@@ -107,6 +107,7 @@
     </section>
 
     <section class="content">@RenderBody()</section>
+    <div id="hrmRowPreview" class="hrm-row-preview" role="tooltip" aria-hidden="true"></div>
     @await RenderSectionAsync("Scripts", required: false)
     <script>
         (function () {
@@ -154,6 +155,70 @@
             window.addEventListener('resize', function () {
                 setMenu(false);
             });
+        })();
+    </script>
+    <script>
+        (function () {
+            var preview = document.getElementById('hrmRowPreview');
+            var activeRow = null;
+            var closeTimer = 0;
+            if (!preview) return;
+
+            function place(row) {
+                var rect = row.getBoundingClientRect();
+                var width = Math.min(390, window.innerWidth - 24);
+                var left = Math.min(Math.max(12, rect.left + 18), window.innerWidth - width - 12);
+                preview.style.width = width + 'px';
+                preview.style.left = left + 'px';
+                preview.style.top = Math.min(rect.bottom + 8, window.innerHeight - preview.offsetHeight - 12) + 'px';
+            }
+            function open(row) {
+                var source = row && row.querySelector('.hrm-preview-template');
+                if (!source) return;
+                window.clearTimeout(closeTimer);
+                activeRow = row;
+                preview.innerHTML = source.innerHTML;
+                preview.classList.add('is-visible');
+                preview.setAttribute('aria-hidden', 'false');
+                row.setAttribute('aria-expanded', 'true');
+                place(row);
+            }
+            function close() {
+                if (activeRow) activeRow.setAttribute('aria-expanded', 'false');
+                activeRow = null;
+                preview.classList.remove('is-visible');
+                preview.setAttribute('aria-hidden', 'true');
+            }
+            function scheduleClose() {
+                window.clearTimeout(closeTimer);
+                closeTimer = window.setTimeout(function () {
+                    if (!(activeRow && activeRow.matches(':hover')) && !preview.matches(':hover')) close();
+                }, 120);
+            }
+            document.addEventListener('mouseover', function (event) {
+                var row = event.target.closest && event.target.closest('.hrm-preview-row');
+                if (row && row !== activeRow) open(row);
+            });
+            document.addEventListener('mouseout', function (event) {
+                if (event.target.closest && event.target.closest('.hrm-preview-row')) scheduleClose();
+            });
+            document.addEventListener('focusin', function (event) {
+                var row = event.target.closest && event.target.closest('.hrm-preview-row');
+                if (row && event.target.matches(':focus-visible') && !event.target.closest('button, a, input, select, textarea')) open(row);
+            });
+            document.addEventListener('focusout', function (event) {
+                if (event.target.closest && event.target.closest('.hrm-preview-row')) scheduleClose();
+            });
+            document.addEventListener('click', function (event) {
+                var row = event.target.closest && event.target.closest('.hrm-preview-row');
+                if (!row || event.target.closest('button, a, input, select, textarea, form')) return;
+                if (activeRow === row && preview.classList.contains('is-visible')) close(); else open(row);
+            });
+            preview.addEventListener('mouseenter', function () { window.clearTimeout(closeTimer); });
+            preview.addEventListener('mouseleave', scheduleClose);
+            window.addEventListener('scroll', function () { if (activeRow) place(activeRow); }, true);
+            window.addEventListener('resize', close);
+            document.addEventListener('keydown', function (event) { if (event.key === 'Escape') close(); });
         })();
     </script>
 </body>

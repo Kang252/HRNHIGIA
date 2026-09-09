@@ -10,6 +10,10 @@
         ["PUBLISHED"] = "Đã phát hành", ["PAID"] = "Đã thanh toán",
         ["DISPUTED"] = "Có khiếu nại", ["RESOLVED"] = "Đã xử lý khiếu nại"
     };
+    var priorityLabels = new Dictionary<string, string>
+    {
+        ["LOW"] = "Thấp", ["NORMAL"] = "Bình thường", ["HIGH"] = "Cao", ["URGENT"] = "Khẩn cấp"
+    };
     var currentUser = HrmUser.Current;
     var isAdmin = currentUser?.RoleCode == HrmRoles.Admin;
     var isHr = currentUser?.RoleCode == HrmRoles.Hr;
@@ -44,6 +48,7 @@
     var averageKpiProgress = Model.Kind == "kpi" && Model.Items.Count > 0
         ? Model.Items.Average(item => item.Target > 0 ? Math.Min(100, (item.Actual ?? 0) * 100 / item.Target.Value) : 0)
         : 0;
+    var showRowPreview = Model.Kind is "training" or "overtime" or "helpdesk";
 }
 
 <div class="hrm-page-header">
@@ -91,8 +96,28 @@
                 <tbody>
                 @foreach (var item in Model.Items)
                 {
-                    <tr>
-                        <td><strong>@item.Title</strong><small class="work-muted">#@item.Id.ToString("D5") @(string.IsNullOrWhiteSpace(item.Reference) ? "" : "· " + item.Reference)</small><p class="work-description">@item.Description</p></td>
+                    <tr class="@(showRowPreview ? "hrm-preview-row" : null)" tabindex="@(showRowPreview ? "0" : null)" aria-label="@(showRowPreview ? "Xem chi tiết " + item.Title : null)">
+                        <td>
+                            <strong>@item.Title</strong><small class="work-muted">#@item.Id.ToString("D5") @(string.IsNullOrWhiteSpace(item.Reference) ? "" : "· " + item.Reference)</small><p class="work-description">@item.Description</p>
+                            @if (showRowPreview)
+                            {
+                                <span class="hrm-preview-hint"><i class="material-icons">visibility</i> Rê chuột để xem chi tiết</span>
+                                <template class="hrm-preview-template">
+                                    <div class="hrm-preview-title">@item.Title</div>
+                                    <div class="hrm-preview-grid">
+                                        <span>Mã bản ghi</span><strong>#@item.Id.ToString("D5")</strong>
+                                        <span>Nhân viên</span><strong>@(item.EmployeeName ?? "Chưa phân công")</strong>
+                                        <span>Phòng ban</span><strong>@(item.DepartmentName ?? "Chưa phân phòng")</strong>
+                                        @if (Model.Kind == "training") { <span>Mã khóa học</span><strong>@(item.Reference ?? "—")</strong><span>Hình thức</span><strong>@(item.Category ?? "—")</strong><span>Ngày tổ chức</span><strong>@(item.DueDate?.ToString("dd/MM/yyyy") ?? "—")</strong> }
+                                        @if (Model.Kind == "overtime") { <span>Ngày tăng ca</span><strong>@(item.DueDate?.ToString("dd/MM/yyyy") ?? "—")</strong><span>Số giờ</span><strong>@(item.Target?.ToString("0.##") ?? "—") giờ</strong> }
+                                        @if (Model.Kind == "helpdesk") { <span>Mức ưu tiên</span><strong>@priorityLabels.GetValueOrDefault(item.Priority ?? "NORMAL", item.Priority ?? "NORMAL")</strong><span>Ngày tạo</span><strong>@item.CreatedAt.ToString("dd/MM/yyyy HH:mm")</strong> }
+                                        <span>Trạng thái</span><strong>@(statusLabels.GetValueOrDefault(item.Status, item.Status))</strong>
+                                        <span>Mô tả</span><strong>@(string.IsNullOrWhiteSpace(item.Description) ? "—" : item.Description)</strong>
+                                        @if (!string.IsNullOrWhiteSpace(item.LastActionNote)) { <span>Ghi chú xử lý</span><strong>@item.LastActionNote</strong> }
+                                    </div>
+                                </template>
+                            }
+                        </td>
                         @if (Model.Kind == "kpi")
                         {
                             <td><strong>@(item.EmployeeName ?? item.DepartmentName ?? "Chưa phân công")</strong><small class="work-muted">@(item.EmployeeName == null && item.DepartmentName != null ? "Phòng ban" : item.DepartmentName)</small></td>
