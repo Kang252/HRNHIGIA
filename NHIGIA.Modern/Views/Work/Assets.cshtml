@@ -29,7 +29,7 @@
             <div class="asset-panel-heading"><div><h3>Thêm tài sản mới</h3><p>Nhập thông tin mua và tình trạng cấp phát ban đầu.</p></div><button id="closeAssetForm" type="button" aria-label="Đóng"><i class="material-icons">close</i></button></div>
             <form method="post" asp-controller="Work" asp-action="Create" class="asset-create-grid">
                 <input type="hidden" name="Kind" value="assets" />
-                <label>Mã tài sản *<input name="Reference" class="form-control" required maxlength="100" value="@Model.Draft.Reference" /></label>
+                <label>Mã tài sản *<input name="Reference" class="form-control" required maxlength="100" value="@Model.Draft.Reference" aria-describedby="assetReferenceError" />@Html.ValidationMessage("Reference", null, new { @class = "asset-field-error", id = "assetReferenceError" })</label>
                 <label>Tên tài sản *<input name="Title" class="form-control" required maxlength="200" value="@Model.Draft.Title" /></label>
                 <label>Loại tài sản *<input name="Category" class="form-control" required maxlength="100" value="@Model.Draft.Category" placeholder="Máy tính, màn hình, thiết bị..." /></label>
                 <label>Ngày mua *<input name="DueDate" type="date" class="form-control" required value="@Model.Draft.DueDate?.ToString("yyyy-MM-dd")" /></label>

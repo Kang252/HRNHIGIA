@@ -84,6 +84,12 @@ public sealed class WorkItemStore
         return id;
     }
 
+    public bool AssetReferenceExists(string reference)
+    {
+        using var db = Open();
+        return db.ExecuteScalar<int>("SELECT COUNT(1) FROM dbo.HrmWorkItem WHERE Kind='assets' AND Reference=@Reference", new { Reference = reference }) > 0;
+    }
+
     public bool HasMeetingConflict(string location, DateTime startAt, DateTime endAt)
     {
         using var db = Open();

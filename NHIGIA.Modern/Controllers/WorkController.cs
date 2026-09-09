@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Data.SqlClient;
 using NHIGIA.Modern.Infrastructure;
 using NHIGIA.Modern.Models;
 
@@ -154,6 +155,12 @@ public sealed class WorkController : Controller
             || !draft.DueDate.HasValue || !draft.Target.HasValue || draft.Target <= 0 || draft.Target != decimal.Truncate(draft.Target.Value)
             || !draft.Actual.HasValue || draft.Actual < 0))
             ModelState.AddModelError("", "Tài sản cần mã, loại, ngày mua, số lượng nguyên và nguyên giá hợp lệ.");
+        if (draft.Kind == "assets" && !string.IsNullOrWhiteSpace(draft.Reference) && page.Available)
+        {
+            draft.Reference = draft.Reference.Trim();
+            if (_store.AssetReferenceExists(draft.Reference))
+                ModelState.AddModelError("Reference", $"Mã tài sản {draft.Reference} đã tồn tại. Vui lòng sử dụng mã khác.");
+        }
         if (draft.Kind == "helpdesk" && (string.IsNullOrWhiteSpace(draft.Description) || !new[] { "LOW", "NORMAL", "HIGH", "URGENT" }.Contains(draft.Priority)))
             ModelState.AddModelError("", "Vui lòng nhập mô tả và mức ưu tiên hợp lệ.");
         if (draft.Kind is "vehicle" or "meeting" or "business-trip")
@@ -216,11 +223,17 @@ public sealed class WorkController : Controller
             TempData["WorkSuccess"] = $"Đã lưu {WorkItem.FormatCode(draft.Kind, id)} vào hệ thống.";
             return RedirectToAction("Index", new { kind = draft.Kind });
         }
+        catch (SqlException ex) when (draft.Kind == "assets" && ex.Number is 2601 or 2627)
+        {
+            _logger.LogWarning(ex, "Duplicate asset reference {Reference}", draft.Reference);
+            ModelState.AddModelError("Reference", $"Mã tài sản {draft.Reference} đã tồn tại. Vui lòng sử dụng mã khác.");
+            return View("Assets", page);
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Cannot save work item");
-            ModelState.AddModelError("", "Không thể lưu dữ liệu. Vui lòng thử lại; mã tài sản có thể đã tồn tại.");
-            return View("Index", page);
+            ModelState.AddModelError("", "Không thể lưu dữ liệu. Vui lòng thử lại.");
+            return View(draft.Kind == "assets" ? "Assets" : "Index", page);
         }
     }
 
