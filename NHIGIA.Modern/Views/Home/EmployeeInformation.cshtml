@@ -1,0 +1,53 @@
+@model IList<HrmUserAccountModel>
+@{
+    var current = HrmUser.Current;
+    var isManager = current?.RoleCode == HrmRoles.Manager;
+    var title = isManager ? "Nhân sự phòng ban" : "Quản lý nhân sự";
+}
+
+<div class="container-fluid">
+    <div class="hrm-page-header">
+        <div>
+            <h1 class="hrm-page-title">@title</h1>
+            <p class="hrm-page-subtitle">@(isManager ? "Danh sách nhân viên thuộc phòng ban bạn quản lý" : "Danh sách nhân sự đang hoạt động trong toàn công ty")</p>
+        </div>
+        <div class="hrm-header-actions">
+            <a class="hrm-btn" asp-controller="Home" asp-action="WorkSchedules"><i class="material-icons">event_note</i> Phân ca</a>
+            <a class="hrm-btn hrm-btn-primary" asp-controller="Home" asp-action="Approvals"><i class="material-icons">fact_check</i> Phê duyệt</a>
+        </div>
+    </div>
+
+    <div class="hrm-grid hrm-grid-3">
+        <div class="hrm-card hrm-stat"><div class="hrm-stat-top"><span class="hrm-stat-label">Nhân sự hiển thị</span><span class="hrm-stat-icon"><i class="material-icons">groups</i></span></div><div class="hrm-stat-value">@Model.Count</div><div class="hrm-stat-note">Theo phạm vi quyền tài khoản</div></div>
+        <div class="hrm-card hrm-stat"><div class="hrm-stat-top"><span class="hrm-stat-label">Phòng ban</span><span class="hrm-stat-icon green"><i class="material-icons">business</i></span></div><div class="hrm-stat-value">@Model.Select(x => x.DepartmentId).Where(x => x.HasValue).Distinct().Count()</div><div class="hrm-stat-note">Có nhân viên đang hoạt động</div></div>
+        <div class="hrm-card hrm-stat"><div class="hrm-stat-top"><span class="hrm-stat-label">Cấp quản lý</span><span class="hrm-stat-icon purple"><i class="material-icons">supervisor_account</i></span></div><div class="hrm-stat-value">@Model.Count(x => x.RoleCode != HrmRoles.Employee)</div><div class="hrm-stat-note">Trong phạm vi được xem</div></div>
+    </div>
+
+    <div class="hrm-card hrm-section-gap">
+        <div class="hrm-card-header"><div><h2 class="hrm-card-title">Danh sách nhân viên</h2><p class="hrm-card-subtitle">Thông tin tài khoản, chức vụ và đơn vị công tác</p></div></div>
+        <div class="hrm-table-wrap">
+            <table class="hrm-table">
+                <thead><tr><th>Nhân viên</th><th>Tài khoản</th><th>Chức vụ</th><th>Phòng ban</th><th>Trạng thái</th></tr></thead>
+                <tbody>
+                @if (Model.Count == 0)
+                {
+                    <tr><td colspan="5"><div class="hrm-empty"><i class="material-icons">group_off</i><strong>Chưa có nhân viên trong phạm vi quản lý</strong></div></td></tr>
+                }
+                else
+                {
+                    @foreach (var employee in Model)
+                    {
+                        <tr>
+                            <td><div class="hrm-person"><span class="hrm-avatar">@((employee.DisplayName ?? "NV").Substring(0, Math.Min(2, (employee.DisplayName ?? "NV").Length)).ToUpperInvariant())</span><div><strong>@employee.DisplayName</strong><small>@employee.DepartmentName</small></div></div></td>
+                            <td>@employee.Username</td>
+                            <td><span class="hrm-badge hrm-badge-blue">@employee.RoleLabel</span></td>
+                            <td>@(employee.DepartmentName ?? "Chưa phân phòng")</td>
+                            <td><span class="hrm-badge @(employee.IsActive ? "hrm-badge-success" : "hrm-badge-warning")">@(employee.IsActive ? "Đang hoạt động" : "Tạm khóa")</span></td>
+                        </tr>
+                    }
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

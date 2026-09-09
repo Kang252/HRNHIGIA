@@ -26,7 +26,12 @@ public sealed class HomeController : BaseController
         return profile == null ? NotFound() : View(profile);
     }
 
-    public IActionResult EmployeeInformation() => RedirectToAction("MyProfile");
+    [HrmAuthorize(HrmRoles.Admin, HrmRoles.Hr, HrmRoles.Director, HrmRoles.Manager)]
+    public IActionResult EmployeeInformation()
+    {
+        ViewBag.Title = CurrentHrmUser.RoleCode == HrmRoles.Manager ? "Nhân sự phòng ban" : "Quản lý nhân sự";
+        return View(Store.GetVisibleUsers(CurrentHrmUser));
+    }
 
     [HrmAuthorize(HrmRoles.Admin, HrmRoles.Hr, HrmRoles.Director, HrmRoles.Manager)]
     public IActionResult Approvals() { ViewBag.Title = "Phê duyệt nghỉ phép"; return View(); }

@@ -3,6 +3,9 @@
     var role = user?.RoleCode ?? string.Empty;
     var canManage = HrmRoles.CanManagePeople(role);
     var canConfigure = role == HrmRoles.Admin || role == HrmRoles.Hr || role == HrmRoles.Director;
+    var isEmployee = role == HrmRoles.Employee;
+    var isManager = role == HrmRoles.Manager;
+    var isDirector = role == HrmRoles.Director;
     var workKind = ViewContext.RouteData.Values["controller"]?.ToString() == "Work" ? ((Model as WorkPage)?.Kind ?? "kpi") : "";
     var action = ViewContext.RouteData.Values["action"]?.ToString() ?? "Index";
     var isWork = ViewContext.RouteData.Values["controller"]?.ToString() == "Work";
@@ -63,6 +66,10 @@
                     <li class="header">NGHIỆP VỤ NHÂN SỰ</li>
                     <li class="@(action == "Index" && string.IsNullOrEmpty(workKind) ? "active" : "")"><a asp-controller="Home" asp-action="Index"><i class="material-icons">dashboard</i><span>Tổng quan</span></a></li>
                     <li class="@(action == "MyProfile" ? "active" : "")"><a asp-controller="Home" asp-action="MyProfile"><i class="material-icons">badge</i><span>Hồ sơ của tôi</span></a></li>
+                    @if (canManage)
+                    {
+                        <li class="@(action == "EmployeeInformation" ? "active" : "")"><a asp-controller="Home" asp-action="EmployeeInformation"><i class="material-icons">groups</i><span>@(isManager ? "Nhân sự phòng ban" : "Quản lý nhân sự")</span></a></li>
+                    }
                     <li class="@(action == "Attendance" ? "active" : "")"><a asp-controller="Home" asp-action="Attendance"><i class="material-icons">alarm_on</i><span>Chấm công</span></a></li>
                     <li class="@(action == "WorkSchedules" ? "active" : "")"><a asp-controller="Home" asp-action="WorkSchedules"><i class="material-icons">event_note</i><span>@(canManage ? "Phân ca làm việc" : "Lịch làm việc")</span></a></li>
                     <li class="@(action == "LeaveRequests" ? "active" : "")"><a asp-controller="Home" asp-action="LeaveRequests"><i class="material-icons">event_busy</i><span>Nghỉ phép</span></a></li>
@@ -79,22 +86,20 @@
                             <li class="@(action == "HanetIntegration" ? "active" : "")"><a asp-controller="Home" asp-action="HanetIntegration"><i class="material-icons">sync</i><span>Tích hợp HANET</span></a></li>
                         }
                     }
-                    <li class="header">HIỆU SUẤT &amp; HỖ TRỢ</li>
-                    <li class="@(workKind == "kpi" ? "active" : "")"><a asp-controller="Work" asp-action="Index" asp-route-kind="kpi"><i class="material-icons">track_changes</i><span>KPI</span></a></li>
-                    <li class="@(workKind == "payroll" ? "active" : "")"><a asp-controller="Work" asp-action="Index" asp-route-kind="payroll"><i class="material-icons">payments</i><span>Tính lương</span></a></li>
+                    <li class="header">@(isEmployee ? "CÔNG VIỆC CỦA TÔI" : "HIỆU SUẤT & HỖ TRỢ")</li>
+                    <li class="@(workKind == "kpi" ? "active" : "")"><a asp-controller="Work" asp-action="Index" asp-route-kind="kpi"><i class="material-icons">track_changes</i><span>@(isEmployee ? "KPI của tôi" : isManager ? "KPI phòng ban" : "KPI")</span></a></li>
+                    <li class="@(workKind == "payroll" ? "active" : "")"><a asp-controller="Work" asp-action="Index" asp-route-kind="payroll"><i class="material-icons">payments</i><span>@(isDirector ? "Duyệt bảng lương" : canConfigure ? "Tính lương" : "Phiếu lương")</span></a></li>
                     @if (canConfigure) {
                     <li class="@(workKind == "recruitment" ? "active" : "")"><a asp-controller="Work" asp-action="Index" asp-route-kind="recruitment"><i class="material-icons">person_search</i><span>Tuyển dụng</span></a></li>
                     }
-                    @if (canManage) {
-                    <li class="@(workKind == "training" ? "active" : "")"><a asp-controller="Work" asp-action="Index" asp-route-kind="training"><i class="material-icons">school</i><span>Quản lý đào tạo</span></a></li>
-                    }
-                    <li class="@(workKind == "overtime" ? "active" : "")"><a asp-controller="Work" asp-action="Index" asp-route-kind="overtime"><i class="material-icons">more_time</i><span>Tăng ca</span></a></li>
-                    <li class="@(workKind == "resignation" ? "active" : "")"><a asp-controller="Work" asp-action="Index" asp-route-kind="resignation"><i class="material-icons">person_remove</i><span>Quản lý nghỉ việc</span></a></li>
+                    <li class="@(workKind == "training" ? "active" : "")"><a asp-controller="Work" asp-action="Index" asp-route-kind="training"><i class="material-icons">school</i><span>@(isEmployee ? "Đào tạo của tôi" : "Quản lý đào tạo")</span></a></li>
+                    <li class="@(workKind == "overtime" ? "active" : "")"><a asp-controller="Work" asp-action="Index" asp-route-kind="overtime"><i class="material-icons">more_time</i><span>@(isEmployee ? "Đăng ký tăng ca" : "Quản lý tăng ca")</span></a></li>
+                    <li class="@(workKind == "resignation" ? "active" : "")"><a asp-controller="Work" asp-action="Index" asp-route-kind="resignation"><i class="material-icons">person_remove</i><span>@(isEmployee ? "Yêu cầu nghỉ việc" : "Quản lý nghỉ việc")</span></a></li>
                     @if (canConfigure) {
                     <li class="@(workKind == "transfer" ? "active" : "")"><a asp-controller="Work" asp-action="Index" asp-route-kind="transfer"><i class="material-icons">swap_horiz</i><span>Điều chuyển nhân sự</span></a></li>
                     }
-                    <li class="@(workKind == "assets" ? "active" : "")"><a asp-controller="Work" asp-action="Index" asp-route-kind="assets"><i class="material-icons">devices</i><span>Quản lý tài sản</span></a></li>
-                    <li class="@(workKind == "helpdesk" ? "active" : "")"><a asp-controller="Work" asp-action="Index" asp-route-kind="helpdesk"><i class="material-icons">support_agent</i><span>Helpdesk IT</span></a></li>
+                    <li class="@(workKind == "assets" ? "active" : "")"><a asp-controller="Work" asp-action="Index" asp-route-kind="assets"><i class="material-icons">devices</i><span>@(isEmployee ? "Tài sản của tôi" : isManager ? "Tài sản phòng ban" : "Quản lý tài sản")</span></a></li>
+                    <li class="@(workKind == "helpdesk" ? "active" : "")"><a asp-controller="Work" asp-action="Index" asp-route-kind="helpdesk"><i class="material-icons">support_agent</i><span>@(isEmployee ? "Yêu cầu Helpdesk IT" : "Helpdesk IT")</span></a></li>
                 </ul>
             </div>
             <div class="legal"><div class="copyright">&copy; @DateTime.Now.Year <a asp-controller="Home" asp-action="Index">HRM NHỊ GIA</a></div></div>

@@ -12,18 +12,39 @@ public sealed class WorkItemStore
     {
         return DatabaseConfiguration.OpenConnection(_configuration);
     }
-    public void Load(WorkPage page, int userId)
+    public void Load(WorkPage page, HrmUserAccountModel actor)
     {
         using var db = Open();
+        var canSeeAll = actor.RoleCode == HrmRoles.Admin || actor.RoleCode == HrmRoles.Hr || actor.RoleCode == HrmRoles.Director;
+        var isManager = actor.RoleCode == HrmRoles.Manager;
+        var canManageDepartment = isManager && page.CanManage;
         page.Items = db.Query<WorkItem>(@"SELECT w.*, u.DisplayName EmployeeName, d.Name DepartmentName
             FROM dbo.HrmWorkItem w LEFT JOIN dbo.HrmUserAccount u ON u.Id=w.EmployeeId
             LEFT JOIN dbo.HrmDepartment d ON d.Id=w.DepartmentId
-            WHERE w.Kind=@Kind AND (@Manage=1 OR w.EmployeeId=@UserId OR w.CreatedBy=@UserId)
-              AND (@Kind<>'payroll' OR @Manage=1 OR w.Status IN ('PUBLISHED','PAID','DISPUTED','RESOLVED'))
-            ORDER BY w.CreatedAt DESC, w.Id DESC", new { page.Kind, Manage = page.CanManage, UserId = userId }).ToList();
+            WHERE w.Kind=@Kind
+              AND (@CanSeeAll=1 OR w.EmployeeId=@UserId OR w.CreatedBy=@UserId
+                   OR (@IsManager=1 AND u.DepartmentId=@DepartmentId))
+              AND (@Kind<>'payroll' OR @CanSeeAll=1 OR w.Status IN ('PUBLISHED','PAID','DISPUTED','RESOLVED'))
+            ORDER BY w.CreatedAt DESC, w.Id DESC", new
+            {
+                page.Kind,
+                CanSeeAll = canSeeAll,
+                IsManager = canManageDepartment,
+                UserId = actor.Id,
+                actor.DepartmentId
+            }).ToList();
         if (page.CanManage)
         {
-            page.People = db.Query<WorkPerson>("SELECT Id,DisplayName FROM dbo.HrmUserAccount WHERE IsActive=1 ORDER BY DisplayName").ToList();
+            page.People = db.Query<WorkPerson>(@"SELECT Id,DisplayName FROM dbo.HrmUserAccount
+                WHERE IsActive=1 AND RoleCode<>'ADMIN'
+                  AND (@CanSeeAll=1 OR Id=@UserId OR (@IsManager=1 AND DepartmentId=@DepartmentId))
+                ORDER BY DisplayName", new
+            {
+                CanSeeAll = canSeeAll,
+                IsManager = canManageDepartment,
+                UserId = actor.Id,
+                actor.DepartmentId
+            }).ToList();
             page.Departments = db.Query<WorkDepartment>("SELECT Id,Name FROM dbo.HrmDepartment WHERE IsActive=1 ORDER BY Name").ToList();
         }
         if (!string.IsNullOrWhiteSpace(page.Query))

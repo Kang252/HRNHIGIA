@@ -41,7 +41,7 @@ try
     string Cookie(string role)
     {
         var identity = new ClaimsIdentity(new[] { new Claim(ClaimTypes.NameIdentifier, "1"), new Claim(ClaimTypes.Name, "local-smoke"), new Claim(ClaimTypes.Role, role), new Claim("display_name", "Local smoke") }, "Cookies");
-        return "NHIGIA.Auth=" + format.Protect(new AuthenticationTicket(new ClaimsPrincipal(identity), new AuthenticationProperties { ExpiresUtc = DateTimeOffset.UtcNow.AddMinutes(5) }, "Cookies"));
+        return "NHIGIA.Auth.v2=" + format.Protect(new AuthenticationTicket(new ClaimsPrincipal(identity), new AuthenticationProperties { ExpiresUtc = DateTimeOffset.UtcNow.AddMinutes(5) }, "Cookies"));
     }
     async Task Check(string path, string role, HttpStatusCode expected, params string[] text)
     {
@@ -63,16 +63,26 @@ try
         Console.WriteLine($"PASS removed content {path}");
     }
     await Check("/Work?kind=kpi", null, HttpStatusCode.Redirect);
-    await Check("/", "ADMIN", HttpStatusCode.OK, "Tổng quan nhân sự", "Tình hình chấm công hôm nay", "Truy cập nhanh");
+    await Check("/", "ADMIN", HttpStatusCode.OK, "Tổng quan hệ thống", "Tài khoản nhân sự", "Helpdesk IT");
     await CheckMissing("/", "ADMIN", "Ứng dụng eHRM", "hrm-app-grid", "inventory_2");
+    await Check("/", "EMPLOYEE", HttpStatusCode.OK, "Tổng quan của tôi", "KPI của tôi", "Phiếu lương", "Yêu cầu IT");
+    await CheckMissing("/", "EMPLOYEE", "Quản lý nhân sự", "Tuyển dụng", "Điều chuyển nhân sự");
+    await Check("/", "MANAGER", HttpStatusCode.OK, "Tổng quan phòng ban", "Nhân sự phòng ban", "KPI phòng ban", "Đào tạo");
+    await CheckMissing("/", "MANAGER", "Tuyển dụng", "Điều chuyển nhân sự");
+    await Check("/", "HR", HttpStatusCode.OK, "Điều hành nhân sự", "Tính lương", "Tuyển dụng", "Điều chuyển");
+    await Check("/", "DIRECTOR", HttpStatusCode.OK, "Tổng quan điều hành", "Duyệt bảng lương", "Báo cáo điều hành");
     foreach (var kind in new[] { "kpi", "payroll", "recruitment", "training", "overtime", "resignation", "transfer", "assets", "helpdesk" })
         await Check("/Work?kind=" + kind, "ADMIN", HttpStatusCode.OK, "Chưa kết nối", "disabled", "href=\"/Home/Attendance\"");
     await Check("/Work?kind=helpdesk", "EMPLOYEE", HttpStatusCode.OK, "Tạo yêu cầu Helpdesk IT");
     await Check("/Work?kind=overtime", "EMPLOYEE", HttpStatusCode.OK, "Số giờ tăng ca", "Lý do tăng ca");
     await Check("/Work?kind=resignation", "EMPLOYEE", HttpStatusCode.OK, "Ngày làm việc cuối cùng", "Lý do nghỉ việc");
+    await Check("/Work?kind=training", "EMPLOYEE", HttpStatusCode.OK, "Đào tạo của tôi", "Chưa kết nối");
+    await Check("/Work?kind=kpi", "MANAGER", HttpStatusCode.OK, "KPI phòng ban", "Chưa kết nối");
+    await Check("/Work?kind=assets", "MANAGER", HttpStatusCode.OK, "Tài sản phòng ban", "Chưa kết nối");
     await Check("/Work?kind=transfer", "EMPLOYEE", HttpStatusCode.Redirect);
     await Check("/Work?kind=payroll", "EMPLOYEE", HttpStatusCode.OK, "Phiếu lương", "Chưa kết nối");
     await Check("/Work?kind=recruitment", "EMPLOYEE", HttpStatusCode.Redirect);
+    await Check("/Work?kind=recruitment", "MANAGER", HttpStatusCode.Redirect);
     await Check("/Work?kind=unknown", "ADMIN", HttpStatusCode.NotFound);
     using var post = new HttpRequestMessage(HttpMethod.Post, "/Work/Create");
     post.Headers.Add("Cookie", Cookie("ADMIN"));

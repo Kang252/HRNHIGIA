@@ -28,6 +28,20 @@ docker run --rm -p 8080:8080 -e ConnectionStrings__MainConnectionString="Server=
 
 The original ASP.NET MVC 5 solution remains available as the migration source. Older Kendo-based employee administration, import, evaluation, rewards, incidents, business-trip, and resignation screens still require a separate migration before they can run on Linux.
 
+## Role-based interface
+
+The navigation and dashboard adapt to the signed-in account:
+
+| Role | Interface scope |
+| --- | --- |
+| Employee | Personal profile, attendance, leave, KPI, published payslips, assigned training/assets, overtime, resignation and Helpdesk requests |
+| Manager | Department employees, schedules, leave approvals, department KPI/training/overtime/resignation/assets, plus personal payslips |
+| HR | Company employee operations, final leave approval, payroll preparation, recruitment, training, transfers, assets and reports |
+| Director | Company overview, reports, KPI and approval-focused payroll/recruitment/transfer views |
+| Admin | System-wide operational access to all HR modules, assets and Helpdesk |
+
+Managers are restricted to employees in their own department. Their payroll view remains personal and only includes published records.
+
 ## KPI and internal services
 
 The sidebar and mobile navigation include `/Work?kind=kpi`, `payroll`, `recruitment`, `training`, `overtime`, `resignation`, `transfer`, `assets`, and `helpdesk`.

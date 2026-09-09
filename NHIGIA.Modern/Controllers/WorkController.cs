@@ -23,7 +23,7 @@ public sealed class WorkController : Controller
         var page = new WorkPage
         {
             Kind = kind,
-            CanManage = kind is "training" or "overtime" or "resignation" ? managePeople : configure,
+            CanManage = kind is "kpi" or "training" or "overtime" or "resignation" or "assets" ? managePeople : configure,
             CanCreate = kind switch
             {
                 "helpdesk" or "overtime" or "resignation" => true,
@@ -48,12 +48,37 @@ public sealed class WorkController : Controller
         };
         if (kind == "payroll" && !configure)
             (page.Title, page.Subtitle) = ("Phiếu lương", "Xem phiếu lương đã phát hành và gửi phản hồi khi có sai lệch.");
+        if (User.IsInRole(HrmRoles.Employee))
+        {
+            (page.Title, page.Subtitle) = kind switch
+            {
+                "kpi" => ("KPI của tôi", "Theo dõi mục tiêu, kết quả và tiến độ KPI cá nhân."),
+                "training" => ("Đào tạo của tôi", "Theo dõi các khóa đào tạo được phân công."),
+                "overtime" => ("Đăng ký tăng ca", "Gửi đăng ký làm thêm và theo dõi trạng thái phê duyệt."),
+                "resignation" => ("Yêu cầu nghỉ việc", "Gửi đề nghị nghỉ việc và theo dõi quá trình xử lý."),
+                "assets" => ("Tài sản của tôi", "Xem thiết bị và tài sản đang được bàn giao cho bạn."),
+                _ => (page.Title, page.Subtitle)
+            };
+        }
+        else if (User.IsInRole(HrmRoles.Manager))
+        {
+            (page.Title, page.Subtitle) = kind switch
+            {
+                "kpi" => ("KPI phòng ban", "Theo dõi KPI của nhân viên thuộc phòng ban bạn quản lý."),
+                "assets" => ("Tài sản phòng ban", "Theo dõi tài sản được bàn giao cho nhân viên trong phòng ban."),
+                _ => (page.Title, page.Subtitle)
+            };
+        }
+        else if (kind == "payroll" && User.IsInRole(HrmRoles.Director))
+        {
+            (page.Title, page.Subtitle) = ("Duyệt bảng lương", "Kiểm tra bảng lương do HR trình và phê duyệt trước khi phát hành.");
+        }
         return page.Title == null ? null : page;
     }
     private void Load(WorkPage page)
     {
         ViewBag.Title = page.Title;
-        try { _store.Load(page, _user.Current.Id); }
+        try { _store.Load(page, _user.Current); }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Cannot load work module {Kind}", page.Kind);
