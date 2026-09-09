@@ -28,6 +28,10 @@
 
     <div class="hrm-card hrm-section-gap">
         <div class="hrm-card-header"><div><h2 class="hrm-card-title">Danh sách nhân viên</h2><p class="hrm-card-subtitle">Thông tin tài khoản, chức vụ và đơn vị công tác</p></div></div>
+        <div class="employee-directory-toolbar">
+            <div class="meeting-picker-search"><i class="material-icons">search</i><input id="employeeDirectorySearch" type="search" placeholder="Tìm theo tên, tài khoản, chức vụ hoặc phòng ban..." autocomplete="off" /></div>
+            <span id="employeeDirectoryCount">Hiển thị @Model.Count nhân viên</span>
+        </div>
         <div class="hrm-table-wrap">
             <table class="hrm-table">
                 <thead><tr><th>Nhân viên</th><th>Tài khoản</th><th>Chức vụ</th><th>Phòng ban</th><th>Trạng thái</th>@if (canEditProfile) { <th>Thao tác</th> }</tr></thead>
@@ -40,7 +44,7 @@
                 {
                     @foreach (var employee in Model)
                     {
-                        <tr>
+                        <tr class="employee-directory-row" data-search="@($"{employee.DisplayName} {employee.Username} {employee.RoleLabel} {employee.DepartmentName}".ToLowerInvariant())">
                             <td><div class="hrm-person"><span class="hrm-avatar">@((employee.DisplayName ?? "NV").Substring(0, Math.Min(2, (employee.DisplayName ?? "NV").Length)).ToUpperInvariant())</span><div><strong>@employee.DisplayName</strong><small>@employee.DepartmentName</small></div></div></td>
                             <td>@employee.Username</td>
                             <td><span class="hrm-badge hrm-badge-blue">@employee.RoleLabel</span></td>
@@ -52,6 +56,28 @@
                 }
                 </tbody>
             </table>
+            <div id="employeeDirectoryEmpty" class="hrm-empty" hidden><i class="material-icons">person_search</i><strong>Không tìm thấy nhân viên phù hợp</strong></div>
         </div>
     </div>
 </div>
+
+<script>
+    (function () {
+        var search = document.getElementById('employeeDirectorySearch');
+        var counter = document.getElementById('employeeDirectoryCount');
+        var empty = document.getElementById('employeeDirectoryEmpty');
+        var rows = Array.prototype.slice.call(document.querySelectorAll('.employee-directory-row'));
+        if (!search) return;
+        search.addEventListener('input', function () {
+            var keyword = search.value.trim().toLocaleLowerCase('vi');
+            var visible = 0;
+            rows.forEach(function (row) {
+                var matches = !keyword || row.getAttribute('data-search').indexOf(keyword) >= 0;
+                row.hidden = !matches;
+                if (matches) visible++;
+            });
+            counter.textContent = 'Hiển thị ' + visible + ' nhân viên';
+            empty.hidden = visible > 0;
+        });
+    })();
+</script>

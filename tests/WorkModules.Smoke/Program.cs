@@ -82,7 +82,7 @@ try
     await Check("/Work?kind=overtime", "EMPLOYEE", HttpStatusCode.OK, "Số giờ tăng ca", "Lý do tăng ca");
     await Check("/Work?kind=resignation", "EMPLOYEE", HttpStatusCode.OK, "Ngày làm việc cuối cùng", "Lý do nghỉ việc");
     await Check("/Work?kind=training", "EMPLOYEE", HttpStatusCode.OK, "Đào tạo của tôi", "Chưa kết nối");
-    await Check("/Work?kind=vehicle", "EMPLOYEE", HttpStatusCode.OK, "Đặt xe", "Mục đích chuyến đi", "Điểm đón", "Điểm đến", "Số người đi");
+    await Check("/Work?kind=vehicle", "EMPLOYEE", HttpStatusCode.OK, "Đặt xe", "Mục đích chuyến đi", "Điểm đón", "Điểm đến", "Số người đi", "work-layout-vehicle");
     await Check("/Work?kind=meeting", "EMPLOYEE", HttpStatusCode.OK, "Đặt phòng họp", "Chủ đề cuộc họp", "Phòng họp 1 · 8 người", "Số người tham dự", "meetingEmployeeSearch", "Tìm theo tên hoặc phòng ban", "đã chọn");
     await Check("/Work?kind=meeting", "MANAGER", HttpStatusCode.OK, "Tự động xác nhận", "không cần chờ duyệt", "Đặt và xác nhận", "cách nhau ít nhất 10 phút");
     await Check("/Work/Notifications", "EMPLOYEE", HttpStatusCode.OK, "Thông báo của tôi", "Lời mời họp");

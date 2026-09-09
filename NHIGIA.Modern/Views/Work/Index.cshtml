@@ -89,7 +89,7 @@
     </div>
 }
 
-<div class="work-layout">
+<div class="work-layout @(Model.Kind == "vehicle" ? "work-layout-vehicle" : "")">
     <section class="work-panel">
         <h3>Danh sách @Model.Title</h3>
         <form method="get" asp-controller="Work" asp-action="Index" class="work-search">
@@ -247,7 +247,23 @@
                     @if (showEmployee)
                     {
                         <label for="EmployeeId">@(Model.Kind == "kpi" ? "Nhân viên nhận KPI" : "Nhân viên") @(employeeRequired ? "*" : "")</label>
-                        <select id="EmployeeId" name="EmployeeId" class="form-control" required="@employeeRequired"><option value="">Chọn nhân viên</option>@foreach (var person in Model.People) { <option value="@person.Id" selected="@(Model.Draft.EmployeeId == person.Id)">@person.DisplayName</option> }</select>
+                        <input id="EmployeeId" name="EmployeeId" type="hidden" value="@Model.Draft.EmployeeId" />
+                        <section class="meeting-employee-picker single-employee-picker" aria-labelledby="singleEmployeePickerTitle">
+                            <div class="meeting-picker-head"><strong id="singleEmployeePickerTitle">Chọn nhân viên</strong><span id="singleEmployeeSelection">@(Model.People.FirstOrDefault(x => x.Id == Model.Draft.EmployeeId)?.DisplayName ?? "Chưa chọn")</span></div>
+                            <div class="meeting-picker-search"><i class="material-icons">search</i><input id="singleEmployeeSearch" type="search" placeholder="Tìm theo tên hoặc phòng ban..." autocomplete="off" /></div>
+                            <div id="singleEmployeeList" class="meeting-employee-list">
+                                @foreach (var person in Model.People)
+                                {
+                                    <label class="meeting-employee-option" data-search="@($"{person.DisplayName} {person.DepartmentName}".ToLowerInvariant())">
+                                        <input type="radio" name="EmployeePickerId" value="@person.Id" required="@employeeRequired" checked="@(Model.Draft.EmployeeId == person.Id)" />
+                                        <span class="hrm-avatar">@(person.DisplayName.Substring(0, Math.Min(2, person.DisplayName.Length)).ToUpperInvariant())</span>
+                                        <span><strong>@person.DisplayName</strong><small>@(person.DepartmentName ?? "Chưa phân phòng")</small></span>
+                                    </label>
+                                }
+                                <div id="singleEmployeeEmpty" class="meeting-employee-empty" hidden>Không tìm thấy nhân viên phù hợp.</div>
+                            </div>
+                            @if (!employeeRequired) { <button id="clearSingleEmployee" class="employee-picker-clear" type="button">Bỏ chọn nhân viên</button> }
+                        </section>
                     }
                     @if (showDepartment)
                     {
@@ -383,6 +399,46 @@
     </script>
 }
 
+@if (showEmployee)
+{
+    <script>
+        (function () {
+            var hidden = document.getElementById('EmployeeId');
+            var search = document.getElementById('singleEmployeeSearch');
+            var list = document.getElementById('singleEmployeeList');
+            var selectedLabel = document.getElementById('singleEmployeeSelection');
+            var clear = document.getElementById('clearSingleEmployee');
+            var empty = document.getElementById('singleEmployeeEmpty');
+            if (!hidden || !search || !list) return;
+            var rows = Array.prototype.slice.call(list.querySelectorAll('.meeting-employee-option'));
+            var radios = Array.prototype.slice.call(list.querySelectorAll('input[type="radio"]'));
+            radios.forEach(function (radio) {
+                radio.addEventListener('change', function () {
+                    hidden.value = radio.value;
+                    selectedLabel.textContent = radio.closest('label').querySelector('strong').textContent;
+                    hidden.dispatchEvent(new Event('change'));
+                });
+            });
+            search.addEventListener('input', function () {
+                var keyword = search.value.trim().toLocaleLowerCase('vi');
+                var visible = 0;
+                rows.forEach(function (row) {
+                    var matches = !keyword || row.getAttribute('data-search').indexOf(keyword) >= 0;
+                    row.hidden = !matches;
+                    if (matches) visible++;
+                });
+                empty.hidden = visible > 0;
+            });
+            if (clear) clear.addEventListener('click', function () {
+                radios.forEach(function (radio) { radio.checked = false; });
+                hidden.value = '';
+                selectedLabel.textContent = 'Chưa chọn';
+                hidden.dispatchEvent(new Event('change'));
+            });
+        })();
+    </script>
+}
+
 @if (Model.Kind == "kpi" && showEditor)
 {
     <script>
@@ -395,7 +451,12 @@
                 if (employee.value) department.value = "";
             });
             department.addEventListener("change", () => {
-                if (department.value) employee.value = "";
+                if (department.value) {
+                    employee.value = "";
+                    document.querySelectorAll('#singleEmployeeList input[type="radio"]').forEach(radio => radio.checked = false);
+                    const label = document.getElementById('singleEmployeeSelection');
+                    if (label) label.textContent = 'Chưa chọn';
+                }
             });
         })();
     </script>
