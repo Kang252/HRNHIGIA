@@ -9,9 +9,14 @@ namespace NHIGIA.Modern.Controllers;
 public sealed class HrmController : BaseController
 {
     private readonly ILogger<HrmController> _logger;
+    private readonly WorkItemStore _workStore;
 
-    public HrmController(HrmDataStore store, HrmUserAccessor userAccessor, ILogger<HrmController> logger)
-        : base(store, userAccessor) => _logger = logger;
+    public HrmController(HrmDataStore store, HrmUserAccessor userAccessor, ILogger<HrmController> logger, WorkItemStore workStore)
+        : base(store, userAccessor)
+    {
+        _logger = logger;
+        _workStore = workStore;
+    }
 
     private string ClientIp => HttpContext.Connection.RemoteIpAddress?.ToString();
 
@@ -135,6 +140,76 @@ public sealed class HrmController : BaseController
         var count = Store.ApproveAllLeaves(CurrentHrmUser, note, ClientIp);
         return new { Count = count };
     });
+
+    [HttpGet]
+    [HrmAuthorize(HrmRoles.Admin, HrmRoles.Hr, HrmRoles.Director, HrmRoles.Manager)]
+    public IActionResult ApprovalInbox() => Execute(() =>
+    {
+        var managerStage = CurrentHrmUser.RoleCode == HrmRoles.Manager;
+        var leaves = Store.GetLeaveRequests(CurrentHrmUser)
+            .Where(item => managerStage ? item.StatusCode == "PENDING_MANAGER" : item.StatusCode is "PENDING_MANAGER" or "PENDING_HR")
+            .Select(item => new
+            {
+                Source = "leave", Kind = "leave", item.Id, Code = item.RequestCode,
+                RequestType = "Nghỉ phép", Title = item.LeaveType, EmployeeName = item.DisplayName,
+                item.DepartmentName, StartDate = (DateTime?)item.StartDate, EndDate = (DateTime?)item.EndDate, DueDate = (DateTime?)null,
+                Description = item.Reason, item.StatusCode, item.CreatedAt
+            });
+        var work = _workStore.GetPendingApprovals(CurrentHrmUser).Select(item => new
+        {
+            Source = "work", item.Kind, item.Id, Code = item.RecordCode,
+            RequestType = WorkKindLabel(item.Kind), item.Title,
+            EmployeeName = item.Kind is "meeting" or "vehicle" ? item.ParticipantNames : item.EmployeeName,
+            item.DepartmentName, StartDate = item.StartAt, EndDate = item.EndAt, item.DueDate,
+            item.Description, StatusCode = item.Status, item.CreatedAt
+        });
+        return leaves.Concat(work).OrderBy(item => item.CreatedAt).ToList();
+    });
+
+    [HttpPost, ValidateAntiForgeryToken]
+    [HrmAuthorize(HrmRoles.Admin, HrmRoles.Hr, HrmRoles.Director, HrmRoles.Manager)]
+    public IActionResult DecideApproval(ApprovalInboxRequest request) => Execute(() =>
+    {
+        if (request == null || request.Id <= 0) throw new InvalidOperationException("Yêu cầu không hợp lệ.");
+        if (!request.Approve && string.IsNullOrWhiteSpace(request.Note)) throw new InvalidOperationException("Vui lòng nhập lý do từ chối.");
+        if (request.Source == "leave")
+        {
+            if (!Store.ApproveLeave(new ApprovalRequest { Id = request.Id, Approve = request.Approve, Note = request.Note }, CurrentHrmUser, ClientIp))
+                throw new InvalidOperationException("Đơn đã được xử lý hoặc không thuộc phạm vi của bạn.");
+        }
+        else
+        {
+            var item = _workStore.GetPendingApprovals(CurrentHrmUser).FirstOrDefault(x => x.Id == request.Id && x.Kind == request.Kind)
+                ?? throw new InvalidOperationException("Yêu cầu đã được xử lý hoặc không thuộc phạm vi của bạn.");
+            var changed = item.Kind == "payroll"
+                ? _workStore.TransitionPayroll(item.Id, "PENDING_APPROVAL", request.Approve ? "APPROVED" : "REJECTED", request.Approve ? "APPROVE" : "REJECT", request.Note, CurrentHrmUser.Id, null, ClientIp)
+                : _workStore.TransitionBooking(item.Id, item.Kind, "PENDING", request.Approve ? "APPROVED" : "REJECTED", request.Note, CurrentHrmUser.Id, ClientIp);
+            if (!changed) throw new InvalidOperationException("Yêu cầu vừa được người khác xử lý.");
+        }
+        return new { request.Id, request.Approve };
+    });
+
+    [HttpPost, ValidateAntiForgeryToken]
+    [HrmAuthorize(HrmRoles.Admin, HrmRoles.Hr, HrmRoles.Director, HrmRoles.Manager)]
+    public IActionResult ApproveAllRequests(string note) => Execute(() =>
+    {
+        var count = Store.ApproveAllLeaves(CurrentHrmUser, note, ClientIp);
+        foreach (var item in _workStore.GetPendingApprovals(CurrentHrmUser))
+        {
+            var changed = item.Kind == "payroll"
+                ? _workStore.TransitionPayroll(item.Id, "PENDING_APPROVAL", "APPROVED", "APPROVE_ALL", note, CurrentHrmUser.Id, null, ClientIp)
+                : _workStore.TransitionBooking(item.Id, item.Kind, "PENDING", "APPROVED", note, CurrentHrmUser.Id, ClientIp);
+            if (changed) count++;
+        }
+        return new { Count = count };
+    });
+
+    private static string WorkKindLabel(string kind) => kind switch
+    {
+        "overtime" => "Tăng ca", "resignation" => "Nghỉ việc", "vehicle" => "Đặt xe",
+        "meeting" => "Đặt phòng họp", "business-trip" => "Công tác", "offboarding" => "Thôi việc",
+        "transfer" => "Điều chuyển", "payroll" => "Bảng lương", _ => "Yêu cầu"
+    };
 
     [HttpGet]
     public IActionResult Communications(string keyword = "", string category = "") =>

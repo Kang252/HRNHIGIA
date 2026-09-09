@@ -19,10 +19,11 @@ public sealed class WorkItemStore
         var isManager = actor.RoleCode == HrmRoles.Manager;
         var canManageDepartment = isManager && page.CanManage;
         page.Items = db.Query<WorkItem>(@"SELECT w.*, u.DisplayName EmployeeName, d.Name DepartmentName,
-            (SELECT STRING_AGG(pu.DisplayName, N', ')
+            STUFF((SELECT N', ' + pu.DisplayName
              FROM dbo.HrmWorkItemParticipant wp
              INNER JOIN dbo.HrmUserAccount pu ON pu.Id=wp.UserId
-             WHERE wp.WorkItemId=w.Id) ParticipantNames
+             WHERE wp.WorkItemId=w.Id ORDER BY pu.DisplayName
+             FOR XML PATH(''),TYPE).value('.','nvarchar(max)'),1,2,N'') ParticipantNames
             FROM dbo.HrmWorkItem w LEFT JOIN dbo.HrmUserAccount u ON u.Id=w.EmployeeId
             LEFT JOIN dbo.HrmDepartment d ON d.Id=w.DepartmentId
             WHERE w.Kind=@Kind
@@ -127,6 +128,32 @@ public sealed class WorkItemStore
     {
         using var db = Open();
         return db.ExecuteScalar<int>("SELECT COUNT(1) FROM dbo.HrmNotification WHERE UserId=@UserId AND IsRead=0", new { UserId = userId });
+    }
+
+    public IReadOnlyList<WorkItem> GetPendingApprovals(HrmUserAccountModel actor)
+    {
+        using var db = Open();
+        var canSeeAll = actor.RoleCode is HrmRoles.Admin or HrmRoles.Hr or HrmRoles.Director;
+        var canApprovePayroll = actor.RoleCode is HrmRoles.Admin or HrmRoles.Director;
+        return db.Query<WorkItem>(@"SELECT w.*,u.DisplayName EmployeeName,d.Name DepartmentName,
+                STUFF((SELECT N', ' + pu.DisplayName FROM dbo.HrmWorkItemParticipant wp
+                 INNER JOIN dbo.HrmUserAccount pu ON pu.Id=wp.UserId WHERE wp.WorkItemId=w.Id
+                 ORDER BY pu.DisplayName FOR XML PATH(''),TYPE).value('.','nvarchar(max)'),1,2,N'') ParticipantNames
+            FROM dbo.HrmWorkItem w
+            LEFT JOIN dbo.HrmUserAccount u ON u.Id=w.EmployeeId
+            LEFT JOIN dbo.HrmDepartment d ON d.Id=COALESCE(w.DepartmentId,u.DepartmentId)
+            WHERE ((w.Status='PENDING' AND w.Kind IN ('overtime','resignation','vehicle','meeting','business-trip','offboarding','transfer'))
+                   OR (w.Status='PENDING_APPROVAL' AND w.Kind='payroll' AND @CanApprovePayroll=1))
+              AND (@CanSeeAll=1 OR (@IsManager=1 AND w.Kind<>'transfer'
+                   AND (u.DepartmentId=@DepartmentId OR w.DepartmentId=@DepartmentId OR w.CreatedBy=@ActorId)))
+            ORDER BY w.CreatedAt,w.Id", new
+        {
+            CanSeeAll = canSeeAll,
+            CanApprovePayroll = canApprovePayroll,
+            IsManager = actor.RoleCode == HrmRoles.Manager,
+            actor.DepartmentId,
+            ActorId = actor.Id
+        }).ToList();
     }
 
     public string ReadNotification(long id, int userId)

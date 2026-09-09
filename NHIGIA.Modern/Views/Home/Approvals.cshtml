@@ -1,51 +1,59 @@
-@using NHIGIA.Modern.Models
-@{
-    var current = HrmUser.Current;
-    var managerStage = current != null && current.RoleCode == HrmRoles.Manager;
-}
 <div class="container-fluid">
     <div class="hrm-page-header">
-        <div><h1 class="hrm-page-title">Phê duyệt nghỉ phép</h1><p class="hrm-page-subtitle">@(managerStage ? "Duyệt cấp phòng trước khi chuyển HR" : "Xác nhận cuối cùng và cập nhật trạng thái phép")</p></div>
-        <a class="hrm-btn" href="@Url.Action("LeaveRequests", "Home")"><i class="material-icons">event_note</i> Đơn của tôi</a>
+        <div><h1 class="hrm-page-title">Phê duyệt yêu cầu</h1><p class="hrm-page-subtitle">Tất cả yêu cầu đang chờ xử lý theo vai trò và phòng ban của bạn</p></div>
+        <a class="hrm-btn" href="@Url.Action("LeaveRequests", "Home")"><i class="material-icons">assignment</i> Yêu cầu của tôi</a>
     </div>
     <div class="hrm-card">
-        <div class="hrm-card-header"><div><h2 class="hrm-card-title">Danh sách cần xử lý</h2><p class="hrm-card-subtitle">Dữ liệu tự động giới hạn theo vai trò và phòng ban</p></div><div class="approval-header-actions"><span id="approvalCount" class="hrm-badge hrm-badge-warning">0 đơn</span><button id="approveAll" class="hrm-btn hrm-btn-primary" type="button" disabled><i class="material-icons">done_all</i> Phê duyệt tất cả</button></div></div>
-        <div class="hrm-table-wrap"><table class="hrm-table"><thead><tr><th>Nhân viên</th><th>Loại nghỉ</th><th>Thời gian</th><th>Lý do</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody id="approvalRows"></tbody></table></div>
+        <div class="hrm-card-header">
+            <div><h2 class="hrm-card-title">Danh sách cần xử lý</h2><p class="hrm-card-subtitle">Nghỉ phép, tăng ca, nghỉ việc, đặt xe, đặt phòng, công tác, thôi việc, điều chuyển và bảng lương</p></div>
+            <div class="approval-header-actions"><span id="approvalCount" class="hrm-badge hrm-badge-warning">0 yêu cầu</span><button id="approveAll" class="hrm-btn hrm-btn-primary" type="button" disabled><i class="material-icons">done_all</i> Phê duyệt tất cả</button></div>
+        </div>
+        <div class="hrm-table-wrap"><table class="hrm-table"><thead><tr><th>Loại yêu cầu</th><th>Nội dung</th><th>Nhân viên</th><th>Thời gian</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody id="approvalRows"></tbody></table></div>
     </div>
 </div>
 <form id="approvalToken">@Html.AntiForgeryToken()</form>
 <script>
 (function(){
     $('.approvals_menu').addClass('active');
-    var managerStage = @managerStage.ToString().ToLowerInvariant();
-    function esc(value){ return $('<div>').text(value == null ? '' : value).html(); }
-    function date(value){ return value ? moment(value).format('DD/MM/YYYY') : ''; }
-    function attachment(item){if(!item.AttachmentName)return 'Không có';if(!item.HasAttachment)return '<span class="hrm-attachment-missing"><i class="material-icons">history</i>'+esc(item.AttachmentName)+'<small>Tệp cũ chưa lưu nội dung</small></span>';return '<a class="hrm-attachment-link" href="@Url.Action("LeaveAttachment","Hrm")?id='+encodeURIComponent(item.Id)+'"><i class="material-icons">download</i><span>'+esc(item.AttachmentName)+'</span><small>Tải xuống</small></a>';}
-    function preview(item){ return '<template class="hrm-preview-template"><div class="hrm-preview-title">Chi tiết đơn '+esc(item.RequestCode)+'</div><div class="hrm-preview-grid"><span>Nhân viên</span><strong>'+esc(item.DisplayName)+'</strong><span>Phòng ban</span><strong>'+esc(item.DepartmentName||'Chưa phân phòng')+'</strong><span>Loại nghỉ</span><strong>'+esc(item.LeaveType)+'</strong><span>Thời gian</span><strong>'+date(item.StartDate)+' — '+date(item.EndDate)+'</strong><span>Buổi nghỉ</span><strong>'+esc(item.SessionCode||'—')+'</strong><span>Bàn giao cho</span><strong>'+esc(item.HandoverTo||'—')+'</strong><span>Lý do</span><strong>'+esc(item.Reason||'—')+'</strong><span>Tệp đính kèm</span><strong>'+attachment(item)+'</strong>'+(item.ManagerNote?'<span>Ghi chú Trưởng phòng</span><strong>'+esc(item.ManagerNote)+'</strong>':'')+(item.HrNote?'<span>Ghi chú HR</span><strong>'+esc(item.HrNote)+'</strong>':'')+'</div></template>'; }
+    function esc(value){return $('<div>').text(value==null?'':value).html();}
+    function date(value,withTime){return value?moment(value).format(withTime?'DD/MM/YYYY HH:mm':'DD/MM/YYYY'):'';}
+    function period(item){
+        var timed=item.Kind==='meeting'||item.Kind==='vehicle';
+        if(item.StartDate&&item.EndDate)return date(item.StartDate,timed)+' — '+date(item.EndDate,timed);
+        if(item.DueDate)return date(item.DueDate,false);
+        return date(item.CreatedAt,true);
+    }
+    function status(item){
+        if(item.StatusCode==='PENDING_MANAGER')return 'Chờ Trưởng phòng';
+        if(item.StatusCode==='PENDING_HR')return 'Chờ HR';
+        if(item.Kind==='payroll')return 'Chờ Ban giám đốc';
+        return 'Chờ phê duyệt';
+    }
+    function preview(item){return '<template class="hrm-preview-template"><div class="hrm-preview-title">Chi tiết '+esc(item.Code)+'</div><div class="hrm-preview-grid">'
+        +'<span>Loại yêu cầu</span><strong>'+esc(item.RequestType)+'</strong><span>Nội dung</span><strong>'+esc(item.Title||'—')+'</strong>'
+        +'<span>Nhân viên</span><strong>'+esc(item.EmployeeName||'—')+'</strong><span>Phòng ban</span><strong>'+esc(item.DepartmentName||'—')+'</strong>'
+        +'<span>Thời gian</span><strong>'+esc(period(item)||'—')+'</strong><span>Mô tả</span><strong>'+esc(item.Description||'—')+'</strong>'
+        +'<span>Trạng thái</span><strong>'+esc(status(item))+'</strong></div></template>';}
     function load(){
-        $.get('@Url.Action("LeaveRequests","Hrm")').done(function(response){
-            var pending = (response.Data || []).filter(function(item){ return managerStage ? item.StatusCode === 'PENDING_MANAGER' : item.StatusCode === 'PENDING_MANAGER' || item.StatusCode === 'PENDING_HR'; });
-            $('#approvalCount').text(pending.length + ' đơn');
-            $('#approveAll').prop('disabled', pending.length === 0);
-            if(!pending.length){ $('#approvalRows').html('<tr><td colspan="6"><div class="hrm-empty"><i class="material-icons">task_alt</i>Không có đơn nào cần xử lý.</div></td></tr>'); return; }
-            $('#approvalRows').html(pending.map(function(item){
-                return '<tr class="hrm-preview-row" tabindex="0" aria-label="Xem chi tiết đơn '+esc(item.RequestCode)+'"><td><strong>'+esc(item.DisplayName)+'</strong><small class="hrm-cell-note">'+esc(item.DepartmentName)+'</small><span class="hrm-preview-hint"><i class="material-icons">visibility</i> Xem chi tiết</span>'+preview(item)+'</td><td>'+esc(item.LeaveType)+'</td><td>'+date(item.StartDate)+' — '+date(item.EndDate)+'</td><td>'+esc(item.Reason)+'</td><td><span class="hrm-badge hrm-badge-warning">'+(item.StatusCode==='PENDING_MANAGER'?'Chờ Trưởng phòng':'Chờ HR')+'</span></td><td><button class="hrm-btn decide" data-id="'+item.Id+'" data-ok="true">Duyệt</button> <button class="hrm-btn decide" data-id="'+item.Id+'" data-ok="false">Từ chối</button></td></tr>';
-            }).join(''));
-        });
+        $.get('@Url.Action("ApprovalInbox","Hrm")').done(function(response){
+            var items=response.Data||[];
+            $('#approvalCount').text(items.length+' yêu cầu');$('#approveAll').prop('disabled',items.length===0);
+            if(!items.length){$('#approvalRows').html('<tr><td colspan="6"><div class="hrm-empty"><i class="material-icons">task_alt</i>Không có yêu cầu nào cần xử lý.</div></td></tr>');return;}
+            $('#approvalRows').html(items.map(function(item){return '<tr class="hrm-preview-row" tabindex="0" aria-label="Xem chi tiết '+esc(item.Code)+'">'
+                +'<td><strong>'+esc(item.RequestType)+'</strong><small class="hrm-cell-note">'+esc(item.Code)+'</small><span class="hrm-preview-hint"><i class="material-icons">visibility</i> Xem chi tiết</span>'+preview(item)+'</td>'
+                +'<td><strong>'+esc(item.Title||'—')+'</strong><small class="hrm-cell-note">'+esc(item.Description||'')+'</small></td>'
+                +'<td>'+esc(item.EmployeeName||'—')+'<small class="hrm-cell-note">'+esc(item.DepartmentName||'')+'</small></td><td>'+esc(period(item)||'—')+'</td>'
+                +'<td><span class="hrm-badge hrm-badge-warning">'+esc(status(item))+'</span></td><td><button class="hrm-btn decide" data-source="'+esc(item.Source)+'" data-kind="'+esc(item.Kind)+'" data-id="'+item.Id+'" data-ok="true">Duyệt</button> <button class="hrm-btn decide" data-source="'+esc(item.Source)+'" data-kind="'+esc(item.Kind)+'" data-id="'+item.Id+'" data-ok="false">Từ chối</button></td></tr>';}).join(''));
+        }).fail(function(xhr){$('#approvalRows').html('<tr><td colspan="6"><div class="hrm-empty">'+esc((xhr.responseJSON&&xhr.responseJSON.Message)||'Không thể tải danh sách phê duyệt.')+'</div></td></tr>');});
     }
     $(document).on('click','.decide',function(){
-        var button=$(this), approve=String(button.data('ok'))==='true';
-        var note=window.prompt(approve?'Ghi chú duyệt (không bắt buộc):':'Nhập lý do từ chối:','');
-        if(note===null)return;
-        $.post('@Url.Action("ApproveLeave","Hrm")',{__RequestVerificationToken:$('#approvalToken input').val(),Id:button.data('id'),Approve:approve,Note:note}).done(load).fail(function(xhr){alert((xhr.responseJSON&&xhr.responseJSON.Message)||'Không thể xử lý đơn.');});
+        var button=$(this),approve=String(button.data('ok'))==='true',note=window.prompt(approve?'Ghi chú duyệt (không bắt buộc):':'Nhập lý do từ chối:','');if(note===null)return;
+        $.post('@Url.Action("DecideApproval","Hrm")',{__RequestVerificationToken:$('#approvalToken input').val(),Source:button.data('source'),Kind:button.data('kind'),Id:button.data('id'),Approve:approve,Note:note}).done(load).fail(function(xhr){alert((xhr.responseJSON&&xhr.responseJSON.Message)||'Không thể xử lý yêu cầu.');});
     });
     $('#approveAll').on('click',function(){
-        var count=parseInt($('#approvalCount').text(),10)||0;
-        if(!count||!window.confirm('Phê duyệt tất cả '+count+' đơn đang chờ trong phạm vi của bạn?'))return;
+        var count=parseInt($('#approvalCount').text(),10)||0;if(!count||!window.confirm('Phê duyệt tất cả '+count+' yêu cầu đang chờ trong phạm vi của bạn?'))return;
         var button=$(this).prop('disabled',true);
-        $.post('@Url.Action("ApproveAllLeaves","Hrm")',{__RequestVerificationToken:$('#approvalToken input').val(),note:'Phê duyệt hàng loạt'})
-            .done(function(response){alert('Đã phê duyệt '+((response.Data&&response.Data.Count)||0)+' đơn.');load();})
-            .fail(function(xhr){button.prop('disabled',false);alert((xhr.responseJSON&&xhr.responseJSON.Message)||'Không thể phê duyệt tất cả đơn.');});
+        $.post('@Url.Action("ApproveAllRequests","Hrm")',{__RequestVerificationToken:$('#approvalToken input').val(),note:'Phê duyệt hàng loạt'}).done(function(response){alert('Đã phê duyệt '+((response.Data&&response.Data.Count)||0)+' yêu cầu.');load();}).fail(function(xhr){button.prop('disabled',false);alert((xhr.responseJSON&&xhr.responseJSON.Message)||'Không thể phê duyệt tất cả yêu cầu.');});
     });
     load();
 })();

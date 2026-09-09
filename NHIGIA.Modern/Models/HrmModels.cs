@@ -228,6 +228,15 @@ namespace NHIGIA.Modern.Models
         public string Note { get; set; }
     }
 
+    public class ApprovalInboxRequest
+    {
+        public string Source { get; set; }
+        public string Kind { get; set; }
+        public int Id { get; set; }
+        public bool Approve { get; set; }
+        public string Note { get; set; }
+    }
+
     public class CommunicationModel
     {
         public int Id { get; set; }

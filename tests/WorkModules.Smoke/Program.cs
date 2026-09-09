@@ -87,7 +87,7 @@ try
     await Check("/Work?kind=meeting", "MANAGER", HttpStatusCode.OK, "Tự động xác nhận", "không cần chờ duyệt", "Đặt và xác nhận", "cách nhau ít nhất 10 phút");
     await Check("/Work/Notifications", "EMPLOYEE", HttpStatusCode.OK, "Thông báo của tôi", "Lời mời họp");
     await Check("/Work/NotificationCount", "EMPLOYEE", HttpStatusCode.OK, "Count");
-    await Check("/Home/Approvals", "MANAGER", HttpStatusCode.OK, "Phê duyệt tất cả", "ApproveAllLeaves", "done_all");
+    await Check("/Home/Approvals", "MANAGER", HttpStatusCode.OK, "Phê duyệt yêu cầu", "ApprovalInbox", "DecideApproval", "ApproveAllRequests", "Phê duyệt tất cả", "done_all");
     await Check("/Work?kind=business-trip", "EMPLOYEE", HttpStatusCode.OK, "Công tác của tôi");
     await Check("/Work?kind=business-trip", "MANAGER", HttpStatusCode.OK, "Tạo phân công công tác", "Nơi công tác", "Số quyết định", "work-layout-editor-primary", "Danh sách và phê duyệt");
     await Check("/Work?kind=offboarding", "HR", HttpStatusCode.OK, "Mở thủ tục thôi việc", "Ngày thôi việc", "Nội dung bàn giao", "work-layout-editor-primary", "Danh sách và phê duyệt");
