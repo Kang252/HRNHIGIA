@@ -9,7 +9,7 @@
         <a class="hrm-btn" href="@Url.Action("LeaveRequests", "Home")"><i class="material-icons">event_note</i> Đơn của tôi</a>
     </div>
     <div class="hrm-card">
-        <div class="hrm-card-header"><div><h2 class="hrm-card-title">Danh sách cần xử lý</h2><p class="hrm-card-subtitle">Dữ liệu tự động giới hạn theo vai trò và phòng ban</p></div><span id="approvalCount" class="hrm-badge hrm-badge-warning">0 đơn</span></div>
+        <div class="hrm-card-header"><div><h2 class="hrm-card-title">Danh sách cần xử lý</h2><p class="hrm-card-subtitle">Dữ liệu tự động giới hạn theo vai trò và phòng ban</p></div><div class="approval-header-actions"><span id="approvalCount" class="hrm-badge hrm-badge-warning">0 đơn</span><button id="approveAll" class="hrm-btn hrm-btn-primary" type="button" disabled><i class="material-icons">done_all</i> Phê duyệt tất cả</button></div></div>
         <div class="hrm-table-wrap"><table class="hrm-table"><thead><tr><th>Nhân viên</th><th>Loại nghỉ</th><th>Thời gian</th><th>Lý do</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody id="approvalRows"></tbody></table></div>
     </div>
 </div>
@@ -26,6 +26,7 @@
         $.get('@Url.Action("LeaveRequests","Hrm")').done(function(response){
             var pending = (response.Data || []).filter(function(item){ return managerStage ? item.StatusCode === 'PENDING_MANAGER' : item.StatusCode === 'PENDING_MANAGER' || item.StatusCode === 'PENDING_HR'; });
             $('#approvalCount').text(pending.length + ' đơn');
+            $('#approveAll').prop('disabled', pending.length === 0);
             if(!pending.length){ $('#approvalRows').html('<tr><td colspan="6"><div class="hrm-empty"><i class="material-icons">task_alt</i>Không có đơn nào cần xử lý.</div></td></tr>'); return; }
             $('#approvalRows').html(pending.map(function(item){
                 return '<tr class="hrm-preview-row" tabindex="0" aria-label="Xem chi tiết đơn '+esc(item.RequestCode)+'"><td><strong>'+esc(item.DisplayName)+'</strong><small class="hrm-cell-note">'+esc(item.DepartmentName)+'</small><span class="hrm-preview-hint"><i class="material-icons">visibility</i> Xem chi tiết</span>'+preview(item)+'</td><td>'+esc(item.LeaveType)+'</td><td>'+date(item.StartDate)+' — '+date(item.EndDate)+'</td><td>'+esc(item.Reason)+'</td><td><span class="hrm-badge hrm-badge-warning">'+(item.StatusCode==='PENDING_MANAGER'?'Chờ Trưởng phòng':'Chờ HR')+'</span></td><td><button class="hrm-btn decide" data-id="'+item.Id+'" data-ok="true">Duyệt</button> <button class="hrm-btn decide" data-id="'+item.Id+'" data-ok="false">Từ chối</button></td></tr>';
@@ -37,6 +38,14 @@
         var note=window.prompt(approve?'Ghi chú duyệt (không bắt buộc):':'Nhập lý do từ chối:','');
         if(note===null)return;
         $.post('@Url.Action("ApproveLeave","Hrm")',{__RequestVerificationToken:$('#approvalToken input').val(),Id:button.data('id'),Approve:approve,Note:note}).done(load).fail(function(xhr){alert((xhr.responseJSON&&xhr.responseJSON.Message)||'Không thể xử lý đơn.');});
+    });
+    $('#approveAll').on('click',function(){
+        var count=parseInt($('#approvalCount').text(),10)||0;
+        if(!count||!window.confirm('Phê duyệt tất cả '+count+' đơn đang chờ trong phạm vi của bạn?'))return;
+        var button=$(this).prop('disabled',true);
+        $.post('@Url.Action("ApproveAllLeaves","Hrm")',{__RequestVerificationToken:$('#approvalToken input').val(),note:'Phê duyệt hàng loạt'})
+            .done(function(response){alert('Đã phê duyệt '+((response.Data&&response.Data.Count)||0)+' đơn.');load();})
+            .fail(function(xhr){button.prop('disabled',false);alert((xhr.responseJSON&&xhr.responseJSON.Message)||'Không thể phê duyệt tất cả đơn.');});
     });
     load();
 })();

@@ -165,15 +165,18 @@ public sealed class WorkController : Controller
             ModelState.AddModelError("", "Đặt xe cần loại xe, số người, điểm đón và điểm đến.");
         if (draft.Kind == "vehicle" && !VehicleTypes.Contains(draft.Category))
             ModelState.AddModelError("", "Loại xe được chọn không hợp lệ.");
+        if (draft.Kind == "vehicle" && draft.Target > 300)
+            ModelState.AddModelError("", "Mỗi yêu cầu đặt xe hỗ trợ tối đa 300 nhân viên.");
         if (draft.Kind == "meeting" && (string.IsNullOrWhiteSpace(draft.Location) || !draft.Target.HasValue || draft.Target <= 0))
             ModelState.AddModelError("", "Đặt phòng họp cần phòng, số người và khung giờ sử dụng.");
-        var participantIds = draft.Kind == "meeting" ? (draft.ParticipantIds ?? new List<int>()).Distinct().ToList() : new List<int>();
-        if (draft.Kind == "meeting" && participantIds.Count == 0)
-            ModelState.AddModelError("", "Vui lòng chọn ít nhất một nhân viên tham dự.");
-        if (draft.Kind == "meeting" && participantIds.Any(id => !page.People.Any(person => person.Id == id)))
-            ModelState.AddModelError("", "Danh sách nhân viên tham dự không hợp lệ.");
-        if (draft.Kind == "meeting" && draft.Target.HasValue && (draft.Target != decimal.Truncate(draft.Target.Value) || participantIds.Count != (int)draft.Target.Value))
-            ModelState.AddModelError("", "Vui lòng chọn đủ nhân viên tương ứng với số người tham dự.");
+        var usesParticipantList = draft.Kind is "meeting" or "vehicle";
+        var participantIds = usesParticipantList ? (draft.ParticipantIds ?? new List<int>()).Distinct().ToList() : new List<int>();
+        if (usesParticipantList && participantIds.Count == 0)
+            ModelState.AddModelError("", draft.Kind == "vehicle" ? "Vui lòng chọn ít nhất một nhân viên đi xe." : "Vui lòng chọn ít nhất một nhân viên tham dự.");
+        if (usesParticipantList && participantIds.Any(id => !page.People.Any(person => person.Id == id)))
+            ModelState.AddModelError("", "Danh sách nhân viên được chọn không hợp lệ.");
+        if (usesParticipantList && draft.Target.HasValue && (draft.Target != decimal.Truncate(draft.Target.Value) || participantIds.Count != (int)draft.Target.Value))
+            ModelState.AddModelError("", $"Vui lòng chọn đủ {(int)draft.Target.Value} nhân viên tương ứng với số người.");
         if (draft.Kind == "meeting" && !MeetingRooms.Contains(draft.Location))
             ModelState.AddModelError("", "Phòng họp được chọn không hợp lệ.");
         var roomCapacity = draft.Location switch { "Phòng họp 1 · 8 người" => 8, "Phòng họp 2 · 16 người" => 16, "Phòng đào tạo · 30 người" => 30, _ => 0 };

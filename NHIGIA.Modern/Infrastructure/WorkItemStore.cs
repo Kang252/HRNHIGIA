@@ -39,15 +39,15 @@ public sealed class WorkItemStore
                 UserId = actor.Id,
                 actor.DepartmentId
             }).ToList();
-        if (page.CanManage || page.Kind == "meeting")
+        if (page.CanManage || page.Kind is "meeting" or "vehicle")
         {
             page.People = db.Query<WorkPerson>(@"SELECT u.Id,u.DisplayName,d.Name DepartmentName FROM dbo.HrmUserAccount u
                 LEFT JOIN dbo.HrmDepartment d ON d.Id=u.DepartmentId
                 WHERE u.IsActive=1 AND u.RoleCode<>'ADMIN'
-                  AND (@Meeting=1 OR @CanSeeAll=1 OR u.Id=@UserId OR (@IsManager=1 AND u.DepartmentId=@DepartmentId))
+                  AND (@ParticipantPicker=1 OR @CanSeeAll=1 OR u.Id=@UserId OR (@IsManager=1 AND u.DepartmentId=@DepartmentId))
                 ORDER BY u.DisplayName", new
             {
-                Meeting = page.Kind == "meeting",
+                ParticipantPicker = page.Kind is "meeting" or "vehicle",
                 CanSeeAll = canSeeAll,
                 IsManager = canManageDepartment,
                 UserId = actor.Id,
@@ -69,13 +69,15 @@ public sealed class WorkItemStore
             (Kind,Title,Description,Category,Reference,EmployeeId,DepartmentId,DueDate,StartAt,EndAt,Location,Destination,Target,Actual,Weight,Priority,Status,CreatedBy)
             OUTPUT INSERTED.Id VALUES
             (@Kind,@Title,@Description,@Category,@Reference,@EmployeeId,@DepartmentId,@DueDate,@StartAt,@EndAt,@Location,@Destination,@Target,@Actual,@Weight,@Priority,@Status,@CreatedBy)", item, transaction);
-        if (item.Kind == "meeting" && participantIds?.Count > 0)
+        if (item.Kind is "meeting" or "vehicle" && participantIds?.Count > 0)
         {
             foreach (var userId in participantIds.Distinct())
                 db.Execute("INSERT dbo.HrmWorkItemParticipant(WorkItemId,UserId) VALUES(@WorkItemId,@UserId)", new { WorkItemId = id, UserId = userId }, transaction);
-            var state = item.Status == "APPROVED" ? "Lịch đã được xác nhận." : "Lịch đang chờ phê duyệt.";
-            AddParticipantNotifications(db, transaction, id, $"Lời mời họp: {item.Title}",
-                $"{item.Location} · {item.StartAt:dd/MM/yyyy HH:mm}–{item.EndAt:HH:mm}. {state}");
+            var state = item.Status == "APPROVED" ? "Đã được xác nhận." : "Đang chờ phê duyệt.";
+            var title = item.Kind == "meeting" ? $"Lời mời họp: {item.Title}" : $"Thông tin chuyến xe: {item.Title}";
+            var route = item.Kind == "meeting" ? item.Location : $"{item.Location} → {item.Destination}";
+            AddParticipantNotifications(db, transaction, id, item.Kind, title,
+                $"{route} · {item.StartAt:dd/MM/yyyy HH:mm}–{item.EndAt:HH:mm}. {state}");
         }
         transaction.Commit();
         return id;
@@ -100,12 +102,14 @@ public sealed class WorkItemStore
         if (changed)
         {
             AddAudit(db, transaction, actorId, newStatus, id, $"{kind}: {expectedStatus} -> {newStatus}. {note}".Trim(), ipAddress);
-            if (kind == "meeting")
+            if (kind is "meeting" or "vehicle")
             {
                 var item = db.QuerySingle<WorkItem>("SELECT * FROM dbo.HrmWorkItem WHERE Id=@Id", new { Id = id }, transaction);
                 var statusLabel = newStatus switch { "APPROVED" => "đã được duyệt", "REJECTED" => "đã bị từ chối", "CANCELLED" => "đã bị hủy", _ => "đã được cập nhật" };
-                AddParticipantNotifications(db, transaction, id, $"Lịch họp {statusLabel}: {item.Title}",
-                    $"{item.Location} · {item.StartAt:dd/MM/yyyy HH:mm}–{item.EndAt:HH:mm}. {note}".Trim());
+                var subject = kind == "meeting" ? "Lịch họp" : "Chuyến xe";
+                var route = kind == "meeting" ? item.Location : $"{item.Location} → {item.Destination}";
+                AddParticipantNotifications(db, transaction, id, kind, $"{subject} {statusLabel}: {item.Title}",
+                    $"{route} · {item.StartAt:dd/MM/yyyy HH:mm}–{item.EndAt:HH:mm}. {note}".Trim());
             }
         }
         transaction.Commit();
@@ -180,11 +184,11 @@ public sealed class WorkItemStore
             new { UserId = actorId, Action = action, EntityId = id.ToString(), Detail = detail, IpAddress = ipAddress }, transaction);
     }
 
-    private static void AddParticipantNotifications(SqlConnection db, SqlTransaction transaction, int workItemId, string title, string message)
+    private static void AddParticipantNotifications(SqlConnection db, SqlTransaction transaction, int workItemId, string kind, string title, string message)
     {
         db.Execute(@"INSERT dbo.HrmNotification(UserId,Title,Message,LinkUrl)
-            SELECT UserId,@Title,@Message,N'/Work?kind=meeting'
+            SELECT UserId,@Title,@Message,@LinkUrl
             FROM dbo.HrmWorkItemParticipant WHERE WorkItemId=@WorkItemId",
-            new { WorkItemId = workItemId, Title = title.Length > 200 ? title[..200] : title, Message = message.Length > 1000 ? message[..1000] : message }, transaction);
+            new { WorkItemId = workItemId, Title = title.Length > 200 ? title[..200] : title, Message = message.Length > 1000 ? message[..1000] : message, LinkUrl = $"/Work?kind={kind}" }, transaction);
     }
 }

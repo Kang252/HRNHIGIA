@@ -295,6 +295,37 @@ namespace NHIGIA.Modern.Infrastructure
             }
         }
 
+        public int ApproveAllLeaves(HrmUserAccountModel actor, string note, string ipAddress)
+        {
+            using var connection = OpenConnection();
+            using var transaction = connection.BeginTransaction();
+            string sql;
+            object parameters;
+            if (actor.RoleCode == HrmRoles.Manager)
+            {
+                sql = @"UPDATE r SET StatusCode='PENDING_HR', ManagerNote=@Note,
+                        ApprovedByManagerId=@ActorId, UpdatedAt=SYSDATETIME()
+                    OUTPUT INSERTED.Id
+                    FROM dbo.HrmLeaveRequest r
+                    INNER JOIN dbo.HrmUserAccount u ON u.Id=r.UserId
+                    WHERE r.StatusCode='PENDING_MANAGER' AND u.DepartmentId=@DepartmentId";
+                parameters = new { Note = string.IsNullOrWhiteSpace(note) ? null : note.Trim(), ActorId = actor.Id, actor.DepartmentId };
+            }
+            else
+            {
+                sql = @"UPDATE dbo.HrmLeaveRequest SET StatusCode='APPROVED', HrNote=@Note,
+                        ApprovedByHrId=@ActorId, UpdatedAt=SYSDATETIME()
+                    OUTPUT INSERTED.Id
+                    WHERE StatusCode IN ('PENDING_HR','PENDING_MANAGER')";
+                parameters = new { Note = string.IsNullOrWhiteSpace(note) ? null : note.Trim(), ActorId = actor.Id };
+            }
+            var ids = connection.Query<int>(sql, parameters, transaction).ToList();
+            if (ids.Count > 0)
+                AddAudit(connection, actor.Id, "APPROVE_ALL", "HrmLeaveRequest", string.Join(",", ids.Take(5)), $"Phê duyệt hàng loạt {ids.Count} đơn nghỉ phép", ipAddress, transaction);
+            transaction.Commit();
+            return ids.Count;
+        }
+
         public IList<CommunicationModel> GetCommunications(HrmUserAccountModel actor, string keyword, string category, int take = 100)
         {
             const string sql = @"SELECT TOP (@Take) c.Id, c.AuthorUserId, u.DisplayName AuthorName, c.Category, c.ScopeCode,

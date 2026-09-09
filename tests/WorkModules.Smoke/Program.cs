@@ -82,11 +82,12 @@ try
     await Check("/Work?kind=overtime", "EMPLOYEE", HttpStatusCode.OK, "Số giờ tăng ca", "Lý do tăng ca");
     await Check("/Work?kind=resignation", "EMPLOYEE", HttpStatusCode.OK, "Ngày làm việc cuối cùng", "Lý do nghỉ việc");
     await Check("/Work?kind=training", "EMPLOYEE", HttpStatusCode.OK, "Đào tạo của tôi", "Chưa kết nối");
-    await Check("/Work?kind=vehicle", "EMPLOYEE", HttpStatusCode.OK, "Đặt xe", "Mục đích chuyến đi", "Điểm đón", "Điểm đến", "Số người đi", "work-layout-vehicle");
+    await Check("/Work?kind=vehicle", "EMPLOYEE", HttpStatusCode.OK, "Đặt xe", "Mục đích chuyến đi", "Điểm đón", "Điểm đến", "Số người đi", "work-layout-vehicle", "Chọn nhân viên đi xe", "meetingEmployeeSearch");
     await Check("/Work?kind=meeting", "EMPLOYEE", HttpStatusCode.OK, "Đặt phòng họp", "Chủ đề cuộc họp", "Phòng họp 1 · 8 người", "Số người tham dự", "meetingEmployeeSearch", "Tìm theo tên hoặc phòng ban", "đã chọn");
     await Check("/Work?kind=meeting", "MANAGER", HttpStatusCode.OK, "Tự động xác nhận", "không cần chờ duyệt", "Đặt và xác nhận", "cách nhau ít nhất 10 phút");
     await Check("/Work/Notifications", "EMPLOYEE", HttpStatusCode.OK, "Thông báo của tôi", "Lời mời họp");
     await Check("/Work/NotificationCount", "EMPLOYEE", HttpStatusCode.OK, "Count");
+    await Check("/Home/Approvals", "MANAGER", HttpStatusCode.OK, "Phê duyệt tất cả", "ApproveAllLeaves", "done_all");
     await Check("/Work?kind=business-trip", "EMPLOYEE", HttpStatusCode.OK, "Công tác của tôi");
     await Check("/Work?kind=business-trip", "MANAGER", HttpStatusCode.OK, "Tạo phân công công tác", "Nơi công tác", "Số quyết định", "work-layout-management-primary", "Danh sách quản lý");
     await Check("/Work?kind=offboarding", "HR", HttpStatusCode.OK, "Mở thủ tục thôi việc", "Ngày thôi việc", "Nội dung bàn giao", "work-layout-management-primary", "Danh sách quản lý");

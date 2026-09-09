@@ -128,6 +128,14 @@ public sealed class HrmController : BaseController
         return new { request.Id, request.Approve };
     });
 
+    [HttpPost, ValidateAntiForgeryToken]
+    [HrmAuthorize(HrmRoles.Admin, HrmRoles.Hr, HrmRoles.Director, HrmRoles.Manager)]
+    public IActionResult ApproveAllLeaves(string note) => Execute(() =>
+    {
+        var count = Store.ApproveAllLeaves(CurrentHrmUser, note, ClientIp);
+        return new { Count = count };
+    });
+
     [HttpGet]
     public IActionResult Communications(string keyword = "", string category = "") =>
         Execute(() => Store.GetCommunications(CurrentHrmUser, keyword, category));

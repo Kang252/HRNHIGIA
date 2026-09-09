@@ -28,7 +28,7 @@
     var showEditor = Model.CanCreate || (canEditKpi && Model.EditId.HasValue);
     var formAction = Model.EditId.HasValue ? (Model.Kind == "kpi" ? "UpdateKpi" : "UpdatePayroll") : "Create";
     var showEmployee = Model.Kind is "kpi" or "transfer" or "payroll" or "assets" or "training" or "business-trip" or "offboarding"
-        || (Model.CanManage && Model.Kind is "overtime" or "resignation" or "vehicle");
+        || (Model.CanManage && Model.Kind is "overtime" or "resignation");
     var employeeRequired = Model.Kind is "transfer" or "payroll" or "overtime" or "resignation" or "business-trip" or "offboarding";
     var showDepartment = Model.Kind is "kpi" or "transfer" or "recruitment" or "training";
     var showReference = Model.Kind is "kpi" or "assets" or "payroll" or "recruitment" or "training" or "business-trip" or "offboarding";
@@ -107,7 +107,7 @@
         else
         {
             <div class="table-responsive"><table class="table table-hover">
-                <thead><tr><th>Nội dung</th><th>@(Model.Kind == "kpi" ? "Đối tượng nhận" : Model.Kind == "recruitment" ? "Phòng ban" : Model.Kind == "meeting" ? "Người tham dự" : "Nhân viên")</th><th>Thông tin chính</th><th>Trạng thái</th>@if (Model.Kind == "payroll" || canEditKpi || isRequestFlow) { <th>Thao tác</th> }</tr></thead>
+                <thead><tr><th>Nội dung</th><th>@(Model.Kind == "kpi" ? "Đối tượng nhận" : Model.Kind == "recruitment" ? "Phòng ban" : Model.Kind is "meeting" or "vehicle" ? "Danh sách nhân viên" : "Nhân viên")</th><th>Thông tin chính</th><th>Trạng thái</th>@if (Model.Kind == "payroll" || canEditKpi || isRequestFlow) { <th>Thao tác</th> }</tr></thead>
                 <tbody>
                 @foreach (var item in Model.Items)
                 {
@@ -121,7 +121,7 @@
                                     <div class="hrm-preview-title">@item.Title</div>
                                     <div class="hrm-preview-grid">
                                         <span>Mã bản ghi</span><strong>@item.RecordCode</strong>
-                                        <span>@(Model.Kind == "meeting" ? "Người tham dự" : "Nhân viên")</span><strong>@(Model.Kind == "meeting" ? item.ParticipantNames ?? "Chưa chọn" : item.EmployeeName ?? "Chưa phân công")</strong>
+                                        <span>@(Model.Kind is "meeting" or "vehicle" ? "Danh sách nhân viên" : "Nhân viên")</span><strong>@(Model.Kind is "meeting" or "vehicle" ? item.ParticipantNames ?? "Chưa chọn" : item.EmployeeName ?? "Chưa phân công")</strong>
                                         <span>Phòng ban</span><strong>@(item.DepartmentName ?? "Chưa phân phòng")</strong>
                                         @if (Model.Kind == "training") { <span>Mã khóa học</span><strong>@(item.Reference ?? "—")</strong><span>Hình thức</span><strong>@(item.Category ?? "—")</strong><span>Ngày tổ chức</span><strong>@(item.DueDate?.ToString("dd/MM/yyyy") ?? "—")</strong> }
                                         @if (Model.Kind == "overtime") { <span>Ngày tăng ca</span><strong>@(item.DueDate?.ToString("dd/MM/yyyy") ?? "—")</strong><span>Số giờ</span><strong>@(item.Target?.ToString("0.##") ?? "—") giờ</strong> }
@@ -144,7 +144,7 @@
                         }
                         else
                         {
-                            <td>@(Model.Kind == "recruitment" ? item.DepartmentName : Model.Kind == "meeting" ? item.ParticipantNames ?? "Chưa chọn" : item.EmployeeName ?? "Chưa phân công")<small class="work-muted">@(Model.Kind == "recruitment" ? item.Category : Model.Kind == "meeting" ? $"{item.Target:0} người tham dự" : item.DepartmentName)</small></td>
+                            <td>@(Model.Kind == "recruitment" ? item.DepartmentName : Model.Kind is "meeting" or "vehicle" ? item.ParticipantNames ?? "Chưa chọn" : item.EmployeeName ?? "Chưa phân công")<small class="work-muted">@(Model.Kind == "recruitment" ? item.Category : Model.Kind is "meeting" or "vehicle" ? $"{item.Target:0} người" : item.DepartmentName)</small></td>
                         }
                         <td>
                             @if (Model.Kind == "kpi")
@@ -289,11 +289,11 @@
                     @if (Model.Kind is "kpi" or "payroll" or "recruitment" or "overtime" or "vehicle" or "meeting")
                     {
                         <label for="Target">@(Model.Kind switch { "payroll" => "Tổng thu nhập", "recruitment" => "Số lượng cần tuyển", "overtime" => "Số giờ tăng ca", "vehicle" => "Số người đi", "meeting" => "Số người tham dự", _ => "Mục tiêu" }) *</label>
-                        <input id="Target" name="Target" class="form-control" type="number" min="@(Model.Kind is "meeting" or "vehicle" ? "1" : "0.01")" max="@(Model.Kind == "meeting" ? "30" : "1000000000")" step="@(Model.Kind is "meeting" or "vehicle" ? "1" : "0.01")" required value="@Model.Draft.Target" />
-                        @if (Model.Kind == "meeting")
+                        <input id="Target" name="Target" class="form-control" type="number" min="@(Model.Kind is "meeting" or "vehicle" ? "1" : "0.01")" max="@(Model.Kind == "meeting" ? "30" : Model.Kind == "vehicle" ? "300" : "1000000000")" step="@(Model.Kind is "meeting" or "vehicle" ? "1" : "0.01")" required value="@Model.Draft.Target" />
+                        @if (Model.Kind is "meeting" or "vehicle")
                         {
                             <section class="meeting-employee-picker" aria-labelledby="meetingEmployeePickerTitle">
-                                <div class="meeting-picker-head"><strong id="meetingEmployeePickerTitle">Chọn nhân viên tham dự</strong><span id="meetingParticipantCount">0 / 0 đã chọn</span></div>
+                                <div class="meeting-picker-head"><strong id="meetingEmployeePickerTitle">@(Model.Kind == "vehicle" ? "Chọn nhân viên đi xe" : "Chọn nhân viên tham dự")</strong><span id="meetingParticipantCount">0 / 0 đã chọn</span></div>
                                 <div class="meeting-picker-search"><i class="material-icons">search</i><input id="meetingEmployeeSearch" type="search" placeholder="Tìm theo tên hoặc phòng ban..." autocomplete="off" /></div>
                                 <div id="meetingEmployeeList" class="meeting-employee-list">
                                     @foreach (var person in Model.People)
@@ -352,7 +352,7 @@
     }
 </div>
 
-@if (Model.Kind == "meeting")
+@if (Model.Kind is "meeting" or "vehicle")
 {
     <script>
         (function () {
@@ -364,8 +364,9 @@
             if (!countInput || !searchInput || !list || !counter) return;
             var checkboxes = Array.prototype.slice.call(list.querySelectorAll('input[type="checkbox"]'));
             var rows = Array.prototype.slice.call(list.querySelectorAll('.meeting-employee-option'));
+            var maximumParticipants = @(Model.Kind == "meeting" ? 30 : 300);
 
-            function targetCount() { return Math.max(0, Math.min(30, parseInt(countInput.value, 10) || 0)); }
+            function targetCount() { return Math.max(0, Math.min(maximumParticipants, parseInt(countInput.value, 10) || 0)); }
             function checkedBoxes() { return checkboxes.filter(function (checkbox) { return checkbox.checked; }); }
             function updateSelection(changed) {
                 var target = targetCount();
