@@ -462,9 +462,6 @@ section.content {
 .work-layout-editor-primary { grid-template-columns: 1fr; }
 .work-layout-editor-primary > .work-panel:first-child { order: 2; }
 .work-layout-editor-primary > .work-panel:last-child { order: 1; }
-.work-layout-management-primary { grid-template-columns: 1fr; }
-.work-layout-management-primary > .work-panel:first-child { order: 1; }
-.work-layout-management-primary > .work-panel:last-child { order: 2; }
 .payroll-flow{display:grid;grid-template-columns:repeat(6,1fr);gap:0;list-style:none;padding:0;margin:0 0 22px;counter-reset:payroll}.payroll-flow li{counter-increment:payroll;background:#fff;border:1px solid #dce4ee;padding:13px 8px;text-align:center;color:#536579;font-size:12px;font-weight:600}.payroll-flow li:before{content:counter(payroll);display:inline-grid;place-items:center;width:22px;height:22px;margin-right:6px;border-radius:50%;background:#1769e0;color:#fff}.payroll-flow li:first-child{border-radius:9px 0 0 9px}.payroll-flow li:last-child{border-radius:0 9px 9px 0}.payroll-actions{min-width:180px}.payroll-action-form{display:flex;flex-wrap:wrap;gap:6px;margin-top:7px}.payroll-action-form .form-control{width:100%;min-width:150px}.payroll-action-form .hrm-btn,.payroll-actions>.hrm-btn{padding:6px 9px;font-size:12px}.work-cancel{display:block;text-align:center;margin-top:9px}.work-status-rejected,.work-status-disputed{background:#fff0f0;color:#a93434}.work-status-paid,.work-status-resolved{background:#eaf8ef;color:#24723c}.work-status-pending_approval{background:#fff5df;color:#8c6200}@media(max-width:760px){.payroll-flow{grid-template-columns:repeat(2,1fr)}.payroll-flow li,.payroll-flow li:first-child,.payroll-flow li:last-child{border-radius:0}}
 
 /* Row detail preview */
