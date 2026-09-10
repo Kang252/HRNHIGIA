@@ -89,7 +89,6 @@
                     <li class="@(workKind == "meeting" ? "active" : "")"><a asp-controller="Work" asp-action="Index" asp-route-kind="meeting"><i class="material-icons">meeting_room</i><span>Đặt phòng họp</span></a></li>
                     <li class="@(workKind == "vehicle" ? "active" : "")"><a asp-controller="Work" asp-action="Index" asp-route-kind="vehicle"><i class="material-icons">directions_car</i><span>Đặt xe</span></a></li>
                     <li class="@(workKind == "business-trip" ? "active" : "")"><a asp-controller="Work" asp-action="Index" asp-route-kind="business-trip"><i class="material-icons">flight_takeoff</i><span>@(isEmployee ? "Công tác của tôi" : "Phân công công tác")</span></a></li>
-                    <li class="@(workKind == "offboarding" ? "active" : "")"><a asp-controller="Work" asp-action="Index" asp-route-kind="offboarding"><i class="material-icons">assignment_return</i><span>@(isEmployee ? "Thủ tục thôi việc" : "Quản lý thôi việc")</span></a></li>
                     @if (canConfigure)
                     {
                         <li class="@(action == "Reports" ? "active" : "")"><a asp-controller="Home" asp-action="Reports"><i class="material-icons">analytics</i><span>Báo cáo</span></a></li>
@@ -106,7 +105,7 @@
                     }
                     <li class="@(workKind == "training" ? "active" : "")"><a asp-controller="Work" asp-action="Index" asp-route-kind="training"><i class="material-icons">school</i><span>@(isEmployee ? "Đào tạo của tôi" : "Quản lý đào tạo")</span></a></li>
                     <li class="@(workKind == "overtime" ? "active" : "")"><a asp-controller="Work" asp-action="Index" asp-route-kind="overtime"><i class="material-icons">more_time</i><span>@(isEmployee ? "Đăng ký tăng ca" : "Quản lý tăng ca")</span></a></li>
-                    <li class="@(workKind == "resignation" ? "active" : "")"><a asp-controller="Work" asp-action="Index" asp-route-kind="resignation"><i class="material-icons">person_remove</i><span>@(isEmployee ? "Yêu cầu nghỉ việc" : "Quản lý nghỉ việc")</span></a></li>
+                    <li class="@(workKind is "resignation" or "offboarding" ? "active" : "")"><a asp-controller="Work" asp-action="Index" asp-route-kind="resignation"><i class="material-icons">person_remove</i><span>@(isEmployee ? "Yêu cầu nghỉ việc" : "Nghỉ việc & thôi việc")</span></a></li>
                     @if (canConfigure) {
                     <li class="@(workKind == "transfer" ? "active" : "")"><a asp-controller="Work" asp-action="Index" asp-route-kind="transfer"><i class="material-icons">swap_horiz</i><span>Điều chuyển nhân sự</span></a></li>
                     }

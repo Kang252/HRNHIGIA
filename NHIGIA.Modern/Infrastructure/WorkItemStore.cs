@@ -26,7 +26,7 @@ public sealed class WorkItemStore
              FOR XML PATH(''),TYPE).value('.','nvarchar(max)'),1,2,N'') ParticipantNames
             FROM dbo.HrmWorkItem w LEFT JOIN dbo.HrmUserAccount u ON u.Id=w.EmployeeId
             LEFT JOIN dbo.HrmDepartment d ON d.Id=COALESCE(w.DepartmentId,u.DepartmentId)
-            WHERE w.Kind=@Kind
+            WHERE (w.Kind=@Kind OR (@Kind='resignation' AND w.Kind='offboarding'))
               AND (@CanSeeAll=1 OR w.EmployeeId=@UserId OR w.CreatedBy=@UserId
                    OR EXISTS (SELECT 1 FROM dbo.HrmWorkItemParticipant wp WHERE wp.WorkItemId=w.Id AND wp.UserId=@UserId)
                    OR (w.Kind='kpi' AND w.DepartmentId=@DepartmentId)

@@ -63,6 +63,8 @@ public sealed class WorkPage
     public string Query { get; set; }
     public int? EditId { get; set; }
     public WorkItem Draft { get; set; } = new();
+    public WorkItem OffboardingDraft { get; set; } = new();
+    public string NextOffboardingReference { get; set; }
     public List<WorkItem> Items { get; set; } = new();
     public List<WorkPerson> People { get; set; } = new();
     public List<WorkDepartment> Departments { get; set; } = new();

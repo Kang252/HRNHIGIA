@@ -80,14 +80,14 @@ try
     await CheckMissing("/", "MANAGER", "Tuyển dụng", "Điều chuyển nhân sự");
     await Check("/", "HR", HttpStatusCode.OK, "Điều hành nhân sự", "Tính lương", "Tuyển dụng", "Điều chuyển");
     await Check("/", "DIRECTOR", HttpStatusCode.OK, "Tổng quan điều hành", "Duyệt bảng lương", "Báo cáo điều hành");
-    foreach (var kind in new[] { "kpi", "payroll", "recruitment", "training", "overtime", "resignation", "transfer", "helpdesk", "vehicle", "meeting", "business-trip", "offboarding" })
+    foreach (var kind in new[] { "kpi", "payroll", "recruitment", "training", "overtime", "resignation", "transfer", "helpdesk", "vehicle", "meeting", "business-trip" })
         await Check("/Work?kind=" + kind, "ADMIN", HttpStatusCode.OK, "Chưa kết nối", "disabled", "href=\"/Home/Attendance\"");
     await Check("/Work?kind=kpi", "ADMIN", HttpStatusCode.OK, "Tổng tỷ trọng", "Tên tiêu chí KPI", "Mã KPI / Từ khóa", "Phòng ban nhận KPI", "Chọn một nhân viên hoặc một phòng ban", "Cách đo / Nguồn dữ liệu");
     await Check("/Home/InternalCommunications", "ADMIN", HttpStatusCode.OK, "Ảnh đính kèm", "communicationImagePreview", "image/webp", "FormData");
     await Check("/Home/LeaveRequests", "EMPLOYEE", HttpStatusCode.OK, "name=\"attachment\"", "FormData(this)", "LeaveAttachment", "Tệp cũ chưa lưu nội dung");
     await Check("/Work?kind=helpdesk", "EMPLOYEE", HttpStatusCode.OK, "Tạo yêu cầu Helpdesk IT");
     await Check("/Work?kind=overtime", "EMPLOYEE", HttpStatusCode.OK, "Số giờ tăng ca", "Lý do tăng ca");
-    await Check("/Work?kind=resignation", "EMPLOYEE", HttpStatusCode.OK, "Ngày làm việc cuối cùng", "Lý do nghỉ việc");
+    await Check("/Work?kind=resignation", "EMPLOYEE", HttpStatusCode.OK, "Ngày làm việc cuối cùng", "Lý do nghỉ việc", "Yêu cầu nghỉ việc");
     await Check("/Work?kind=training", "EMPLOYEE", HttpStatusCode.OK, "Đào tạo của tôi", "Chưa kết nối");
     await Check("/Work?kind=vehicle", "EMPLOYEE", HttpStatusCode.OK, "Đặt xe", "Mục đích chuyến đi", "Điểm đón", "Điểm đến", "Số người đi", "work-layout-vehicle", "Chọn nhân viên đi xe", "meetingEmployeeSearch");
     await Check("/Work?kind=meeting", "EMPLOYEE", HttpStatusCode.OK, "Đặt phòng họp", "Chủ đề cuộc họp", "Phòng họp 1 · 8 người", "Số người tham dự", "meetingEmployeeSearch", "Tìm theo tên hoặc phòng ban", "đã chọn", "work-layout-editor-primary", "Danh sách và phê duyệt");
@@ -97,7 +97,8 @@ try
     await Check("/Home/Approvals", "MANAGER", HttpStatusCode.OK, "Phê duyệt yêu cầu", "ApprovalInbox", "DecideApproval", "ApproveAllRequests", "Phê duyệt tất cả", "done_all");
     await Check("/Work?kind=business-trip", "EMPLOYEE", HttpStatusCode.OK, "Công tác của tôi");
     await Check("/Work?kind=business-trip", "MANAGER", HttpStatusCode.OK, "Tạo phân công công tác", "Nơi công tác", "Số quyết định", "work-layout-editor-primary", "Danh sách và phê duyệt");
-    await Check("/Work?kind=offboarding", "HR", HttpStatusCode.OK, "Mở thủ tục thôi việc", "Ngày thôi việc", "Nội dung bàn giao", "work-layout-editor-primary", "Danh sách và phê duyệt");
+    await Check("/Work?kind=resignation", "HR", HttpStatusCode.OK, "Quản lý nghỉ việc và thôi việc", "Mở thủ tục thôi việc", "Ngày thôi việc", "Nội dung bàn giao", "Nghỉ việc & thôi việc");
+    await Check("/Work?kind=offboarding", "HR", HttpStatusCode.Redirect);
     await Check("/Work?kind=kpi", "MANAGER", HttpStatusCode.OK, "KPI phòng ban", "Chưa kết nối");
     await Check("/Work?kind=assets", "MANAGER", HttpStatusCode.OK, "Tài sản phòng ban", "Chưa kết nối", "assetSearch", "Cấp phát", "Thu hồi", "In QR code", "Export", "readonly", "Hệ thống tự cấp mã kế tiếp");
     await Check("/Work?kind=transfer", "EMPLOYEE", HttpStatusCode.Redirect);

@@ -44,7 +44,7 @@ public sealed class WorkController : Controller
             "recruitment" => ("Tuyển dụng", "Quản lý nhu cầu tuyển dụng và tiến độ ứng viên theo từng vị trí."),
             "training" => ("Quản lý đào tạo", "Lập kế hoạch khóa học và theo dõi nhân viên tham gia."),
             "overtime" => ("Tăng ca", "Đăng ký thời gian làm thêm và theo dõi trạng thái phê duyệt."),
-            "resignation" => ("Quản lý nghỉ việc", "Tiếp nhận đề nghị nghỉ việc và ngày làm việc cuối cùng dự kiến."),
+            "resignation" => ("Quản lý nghỉ việc và thôi việc", "Tiếp nhận đề nghị nghỉ việc, phê duyệt và theo dõi thủ tục bàn giao trên cùng một màn hình."),
             "transfer" => ("Điều chuyển nhân sự", "Theo dõi đề nghị điều chuyển. Hồ sơ nhân viên chỉ thay đổi sau quy trình phê duyệt riêng."),
             "assets" => ("Quản lý tài sản", "Danh mục tài sản, người sử dụng và tình trạng bàn giao."),
             "helpdesk" => ("Helpdesk IT", "Gửi yêu cầu hỗ trợ và theo dõi các yêu cầu của bạn."),
@@ -100,6 +100,7 @@ public sealed class WorkController : Controller
     [HttpGet]
     public IActionResult Index(string kind = "kpi", string q = null, int? editId = null)
     {
+        if (kind == "offboarding") return RedirectToAction(nameof(Index), new { kind = "resignation", q });
         var page = Page(kind, q);
         if (page == null) return NotFound();
         if (kind is "transfer" or "recruitment" && !page.CanManage) return Forbid();
@@ -107,6 +108,8 @@ public sealed class WorkController : Controller
         Load(page);
         if (kind is "assets" or "offboarding" && page.CanCreate && page.Available)
             page.Draft.Reference = kind == "assets" ? _store.GetNextAssetReference() : _store.GetNextOffboardingReference();
+        if (kind == "resignation" && page.Available && (User.IsInRole(HrmRoles.Admin) || User.IsInRole(HrmRoles.Hr) || User.IsInRole(HrmRoles.Director)))
+            page.NextOffboardingReference = _store.GetNextOffboardingReference();
         if (kind == "payroll" && editId.HasValue)
         {
             if (!(User.IsInRole(HrmRoles.Admin) || User.IsInRole(HrmRoles.Hr))) return Forbid();
@@ -196,7 +199,8 @@ public sealed class WorkController : Controller
         if (draft.Kind == "meeting" && draft.StartAt.HasValue && draft.EndAt.HasValue && !string.IsNullOrWhiteSpace(draft.Location)
             && page.Available && _store.HasMeetingConflict(draft.Location, draft.StartAt.Value, draft.EndAt.Value))
             ModelState.AddModelError("", "Phòng họp đã có lịch hoặc chưa đủ khoảng nghỉ 10 phút. Vui lòng chọn thời gian hoặc phòng khác.");
-        if (!page.Available || !ModelState.IsValid) return View(draft.Kind == "assets" ? "Assets" : "Index", page);
+        if (!page.Available || !ModelState.IsValid)
+            return draft.Kind == "offboarding" ? View("Index", CombinedResignationPage(draft)) : View(draft.Kind == "assets" ? "Assets" : "Index", page);
         draft.CreatedBy = _user.Current.Id;
         draft.Status = draft.Kind switch
         {
@@ -219,7 +223,7 @@ public sealed class WorkController : Controller
         {
             var id = draft.Kind == "assets" ? _store.CreateAsset(draft) : _store.Create(draft, participantIds);
             TempData["WorkSuccess"] = $"Đã lưu {WorkItem.FormatCode(draft.Kind, id)} vào hệ thống.";
-            return RedirectToAction("Index", new { kind = draft.Kind });
+            return RedirectToAction("Index", new { kind = draft.Kind == "offboarding" ? "resignation" : draft.Kind });
         }
         catch (SqlException ex) when (draft.Kind == "assets" && ex.Number is 2601 or 2627)
         {
@@ -232,8 +236,19 @@ public sealed class WorkController : Controller
         {
             _logger.LogError(ex, "Cannot save work item");
             ModelState.AddModelError("", "Không thể lưu dữ liệu. Vui lòng thử lại.");
-            return View(draft.Kind == "assets" ? "Assets" : "Index", page);
+            return draft.Kind == "offboarding" ? View("Index", CombinedResignationPage(draft)) : View(draft.Kind == "assets" ? "Assets" : "Index", page);
         }
+    }
+
+    private WorkPage CombinedResignationPage(WorkItem offboardingDraft)
+    {
+        var combined = Page("resignation");
+        Load(combined);
+        combined.OffboardingDraft = offboardingDraft;
+        combined.NextOffboardingReference = string.IsNullOrWhiteSpace(offboardingDraft.Reference) && combined.Available
+            ? _store.GetNextOffboardingReference()
+            : offboardingDraft.Reference;
+        return combined;
     }
 
     [HttpPost, ValidateAntiForgeryToken]

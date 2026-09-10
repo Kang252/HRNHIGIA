@@ -574,6 +574,7 @@ section.content {
 .asset-table input[type=checkbox] { position: static !important; display: block !important; width: 16px !important; height: 16px !important; margin: 0 !important; opacity: 1 !important; appearance: auto !important; }
 .asset-person { display: inline-block; max-width: 180px; padding: 5px 9px; overflow: hidden; border-radius: 14px; color: #d53542; background: #ffe8ea; text-overflow: ellipsis; white-space: nowrap; }
 .asset-status { display: inline-block; padding: 5px 8px; border-radius: 12px; color: #52647a; background: #eef2f6; white-space: nowrap; }.asset-status-available { color: #1769aa; background: #e8f3fc; }.asset-status-assigned { color: #16834a; background: #e6f7ee; }.asset-status-maintenance { color: #9a6700; background: #fff3d6; }.asset-status-damaged,.asset-status-lost { color: #b42318; background: #feeceb; }.asset-status-disposed { color: #667085; background: #eaecf0; }
+.resignation-offboarding-panel { margin-top: 18px; }.offboarding-inline-form { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 13px; }.offboarding-inline-form label { margin: 0; }.offboarding-inline-form .form-control { margin-top: 6px; }.offboarding-wide { grid-column: 1/-1; }
 @media (max-width: 767px) {
     .booking-time-grid { grid-template-columns: 1fr; gap: 0; }
     .request-flow { grid-template-columns: 1fr; }
@@ -581,4 +582,5 @@ section.content {
     .employee-directory-toolbar .meeting-picker-search { max-width: none; }
     .approval-header-actions { align-items: stretch; flex-direction: column; }
     .asset-page { margin: -18px -12px; }.asset-titlebar { align-items: stretch; flex-direction: column; padding: 12px; }.asset-title-actions { align-items: stretch; flex-direction: column; }.asset-search { width: 100%; }.asset-create-grid { grid-template-columns: 1fr; }.asset-create-wide { grid-column: auto; }.asset-toolbar { padding-inline: 12px; }.asset-tabs { gap: 18px; padding-inline: 12px; }
+    .offboarding-inline-form { grid-template-columns: 1fr; }.offboarding-wide { grid-column: auto; }
 }
