@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json.Nodes;
+using System.IO.Compression;
 using Microsoft.AspNetCore.Mvc;
 using NHIGIA.Modern.Infrastructure;
 using NHIGIA.Modern.Models;
@@ -479,4 +480,111 @@ public sealed class HrmController : BaseController
         }
         return File(Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(csv.ToString())).ToArray(), "text/csv", "cham-cong.csv");
     }
+
+    [HttpGet]
+    [HrmAuthorize(HrmRoles.Admin)]
+    public async Task<IActionResult> AttendanceImagesToday()
+    {
+        try
+        {
+            var settings = Store.GetHanetSettings(true);
+            if (string.IsNullOrWhiteSpace(settings.AccessToken)) throw new InvalidOperationException("Chưa có access token HANET.");
+            if (string.IsNullOrWhiteSpace(settings.PlaceId)) throw new InvalidOperationException("Chưa cấu hình Place ID HANET.");
+
+            var vietnam = TimeZoneInfo.FindSystemTimeZoneById(OperatingSystem.IsWindows() ? "SE Asia Standard Time" : "Asia/Bangkok");
+            var today = TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, vietnam).Date;
+            var endpoint = settings.ApiBaseUrl.TrimEnd('/') + "/person/getCheckinByPlaceIdInDay";
+            using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(45) };
+            using var response = await client.PostAsync(endpoint, new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["token"] = settings.AccessToken,
+                ["placeID"] = settings.PlaceId,
+                ["date"] = today.ToString("yyyy-MM-dd"),
+                ["type"] = "0",
+                ["exType"] = "1,2",
+                ["page"] = "0",
+                ["size"] = "500"
+            }));
+            var body = await response.Content.ReadAsStringAsync();
+            var json = JsonNode.Parse(body)?.AsObject() ?? new JsonObject();
+            var code = json["returnCode"]?.ToString() ?? json["code"]?.ToString();
+            if (!response.IsSuccessStatusCode || (code != "1" && code != "200" && !string.IsNullOrEmpty(code)))
+                throw new InvalidOperationException("HANET từ chối yêu cầu: " + (json["returnMessage"]?.ToString() ?? json["message"]?.ToString() ?? response.ReasonPhrase));
+
+            var rows = json["data"] as JsonArray ?? new JsonArray();
+            if (rows.Count == 0) throw new InvalidOperationException("Hôm nay chưa có ảnh chấm công trên HANET.");
+            using var output = new MemoryStream();
+            using (var archive = new ZipArchive(output, ZipArchiveMode.Create, true))
+            {
+                var manifest = new StringBuilder("Nhan vien,Thoi gian,Dia diem,Thiet bi,Person ID,Alias ID,Ten file\r\n");
+                var failures = new List<string>();
+                var sequence = 0;
+                foreach (var node in rows.OfType<JsonObject>())
+                {
+                    var imageUrl = HanetValue(node, "avatar", "image", "imageUrl", "faceImage", "faceImageUrl");
+                    if (!Uri.TryCreate(imageUrl, UriKind.Absolute, out var imageUri) || imageUri.Scheme != Uri.UriSchemeHttps || !IsTrustedHanetImageHost(imageUri.Host)) continue;
+                    var personName = HanetValue(node, "personName", "name") ?? "Nhan-vien";
+                    var checkTime = HanetCheckTime(HanetValue(node, "checkinTime", "time", "timestamp"), vietnam);
+                    var extension = Path.GetExtension(imageUri.AbsolutePath).ToLowerInvariant();
+                    if (extension is not (".jpg" or ".jpeg" or ".png" or ".webp")) extension = ".jpg";
+                    var fileName = $"{SafeFileName(personName)}_{checkTime:HH-mm-ss}_{++sequence:000}{extension}";
+                    try
+                    {
+                        var bytes = await client.GetByteArrayAsync(imageUri);
+                        if (bytes.Length == 0 || bytes.Length > 15 * 1024 * 1024) throw new InvalidOperationException("Kích thước ảnh không hợp lệ.");
+                        var entry = archive.CreateEntry(fileName, CompressionLevel.Fastest);
+                        await using var stream = entry.Open();
+                        await stream.WriteAsync(bytes);
+                        manifest.AppendLine(string.Join(',', CsvValue(personName), CsvValue(checkTime.ToString("dd/MM/yyyy HH:mm:ss")), CsvValue(HanetValue(node, "place", "placeName")), CsvValue(HanetValue(node, "deviceName", "deviceID")), CsvValue(HanetValue(node, "personID")), CsvValue(HanetValue(node, "aliasID")), CsvValue(fileName)));
+                    }
+                    catch (Exception exception) { failures.Add($"{personName} - {checkTime:HH:mm:ss}: {exception.Message}"); }
+                }
+                if (!archive.Entries.Any(x => !x.FullName.EndsWith(".csv", StringComparison.OrdinalIgnoreCase))) throw new InvalidOperationException("HANET chưa trả về ảnh chấm công có thể tải trong hôm nay.");
+                var csvEntry = archive.CreateEntry("danh-sach-cham-cong.csv", CompressionLevel.Fastest);
+                await using (var stream = csvEntry.Open()) await stream.WriteAsync(Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(manifest.ToString())).ToArray());
+                if (failures.Count > 0)
+                {
+                    var errorEntry = archive.CreateEntry("anh-khong-tai-duoc.txt", CompressionLevel.Fastest);
+                    await using var stream = new StreamWriter(errorEntry.Open(), new UTF8Encoding(true));
+                    await stream.WriteAsync(string.Join(Environment.NewLine, failures));
+                }
+            }
+            return File(output.ToArray(), "application/zip", $"anh-cham-cong-{today:yyyy-MM-dd}.zip");
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(exception, "HANET attendance image export failed");
+            return BadRequest(ApiResponse.Fail(exception.Message));
+        }
+    }
+
+    private static string HanetValue(JsonObject source, params string[] names)
+    {
+        foreach (var property in source)
+            if (names.Any(name => string.Equals(name, property.Key, StringComparison.OrdinalIgnoreCase))) return property.Value?.ToString();
+        return null;
+    }
+
+    private static DateTime HanetCheckTime(string value, TimeZoneInfo timeZone)
+    {
+        if (long.TryParse(value, out var epoch))
+        {
+            var instant = epoch > 9999999999 ? DateTimeOffset.FromUnixTimeMilliseconds(epoch) : DateTimeOffset.FromUnixTimeSeconds(epoch);
+            return TimeZoneInfo.ConvertTime(instant, timeZone).DateTime;
+        }
+        return DateTime.TryParse(value, out var parsed) ? parsed : DateTime.Now;
+    }
+
+    private static bool IsTrustedHanetImageHost(string host) => host.Equals("hanet.ai", StringComparison.OrdinalIgnoreCase)
+        || host.EndsWith(".hanet.ai", StringComparison.OrdinalIgnoreCase)
+        || host.Equals("wasabisys.com", StringComparison.OrdinalIgnoreCase)
+        || host.EndsWith(".wasabisys.com", StringComparison.OrdinalIgnoreCase);
+
+    private static string SafeFileName(string value)
+    {
+        var result = new string((value ?? string.Empty).Select(character => Path.GetInvalidFileNameChars().Contains(character) ? '-' : character).ToArray()).Trim();
+        return string.IsNullOrWhiteSpace(result) ? "Nhan-vien" : result;
+    }
+
+    private static string CsvValue(string value) => "\"" + (value ?? string.Empty).Replace("\"", "\"\"") + "\"";
 }
