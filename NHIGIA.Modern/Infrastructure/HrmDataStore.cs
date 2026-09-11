@@ -386,9 +386,11 @@ namespace NHIGIA.Modern.Infrastructure
                     FROM dbo.HrmAttendanceEvent e WHERE e.UserId IS NOT NULL AND e.CheckTime>=@FromDate AND e.CheckTime<DATEADD(DAY,1,@ToDate)
                     GROUP BY e.UserId, CAST(e.CheckTime AS DATE)
                 )
-                SELECT e.UserId, u.DisplayName, d.Name DepartmentName, e.WorkDate, s.ShiftName,
+                SELECT e.UserId, hm.PersonId, p.EmployeeCode, u.DisplayName, p.JobTitle, d.Name DepartmentName, e.WorkDate, s.ShiftName,
                     s.StartTime ScheduledStart, s.EndTime ScheduledEnd, s.GraceMinutes, e.CheckIn, e.CheckOut, 'HANET' Source
                 FROM Events e INNER JOIN dbo.HrmUserAccount u ON u.Id=e.UserId
+                LEFT JOIN dbo.HrmEmployeeProfile p ON p.UserId=u.Id
+                LEFT JOIN dbo.HrmHanetPersonMap hm ON hm.UserId=u.Id AND hm.IsActive=1
                 LEFT JOIN dbo.HrmDepartment d ON d.Id=u.DepartmentId
                 OUTER APPLY (SELECT TOP 1 x.ShiftName, x.StartTime, x.EndTime, x.GraceMinutes
                     FROM dbo.HrmEmployeeSchedule x WHERE x.UserId=e.UserId AND x.StatusCode='ACTIVE'

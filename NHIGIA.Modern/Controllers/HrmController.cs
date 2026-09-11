@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json.Nodes;
 using System.IO.Compression;
+using ClosedXML.Excel;
 using Microsoft.AspNetCore.Mvc;
 using NHIGIA.Modern.Infrastructure;
 using NHIGIA.Modern.Models;
@@ -479,6 +480,106 @@ public sealed class HrmController : BaseController
             csv.AppendLine(string.Join(",", Q(row.WorkDate.ToString("dd/MM/yyyy")), Q(row.DisplayName), Q(row.DepartmentName), Q(row.ShiftName), Q(row.CheckIn?.ToString("HH:mm")), Q(row.CheckOut?.ToString("HH:mm")), row.WorkedMinutes, row.LateMinutes, row.EarlyMinutes, Q(row.StatusCode)));
         }
         return File(Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(csv.ToString())).ToArray(), "text/csv", "cham-cong.csv");
+    }
+
+    [HttpGet]
+    public IActionResult AttendanceXlsx(DateTime? fromDate, DateTime? toDate)
+    {
+        try
+        {
+            var to = (toDate ?? DateTime.Today).Date;
+            var from = (fromDate ?? to.AddDays(-30)).Date;
+            if (to < from || (to - from).TotalDays > 62) throw new InvalidOperationException("Khoảng xuất bảng chấm công tối đa là 63 ngày.");
+            var rows = Store.GetAttendance(CurrentHrmUser, from, to);
+            var employees = rows.GroupBy(x => x.UserId).Select(group => group.OrderByDescending(x => x.WorkDate).First()).OrderBy(x => x.DisplayName).ToList();
+            var byEmployeeDate = rows.ToDictionary(x => (x.UserId, x.WorkDate.Date));
+            var dates = Enumerable.Range(0, (to - from).Days + 1).Select(offset => from.AddDays(offset)).ToList();
+
+            using var workbook = new XLWorkbook();
+            var sheet = workbook.Worksheets.Add("Bảng chấm công");
+            sheet.ShowGridLines = false;
+            sheet.Cell("A1").Value = "Bảng chấm công";
+            sheet.Cell("A1").Style.Font.Bold = true;
+            sheet.Cell("A1").Style.Font.FontSize = 24;
+            sheet.Cell("A4").Value = "Tài khoản";
+            sheet.Cell("B4").Value = CurrentHrmUser.Username;
+            sheet.Cell("A5").Value = "Địa điểm";
+            sheet.Cell("B5").Value = "NHIGIA";
+            sheet.Cell("A6").Value = "Thời gian";
+            sheet.Cell("B6").Value = $"{from:yyyy-MM-dd} đến {to:yyyy-MM-dd}";
+            sheet.Cell("A7").Value = "Số lượng nhân viên";
+            sheet.Cell("B7").Value = employees.Count;
+
+            var headers = new[] { "ID", "Tên", "Chức vụ", "Phòng ban", "MSNV" };
+            for (var index = 0; index < headers.Length; index++) sheet.Cell(11, index + 1).Value = headers[index];
+            for (var index = 0; index < dates.Count; index++)
+            {
+                var column = 6 + index * 2;
+                sheet.Range(11, column, 11, column + 1).Merge();
+                sheet.Cell(11, column).Value = dates[index].ToString("yyyy-MM-dd");
+            }
+            var lastColumn = 5 + dates.Count * 2;
+            var header = sheet.Range(11, 1, 11, lastColumn);
+            header.Style.Fill.SetBackgroundColor(XLColor.FromHtml("#6FA8DC"));
+            header.Style.Font.SetBold();
+            header.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+            header.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+            header.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+            header.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
+
+            for (var employeeIndex = 0; employeeIndex < employees.Count; employeeIndex++)
+            {
+                var employee = employees[employeeIndex];
+                var rowNumber = 12 + employeeIndex;
+                sheet.Cell(rowNumber, 1).Value = employee.PersonId ?? employee.UserId.ToString();
+                sheet.Cell(rowNumber, 2).Value = employee.DisplayName ?? string.Empty;
+                sheet.Cell(rowNumber, 3).Value = employee.JobTitle ?? string.Empty;
+                sheet.Cell(rowNumber, 4).Value = employee.DepartmentName ?? string.Empty;
+                sheet.Cell(rowNumber, 5).Value = employee.EmployeeCode ?? string.Empty;
+                for (var dateIndex = 0; dateIndex < dates.Count; dateIndex++)
+                {
+                    var column = 6 + dateIndex * 2;
+                    if (!byEmployeeDate.TryGetValue((employee.UserId, dates[dateIndex]), out var attendance))
+                    {
+                        sheet.Cell(rowNumber, column).Value = "-";
+                        sheet.Cell(rowNumber, column + 1).Value = "-";
+                        continue;
+                    }
+                    sheet.Cell(rowNumber, column).Value = attendance.CheckIn?.ToString("HH:mm") ?? "-";
+                    sheet.Cell(rowNumber, column + 1).Value = attendance.CheckOut?.ToString("HH:mm") ?? "-";
+                    if (attendance.LateMinutes > 0) sheet.Cell(rowNumber, column).Style.Font.SetFontColor(XLColor.Red);
+                    if (attendance.EarlyMinutes > 0 || attendance.StatusCode == "MISSING_CHECK") sheet.Cell(rowNumber, column + 1).Style.Font.SetFontColor(XLColor.Red);
+                }
+            }
+            if (employees.Count > 0)
+            {
+                var data = sheet.Range(12, 1, 11 + employees.Count, lastColumn);
+                data.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+                data.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
+                data.Style.Alignment.SetVertical(XLAlignmentVerticalValues.Center);
+                sheet.Range(12, 6, 11 + employees.Count, lastColumn).Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
+            }
+            sheet.Column(1).Width = 23;
+            sheet.Column(2).Width = 25;
+            sheet.Column(3).Width = 22;
+            sheet.Column(4).Width = 24;
+            sheet.Column(5).Width = 13;
+            for (var column = 6; column <= lastColumn; column++) sheet.Column(column).Width = 8;
+            sheet.Row(11).Height = 24;
+            sheet.SheetView.FreezeRows(11);
+            sheet.SheetView.FreezeColumns(5);
+            sheet.PageSetup.PageOrientation = XLPageOrientation.Landscape;
+            sheet.PageSetup.FitToPages(1, 0);
+
+            using var stream = new MemoryStream();
+            workbook.SaveAs(stream);
+            return File(stream.ToArray(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"bang-cham-cong-{from:yyyy-MM-dd}-{to:yyyy-MM-dd}.xlsx");
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(exception, "Attendance XLSX export failed");
+            return BadRequest(ApiResponse.Fail(exception.Message));
+        }
     }
 
     [HttpGet]

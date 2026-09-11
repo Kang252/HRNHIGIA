@@ -276,7 +276,10 @@ namespace NHIGIA.Modern.Models
     public class AttendanceRecordModel
     {
         public int UserId { get; set; }
+        public string PersonId { get; set; }
+        public string EmployeeCode { get; set; }
         public string DisplayName { get; set; }
+        public string JobTitle { get; set; }
         public string DepartmentName { get; set; }
         public DateTime WorkDate { get; set; }
         public string ShiftName { get; set; }
