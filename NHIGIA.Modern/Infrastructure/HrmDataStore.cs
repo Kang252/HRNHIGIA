@@ -500,13 +500,27 @@ namespace NHIGIA.Modern.Infrastructure
 
         public void SaveHanetPersonMap(HanetPersonMapRequest request, HrmUserAccountModel actor, string ipAddress)
         {
-            const string sql = @"MERGE dbo.HrmHanetPersonMap AS target USING (SELECT @UserId UserId) AS source ON target.UserId=source.UserId
+            request.PersonId = string.IsNullOrWhiteSpace(request.PersonId) ? null : request.PersonId.Trim();
+            request.AliasId = string.IsNullOrWhiteSpace(request.AliasId) ? null : request.AliasId.Trim();
+            request.PlaceId = string.IsNullOrWhiteSpace(request.PlaceId) ? null : request.PlaceId.Trim();
+            const string clearConflictsSql = @"UPDATE dbo.HrmHanetPersonMap WITH (UPDLOCK, SERIALIZABLE)
+                SET PersonId=NULL, AliasId=NULL, IsActive=0, UpdatedAt=SYSDATETIME()
+                WHERE UserId<>@UserId AND ((@PersonId IS NOT NULL AND PersonId=@PersonId) OR (@AliasId IS NOT NULL AND AliasId=@AliasId));";
+            const string saveSql = @"MERGE dbo.HrmHanetPersonMap WITH (HOLDLOCK) AS target USING (SELECT @UserId UserId) AS source ON target.UserId=source.UserId
                 WHEN MATCHED THEN UPDATE SET AliasId=@AliasId, PersonId=@PersonId, PlaceId=@PlaceId, IsActive=1, UpdatedAt=SYSDATETIME()
                 WHEN NOT MATCHED THEN INSERT(UserId, AliasId, PersonId, PlaceId) VALUES(@UserId, @AliasId, @PersonId, @PlaceId);";
             using (var connection = OpenConnection())
             {
-                connection.Execute(sql, request);
-                AddAudit(connection, actor.Id, "UPDATE", "HrmHanetPersonMap", request.UserId.ToString(), "Ánh xạ nhân viên HANET", ipAddress);
+                using var transaction = connection.BeginTransaction();
+                var replacedUserIds = connection.Query<int>(@"SELECT UserId FROM dbo.HrmHanetPersonMap WITH (UPDLOCK, SERIALIZABLE)
+                    WHERE UserId<>@UserId AND ((@PersonId IS NOT NULL AND PersonId=@PersonId) OR (@AliasId IS NOT NULL AND AliasId=@AliasId));", request, transaction).ToArray();
+                connection.Execute(clearConflictsSql, request, transaction);
+                connection.Execute(saveSql, request, transaction);
+                var detail = replacedUserIds.Length == 0
+                    ? "Ánh xạ nhân viên HANET"
+                    : "Chuyển ánh xạ HANET từ nhân viên " + string.Join(", ", replacedUserIds);
+                AddAudit(connection, actor.Id, "UPDATE", "HrmHanetPersonMap", request.UserId.ToString(), detail, ipAddress, transaction);
+                transaction.Commit();
             }
         }
 
