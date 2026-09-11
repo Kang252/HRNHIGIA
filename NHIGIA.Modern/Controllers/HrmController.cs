@@ -36,7 +36,7 @@ public sealed class HrmController : BaseController
     [HttpGet]
     public IActionResult Users() => Execute(() => Store.GetVisibleUsers(CurrentHrmUser).Select(x => new
     {
-        x.Id, x.Username, x.DisplayName, x.RoleCode, x.RoleLabel, x.DepartmentId, x.DepartmentName
+        x.Id, x.Username, x.EmployeeCode, x.DisplayName, x.RoleCode, x.RoleLabel, x.DepartmentId, x.DepartmentName
     }));
 
     [HttpGet]
@@ -322,6 +322,87 @@ public sealed class HrmController : BaseController
         Store.SaveHanetPersonMap(request, CurrentHrmUser, ClientIp);
         return new { request.UserId };
     });
+
+    [HttpGet]
+    [HrmAuthorize(HrmRoles.Admin)]
+    public FileContentResult HanetMappingTemplate()
+    {
+        var csv = "MaNhanVien,TaiKhoan,PersonID,AliasID,PlaceID\r\nNG001,hradmin,19599634311402042324,HR001,4628\r\n";
+        return File(Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(csv)).ToArray(), "text/csv; charset=utf-8", "mau-anh-xa-hanet.csv");
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    [HrmAuthorize(HrmRoles.Admin)]
+    public async Task<IActionResult> ImportHanetMappings(IFormFile file)
+    {
+        if (file == null || file.Length == 0) return BadRequest(ApiResponse.Fail("Vui lòng chọn file CSV."));
+        if (file.Length > 2 * 1024 * 1024) return BadRequest(ApiResponse.Fail("File ánh xạ không được lớn hơn 2 MB."));
+        if (!string.Equals(Path.GetExtension(file.FileName), ".csv", StringComparison.OrdinalIgnoreCase)) return BadRequest(ApiResponse.Fail("Chỉ hỗ trợ file CSV mở được bằng Excel."));
+
+        try
+        {
+            using var reader = new StreamReader(file.OpenReadStream(), Encoding.UTF8, true);
+            var content = await reader.ReadToEndAsync();
+            var lines = content.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n', StringSplitOptions.RemoveEmptyEntries);
+            if (lines.Length < 2) throw new InvalidOperationException("File chưa có dữ liệu ánh xạ.");
+            var separator = lines[0].Count(x => x == ';') > lines[0].Count(x => x == ',') ? ';' : ',';
+            var headers = ParseCsvLine(lines[0].TrimStart('\uFEFF'), separator).Select((name, index) => new { Name = NormalizeHeader(name), Index = index }).ToDictionary(x => x.Name, x => x.Index, StringComparer.OrdinalIgnoreCase);
+            foreach (var required in new[] { "MANHANVIEN", "TAIKHOAN", "PERSONID", "ALIASID", "PLACEID" })
+                if (!headers.ContainsKey(required)) throw new InvalidOperationException("Thiếu cột bắt buộc: " + required + ". Hãy tải và sử dụng file mẫu.");
+
+            var users = Store.GetVisibleUsers(CurrentHrmUser);
+            var imported = 0;
+            var errors = new List<string>();
+            for (var lineNumber = 2; lineNumber <= lines.Length; lineNumber++)
+            {
+                var cells = ParseCsvLine(lines[lineNumber - 1], separator);
+                string Cell(string name) => headers[name] < cells.Count ? cells[headers[name]].Trim() : string.Empty;
+                var employeeCode = Cell("MANHANVIEN");
+                var username = Cell("TAIKHOAN");
+                var personId = Cell("PERSONID");
+                var aliasId = Cell("ALIASID");
+                var placeId = Cell("PLACEID");
+                if (string.IsNullOrWhiteSpace(employeeCode) && string.IsNullOrWhiteSpace(username)) { errors.Add($"Dòng {lineNumber}: thiếu mã nhân viên hoặc tài khoản."); continue; }
+                if (string.IsNullOrWhiteSpace(personId) && string.IsNullOrWhiteSpace(aliasId)) { errors.Add($"Dòng {lineNumber}: thiếu Person ID hoặc Alias ID."); continue; }
+                var matches = users.Where(x => (!string.IsNullOrWhiteSpace(employeeCode) && string.Equals(x.EmployeeCode, employeeCode, StringComparison.OrdinalIgnoreCase)) || (!string.IsNullOrWhiteSpace(username) && string.Equals(x.Username, username, StringComparison.OrdinalIgnoreCase))).ToList();
+                if (matches.Count != 1) { errors.Add($"Dòng {lineNumber}: không tìm thấy duy nhất một nhân viên phù hợp."); continue; }
+                try
+                {
+                    Store.SaveHanetPersonMap(new HanetPersonMapRequest { UserId = matches[0].Id, PersonId = personId, AliasId = aliasId, PlaceId = placeId }, CurrentHrmUser, ClientIp);
+                    imported++;
+                }
+                catch (Exception exception) { errors.Add($"Dòng {lineNumber}: {exception.Message}"); }
+            }
+            return Json(ApiResponse.Ok(new { Imported = imported, Errors = errors }, $"Đã ánh xạ {imported} nhân viên; {errors.Count} dòng cần kiểm tra."));
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(exception, "HANET mapping import failed");
+            return BadRequest(ApiResponse.Fail(exception.Message));
+        }
+    }
+
+    private static List<string> ParseCsvLine(string line, char separator)
+    {
+        var values = new List<string>();
+        var current = new StringBuilder();
+        var quoted = false;
+        for (var index = 0; index < (line ?? string.Empty).Length; index++)
+        {
+            var character = line[index];
+            if (character == '"')
+            {
+                if (quoted && index + 1 < line.Length && line[index + 1] == '"') { current.Append('"'); index++; }
+                else quoted = !quoted;
+            }
+            else if (character == separator && !quoted) { values.Add(current.ToString()); current.Clear(); }
+            else current.Append(character);
+        }
+        values.Add(current.ToString());
+        return values;
+    }
+
+    private static string NormalizeHeader(string value) => new string((value ?? string.Empty).Where(char.IsLetterOrDigit).Select(char.ToUpperInvariant).ToArray());
 
     [HttpPost, ValidateAntiForgeryToken]
     [HrmAuthorize(HrmRoles.Admin)]

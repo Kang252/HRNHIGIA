@@ -39,6 +39,7 @@ namespace NHIGIA.Modern.Models
     {
         public int Id { get; set; }
         public string Username { get; set; }
+        public string EmployeeCode { get; set; }
         public string PasswordHash { get; set; }
         public string PasswordSalt { get; set; }
         public string DisplayName { get; set; }

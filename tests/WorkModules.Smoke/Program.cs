@@ -80,7 +80,8 @@ try
     await CheckMissing("/", "MANAGER", "Tuyển dụng", "Điều chuyển nhân sự");
     await Check("/", "HR", HttpStatusCode.OK, "Điều hành nhân sự", "Tính lương", "Tuyển dụng", "Điều chuyển");
     await Check("/", "DIRECTOR", HttpStatusCode.OK, "Tổng quan điều hành", "Duyệt bảng lương", "Báo cáo điều hành");
-    await Check("/Home/HanetIntegration", "ADMIN", HttpStatusCode.OK, "Tích hợp camera HANET", "hanetWebhookUrl");
+    await Check("/Home/HanetIntegration", "ADMIN", HttpStatusCode.OK, "Tích hợp camera HANET", "hanetWebhookUrl", "Nhập hàng loạt bằng file", "HanetMappingTemplate", "ImportHanetMappings");
+    await Check("/Hrm/HanetMappingTemplate", "ADMIN", HttpStatusCode.OK, "MaNhanVien,TaiKhoan,PersonID,AliasID,PlaceID");
     await Check("/Home/HanetIntegration", "HR", HttpStatusCode.Redirect);
     await Check("/Home/HanetIntegration", "DIRECTOR", HttpStatusCode.Redirect);
     await CheckMissing("/", "HR", "Tích hợp HANET");
