@@ -1,97 +1,131 @@
-@{ var attendanceUser = HrmUser.Current; var canConfigureHanet = attendanceUser?.RoleCode == "ADMIN" && Configuration.GetValue<bool>("Features:HanetIntegrationUiEnabled"); }
-<div class="container-fluid">
-    <div class="hrm-page-header">
-        <div>
-            <h1 class="hrm-page-title">Chấm công</h1>
-            <p class="hrm-page-subtitle">Theo dõi giờ vào, giờ ra và trạng thái làm việc của từng nhân viên</p>
-        </div>
-        <div class="hrm-header-actions">
-            @if (canConfigureHanet) { <a class="hrm-btn" href="@Url.Action("HanetIntegration", "Home")"><i class="material-icons">sync</i> Cấu hình thiết bị</a> }
-            @if (canConfigureHanet) { <button id="exportAttendanceImages" class="hrm-btn" type="button"><i class="material-icons">photo_library</i> Xuất ảnh hôm nay</button> }
-            <button id="exportAttendance" class="hrm-btn" type="button"><i class="material-icons">file_download</i> Xuất Excel</button>
-            <a class="hrm-btn hrm-btn-primary" href="@Url.Action("WorkSchedules", "Home")"><i class="material-icons">event_available</i> Phân lịch</a>
-        </div>
-    </div>
-
-    <div class="hrm-grid hrm-grid-4">
-        <div class="hrm-card hrm-stat"><div class="hrm-stat-top"><span class="hrm-stat-label">Đã chấm công</span><span class="hrm-stat-icon green"><i class="material-icons">how_to_reg</i></span></div><div id="attendanceTotal" class="hrm-stat-value">--</div><div class="hrm-stat-note">Bản ghi trong khoảng đã chọn</div></div>
-        <div class="hrm-card hrm-stat"><div class="hrm-stat-top"><span class="hrm-stat-label">Đúng giờ</span><span class="hrm-stat-icon"><i class="material-icons">check_circle</i></span></div><div id="attendanceOnTime" class="hrm-stat-value">--</div><div class="hrm-stat-note">Theo giờ bắt đầu được phân</div></div>
-        <div class="hrm-card hrm-stat"><div class="hrm-stat-top"><span class="hrm-stat-label">Đi muộn</span><span class="hrm-stat-icon orange"><i class="material-icons">watch_later</i></span></div><div id="attendanceLate" class="hrm-stat-value">--</div><div class="hrm-stat-note">Ngoài thời gian cho phép</div></div>
-        <div class="hrm-card hrm-stat"><div class="hrm-stat-top"><span class="hrm-stat-label">Thiếu dữ liệu</span><span class="hrm-stat-icon purple"><i class="material-icons">report_problem</i></span></div><div id="attendanceMissing" class="hrm-stat-value">--</div><div class="hrm-stat-note">Thiếu giờ vào, giờ ra hoặc lịch</div></div>
-    </div>
-
-    <div class="hrm-card hrm-section-gap">
-        <div class="hrm-toolbar">
-            <div class="hrm-field"><label>TỪ NGÀY</label><input id="attendanceFrom" class="hrm-control" type="date" /></div>
-            <div class="hrm-field"><label>ĐẾN NGÀY</label><input id="attendanceTo" class="hrm-control" type="date" /></div>
-            <div class="hrm-field"><label>TRẠNG THÁI</label><select id="attendanceStatus" class="hrm-control"><option value="">Tất cả trạng thái</option><option value="ON_TIME">Đúng giờ</option><option value="LATE">Đi muộn</option><option value="EARLY">Về sớm</option><option value="MISSING_CHECK">Thiếu dữ liệu</option></select></div>
-            <div class="hrm-field hrm-field-grow"><label>TÌM NHÂN VIÊN</label><input id="attendanceSearch" class="hrm-control" type="search" placeholder="Nhập mã hoặc tên nhân viên..." /></div>
-            <button id="filterAttendance" class="hrm-btn hrm-btn-primary" type="button"><i class="material-icons">search</i> Lọc</button>
-        </div>
-        <div class="hrm-card-header" style="border-top:1px solid #e5eaf1">
-            <div class="hrm-tabs" role="tablist">
-                <button class="hrm-tab active" type="button">Chấm công chi tiết</button>
-                <button class="hrm-tab" type="button">Tổng hợp theo ngày</button>
-                <button class="hrm-tab" type="button">Dữ liệu thiết bị</button>
+@{
+    var attendanceUser = HrmUser.Current;
+    var canConfigureHanet = attendanceUser?.RoleCode == "ADMIN" && Configuration.GetValue<bool>("Features:HanetIntegrationUiEnabled");
+}
+<div class="container-fluid attendance-page">
+    <div class="attendance-workspace">
+        <header class="attendance-heading">
+            <div>
+                <span class="attendance-eyebrow">QUẢN LÝ THỜI GIAN</span>
+                <h1>Chấm công</h1>
+                <p>Theo dõi giờ vào, giờ ra và dữ liệu nhận diện từ thiết bị.</p>
             </div>
-            <span class="hrm-badge hrm-badge-neutral">Chưa có nguồn dữ liệu</span>
+            <div class="attendance-actions">
+                @if (canConfigureHanet)
+                {
+                    <button id="exportAttendanceImages" class="hrm-btn" type="button"><i class="material-icons">photo_library</i> Xuất ảnh hôm nay</button>
+                }
+                <button id="exportAttendance" class="hrm-btn hrm-btn-primary" type="button"><i class="material-icons">file_download</i> Xuất Excel</button>
+            </div>
+        </header>
+
+        <nav class="attendance-primary-tabs" aria-label="Chức năng chấm công">
+            <a class="active" href="@Url.Action("Attendance", "Home")"><i class="material-icons">fact_check</i><span>Bảng chấm công</span></a>
+            @if (canConfigureHanet)
+            {
+                <a href="@Url.Action("HanetIntegration", "Home")"><i class="material-icons">videocam</i><span>Camera AI</span></a>
+            }
+            <a href="@Url.Action("WorkSchedules", "Home")"><i class="material-icons">calendar_month</i><span>Xếp ca làm việc</span></a>
+            <a href="@Url.Action("Reports", "Home")"><i class="material-icons">analytics</i><span>Báo cáo</span></a>
+        </nav>
+
+        <div class="attendance-secondary-tabs" role="tablist" aria-label="Dữ liệu chấm công">
+            <button class="active" type="button" role="tab" aria-selected="true" data-panel="detail">Chấm công chi tiết</button>
+            <button type="button" role="tab" aria-selected="false" data-panel="summary">Tổng hợp theo ngày</button>
+            <button type="button" role="tab" aria-selected="false" data-panel="source">Dữ liệu thiết bị</button>
         </div>
-        <div class="hrm-table-wrap">
-            <table class="hrm-table">
-                <thead><tr><th>Nhân viên</th><th>Ngày</th><th>Lịch làm việc</th><th>Giờ vào</th><th>Giờ ra</th><th>Thời gian làm</th><th>Trạng thái</th><th>Nguồn</th></tr></thead>
-                <tbody id="attendanceRows">
-                    <tr><td colspan="8"><div class="hrm-empty"><i class="material-icons">fingerprint</i><strong id="attendanceEmptyTitle">Chưa có dữ liệu chấm công</strong><br /><span id="attendanceEmptyDetail">Dữ liệu sẽ hiển thị sau khi thiết bị chấm công được kết nối.</span></div></td></tr>
-                </tbody>
-            </table>
-        </div>
+
+        <section class="attendance-content">
+            <div class="attendance-section-title">
+                <div><span></span><h2 id="attendanceSectionTitle">Danh sách chấm công</h2></div>
+                <span id="attendanceResultCount" class="attendance-result-count">Đang tải dữ liệu...</span>
+            </div>
+
+            <div class="attendance-summary-strip" aria-label="Tổng quan chấm công">
+                <div><span>Tổng bản ghi</span><strong id="attendanceTotal">--</strong></div>
+                <div><span>Đúng giờ</span><strong id="attendanceOnTime">--</strong></div>
+                <div><span>Đi muộn</span><strong id="attendanceLate">--</strong></div>
+                <div><span>Thiếu dữ liệu</span><strong id="attendanceMissing">--</strong></div>
+            </div>
+
+            <div class="attendance-filterbar">
+                <label><span>Từ ngày</span><input id="attendanceFrom" class="hrm-control" type="date" /></label>
+                <label><span>Đến ngày</span><input id="attendanceTo" class="hrm-control" type="date" /></label>
+                <label><span>Trạng thái</span><select id="attendanceStatus" class="hrm-control"><option value="">Tất cả trạng thái</option><option value="ON_TIME">Đúng giờ</option><option value="LATE">Đi muộn</option><option value="EARLY">Về sớm</option><option value="MISSING_CHECK">Thiếu dữ liệu</option></select></label>
+                <label class="attendance-search"><span>Tìm nhân viên</span><span class="attendance-search-input"><i class="material-icons">search</i><input id="attendanceSearch" type="search" placeholder="Nhập tên hoặc phòng ban..." /></span></label>
+                <button id="filterAttendance" class="hrm-btn hrm-btn-primary" type="button"><i class="material-icons">filter_alt</i> Áp dụng</button>
+            </div>
+
+            <div id="attendanceDetailPanel" class="attendance-panel">
+                <div class="hrm-table-wrap attendance-table-wrap">
+                    <table class="hrm-table attendance-table">
+                        <thead><tr><th>STT</th><th>Nhân viên</th><th>Ngày</th><th>Lịch làm việc</th><th>Giờ vào</th><th>Giờ ra</th><th>Thời gian làm</th><th>Trạng thái</th><th>Nguồn</th></tr></thead>
+                        <tbody id="attendanceRows"><tr><td colspan="9"><div class="attendance-empty"><i class="material-icons">inbox</i><strong>Đang tải dữ liệu</strong><span>Vui lòng chờ trong giây lát.</span></div></td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="attendanceSummaryPanel" class="attendance-panel" hidden>
+                <div class="hrm-table-wrap attendance-table-wrap">
+                    <table class="hrm-table attendance-table">
+                        <thead><tr><th>Ngày</th><th>Tổng bản ghi</th><th>Đúng giờ</th><th>Đi muộn</th><th>Thiếu dữ liệu</th><th>Tổng thời gian làm</th></tr></thead>
+                        <tbody id="attendanceSummaryRows"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="attendanceSourcePanel" class="attendance-panel" hidden>
+                <div class="hrm-table-wrap attendance-table-wrap">
+                    <table class="hrm-table attendance-table">
+                        <thead><tr><th>Nguồn dữ liệu</th><th>Số bản ghi</th><th>Bản ghi gần nhất</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>
+                        <tbody id="attendanceSourceRows"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
     </div>
 </div>
 
 <script>
-    (function () {
-        return; // Luồng thông báo mẫu cũ đã được thay bằng dữ liệu API.
-        var now = new Date();
-        var value = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
-        document.getElementById('attendanceFrom').value = value;
-        document.getElementById('attendanceTo').value = value;
-        var tabs = document.querySelectorAll('.hrm-tab');
-        var emptyMessages = [
-            ['Chưa có dữ liệu chấm công', 'Dữ liệu sẽ hiển thị sau khi thiết bị chấm công được kết nối.'],
-            ['Chưa có dữ liệu tổng hợp', 'Dữ liệu tổng hợp sẽ xuất hiện sau khi có bản ghi giờ vào và giờ ra.'],
-            ['Chưa có dữ liệu thiết bị', 'Dev sẽ cấu hình nguồn dữ liệu thiết bị chấm công khi cần.']
-        ];
-        for (var i = 0; i < tabs.length; i++) {
-            tabs[i].setAttribute('data-index', i);
-            tabs[i].addEventListener('click', function () {
-                for (var j = 0; j < tabs.length; j++) tabs[j].classList.remove('active');
-                this.classList.add('active');
-                var message = emptyMessages[parseInt(this.getAttribute('data-index'), 10)];
-                document.getElementById('attendanceEmptyTitle').textContent = message[0];
-                document.getElementById('attendanceEmptyDetail').textContent = message[1];
-            });
-        }
-        function showNotice(message) {
-            if (window.bootbox) bootbox.alert(message);
-            else window.alert(message);
-        }
-        document.getElementById('syncAttendance').addEventListener('click', function () {
-            showNotice('Chưa thể đồng bộ vì API HANET chưa được cấu hình.');
-        });
-        document.getElementById('exportAttendance').addEventListener('click', function () {
-            showNotice('Chưa có dữ liệu chấm công để xuất Excel.');
-        });
-        document.getElementById('filterAttendance').addEventListener('click', function () {
-            showNotice('Không tìm thấy bản ghi trong khoảng thời gian đã chọn.');
-        });
-    })();
-</script>
-<script>
 (function(){
-    $('.attendance_menu').addClass('active');var all=[];
-    function esc(v){return $('<div>').text(v==null?'':v).html();}function status(v){var map={ON_TIME:'Đúng giờ',LATE:'Đi muộn',EARLY:'Về sớm',LATE_EARLY:'Muộn / về sớm',MISSING_CHECK:'Thiếu dữ liệu',MISSING_SCHEDULE:'Thiếu lịch'};return map[v]||v;}function cls(v){return v==='ON_TIME'?'hrm-badge-success':v==='MISSING_CHECK'||v==='MISSING_SCHEDULE'?'hrm-badge-neutral':'hrm-badge-warning';}
-    function render(){var key=$('#attendanceSearch').val().toLocaleLowerCase().trim(),state=$('#attendanceStatus').val(),items=all.filter(function(x){return(!key||(x.DisplayName+' '+(x.DepartmentName||'')).toLocaleLowerCase().indexOf(key)>=0)&&(!state||x.StatusCode===state||(state==='LATE'&&x.StatusCode==='LATE_EARLY'));});$('#attendanceTotal').text(all.length);$('#attendanceOnTime').text(all.filter(function(x){return x.StatusCode==='ON_TIME';}).length);$('#attendanceLate').text(all.filter(function(x){return x.LateMinutes>0;}).length);$('#attendanceMissing').text(all.filter(function(x){return x.StatusCode.indexOf('MISSING')===0;}).length);if(!items.length){$('#attendanceRows').html('<tr><td colspan="8"><div class="hrm-empty"><i class="material-icons">fingerprint</i><strong>Chưa có dữ liệu chấm công</strong><br><span>Thiết bị chấm công sẽ được dev kết nối khi cần.</span></div></td></tr>');return;}$('#attendanceRows').html(items.map(function(x){return '<tr><td><strong>'+esc(x.DisplayName)+'</strong><small class="hrm-cell-note">'+esc(x.DepartmentName)+'</small></td><td>'+moment(x.WorkDate).format('DD/MM/YYYY')+'</td><td>'+esc(x.ShiftName||'--')+'</td><td>'+(x.CheckIn?moment(x.CheckIn).format('HH:mm'):'--')+'</td><td>'+(x.CheckOut?moment(x.CheckOut).format('HH:mm'):'--')+'</td><td>'+Math.floor(x.WorkedMinutes/60)+'h '+(x.WorkedMinutes%60)+'m</td><td><span class="hrm-badge '+cls(x.StatusCode)+'">'+status(x.StatusCode)+'</span><small class="hrm-cell-note">Muộn '+x.LateMinutes+'p · Sớm '+x.EarlyMinutes+'p</small></td><td>'+esc(x.Source||'Thiết bị')+'</td></tr>';}).join(''));}
-    function load(){$.get('@Url.Action("Attendance","Hrm")',{fromDate:$('#attendanceFrom').val(),toDate:$('#attendanceTo').val()}).done(function(r){all=r.Data||[];render();}).fail(function(x){alert((x.responseJSON&&x.responseJSON.Message)||'Không thể tải dữ liệu.');});}
-    $('#attendanceFrom').val(moment().startOf('month').format('YYYY-MM-DD'));$('#attendanceTo').val(moment().format('YYYY-MM-DD'));$('#filterAttendance').off('click').on('click',load);$('#attendanceSearch,#attendanceStatus').on('input change',render);$('#exportAttendance').off('click').on('click',function(){window.location='@Url.Action("AttendanceXlsx","Hrm")?fromDate='+$('#attendanceFrom').val()+'&toDate='+$('#attendanceTo').val();});load();
+    $('.attendance_menu').addClass('active');
+    var all=[],filtered=[],activePanel='detail';
+    function esc(v){return $('<div>').text(v==null?'':v).html();}
+    function status(v){var map={ON_TIME:'Đúng giờ',LATE:'Đi muộn',EARLY:'Về sớm',LATE_EARLY:'Muộn / về sớm',MISSING_CHECK:'Thiếu dữ liệu',MISSING_SCHEDULE:'Thiếu lịch'};return map[v]||v||'Chưa xác định';}
+    function cls(v){return v==='ON_TIME'?'hrm-badge-success':v==='MISSING_CHECK'||v==='MISSING_SCHEDULE'?'hrm-badge-neutral':'hrm-badge-warning';}
+    function empty(columns,title,detail){return '<tr><td colspan="'+columns+'"><div class="attendance-empty"><i class="material-icons">inbox</i><strong>'+esc(title)+'</strong><span>'+esc(detail)+'</span></div></td></tr>';}
+    function formatMinutes(value){value=Number(value)||0;return Math.floor(value/60)+'h '+(value%60)+'m';}
+    function applyFilters(){
+        var key=$('#attendanceSearch').val().toLocaleLowerCase().trim(),state=$('#attendanceStatus').val();
+        filtered=all.filter(function(x){return(!key||(String(x.DisplayName||'')+' '+String(x.DepartmentName||'')).toLocaleLowerCase().indexOf(key)>=0)&&(!state||x.StatusCode===state||(state==='LATE'&&x.StatusCode==='LATE_EARLY')||(state==='EARLY'&&x.StatusCode==='LATE_EARLY'));});
+        $('#attendanceTotal').text(all.length);$('#attendanceOnTime').text(all.filter(function(x){return x.StatusCode==='ON_TIME';}).length);$('#attendanceLate').text(all.filter(function(x){return Number(x.LateMinutes)>0;}).length);$('#attendanceMissing').text(all.filter(function(x){return String(x.StatusCode||'').indexOf('MISSING')===0;}).length);
+        renderActivePanel();
+    }
+    function renderDetail(){
+        $('#attendanceResultCount').text(filtered.length+' bản ghi');
+        if(!filtered.length){$('#attendanceRows').html(empty(9,'Không có dữ liệu chấm công','Thay đổi bộ lọc hoặc kiểm tra kết nối camera HANET.'));return;}
+        $('#attendanceRows').html(filtered.map(function(x,index){return '<tr><td>'+(index+1)+'</td><td><strong>'+esc(x.DisplayName)+'</strong><small class="hrm-cell-note">'+esc(x.DepartmentName||'Chưa có phòng ban')+'</small></td><td>'+moment(x.WorkDate).format('DD/MM/YYYY')+'</td><td>'+esc(x.ShiftName||'--')+'</td><td class="attendance-time">'+(x.CheckIn?moment(x.CheckIn).format('HH:mm'):'--')+'</td><td class="attendance-time">'+(x.CheckOut?moment(x.CheckOut).format('HH:mm'):'--')+'</td><td>'+formatMinutes(x.WorkedMinutes)+'</td><td><span class="hrm-badge '+cls(x.StatusCode)+'">'+status(x.StatusCode)+'</span><small class="hrm-cell-note">Muộn '+(x.LateMinutes||0)+'p · Sớm '+(x.EarlyMinutes||0)+'p</small></td><td>'+esc(x.Source||'HANET')+'</td></tr>';}).join(''));
+    }
+    function renderSummary(){
+        var days={};filtered.forEach(function(x){var key=moment(x.WorkDate).format('YYYY-MM-DD'),day=days[key]||(days[key]={date:key,total:0,onTime:0,late:0,missing:0,minutes:0});day.total++;if(x.StatusCode==='ON_TIME')day.onTime++;if(Number(x.LateMinutes)>0)day.late++;if(String(x.StatusCode||'').indexOf('MISSING')===0)day.missing++;day.minutes+=Number(x.WorkedMinutes)||0;});
+        var rows=Object.keys(days).sort().reverse().map(function(key){var x=days[key];return '<tr><td><strong>'+moment(x.date).format('DD/MM/YYYY')+'</strong></td><td>'+x.total+'</td><td><span class="attendance-number success">'+x.onTime+'</span></td><td><span class="attendance-number warning">'+x.late+'</span></td><td>'+x.missing+'</td><td>'+formatMinutes(x.minutes)+'</td></tr>';});
+        $('#attendanceResultCount').text(rows.length+' ngày');$('#attendanceSummaryRows').html(rows.length?rows.join(''):empty(6,'Chưa có dữ liệu tổng hợp','Dữ liệu sẽ xuất hiện sau khi camera ghi nhận chấm công.'));
+    }
+    function renderSources(){
+        var sources={};filtered.forEach(function(x){var key=x.Source||'HANET',item=sources[key]||(sources[key]={name:key,count:0,last:null});item.count++;var time=x.CheckOut||x.CheckIn||x.WorkDate;if(!item.last||moment(time).isAfter(item.last))item.last=moment(time);});
+        var keys=Object.keys(sources),settingsUrl='@Url.Action("HanetIntegration", "Home")',canConfigure=@(canConfigureHanet ? "true" : "false");
+        $('#attendanceResultCount').text(keys.length+' nguồn dữ liệu');$('#attendanceSourceRows').html(keys.length?keys.map(function(key){var x=sources[key],action=canConfigure?'<a class="attendance-table-link" href="'+settingsUrl+'">Xem cấu hình</a>':'--';return '<tr><td><span class="attendance-source"><i class="material-icons">videocam</i><strong>'+esc(x.name)+'</strong></span></td><td>'+x.count+'</td><td>'+(x.last?x.last.format('DD/MM/YYYY HH:mm'):'--')+'</td><td><span class="attendance-connection"><i></i> Đang nhận dữ liệu</span></td><td>'+action+'</td></tr>';}).join(''):empty(5,'Chưa có nguồn dữ liệu','Kết nối camera HANET để bắt đầu nhận bản ghi chấm công.'));
+    }
+    function renderActivePanel(){if(activePanel==='summary')renderSummary();else if(activePanel==='source')renderSources();else renderDetail();}
+    function load(){
+        $('#attendanceResultCount').text('Đang tải dữ liệu...');
+        $.get('@Url.Action("Attendance","Hrm")',{fromDate:$('#attendanceFrom').val(),toDate:$('#attendanceTo').val()}).done(function(r){all=r.Data||[];applyFilters();}).fail(function(x){all=[];applyFilters();alert((x.responseJSON&&x.responseJSON.Message)||'Không thể tải dữ liệu.');});
+    }
+    $('.attendance-secondary-tabs button').on('click',function(){activePanel=$(this).data('panel');$('.attendance-secondary-tabs button').removeClass('active').attr('aria-selected','false');$(this).addClass('active').attr('aria-selected','true');$('.attendance-panel').prop('hidden',true);$('#attendance'+activePanel.charAt(0).toUpperCase()+activePanel.slice(1)+'Panel').prop('hidden',false);var titles={detail:'Danh sách chấm công',summary:'Tổng hợp chấm công theo ngày',source:'Nguồn dữ liệu chấm công'};$('#attendanceSectionTitle').text(titles[activePanel]);renderActivePanel();});
+    $('#attendanceFrom').val(moment().startOf('month').format('YYYY-MM-DD'));$('#attendanceTo').val(moment().format('YYYY-MM-DD'));
+    $('#filterAttendance').on('click',load);$('#attendanceSearch,#attendanceStatus').on('input change',applyFilters);
+    $('#exportAttendance').on('click',function(){window.location='@Url.Action("AttendanceXlsx","Hrm")?fromDate='+$('#attendanceFrom').val()+'&toDate='+$('#attendanceTo').val();});
     $('#exportAttendanceImages').on('click',function(){var button=$(this);button.prop('disabled',true);fetch('@Url.Action("AttendanceImagesToday","Hrm")').then(async function(response){if(!response.ok){var error=await response.json().catch(function(){return null;});throw new Error(error&&error.Message||'Không thể xuất ảnh chấm công.');}var blob=await response.blob(),url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download='anh-cham-cong-'+moment().format('YYYY-MM-DD')+'.zip';document.body.appendChild(link);link.click();link.remove();URL.revokeObjectURL(url);}).catch(function(error){alert(error.message);}).finally(function(){button.prop('disabled',false);});});
+    load();
 })();
 </script>
