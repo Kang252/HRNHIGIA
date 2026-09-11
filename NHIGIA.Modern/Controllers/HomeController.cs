@@ -105,7 +105,7 @@ public sealed class HomeController : BaseController
     [HrmAuthorize(HrmRoles.Admin, HrmRoles.Hr, HrmRoles.Director)]
     public IActionResult Reports() { ViewBag.Title = "Báo cáo nhân sự"; return View(); }
 
-    [HrmAuthorize(HrmRoles.Admin, HrmRoles.Hr, HrmRoles.Director)]
+    [HrmAuthorize(HrmRoles.Admin)]
     public IActionResult HanetIntegration()
     {
         if (!_configuration.GetValue<bool>("Features:HanetIntegrationUiEnabled")) return NotFound();

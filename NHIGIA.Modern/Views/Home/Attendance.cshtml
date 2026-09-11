@@ -1,4 +1,4 @@
-@{ var attendanceUser = HrmUser.Current; var canConfigureHanet = attendanceUser != null && (attendanceUser.RoleCode == "ADMIN" || attendanceUser.RoleCode == "HR" || attendanceUser.RoleCode == "DIRECTOR") && Configuration.GetValue<bool>("Features:HanetIntegrationUiEnabled"); }
+@{ var attendanceUser = HrmUser.Current; var canConfigureHanet = attendanceUser?.RoleCode == "ADMIN" && Configuration.GetValue<bool>("Features:HanetIntegrationUiEnabled"); }
 <div class="container-fluid">
     <div class="hrm-page-header">
         <div>

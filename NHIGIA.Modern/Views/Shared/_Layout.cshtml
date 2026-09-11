@@ -92,7 +92,7 @@
                     @if (canConfigure)
                     {
                         <li class="@(action == "Reports" ? "active" : "")"><a asp-controller="Home" asp-action="Reports"><i class="material-icons">analytics</i><span>Báo cáo</span></a></li>
-                        @if (Configuration.GetValue<bool>("Features:HanetIntegrationUiEnabled"))
+                        @if (role == HrmRoles.Admin && Configuration.GetValue<bool>("Features:HanetIntegrationUiEnabled"))
                         {
                             <li class="@(action == "HanetIntegration" ? "active" : "")"><a asp-controller="Home" asp-action="HanetIntegration"><i class="material-icons">sync</i><span>Tích hợp HANET</span></a></li>
                         }

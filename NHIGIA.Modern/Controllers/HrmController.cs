@@ -300,11 +300,11 @@ public sealed class HrmController : BaseController
     });
 
     [HttpGet]
-    [HrmAuthorize(HrmRoles.Admin, HrmRoles.Hr, HrmRoles.Director)]
+    [HrmAuthorize(HrmRoles.Admin)]
     public IActionResult HanetSettings() => Execute(() => Store.GetHanetSettings(false));
 
     [HttpPost, ValidateAntiForgeryToken]
-    [HrmAuthorize(HrmRoles.Admin, HrmRoles.Hr, HrmRoles.Director)]
+    [HrmAuthorize(HrmRoles.Admin)]
     public IActionResult SaveHanetSettings(HanetSettingsModel settings) => Execute(() =>
     {
         if (!Uri.TryCreate(settings.ApiBaseUrl, UriKind.Absolute, out var apiUri) || apiUri.Scheme != Uri.UriSchemeHttps || !apiUri.Host.EndsWith("hanet.ai", StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException("API URL phải là địa chỉ HTTPS thuộc hanet.ai.");
@@ -314,7 +314,7 @@ public sealed class HrmController : BaseController
     });
 
     [HttpPost, ValidateAntiForgeryToken]
-    [HrmAuthorize(HrmRoles.Admin, HrmRoles.Hr, HrmRoles.Director)]
+    [HrmAuthorize(HrmRoles.Admin)]
     public IActionResult SaveHanetPersonMap(HanetPersonMapRequest request) => Execute(() =>
     {
         if (request == null || request.UserId <= 0 || (string.IsNullOrWhiteSpace(request.PersonId) && string.IsNullOrWhiteSpace(request.AliasId))) throw new InvalidOperationException("Cần chọn nhân viên và nhập Person ID hoặc Alias ID.");
@@ -324,7 +324,7 @@ public sealed class HrmController : BaseController
     });
 
     [HttpPost, ValidateAntiForgeryToken]
-    [HrmAuthorize(HrmRoles.Admin, HrmRoles.Hr, HrmRoles.Director)]
+    [HrmAuthorize(HrmRoles.Admin)]
     public async Task<IActionResult> TestHanet()
     {
         try
