@@ -406,6 +406,40 @@ public sealed class HrmController : BaseController
 
     [HttpPost, ValidateAntiForgeryToken]
     [HrmAuthorize(HrmRoles.Admin)]
+    public async Task<IActionResult> HanetPersons()
+    {
+        try
+        {
+            var settings = Store.GetHanetSettings(true);
+            if (string.IsNullOrWhiteSpace(settings.AccessToken)) throw new InvalidOperationException("Chưa có access token HANET.");
+            if (string.IsNullOrWhiteSpace(settings.PlaceId)) throw new InvalidOperationException("Chưa cấu hình Place ID.");
+
+            var endpoint = settings.ApiBaseUrl.TrimEnd('/') + "/person/getListByPlace";
+            using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+            using var response = await client.PostAsync(endpoint, new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["token"] = settings.AccessToken,
+                ["placeID"] = settings.PlaceId,
+                ["type"] = "0",
+                ["page"] = "0",
+                ["size"] = "500"
+            }));
+            var body = await response.Content.ReadAsStringAsync();
+            var json = JsonNode.Parse(body)?.AsObject() ?? new JsonObject();
+            var code = json["returnCode"]?.ToString() ?? json["code"]?.ToString();
+            var ok = response.IsSuccessStatusCode && (code == "1" || code == "200" || string.IsNullOrEmpty(code));
+            if (!ok) throw new InvalidOperationException("HANET từ chối yêu cầu: " + (json["returnMessage"]?.ToString() ?? json["message"]?.ToString() ?? response.ReasonPhrase));
+            return Json(ApiResponse.Ok(json["data"], "Đã tải danh sách nhân viên từ HANET."));
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(exception, "HANET person list failed");
+            return BadRequest(ApiResponse.Fail(exception.Message));
+        }
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    [HrmAuthorize(HrmRoles.Admin)]
     public async Task<IActionResult> TestHanet()
     {
         try
