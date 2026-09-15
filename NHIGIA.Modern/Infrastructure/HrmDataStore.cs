@@ -87,6 +87,13 @@ namespace NHIGIA.Modern.Infrastructure
             using (var connection = OpenConnection()) return connection.QuerySingleOrDefault<EmployeeProfileModel>(sql, new { UserId = userId });
         }
 
+        public string GetAvatarUrl(int userId)
+        {
+            const string sql = "SELECT AvatarUrl FROM dbo.HrmEmployeeProfile WHERE UserId=@UserId";
+            using var connection = OpenConnection();
+            return connection.QuerySingleOrDefault<string>(sql, new { UserId = userId });
+        }
+
         public IList<WorkDepartment> GetDepartments()
         {
             using var connection = OpenConnection();

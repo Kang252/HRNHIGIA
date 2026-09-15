@@ -9,6 +9,13 @@
     var workKind = ViewContext.RouteData.Values["controller"]?.ToString() == "Work" ? ((Model as WorkPage)?.Kind ?? "kpi") : "";
     var action = ViewContext.RouteData.Values["action"]?.ToString() ?? "Index";
     var isWork = ViewContext.RouteData.Values["controller"]?.ToString() == "Work";
+    var menuAvatarUrl = string.Empty;
+
+    if (user != null)
+    {
+        try { menuAvatarUrl = HrmStore.GetAvatarUrl(user.Id) ?? string.Empty; }
+        catch { menuAvatarUrl = string.Empty; }
+    }
 
     if (isWork) { action = "Work"; }
 }
@@ -55,7 +62,17 @@
     <section>
         <aside id="leftsidebar" class="sidebar">
             <div class="user-info">
-                <div class="image"><span class="hrm-avatar">@((user?.DisplayName ?? "NG").Substring(0, Math.Min(2, (user?.DisplayName ?? "NG").Length)).ToUpperInvariant())</span></div>
+                <div class="image">
+                    <span id="hrmMenuAvatarFallback" class="hrm-avatar" style="@(string.IsNullOrWhiteSpace(menuAvatarUrl) ? "" : "display:none")">@((user?.DisplayName ?? "NG").Substring(0, Math.Min(2, (user?.DisplayName ?? "NG").Length)).ToUpperInvariant())</span>
+                    @if (string.IsNullOrWhiteSpace(menuAvatarUrl))
+                    {
+                        <img id="hrmMenuAvatarImage" class="hrm-menu-avatar" alt="Ảnh đại diện của @user?.DisplayName" style="display:none" />
+                    }
+                    else
+                    {
+                        <img id="hrmMenuAvatarImage" class="hrm-menu-avatar" src="@menuAvatarUrl" alt="Ảnh đại diện của @user?.DisplayName" />
+                    }
+                </div>
                 <div class="info-container">
                     <div class="name">@user?.DisplayName</div>
                     <div class="email">@user?.DepartmentName</div>
@@ -122,6 +139,26 @@
     <section class="content">@RenderBody()</section>
     <div id="hrmRowPreview" class="hrm-row-preview" role="tooltip" aria-hidden="true"></div>
     @await RenderSectionAsync("Scripts", required: false)
+    <script>
+        window.hrmSetMenuAvatar = function (avatarUrl) {
+            var image = document.getElementById('hrmMenuAvatarImage');
+            var fallback = document.getElementById('hrmMenuAvatarFallback');
+            if (!image || !fallback) return;
+            if (avatarUrl) {
+                image.src = avatarUrl;
+                image.style.display = 'block';
+                fallback.style.display = 'none';
+            } else {
+                image.removeAttribute('src');
+                image.style.display = 'none';
+                fallback.style.display = 'inline-flex';
+            }
+        };
+        (function () {
+            var image = document.getElementById('hrmMenuAvatarImage');
+            if (image) image.addEventListener('error', function () { window.hrmSetMenuAvatar(''); });
+        })();
+    </script>
     <script>
         (function () {
             var body = document.body;
