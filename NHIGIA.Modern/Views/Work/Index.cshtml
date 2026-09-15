@@ -57,6 +57,12 @@
     var showRowPreview = Model.Kind is "training" or "overtime" or "resignation" or "helpdesk" or "vehicle" or "meeting" or "business-trip" or "offboarding";
 }
 
+@if (Model.Kind == "payroll")
+{
+    @await Html.PartialAsync("_PayrollModule", Model)
+}
+else
+{
 <div class="hrm-page-header">
     <div><h2>@Model.Title</h2><p>@Model.Subtitle</p></div>
     <span class="hrm-badge">@Model.Items.Count bản ghi</span>
@@ -482,4 +488,5 @@
             });
         })();
     </script>
+}
 }

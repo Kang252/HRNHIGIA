@@ -98,13 +98,20 @@ public sealed class WorkController : Controller
         }
     }
     [HttpGet]
-    public IActionResult Index(string kind = "kpi", string q = null, int? editId = null)
+    public IActionResult Index(string kind = "kpi", string q = null, int? editId = null, string pyTab = null, string pyPeriod = null, string pyDept = null, string pyStatus = null)
     {
         if (kind == "offboarding") return RedirectToAction(nameof(Index), new { kind = "resignation", q });
         var page = Page(kind, q);
         if (page == null) return NotFound();
         if (kind is "transfer" or "recruitment" && !page.CanManage) return Forbid();
         page.EditId = editId;
+        if (kind == "payroll")
+        {
+            page.PayrollTab = string.IsNullOrWhiteSpace(pyTab) ? "dashboard" : pyTab.ToLowerInvariant();
+            page.PayrollPeriod = string.IsNullOrWhiteSpace(pyPeriod) ? "2026-02" : pyPeriod;
+            page.PayrollDeptFilter = string.IsNullOrWhiteSpace(pyDept) ? "ALL" : pyDept;
+            page.PayrollStatusFilter = string.IsNullOrWhiteSpace(pyStatus) ? "ALL" : pyStatus.ToUpperInvariant();
+        }
         Load(page);
         if (kind is "assets" or "offboarding" && page.CanCreate && page.Available)
             page.Draft.Reference = kind == "assets" ? _store.GetNextAssetReference() : _store.GetNextOffboardingReference();
@@ -434,5 +441,119 @@ public sealed class WorkController : Controller
             .Sum(item => item.Weight ?? 0);
         if (assignedWeight + draft.Weight > 100)
             ModelState.AddModelError("", $"Tổng tỷ trọng KPI của đối tượng nhận không được vượt 100% (hiện có {assignedWeight:N0}%).");
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public IActionResult BatchPayrollAction(string period, string actionType, string note = null)
+    {
+        var page = Page("payroll");
+        if (page == null) return Forbid();
+
+        period = string.IsNullOrWhiteSpace(period) ? "2026-02" : period;
+        var isDirector = User.IsInRole(HrmRoles.Director) || User.IsInRole(HrmRoles.Admin);
+        var isHrOrAdmin = User.IsInRole(HrmRoles.Hr) || User.IsInRole(HrmRoles.Admin);
+
+        var cmd = (actionType ?? "").ToUpperInvariant();
+        if ((cmd == "APPROVE" || cmd == "REJECT") && !isDirector) return Forbid();
+        if ((cmd == "FINALIZE" || cmd == "PAY") && !isHrOrAdmin) return Forbid();
+        if (cmd == "PUBLISH" && !isDirector && !isHrOrAdmin) return Forbid();
+
+        if (!_store.BatchPayrollAction(period, cmd, note, _user.Current.Id, ClientIp))
+        {
+            TempData["WorkError"] = "Không thể thực hiện thao tác duyệt bảng lương. Vui lòng kiểm tra lại trạng thái kỳ lương.";
+        }
+        else
+        {
+            var msg = cmd switch
+            {
+                "FINALIZE" => $"Đã duyệt chốt bảng lương kỳ {period} và trình Ban Giám đốc phê duyệt.",
+                "APPROVE" => $"Ban Giám đốc đã phê duyệt bảng lương kỳ {period} thành công!",
+                "REJECT" => $"Đã yêu cầu điều chỉnh lại bảng lương kỳ {period}. Lý do: {note}",
+                "PUBLISH" => $"Đã phát hành phiếu lương điện tử kỳ {period} đến toàn bộ nhân viên!",
+                "PAY" => $"Đã hoàn tất xác nhận thanh toán/chi trả lương kỳ {period}.",
+                _ => "Thao tác thành công."
+            };
+            TempData["WorkSuccess"] = msg;
+        }
+
+        return RedirectToAction("Index", new { kind = "payroll", pyPeriod = period, pyTab = "dashboard" });
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public IActionResult SavePayrollComponent([Bind("Kind,Title,Description,Reference,WorkLocation,Category,JobLevel,SalaryRange,Quarter,EmployeeId,DepartmentId,StartDate,Target,Status,Priority")] WorkItem draft)
+    {
+        var page = Page("payroll");
+        if (page == null || (!User.IsInRole(HrmRoles.Admin) && !User.IsInRole(HrmRoles.Hr))) return Forbid();
+
+        if (string.IsNullOrWhiteSpace(draft.Title))
+        {
+            TempData["WorkError"] = "Vui lòng nhập tên khoản phụ cấp/khấu trừ/tạm ứng.";
+            return RedirectToAction("Index", new { kind = "payroll", pyPeriod = draft.Quarter ?? "2026-02" });
+        }
+
+        if (!_store.SavePayrollComponent(draft, _user.Current.Id, ClientIp))
+        {
+            TempData["WorkError"] = "Không thể lưu thông tin thành phần bảng lương.";
+        }
+        else
+        {
+            TempData["WorkSuccess"] = $"Đã ghi nhận thành công thành phần {draft.Title}.";
+        }
+
+        var redirectTab = draft.Kind switch
+        {
+            "payroll-allowance" => "allowance",
+            "payroll-deduction" => "deduction",
+            "payroll-advance" => "advance",
+            _ => "dashboard"
+        };
+        return RedirectToAction("Index", new { kind = "payroll", pyPeriod = draft.Quarter ?? "2026-02", pyTab = redirectTab });
+    }
+
+    [HttpGet]
+    public IActionResult ExportPayrollExcel(string pyPeriod = "2026-02", string pyDept = "ALL", string pyStatus = "ALL")
+    {
+        var page = Page("payroll");
+        if (page == null) return Forbid();
+
+        page.PayrollPeriod = string.IsNullOrWhiteSpace(pyPeriod) ? "2026-02" : pyPeriod;
+        page.PayrollDeptFilter = string.IsNullOrWhiteSpace(pyDept) ? "ALL" : pyDept;
+        page.PayrollStatusFilter = string.IsNullOrWhiteSpace(pyStatus) ? "ALL" : pyStatus;
+        Load(page);
+
+        var csv = new System.Text.StringBuilder();
+        csv.Append('\uFEFF');
+        csv.AppendLine("STT,Mã nhân viên,Họ và tên,Email,Phòng ban,Chi nhánh,Lương cơ bản,Lương KPI,Lương doanh số,Lương OT,Tổng phụ cấp,Thưởng,Tổng thu nhập,BHXH (8%),BHYT (1.5%),BHTN (1%),Tổng bảo hiểm (10.5%),Thuế TNCN,Tạm ứng,Khấu trừ,Thực nhận (Net),Trạng thái");
+
+        int idx = 1;
+        foreach (var item in page.PayrollItems)
+        {
+            csv.AppendLine($"{idx}," +
+                $"\"{item.EmployeeCode}\"," +
+                $"\"{item.EmployeeName}\"," +
+                $"\"{item.EmployeeEmail}\"," +
+                $"\"{item.DepartmentName}\"," +
+                $"\"{item.Branch}\"," +
+                $"{item.BaseSalary}," +
+                $"{item.KpiSalary}," +
+                $"{item.SalesSalary}," +
+                $"{item.OtSalary}," +
+                $"{item.TotalAllowance}," +
+                $"{item.Bonus}," +
+                $"{item.GrossIncome}," +
+                $"{item.SocialInsurance}," +
+                $"{item.HealthInsurance}," +
+                $"{item.UnemploymentInsurance}," +
+                $"{item.TotalInsurance}," +
+                $"{item.PersonalIncomeTax}," +
+                $"{item.Advance}," +
+                $"{item.Deduction}," +
+                $"{item.NetSalary}," +
+                $"\"{item.StatusText}\"");
+            idx++;
+        }
+
+        var bytes = System.Text.Encoding.UTF8.GetBytes(csv.ToString());
+        return File(bytes, "text/csv; charset=utf-8", $"Bang_Luong_Nhi_Gia_{page.PayrollPeriod}.csv");
     }
 }
