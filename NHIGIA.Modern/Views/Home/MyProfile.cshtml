@@ -71,16 +71,9 @@
         <!-- Section A: Employee Identity -->
         <div class="s5-hero-col-user">
             <div class="s5-avatar-box">
-                @if (!string.IsNullOrWhiteSpace(Model?.AvatarUrl))
-                {
-                    <img id="avatarImage" src="@Model.AvatarUrl" alt="@displayName" class="s5-avatar-img" />
-                }
-                else
-                {
-                    <div id="avatarPlaceholder" class="s5-avatar-placeholder">
-                        <span class="s5-avatar-initials">@((Model?.DisplayName ?? displayName).Trim().Substring(0, Math.Min(2, (Model?.DisplayName ?? displayName).Trim().Length)).ToUpperInvariant())</span>
-                    </div>
-                }
+                <div id="avatarPlaceholder" class="s5-avatar-placeholder">
+                    <span class="s5-avatar-initials">@((Model?.DisplayName ?? displayName ?? "QU").Trim().Substring(0, Math.Min(2, (Model?.DisplayName ?? displayName ?? "QU").Trim().Length)).ToUpperInvariant())</span>
+                </div>
             </div>
             <h2 class="s5-user-name">@displayName</h2>
             <div class="s5-user-sub">

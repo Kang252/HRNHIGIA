@@ -119,18 +119,19 @@
     border-radius: 50%;
     border: 3px solid #e0f2fe;
     overflow: hidden;
-    background: #f8fafc;
+    background: linear-gradient(135deg, #1769e0 0%, #6ea8ff 100%);
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 4px 14px rgba(2, 132, 199, 0.16);
-    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(23, 105, 224, 0.22);
+    cursor: default;
     position: relative;
+    user-select: none;
     transition: transform 0.18s ease, box-shadow 0.18s ease;
 }
 .s5-avatar-box:hover {
-    transform: scale(1.03);
-    box-shadow: 0 6px 20px rgba(2, 132, 199, 0.28);
+    transform: scale(1.02);
+    box-shadow: 0 6px 18px rgba(23, 105, 224, 0.32);
 }
 .s5-avatar-img {
     width: 100%;
@@ -157,7 +158,9 @@
     text-transform: uppercase;
 }
 .s5-avatar-badge-btn,
-.s5-avatar-overlay {
+.s5-avatar-overlay,
+.avatar-camera-btn,
+.hrm-avatar-quick-camera {
     display: none !important;
 }
 .s5-upload-text-btn {
