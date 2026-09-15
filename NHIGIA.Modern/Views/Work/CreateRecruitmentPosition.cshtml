@@ -1,0 +1,55 @@
+@model WorkPage
+@{
+    ViewBag.Title = "Tạo vị trí tuyển dụng";
+}
+
+<div class="recruitment-create-page">
+    <div class="recruitment-create-page-header">
+        <div>
+            <a class="recruitment-back" asp-controller="Work" asp-action="Index" asp-route-kind="recruitment"><i class="material-icons">arrow_back</i> Danh sách vị trí tuyển dụng</a>
+            <h2>Tạo vị trí tuyển dụng</h2>
+            <p>Thiết lập thông tin vị trí và nhu cầu tuyển dụng.</p>
+        </div>
+    </div>
+
+    <div asp-validation-summary="All" class="alert alert-danger" role="alert"></div>
+    <form method="post" asp-controller="Work" asp-action="Create" class="recruitment-position-form">
+        <input type="hidden" name="Kind" value="recruitment" />
+        <section class="hrm-card recruitment-form-card">
+            <div class="recruitment-form-card-title"><i class="material-icons">work_outline</i><div><h3>Thông tin vị trí</h3><p>Những trường có dấu * là bắt buộc.</p></div></div>
+            <div class="recruitment-form-grid">
+                <div class="recruitment-field full"><label for="Title">Tên vị trí *</label><input id="Title" name="Title" class="form-control" required maxlength="200" value="@Model.Draft.Title" placeholder="Ví dụ: Chuyên viên tuyển dụng" /></div>
+                <div class="recruitment-field"><label for="DepartmentId">Nhóm tuyển dụng / Phòng ban *</label><select id="DepartmentId" name="DepartmentId" class="form-control" required><option value="">Chọn phòng ban</option>@foreach (var department in Model.Departments) { <option value="@department.Id" selected="@(Model.Draft.DepartmentId == department.Id)">@department.Name</option> }</select></div>
+                <div class="recruitment-field"><label for="Reference">Mã vị trí *</label><input id="Reference" name="Reference" class="form-control" required maxlength="100" value="@Model.Draft.Reference" placeholder="Ví dụ: TD-2026-01" /></div>
+                <div class="recruitment-field"><label for="Category">Hình thức làm việc</label><select id="Category" name="Category" class="form-control"><option value="">Chọn hình thức</option><option selected="@(Model.Draft.Category == "Toàn thời gian")">Toàn thời gian</option><option selected="@(Model.Draft.Category == "Bán thời gian")">Bán thời gian</option><option selected="@(Model.Draft.Category == "Thử việc")">Thử việc</option><option selected="@(Model.Draft.Category == "Thực tập")">Thực tập</option></select></div>
+                <div class="recruitment-field"><label for="EmployeeId">Người phụ trách tuyển dụng</label><select id="EmployeeId" name="EmployeeId" class="form-control"><option value="">Chọn người phụ trách</option>@foreach (var person in Model.People) { <option value="@person.Id" selected="@(Model.Draft.EmployeeId == person.Id)">@person.DisplayName</option> }</select></div>
+                <div class="recruitment-field"><label for="WorkLocation">Địa điểm làm việc</label><input id="WorkLocation" name="WorkLocation" class="form-control" maxlength="250" value="@Model.Draft.WorkLocation" placeholder="Ví dụ: Hồ Chí Minh" /></div>
+                <div class="recruitment-field"><label for="JobLevel">Cấp bậc</label><select id="JobLevel" name="JobLevel" class="form-control"><option value="">Chọn cấp bậc</option><option selected="@(Model.Draft.JobLevel == "Nhân viên")">Nhân viên</option><option selected="@(Model.Draft.JobLevel == "Chuyên viên")">Chuyên viên</option><option selected="@(Model.Draft.JobLevel == "Trưởng nhóm")">Trưởng nhóm</option><option selected="@(Model.Draft.JobLevel == "Quản lý")">Quản lý</option></select></div>
+                <div class="recruitment-field"><label for="RecruitmentReason">Lý do tuyển dụng</label><select id="RecruitmentReason" name="RecruitmentReason" class="form-control"><option value="">Chọn lý do</option><option selected="@(Model.Draft.RecruitmentReason == "Tuyển mới")">Tuyển mới</option><option selected="@(Model.Draft.RecruitmentReason == "Thay thế")">Thay thế</option><option selected="@(Model.Draft.RecruitmentReason == "Mở rộng nhân sự")">Mở rộng nhân sự</option></select></div>
+                <div class="recruitment-field"><label for="Target">Số lượng cần tuyển *</label><input id="Target" name="Target" class="form-control" type="number" min="1" step="1" required value="@Model.Draft.Target" placeholder="0" /></div>
+                <div class="recruitment-field"><label for="DueDate">Hạn tuyển *</label><input id="DueDate" name="DueDate" class="form-control" type="date" required value="@Model.Draft.DueDate?.ToString("yyyy-MM-dd")" /></div>
+                <div class="recruitment-field"><label for="StartDate">Ngày dự kiến đi làm</label><input id="StartDate" name="StartDate" class="form-control" type="date" value="@Model.Draft.StartDate?.ToString("yyyy-MM-dd")" /></div>
+                <div class="recruitment-field"><label for="Actual">Số lượng CV ban đầu</label><input id="Actual" name="Actual" class="form-control" type="number" min="0" step="1" value="@(Model.Draft.Actual ?? 0)" /></div>
+                <div class="recruitment-field"><label for="SalaryRange">Khoảng lương</label><input id="SalaryRange" name="SalaryRange" class="form-control" maxlength="100" value="@Model.Draft.SalaryRange" placeholder="Ví dụ: 12 - 18 triệu" /></div>
+                <div class="recruitment-field"><label for="ContractType">Loại hợp đồng</label><select id="ContractType" name="ContractType" class="form-control"><option value="">Chọn loại hợp đồng</option><option selected="@(Model.Draft.ContractType == "Xác định thời hạn")">Xác định thời hạn</option><option selected="@(Model.Draft.ContractType == "Không xác định thời hạn")">Không xác định thời hạn</option><option selected="@(Model.Draft.ContractType == "Cộng tác viên")">Cộng tác viên</option></select></div>
+                <div class="recruitment-field"><label for="ProbationPeriod">Thời gian thử việc</label><input id="ProbationPeriod" name="ProbationPeriod" class="form-control" maxlength="100" value="@Model.Draft.ProbationPeriod" placeholder="Ví dụ: 02 tháng" /></div>
+                <div class="recruitment-field"><label for="ExperienceRequired">Kinh nghiệm</label><input id="ExperienceRequired" name="ExperienceRequired" class="form-control" maxlength="100" value="@Model.Draft.ExperienceRequired" placeholder="Ví dụ: Từ 2 năm" /></div>
+                <div class="recruitment-field"><label for="EducationRequired">Trình độ học vấn</label><input id="EducationRequired" name="EducationRequired" class="form-control" maxlength="100" value="@Model.Draft.EducationRequired" placeholder="Ví dụ: Cao đẳng / Đại học" /></div>
+                <div class="recruitment-field"><label for="GenderRequirement">Giới tính</label><select id="GenderRequirement" name="GenderRequirement" class="form-control"><option value="">Không yêu cầu</option><option selected="@(Model.Draft.GenderRequirement == "Nam")">Nam</option><option selected="@(Model.Draft.GenderRequirement == "Nữ")">Nữ</option></select></div>
+                <div class="recruitment-field"><label for="AgeRange">Độ tuổi</label><input id="AgeRange" name="AgeRange" class="form-control" maxlength="50" value="@Model.Draft.AgeRange" placeholder="Ví dụ: 22 - 35 tuổi" /></div>
+                <div class="recruitment-field"><label for="RecruitmentChannel">Kênh tuyển dụng</label><input id="RecruitmentChannel" name="RecruitmentChannel" class="form-control" maxlength="150" value="@Model.Draft.RecruitmentChannel" placeholder="Ví dụ: Website, LinkedIn, giới thiệu nội bộ" /></div>
+                <div class="recruitment-field full"><label for="Keywords">Từ khóa tìm kiếm ứng viên</label><input id="Keywords" name="Keywords" class="form-control" maxlength="500" value="@Model.Draft.Keywords" placeholder="Ví dụ: tuyển dụng, C&B, HRBP, Excel" /></div>
+                <div class="recruitment-field full"><label for="Description">Mô tả công việc</label><textarea id="Description" name="Description" class="form-control" rows="7" maxlength="2000" placeholder="Mô tả công việc, yêu cầu ứng viên và quyền lợi của vị trí...">@Model.Draft.Description</textarea></div>
+                <div class="recruitment-field full"><label for="SkillRequirements">Yêu cầu kỹ năng</label><textarea id="SkillRequirements" name="SkillRequirements" class="form-control" rows="5" maxlength="2000" placeholder="Các kỹ năng chuyên môn, kỹ năng mềm và chứng chỉ cần có...">@Model.Draft.SkillRequirements</textarea></div>
+                <div class="recruitment-field full"><label for="Benefits">Quyền lợi</label><textarea id="Benefits" name="Benefits" class="form-control" rows="5" maxlength="2000" placeholder="Thu nhập, bảo hiểm, thưởng, đào tạo và các quyền lợi khác...">@Model.Draft.Benefits</textarea></div>
+                <div class="recruitment-field full"><label for="RecruitmentProcess">Quy trình tuyển dụng</label><input id="RecruitmentProcess" name="RecruitmentProcess" class="form-control" maxlength="500" value="@Model.Draft.RecruitmentProcess" placeholder="Ví dụ: Sàng lọc CV → Phỏng vấn → Thỏa thuận → Thử việc" /></div>
+                <div class="recruitment-field full recruitment-contact-title"><i class="material-icons">contact_phone</i><div><strong>Thông tin người liên hệ</strong><small>Thông tin để ứng viên liên hệ hoặc gửi hồ sơ.</small></div></div>
+                <div class="recruitment-field"><label for="ContactName">Họ và tên</label><input id="ContactName" name="ContactName" class="form-control" maxlength="150" value="@Model.Draft.ContactName" placeholder="Họ và tên người liên hệ" /></div>
+                <div class="recruitment-field"><label for="ContactEmail">Email</label><input id="ContactEmail" name="ContactEmail" class="form-control" type="email" maxlength="150" value="@Model.Draft.ContactEmail" placeholder="tuyendung@congty.vn" /></div>
+                <div class="recruitment-field"><label for="ContactPhone">Số điện thoại</label><input id="ContactPhone" name="ContactPhone" class="form-control" type="tel" maxlength="30" value="@Model.Draft.ContactPhone" placeholder="Ví dụ: 0901 234 567" /></div>
+                <div class="recruitment-field full"><label for="ContactAddress">Địa chỉ liên hệ</label><input id="ContactAddress" name="ContactAddress" class="form-control" maxlength="500" value="@Model.Draft.ContactAddress" placeholder="Địa chỉ nhận hồ sơ hoặc nơi phỏng vấn" /></div>
+            </div>
+        </section>
+        <div class="recruitment-form-actions"><a class="hrm-btn" asp-controller="Work" asp-action="Index" asp-route-kind="recruitment">Hủy</a><button type="submit" class="hrm-btn hrm-btn-primary"><i class="material-icons">save</i> Tạo vị trí</button></div>
+    </form>
+</div>

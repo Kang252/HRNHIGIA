@@ -1,0 +1,811 @@
+@model WorkPage
+@{
+    var otItems = Model.Items.Where(x => x.Kind == "overtime").ToList();
+    var activeTab = string.IsNullOrWhiteSpace(Model.OvertimeTab) ? "dashboard" : Model.OvertimeTab.ToLowerInvariant();
+    var selYear = Model.OvertimeYear > 0 ? Model.OvertimeYear : 2026;
+    var selMonthStr = string.IsNullOrWhiteSpace(Model.OvertimeMonth) ? $"{selYear:D4}-01" : Model.OvertimeMonth;
+    if (!DateTime.TryParse($"{selMonthStr}-01", out var calDate))
+    {
+        calDate = new DateTime(selYear, 1, 1);
+    }
+    var prevMonthNav = calDate.AddMonths(-1).ToString("yyyy-MM");
+    var nextMonthNav = calDate.AddMonths(1).ToString("yyyy-MM");
+
+    var yearItems = otItems.Where(x => x.DueDate?.Year == selYear).ToList();
+    var totalYearCount = yearItems.Count;
+    var totalYearHours = yearItems.Sum(x => x.Target ?? 0);
+    var totalYearConverted = yearItems.Sum(x => x.Actual ?? 0);
+    var totalApproved = yearItems.Count(x => x.Status == "APPROVED");
+    var totalPending = yearItems.Count(x => x.Status == "PENDING");
+    var appRate = totalYearCount > 0 ? (int)Math.Round((double)totalApproved * 100 / totalYearCount) : 0;
+
+    // Monthly data for 12 months chart
+    var monthlyCounts = new int[12];
+    var monthlyWeekdayCounts = new int[12];
+    var monthlySpecialCounts = new int[12];
+    for (int m = 1; m <= 12; m++)
+    {
+        var mItems = yearItems.Where(x => x.DueDate?.Month == m).ToList();
+        monthlyCounts[m - 1] = mItems.Count;
+        monthlyWeekdayCounts[m - 1] = mItems.Count(x => (x.Category ?? "").Contains("trong tuần") || (x.Category ?? "").Contains("cuối ngày"));
+        monthlySpecialCounts[m - 1] = mItems.Count - monthlyWeekdayCounts[m - 1];
+    }
+    var maxMonthCount = monthlyCounts.Length > 0 ? Math.Max(5, monthlyCounts.Max()) : 5;
+}
+
+    <div class="ot-container">
+        <!-- 1. Thanh điều hướng 3 Tab (Slide 18) -->
+        <div class="ot-tab-bar">
+            <div class="ot-tabs">
+                <a href="@Url.Action("Index", "Work", new { kind = "overtime", otTab = "dashboard", otYear = selYear, otMonth = selMonthStr })" 
+                   class="ot-tab-btn @(activeTab == "dashboard" ? "active" : "")">
+                    <i class="material-icons">bar_chart</i>
+                    <span>Dashboard Báo cáo</span>
+                </a>
+                <a href="@Url.Action("Index", "Work", new { kind = "overtime", otTab = "list", otYear = selYear, otMonth = selMonthStr })" 
+                   class="ot-tab-btn @(activeTab == "list" ? "active" : "")">
+                    <i class="material-icons">people</i>
+                    <span>Danh sách tăng ca nhân viên</span>
+                    <span class="badge-pill">@otItems.Count</span>
+                </a>
+                <a href="@Url.Action("Index", "Work", new { kind = "overtime", otTab = "my-calendar", otYear = selYear, otMonth = selMonthStr })" 
+                   class="ot-tab-btn @(activeTab == "my-calendar" ? "active" : "")">
+                    <i class="material-icons">calendar_month</i>
+                    <span>Lịch tăng ca của tôi</span>
+                </a>
+            </div>
+            <div class="ot-actions-right">
+                <button type="button" class="ot-btn-create" data-toggle="modal" data-target="#modalCreateOvertime">
+                    <i class="material-icons">add</i>
+                    <span>+ Đăng ký tăng ca</span>
+                </button>
+            </div>
+        </div>
+
+        @if (activeTab == "dashboard")
+        {
+            <!-- ====================================================================
+                 TAB 1: DASHBOARD BÁO CÁO TRỰC QUAN (Slide 18 - Màn hình trái)
+                 ==================================================================== -->
+            <!-- 4 Thẻ chỉ số tổng hợp -->
+            <div class="ot-stats-grid">
+                <div class="ot-stat-card">
+                    <div class="ot-stat-icon blue"><i class="material-icons">assignment</i></div>
+                    <div class="ot-stat-info">
+                        <span class="ot-stat-value">@totalYearCount</span>
+                        <span class="ot-stat-label">Tổng phiếu tăng ca (@selYear)</span>
+                    </div>
+                </div>
+                <div class="ot-stat-card">
+                    <div class="ot-stat-icon amber"><i class="material-icons">schedule</i></div>
+                    <div class="ot-stat-info">
+                        <span class="ot-stat-value">@totalYearHours.ToString("0.#")h</span>
+                        <span class="ot-stat-label">Số giờ làm thực tế</span>
+                    </div>
+                </div>
+                <div class="ot-stat-card">
+                    <div class="ot-stat-icon green"><i class="material-icons">calculate</i></div>
+                    <div class="ot-stat-info">
+                        <span class="ot-stat-value">@totalYearConverted.ToString("0.#")h</span>
+                        <span class="ot-stat-label">Tổng giờ quy đổi (Hệ số)</span>
+                    </div>
+                </div>
+                <div class="ot-stat-card">
+                    <div class="ot-stat-icon purple"><i class="material-icons">verified</i></div>
+                    <div class="ot-stat-info">
+                        <span class="ot-stat-value">@appRate%</span>
+                        <span class="ot-stat-label">Đã phê duyệt (@totalApproved/@totalYearCount)</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Panel Biểu đồ cột 12 tháng -->
+            <div class="ot-card">
+                <div class="ot-card-header">
+                    <div>
+                        <h3 class="ot-card-title"><i class="material-icons">insights</i> Báo cáo thống kê tăng ca năm @selYear</h3>
+                        <p class="ot-card-subtitle">Tổng số phiếu tăng ca theo từng tháng trong năm</p>
+                    </div>
+                    <div class="ot-filter-group">
+                        <label style="margin:0; font-size:13px; font-weight:600; color:#475569;">Năm:</label>
+                        <select onchange="location.href='@Url.Action("Index", "Work", new { kind = "overtime", otTab = "dashboard" })&otYear=' + this.value;">
+                            @for (int y = 2026; y >= 2024; y--)
+                            {
+                                <option value="@y" selected="@(y == selYear ? "selected" : null)">@y</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+
+                <div class="ot-chart-legend">
+                    <div class="ot-legend-item"><span class="ot-legend-color blue"></span><span>Ca trong tuần (150%)</span></div>
+                    <div class="ot-legend-item"><span class="ot-legend-color green"></span><span>Ca qua đêm / Cuối tuần (180% - 200%)</span></div>
+                </div>
+
+                <div class="ot-chart-wrapper">
+                    <svg class="ot-chart-svg" viewBox="0 0 760 210" preserveAspectRatio="none">
+                        <!-- Grid lines -->
+                        <line x1="35" y1="180" x2="750" y2="180" stroke="#cbd5e1" stroke-width="1.5" />
+                        <line x1="35" y1="135" x2="750" y2="135" stroke="#f1f5f9" stroke-width="1" stroke-dasharray="4,4" />
+                        <line x1="35" y1="90" x2="750" y2="90" stroke="#f1f5f9" stroke-width="1" stroke-dasharray="4,4" />
+                        <line x1="35" y1="45" x2="750" y2="45" stroke="#f1f5f9" stroke-width="1" stroke-dasharray="4,4" />
+
+                        <!-- Y Axis labels -->
+                        <text x="15" y="184" font-size="11" fill="#94a3b8" text-anchor="middle">0</text>
+                        <text x="15" y="139" font-size="11" fill="#94a3b8" text-anchor="middle">@(maxMonthCount / 3)</text>
+                        <text x="15" y="94" font-size="11" fill="#94a3b8" text-anchor="middle">@(maxMonthCount * 2 / 3)</text>
+                        <text x="15" y="49" font-size="11" fill="#94a3b8" text-anchor="middle">@maxMonthCount</text>
+
+                        @for (int m = 1; m <= 12; m++)
+                        {
+                            var xPos = 45 + (m - 1) * 58;
+                            var wCount = monthlyWeekdayCounts[m - 1];
+                            var sCount = monthlySpecialCounts[m - 1];
+                            var totalMCount = monthlyCounts[m - 1];
+
+                            var barMaxHeight = 140.0;
+                            var wHeight = (double)wCount / maxMonthCount * barMaxHeight;
+                            var sHeight = (double)sCount / maxMonthCount * barMaxHeight;
+
+                            var wY = 180.0 - wHeight;
+                            var sY = wY - sHeight;
+
+                            <!-- Month Label -->
+                            @:<text x="@(xPos + 18)" y="200" font-size="12" font-weight="600" fill="@(totalMCount > 0 ? "#1e293b" : "#94a3b8")" text-anchor="middle">@m</text>
+
+                            if (totalMCount > 0)
+                            {
+                                <!-- Special bar (green) -->
+                                if (sCount > 0)
+                                {
+                                    <rect x="@xPos" y="@sY" width="36" height="@sHeight" rx="4" fill="#22c55e" opacity="0.9">
+                                        <title>Tháng @m: @sCount ca qua đêm/cuối tuần</title>
+                                    </rect>
+                                }
+                                <!-- Weekday bar (blue) -->
+                                if (wCount > 0)
+                                {
+                                    <rect x="@xPos" y="@wY" width="36" height="@wHeight" rx="@(sCount > 0 ? 0 : 4)" fill="#3b82f6" opacity="0.95">
+                                        <title>Tháng @m: @wCount ca trong tuần</title>
+                                    </rect>
+                                }
+                                <!-- Value label on top -->
+                                @:<text x="@(xPos + 18)" y="@(sY - 6)" font-size="11" font-weight="700" fill="#0f172a" text-anchor="middle">@totalMCount</text>
+                            }
+                        }
+                    </svg>
+                </div>
+            </div>
+
+            <!-- Bảng thống kê chi tiết theo giờ làm và tỷ lệ quy định (Slide 18) -->
+            <div class="ot-card">
+                <div class="ot-card-header">
+                    <div>
+                        <h3 class="ot-card-title"><i class="material-icons">table_chart</i> Thống kê chi tiết theo giờ làm và tỷ lệ quy định</h3>
+                        <p class="ot-card-subtitle">Chi tiết số giờ làm việc thực tế và quy đổi hệ số theo Bộ luật Lao động</p>
+                    </div>
+                </div>
+
+                <div class="ot-rate-table-container">
+                    <table class="ot-rate-table">
+                        <thead>
+                            <tr>
+                                <th rowspan="2" style="min-width:180px; text-align:left;">Mô tả / Nhóm ca</th>
+                                <th colspan="3" class="th-group">Thời gian</th>
+                                <th colspan="5" class="th-group">Số giờ tăng ca nhân tỉ lệ</th>
+                                <th rowspan="2" style="min-width:120px;">Tổng giờ quy đổi</th>
+                            </tr>
+                            <tr>
+                                <th style="min-width:95px;">Ngày</th>
+                                <th style="min-width:115px;">Giờ làm</th>
+                                <th style="min-width:90px;">Số giờ</th>
+                                <th class="th-day">Trong tuần<br/><span style="font-size:11px; font-weight:normal;">150%</span></th>
+                                <th class="th-day">Cuối tuần<br/><span style="font-size:11px; font-weight:normal;">200%</span></th>
+                                <th class="th-day">Ngày lễ<br/><span style="font-size:11px; font-weight:normal;">300%</span></th>
+                                <th class="th-night">Trong tuần (đêm)<br/><span style="font-size:11px; font-weight:normal;">180%</span></th>
+                                <th class="th-night">Cuối tuần (đêm)<br/><span style="font-size:11px; font-weight:normal;">230%</span></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @{
+                                decimal sumTarget = 0;
+                                decimal sum150 = 0;
+                                decimal sum200 = 0;
+                                decimal sum300 = 0;
+                                decimal sum180 = 0;
+                                decimal sum230 = 0;
+                                decimal sumConverted = 0;
+                            }
+                            @if (yearItems.Count == 0)
+                            {
+                                <tr>
+                                    <td colspan="10" style="padding:30px; color:#94a3b8;">Chưa có dữ liệu tăng ca năm @selYear</td>
+                                </tr>
+                            }
+                            else
+                            {
+                                @foreach (var item in yearItems.OrderBy(x => x.DueDate))
+                                {
+                                    var cat = item.Category ?? "";
+                                    var target = item.Target ?? 0;
+                                    var converted = item.Actual ?? (target * (item.Weight ?? 1.5m));
+                                    sumTarget += target;
+                                    sumConverted += converted;
+
+                                    decimal c150 = 0, c200 = 0, c300 = 0, c180 = 0, c230 = 0;
+                                    if (cat.Contains("lễ")) { c300 = converted; sum300 += converted; }
+                                    else if (cat.Contains("qua đêm") && cat.Contains("cuối tuần")) { c230 = converted; sum230 += converted; }
+                                    else if (cat.Contains("qua đêm")) { c180 = converted; sum180 += converted; }
+                                    else if (cat.Contains("cuối tuần")) { c200 = converted; sum200 += converted; }
+                                    else { c150 = converted; sum150 += converted; }
+
+                                    <tr>
+                                        <td style="text-align:left;">
+                                            <strong>@item.Title</strong>
+                                            <div style="font-size:11px; color:#64748b;">@item.Reference · @item.EmployeeName</div>
+                                        </td>
+                                        <td>@(item.DueDate?.ToString("dd/MM/yyyy") ?? "—")</td>
+                                        <td><span class="badge" style="background:#f1f5f9; color:#334155; font-weight:600;">@(item.Priority ?? "—")</span></td>
+                                        <td><strong>@target.ToString("0.#")</strong></td>
+                                        <td>@(c150 > 0 ? c150.ToString("0.#") : "—")</td>
+                                        <td>@(c200 > 0 ? c200.ToString("0.#") : "—")</td>
+                                        <td>@(c300 > 0 ? c300.ToString("0.#") : "—")</td>
+                                        <td>@(c180 > 0 ? c180.ToString("0.#") : "—")</td>
+                                        <td>@(c230 > 0 ? c230.ToString("0.#") : "—")</td>
+                                        <td><strong style="color:#2563eb;">@converted.ToString("0.#")h</strong></td>
+                                    </tr>
+                                }
+                                <tr class="ot-total-row">
+                                    <td style="text-align:left;">Tổng</td>
+                                    <td>—</td>
+                                    <td>—</td>
+                                    <td>@sumTarget.ToString("0.#")</td>
+                                    <td>@(sum150 > 0 ? sum150.ToString("0.#") : "—")</td>
+                                    <td>@(sum200 > 0 ? sum200.ToString("0.#") : "—")</td>
+                                    <td>@(sum300 > 0 ? sum300.ToString("0.#") : "—")</td>
+                                    <td>@(sum180 > 0 ? sum180.ToString("0.#") : "—")</td>
+                                    <td>@(sum230 > 0 ? sum230.ToString("0.#") : "—")</td>
+                                    <td style="color:#2563eb;">@sumConverted.ToString("0.#")h</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        }
+        else if (activeTab == "list")
+        {
+            <!-- ====================================================================
+                 TAB 2: DANH SÁCH TĂNG CA NHÂN VIÊN (Slide 18 - Màn hình giữa)
+                 ==================================================================== -->
+            <div class="ot-card">
+                <div class="ot-card-header">
+                    <div>
+                        <h3 class="ot-card-title"><i class="material-icons">people_alt</i> Danh sách tăng ca nhân viên</h3>
+                        <p class="ot-card-subtitle">Tổng hợp lịch tăng ca của nhân viên trong công ty theo danh sách mốc số giờ được nhân theo tỷ lệ quy định</p>
+                    </div>
+                </div>
+
+                <!-- Bộ lọc tiện ích -->
+                <div class="ot-filter-toolbar">
+                    <div class="ot-filter-group">
+                        <select id="otFilterMonth" onchange="filterOtTable()">
+                            <option value="">Tất cả các tháng</option>
+                            <option value="01/2026">Tháng 01/2026</option>
+                            <option value="02/2026">Tháng 02/2026</option>
+                            <option value="03/2026">Tháng 03/2026</option>
+                            <option value="09/2026">Tháng 09/2026</option>
+                            <option value="12/2026">Tháng 12/2026</option>
+                        </select>
+
+                        <select id="otFilterShift" onchange="filterOtTable()">
+                            <option value="">Tất cả ca làm</option>
+                            <option value="Ca tối (trong tuần)">Ca tối (trong tuần)</option>
+                            <option value="Ca qua đêm">Ca qua đêm</option>
+                            <option value="Ca làm cuối ngày">Ca làm cuối ngày</option>
+                            <option value="Ca cuối tuần">Ca cuối tuần</option>
+                            <option value="Ca ngày lễ">Ca ngày lễ</option>
+                        </select>
+
+                        <select id="otFilterStatus" onchange="filterOtTable()">
+                            <option value="">Tất cả trạng thái</option>
+                            <option value="APPROVED">🟢 Đã duyệt</option>
+                            <option value="PENDING">🟠 Chờ duyệt</option>
+                            <option value="REJECTED">⚪ Từ chối</option>
+                        </select>
+                    </div>
+
+                    <div class="ot-filter-group">
+                        <input type="text" id="otSearchInput" placeholder="Tìm theo tên nhân viên, mã…" onkeyup="filterOtTable()" style="min-width:220px;" />
+                    </div>
+                </div>
+
+                <!-- Bảng danh sách chuẩn Slide 18 -->
+                <div class="table-responsive">
+                    <table class="table table-hover" id="otEmployeeTable" style="margin-bottom:0;">
+                        <thead>
+                            <tr style="background:#f8fafc; color:#475569; font-size:13px;">
+                                <th style="width:40px; text-align:center;"></th>
+                                <th style="min-width:80px;">Tháng</th>
+                                <th style="min-width:180px;">Nhân viên</th>
+                                <th style="min-width:150px;">Ca làm</th>
+                                <th style="min-width:160px;">Thời gian làm</th>
+                                <th style="min-width:100px;">Quy đổi</th>
+                                <th style="min-width:130px;">Ngày tạo</th>
+                                <th style="min-width:130px;">Cập nhật lần cuối</th>
+                                <th style="min-width:120px; text-align:center;">Thao tác</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (otItems.Count == 0)
+                            {
+                                <tr>
+                                    <td colspan="9" style="text-align:center; padding:40px; color:#94a3b8;">
+                                        <i class="material-icons" style="font-size:40px; display:block; margin-bottom:8px;">inbox</i>
+                                        Chưa có bản ghi tăng ca nào trong hệ thống.
+                                    </td>
+                                </tr>
+                            }
+                            else
+                            {
+                                @foreach (var item in otItems.OrderByDescending(x => x.DueDate))
+                                {
+                                    var dotClass = item.Status == "APPROVED" ? "ot-dot-approved" : (item.Status == "PENDING" ? "ot-dot-pending" : "ot-dot-rejected");
+                                    var monthDisplay = item.DueDate?.ToString("MM/yyyy") ?? "—";
+                                    var employeeName = item.EmployeeName ?? "Chưa phân công";
+                                    var initials = GetInitials(employeeName);
+                                    var avatarColorClass = (item.EmployeeId ?? 0) % 3 == 0 ? "purple" : ((item.EmployeeId ?? 0) % 2 == 0 ? "green" : "blue");
+
+                                    <tr class="ot-data-row" 
+                                        data-month="@monthDisplay" 
+                                        data-shift="@(item.Category ?? "")" 
+                                        data-status="@(item.Status ?? "")" 
+                                        data-search="@(employeeName.ToLower()) @(item.Reference?.ToLower()) @(item.Title?.ToLower())">
+                                        <!-- Cột 1: Đốm tròn trạng thái (Slide 18) -->
+                                        <td style="text-align:center; vertical-align:middle;">
+                                            <span class="ot-dot @dotClass" title="@(item.Status == "APPROVED" ? "Đã duyệt" : (item.Status == "PENDING" ? "Chờ duyệt" : "Từ chối"))"></span>
+                                        </td>
+                                        <!-- Cột 2: Tháng -->
+                                        <td style="vertical-align:middle; font-weight:600; color:#334155;">@monthDisplay</td>
+                                        <!-- Cột 3: Nhân viên -->
+                                        <td style="vertical-align:middle;">
+                                            <div class="ot-user-cell">
+                                                <span class="ot-avatar @avatarColorClass">@initials</span>
+                                                <div>
+                                                    <strong style="color:#0284c7;">@employeeName</strong>
+                                                    <div style="font-size:11.5px; color:#64748b;">@(item.DepartmentName ?? "Phòng ban")</div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <!-- Cột 4: Ca làm -->
+                                        <td style="vertical-align:middle; font-weight:500;">
+                                            @(item.Category ?? "Ca làm")
+                                        </td>
+                                        <!-- Cột 5: Thời gian làm -->
+                                        <td style="vertical-align:middle;">
+                                            <div><strong>@(item.DueDate?.ToString("dd/MM/yyyy"))</strong></div>
+                                            <div style="font-size:12px; color:#64748b;">@(item.Priority ?? "—") (@(item.Target?.ToString("0.#"))h)</div>
+                                        </td>
+                                        <!-- Cột 6: Giờ quy đổi -->
+                                        <td style="vertical-align:middle;">
+                                            <strong style="color:#2563eb;">@(item.Actual?.ToString("0.#") ?? item.Target?.ToString("0.#"))h</strong>
+                                            <div style="font-size:11px; color:#64748b;">x@(item.Weight?.ToString("0.#") ?? "1.5")</div>
+                                        </td>
+                                        <!-- Cột 7: Ngày tạo (Slide 18) -->
+                                        <td style="vertical-align:middle; font-size:12px; color:#475569;">
+                                            @(item.CreatedAt.ToString("dd/MM/yyyy HH:mm"))
+                                        </td>
+                                        <!-- Cột 8: Cập nhật lần cuối (Slide 18) -->
+                                        <td style="vertical-align:middle; font-size:12px; color:#475569;">
+                                            @(item.UpdatedAt?.ToString("dd/MM/yyyy HH:mm") ?? item.CreatedAt.ToString("dd/MM/yyyy HH:mm"))
+                                        </td>
+                                        <!-- Cột 9: Thao tác -->
+                                        <td style="vertical-align:middle; text-align:center;">
+                                            <div style="display:inline-flex; gap:4px;">
+                                                @if (Model.CanManage && item.Status == "PENDING")
+                                                {
+                                                    <form method="post" asp-controller="Work" asp-action="OvertimeAction" style="display:inline;">
+                                                        @Html.AntiForgeryToken()
+                                                        <input type="hidden" name="id" value="@item.Id" />
+                                                        <input type="hidden" name="command" value="APPROVE" />
+                                                        <button type="submit" class="btn btn-xs btn-success" title="Phê duyệt" style="padding:3px 7px; font-size:11.5px; border-radius:4px;">
+                                                            <i class="material-icons" style="font-size:14px; vertical-align:middle;">check</i>
+                                                        </button>
+                                                    </form>
+                                                    <form method="post" asp-controller="Work" asp-action="OvertimeAction" style="display:inline;">
+                                                        @Html.AntiForgeryToken()
+                                                        <input type="hidden" name="id" value="@item.Id" />
+                                                        <input type="hidden" name="command" value="REJECT" />
+                                                        <button type="submit" class="btn btn-xs btn-danger" title="Từ chối" style="padding:3px 7px; font-size:11.5px; border-radius:4px;">
+                                                            <i class="material-icons" style="font-size:14px; vertical-align:middle;">close</i>
+                                                        </button>
+                                                    </form>
+                                                }
+                                                <button type="button" class="btn btn-xs btn-default" title="Xem chi tiết" 
+                                                        onclick="showOtDetail('@item.Reference', '@employeeName', '@(item.DepartmentName ?? "")', '@(item.Category ?? "")', '@(item.DueDate?.ToString("dd/MM/yyyy"))', '@(item.Priority ?? "")', '@(item.Target?.ToString("0.#"))', '@(item.Weight?.ToString("0.#") ?? "1.5")', '@(item.Actual?.ToString("0.#"))', '@item.Status', '@(item.Description?.Replace("'", "\\'"))', '@item.CreatedAt.ToString("dd/MM/yyyy HH:mm")')" 
+                                                        style="padding:3px 7px; font-size:11.5px; border-radius:4px;">
+                                                    <i class="material-icons" style="font-size:14px; vertical-align:middle;">visibility</i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        }
+        else
+        {
+            <!-- ====================================================================
+                 TAB 3: LỊCH TĂNG CA CỦA TÔI (Slide 18 - Màn hình phải)
+                 ==================================================================== -->
+            <div class="ot-card">
+                <div class="ot-card-header">
+                    <div>
+                        <h3 class="ot-card-title"><i class="material-icons">event</i> Lịch tăng ca của tôi</h3>
+                        <p class="ot-card-subtitle">Quản lý lịch tăng ca của cá nhân theo dạng lịch. Bạn có thể tự đăng ký lịch tăng ca sau đó trình duyệt.</p>
+                    </div>
+
+                    <!-- Month Nav & Button "+ Tạo mới" chuẩn Slide 18 -->
+                    <div style="display:flex; align-items:center; gap:16px; flex-wrap:wrap;">
+                        <div class="ot-calendar-nav">
+                            <a href="@Url.Action("Index", "Work", new { kind = "overtime", otTab = "my-calendar", otMonth = prevMonthNav, otYear = calDate.AddMonths(-1).Year })" 
+                               class="ot-cal-btn-nav" title="Tháng trước">
+                                <i class="material-icons" style="font-size:18px;">chevron_left</i>
+                            </a>
+                            <span class="ot-cal-month-title">Tháng @calDate.ToString("MM/yyyy")</span>
+                            <a href="@Url.Action("Index", "Work", new { kind = "overtime", otTab = "my-calendar", otMonth = nextMonthNav, otYear = calDate.AddMonths(1).Year })" 
+                               class="ot-cal-btn-nav" title="Tháng sau">
+                                <i class="material-icons" style="font-size:18px;">chevron_right</i>
+                            </a>
+                        </div>
+
+                        <button type="button" class="ot-btn-create" data-toggle="modal" data-target="#modalCreateOvertime">
+                            <i class="material-icons">add</i>
+                            <span>+ Tạo mới</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Lưới Lịch 7 cột chuẩn Slide 18 (Su, Mo, Tu, We, Th, Fr, Sa) -->
+                <div class="ot-cal-grid">
+                    <div class="ot-cal-day-name">Su</div>
+                    <div class="ot-cal-day-name">Mo</div>
+                    <div class="ot-cal-day-name">Tu</div>
+                    <div class="ot-cal-day-name">We</div>
+                    <div class="ot-cal-day-name">Th</div>
+                    <div class="ot-cal-day-name">Fr</div>
+                    <div class="ot-cal-day-name">Sa</div>
+
+                    @{
+                        var daysInCalMonth = DateTime.DaysInMonth(calDate.Year, calDate.Month);
+                        var firstDayOfMonth = new DateTime(calDate.Year, calDate.Month, 1);
+                        var startDayOfWeek = (int)firstDayOfMonth.DayOfWeek; // 0=Sunday
+                        var prevMonthDate = calDate.AddMonths(-1);
+                        var daysInPrevMonth = DateTime.DaysInMonth(prevMonthDate.Year, prevMonthDate.Month);
+
+                        // Render padding days of previous month
+                        for (int p = 0; p < startDayOfWeek; p++)
+                        {
+                            var dayNum = daysInPrevMonth - startDayOfWeek + p + 1;
+                            <div class="ot-cal-day-cell other-month">
+                                <span class="ot-cal-day-num">@dayNum.ToString("D2")</span>
+                            </div>
+                        }
+
+                        // Render days of current month
+                        var today = DateTime.Today;
+                        for (int day = 1; day <= daysInCalMonth; day++)
+                        {
+                            var cellDate = new DateTime(calDate.Year, calDate.Month, day);
+                            var isToday = cellDate.Date == today.Date;
+                            // Also highlight 16th if in month like in Slide 18 mockup
+                            var isHighlighted = isToday || (calDate.Month == 12 && day == 16);
+                            var cellItems = otItems.Where(x => x.DueDate?.Date == cellDate.Date).ToList();
+
+                            <div class="ot-cal-day-cell @(isHighlighted ? "today" : "")" 
+                                 ondblclick="quickCreateForDate('@cellDate.ToString("yyyy-MM-dd")')">
+                                <div style="display:flex; justify-content:space-between; align-items:center;">
+                                    <span class="ot-cal-day-num">@day.ToString("D2")</span>
+                                    @if (isHighlighted)
+                                    {
+                                        <span style="width:6px; height:6px; border-radius:50%; background:#2563eb;"></span>
+                                    }
+                                </div>
+
+                                <!-- Chips for overtime shifts on this day (Slide 18 format) -->
+                                @foreach (var shift in cellItems)
+                                {
+                                    var cat = shift.Category ?? "Ca tối";
+                                    var rateStr = $"{shift.Weight ?? 1.5m:0.#}x";
+                                    var timeRange = shift.Priority ?? "21:00-23:00";
+                                    var chipText = $"[{timeRange}] {cat} ({rateStr})";
+
+                                    var chipTypeClass = cat.Contains("qua đêm") ? "night" : (cat.Contains("cuối tuần") ? "weekend" : (cat.Contains("lễ") ? "holiday" : ""));
+                                    var chipStatusClass = shift.Status == "APPROVED" ? "approved" : "pending";
+
+                                    <div class="ot-chip @chipTypeClass @chipStatusClass" 
+                                         title="Bấm để xem chi tiết"
+                                         onclick="showOtDetail('@shift.Reference', '@(shift.EmployeeName ?? "Tôi")', '@(shift.DepartmentName ?? "")', '@cat', '@cellDate.ToString("dd/MM/yyyy")', '@timeRange', '@(shift.Target?.ToString("0.#"))', '@rateStr', '@(shift.Actual?.ToString("0.#"))', '@shift.Status', '@(shift.Description?.Replace("'", "\\'"))', '@shift.CreatedAt.ToString("dd/MM/yyyy HH:mm")')">
+                                        <span class="ot-dot @(shift.Status == "APPROVED" ? "ot-dot-approved" : "ot-dot-pending")" style="width:6px; height:6px; margin-right:3px;"></span>
+                                        @chipText
+                                    </div>
+                                }
+                            </div>
+                        }
+
+                        // Render padding days of next month to complete the 7-column grid
+                        var totalCellsSoFar = startDayOfWeek + daysInCalMonth;
+                        var remainingCells = (7 - (totalCellsSoFar % 7)) % 7;
+                        for (int n = 1; n <= remainingCells; n++)
+                        {
+                            <div class="ot-cal-day-cell other-month">
+                                <span class="ot-cal-day-num">@n.ToString("D2")</span>
+                            </div>
+                        }
+                    }
+                </div>
+            </div>
+        }
+    </div>
+
+    <!-- ====================================================================
+         MODAL 1: ĐĂNG KÝ TĂNG CA (+ Tạo mới)
+         ==================================================================== -->
+    <div class="modal fade" id="modalCreateOvertime" tabindex="-1" role="dialog" aria-labelledby="modalCreateOvertimeLabel" aria-hidden="true">
+        <div class="modal-dialog" role="document" style="max-width:560px;">
+            <div class="modal-content" style="border-radius:14px; overflow:hidden; border:none; box-shadow:0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);">
+                <form method="post" asp-controller="Work" asp-action="Create" id="formCreateOvertime">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="Kind" value="overtime" />
+                    <input type="hidden" name="Title" id="otModalTitle" value="Tăng ca làm thêm giờ" />
+                    <input type="hidden" name="Priority" id="otModalPriority" value="18:00 - 21:00" />
+                    <input type="hidden" name="Weight" id="otModalWeight" value="1.5" />
+                    <input type="hidden" name="Actual" id="otModalActual" value="4.5" />
+
+                    <div class="modal-header" style="background:#2563eb; color:#ffffff; padding:18px 24px;">
+                        <h4 class="modal-title" id="modalCreateOvertimeLabel" style="font-weight:700; font-size:17px; display:flex; align-items:center; gap:8px; margin:0;">
+                            <i class="material-icons" style="font-size:22px;">more_time</i>
+                            Đăng ký làm thêm giờ (Tăng ca)
+                        </h4>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close" style="color:#ffffff; opacity:0.85; text-shadow:none; font-size:24px;">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+
+                    <div class="modal-body" style="padding:22px 24px;">
+                        <!-- 1. Nhân viên đăng ký -->
+                        <div class="form-group">
+                            <label style="font-weight:600; font-size:13px; color:#334155;">Nhân viên đăng ký *</label>
+                            @if (Model.CanManage)
+                            {
+                                <select name="EmployeeId" class="form-control" style="border-radius:8px;">
+                                    @foreach (var p in Model.People)
+                                    {
+                                        <option value="@p.Id" selected="@(p.DisplayName == "Nguyễn Duy Nhất" || p.DisplayName == "Quản trị hệ thống" ? "selected" : null)">
+                                            @p.DisplayName (@(p.DepartmentName ?? "CNTT"))
+                                        </option>
+                                    }
+                                </select>
+                            }
+                            else
+                            {
+                                <input type="text" class="form-control" value="@User.Identity?.Name" readonly style="background:#f8fafc; border-radius:8px;" />
+                                <input type="hidden" name="EmployeeId" value="1" />
+                            }
+                        </div>
+
+                        <!-- 2. Ngày tăng ca (HRM Datepicker với nút Xác nhận) -->
+                        <div class="form-group">
+                            <label style="font-weight:600; font-size:13px; color:#334155;">Ngày làm thêm *</label>
+                            <div class="input-group">
+                                <span class="input-group-addon" style="background:#f8fafc; border-radius:8px 0 0 8px; border-right:none;"><i class="material-icons" style="font-size:18px; color:#64748b;">event</i></span>
+                                <input type="text" name="DueDate" id="otDueDateInput" class="form-control" 
+                                       data-hrm-datepicker="true" 
+                                       value="@calDate.ToString("yyyy-MM-dd")" 
+                                       required style="border-radius:0 8px 8px 0;" />
+                            </div>
+                            <small class="text-muted" style="font-size:11.5px;">Bấm chọn ngày và nhấn <strong>Xác nhận</strong> trên bộ lịch</small>
+                        </div>
+
+                        <!-- 3. Ca làm việc (Slide 18) -->
+                        <div class="form-group">
+                            <label style="font-weight:600; font-size:13px; color:#334155;">Ca làm việc *</label>
+                            <select name="Category" id="otSelectCategory" class="form-control" onchange="onOtShiftChanged()" style="border-radius:8px;">
+                                <option value="Ca tối (trong tuần)" data-rate="1.5" data-start="18:00" data-end="21:00">Ca tối (trong tuần) — Hệ số 1.5x (150%)</option>
+                                <option value="Ca làm cuối ngày" data-rate="1.5" data-start="17:30" data-end="19:30">Ca làm cuối ngày — Hệ số 1.5x (150%)</option>
+                                <option value="Ca qua đêm" data-rate="1.8" data-start="22:00" data-end="06:00">Ca qua đêm — Hệ số 1.8x (180%)</option>
+                                <option value="Ca cuối tuần" data-rate="2.0" data-start="08:00" data-end="17:00">Ca cuối tuần — Hệ số 2.0x (200%)</option>
+                                <option value="Ca ngày lễ" data-rate="3.0" data-start="08:00" data-end="17:00">Ca ngày lễ — Hệ số 3.0x (300%)</option>
+                            </select>
+                        </div>
+
+                        <!-- 4. Khung giờ làm -->
+                        <div class="row">
+                            <div class="col-xs-6">
+                                <div class="form-group">
+                                    <label style="font-weight:600; font-size:13px; color:#334155;">Từ giờ *</label>
+                                    <input type="time" id="otTimeFrom" class="form-control" value="18:00" onchange="calculateOtHours()" style="border-radius:8px;" required />
+                                </div>
+                            </div>
+                            <div class="col-xs-6">
+                                <div class="form-group">
+                                    <label style="font-weight:600; font-size:13px; color:#334155;">Đến giờ *</label>
+                                    <input type="time" id="otTimeTo" class="form-control" value="21:00" onchange="calculateOtHours()" style="border-radius:8px;" required />
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 5. Hộp tự động tính toán giờ & hệ số -->
+                        <div class="ot-calc-preview-box">
+                            <div class="ot-calc-stat">
+                                <div class="ot-calc-stat-val" id="otPreviewTarget">3.0h</div>
+                                <div class="ot-calc-stat-lbl">Số giờ thực tế</div>
+                                <input type="hidden" name="Target" id="otInputTarget" value="3.0" />
+                            </div>
+                            <div style="font-size:20px; font-weight:700; color:#94a3b8;">&times;</div>
+                            <div class="ot-calc-stat">
+                                <div class="ot-calc-stat-val" id="otPreviewWeight" style="color:#16a34a;">1.5x</div>
+                                <div class="ot-calc-stat-lbl">Tỷ lệ quy định</div>
+                            </div>
+                            <div style="font-size:20px; font-weight:700; color:#94a3b8;">=</div>
+                            <div class="ot-calc-stat">
+                                <div class="ot-calc-stat-val" id="otPreviewActual" style="color:#d97706;">4.5h</div>
+                                <div class="ot-calc-stat-lbl">Giờ quy đổi</div>
+                            </div>
+                        </div>
+
+                        <!-- 6. Lý do tăng ca -->
+                        <div class="form-group" style="margin-top:14px;">
+                            <label style="font-weight:600; font-size:13px; color:#334155;">Lý do / Công việc tăng ca *</label>
+                            <textarea name="Description" class="form-control" rows="3" required placeholder="Mô tả công việc hoặc hạng mục cần làm thêm giờ…" style="border-radius:8px;"></textarea>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer" style="background:#f8fafc; border-top:1px solid #e2e8f0; padding:14px 24px;">
+                        <button type="button" class="hrm-btn" data-dismiss="modal">Hủy</button>
+                        <button type="submit" class="hrm-btn hrm-btn-primary"><i class="material-icons">send</i> Gửi đăng ký</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- ====================================================================
+         MODAL 2: XEM CHI TIẾT PHIẾU TĂNG CA
+         ==================================================================== -->
+    <div class="modal fade" id="modalOvertimeDetail" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog" role="document" style="max-width:500px;">
+            <div class="modal-content" style="border-radius:14px; overflow:hidden; border:none; box-shadow:0 20px 25px -5px rgba(0,0,0,0.1);">
+                <div class="modal-header" style="background:#f8fafc; border-bottom:1px solid #e2e8f0; padding:16px 20px;">
+                    <h4 class="modal-title" style="font-weight:700; font-size:16px; color:#0f172a; margin:0; display:flex; align-items:center; gap:8px;">
+                        <i class="material-icons" style="color:#2563eb;">event_available</i>
+                        Chi tiết phiếu tăng ca <span id="dtRef" style="color:#0284c7;"></span>
+                    </h4>
+                    <button type="button" class="close" data-dismiss="modal">&times;</button>
+                </div>
+                <div class="modal-body" style="padding:20px;">
+                    <table class="table" style="margin-bottom:0; font-size:13.5px;">
+                        <tr><td style="width:140px; color:#64748b;">Nhân viên:</td><td><strong id="dtEmployee"></strong> <span id="dtDepartment" style="color:#64748b; font-size:12px;"></span></td></tr>
+                        <tr><td style="color:#64748b;">Ngày tăng ca:</td><td><strong id="dtDate"></strong></td></tr>
+                        <tr><td style="color:#64748b;">Ca làm:</td><td><span class="badge" style="background:#eff6ff; color:#1d4ed8;" id="dtCategory"></span></td></tr>
+                        <tr><td style="color:#64748b;">Khung giờ:</td><td><strong id="dtTime"></strong> (<span id="dtHours"></span> giờ thực tế)</td></tr>
+                        <tr><td style="color:#64748b;">Hệ số lương:</td><td><strong id="dtRate" style="color:#16a34a;"></strong></td></tr>
+                        <tr><td style="color:#64748b;">Giờ quy đổi:</td><td><strong id="dtConverted" style="color:#2563eb; font-size:15px;"></strong> giờ</td></tr>
+                        <tr><td style="color:#64748b;">Trạng thái:</td><td><span id="dtStatusBadge"></span></td></tr>
+                        <tr><td style="color:#64748b;">Lý do tăng ca:</td><td id="dtReason" style="color:#334155;"></td></tr>
+                        <tr><td style="color:#64748b;">Ngày gửi:</td><td id="dtCreatedAt" style="font-size:12px; color:#64748b;"></td></tr>
+                    </table>
+                </div>
+                <div class="modal-footer" style="background:#f8fafc; border-top:1px solid #e2e8f0; padding:12px 20px;">
+                    <button type="button" class="hrm-btn hrm-btn-primary" data-dismiss="modal">Đóng</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCRIPT TĂNG CA CHUYÊN BIỆT -->
+    <script>
+        function onOtShiftChanged() {
+            var sel = document.getElementById('otSelectCategory');
+            var opt = sel.options[sel.selectedIndex];
+            var rate = opt.getAttribute('data-rate') || '1.5';
+            var start = opt.getAttribute('data-start') || '18:00';
+            var end = opt.getAttribute('data-end') || '21:00';
+
+            document.getElementById('otTimeFrom').value = start;
+            document.getElementById('otTimeTo').value = end;
+            document.getElementById('otModalWeight').value = rate;
+            document.getElementById('otPreviewWeight').textContent = rate + 'x';
+            calculateOtHours();
+        }
+
+        function calculateOtHours() {
+            var t1 = document.getElementById('otTimeFrom').value;
+            var t2 = document.getElementById('otTimeTo').value;
+            if (!t1 || !t2) return;
+
+            var parts1 = t1.split(':');
+            var parts2 = t2.split(':');
+            var m1 = parseInt(parts1[0]) * 60 + parseInt(parts1[1]);
+            var m2 = parseInt(parts2[0]) * 60 + parseInt(parts2[1]);
+
+            var diffMinutes = m2 - m1;
+            if (diffMinutes <= 0) {
+                // Ca qua đêm (e.g. 22:00 -> 06:00 = 8h)
+                diffMinutes += 24 * 60;
+            }
+
+            var hours = Math.round((diffMinutes / 60) * 10) / 10;
+            var rate = parseFloat(document.getElementById('otModalWeight').value) || 1.5;
+            var converted = Math.round((hours * rate) * 10) / 10;
+
+            document.getElementById('otPreviewTarget').textContent = hours.toFixed(1) + 'h';
+            document.getElementById('otInputTarget').value = hours.toFixed(1);
+
+            document.getElementById('otPreviewActual').textContent = converted.toFixed(1) + 'h';
+            document.getElementById('otModalActual').value = converted.toFixed(1);
+
+            document.getElementById('otModalPriority').value = t1 + ' - ' + t2;
+        }
+
+        function quickCreateForDate(dateStr) {
+            document.getElementById('otDueDateInput').value = dateStr;
+            $('#modalCreateOvertime').modal('show');
+        }
+
+        function showOtDetail(ref, emp, dept, cat, date, time, hours, rate, converted, status, reason, created) {
+            document.getElementById('dtRef').textContent = ref ? '#' + ref : '';
+            document.getElementById('dtEmployee').textContent = emp;
+            document.getElementById('dtDepartment').textContent = dept ? '(' + dept + ')' : '';
+            document.getElementById('dtCategory').textContent = cat;
+            document.getElementById('dtDate').textContent = date;
+            document.getElementById('dtTime').textContent = time;
+            document.getElementById('dtHours').textContent = hours;
+            document.getElementById('dtRate').textContent = rate;
+            document.getElementById('dtConverted').textContent = converted;
+            document.getElementById('dtReason').textContent = reason || '—';
+            document.getElementById('dtCreatedAt').textContent = created;
+
+            var stEl = document.getElementById('dtStatusBadge');
+            if (status === 'APPROVED') {
+                stEl.className = 'badge badge-success';
+                stEl.textContent = '🟢 Đã duyệt';
+            } else if (status === 'PENDING') {
+                stEl.className = 'badge badge-warning';
+                stEl.textContent = '🟠 Chờ duyệt';
+            } else {
+                stEl.className = 'badge badge-secondary';
+                stEl.textContent = '⚪ Từ chối';
+            }
+            $('#modalOvertimeDetail').modal('show');
+        }
+
+        function filterOtTable() {
+            var m = document.getElementById('otFilterMonth').value;
+            var s = document.getElementById('otFilterShift').value;
+            var st = document.getElementById('otFilterStatus').value;
+            var q = (document.getElementById('otSearchInput').value || '').toLowerCase().trim();
+
+            var rows = document.querySelectorAll('#otEmployeeTable .ot-data-row');
+            rows.forEach(function(row) {
+                var rowM = row.getAttribute('data-month') || '';
+                var rowS = row.getAttribute('data-shift') || '';
+                var rowSt = row.getAttribute('data-status') || '';
+                var rowQ = (row.getAttribute('data-search') || '').toLowerCase();
+
+                var matchM = !m || rowM === m;
+                var matchS = !s || rowS === s;
+                var matchSt = !st || rowSt === st;
+                var matchQ = !q || rowQ.indexOf(q) !== -1;
+
+                if (matchM && matchS && matchSt && matchQ) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        }
+    </script>

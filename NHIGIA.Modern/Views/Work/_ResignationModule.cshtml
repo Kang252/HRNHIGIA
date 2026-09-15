@@ -1,0 +1,568 @@
+@model WorkPage
+@{
+    var items = Model.Items.Where(x => x.Kind == "resignation").ToList();
+    var totalCount = items.Count;
+    var pendingCount = items.Count(x => x.Status == "PENDING");
+    var approvedCount = items.Count(x => x.Status == "APPROVED");
+    var completedCount = items.Count(x => x.Status is "RESOLVED" or "COMPLETED");
+
+    var isEmployee = User.IsInRole(HrmRoles.Employee);
+    var isManager = User.IsInRole(HrmRoles.Manager);
+    var canManage = Model.CanManage;
+}
+
+<div class="resignation-container">
+    <!-- Hero Header -->
+    <div class="res-hero">
+        <div>
+            <h2 class="res-hero-title">
+                <i class="material-icons">person_remove</i>
+                @(isEmployee ? "Yêu cầu nghỉ việc & thôi việc" : "Quản lý nghỉ việc và thôi việc")
+            </h2>
+            <p class="res-hero-subtitle">
+                @(isEmployee ? "Gửi đề nghị nghỉ việc và theo dõi quá trình xử lý phê duyệt & thủ tục bàn giao của bạn." : "Tiếp nhận đề nghị thôi việc, thẩm định phê duyệt và theo dõi thủ tục bàn giao trên cùng một màn hình.")
+            </p>
+        </div>
+        <div>
+            <button type="button" class="hrm-btn hrm-btn-primary res-btn-create" data-toggle="modal" data-target="#modalCreateResignation">
+                <i class="material-icons">add</i>
+                @(isEmployee ? "Gửi đơn xin thôi việc" : "Mở thủ tục thôi việc")
+            </button>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="res-stats-grid">
+        <div class="res-stat-card">
+            <div class="res-stat-icon" style="background:#eff6ff; color:#2563eb;">
+                <i class="material-icons">assignment</i>
+            </div>
+            <div class="res-stat-info">
+                <h4>Tổng số đề nghị</h4>
+                <div class="res-stat-val">@totalCount</div>
+                <small>Hồ sơ thôi việc</small>
+            </div>
+        </div>
+        <div class="res-stat-card">
+            <div class="res-stat-icon" style="background:#fffbeb; color:#d97706;">
+                <i class="material-icons">hourglass_top</i>
+            </div>
+            <div class="res-stat-info">
+                <h4>Chờ phê duyệt</h4>
+                <div class="res-stat-val" style="color:#d97706;">@pendingCount</div>
+                <small>Cần xử lý</small>
+            </div>
+        </div>
+        <div class="res-stat-card">
+            <div class="res-stat-icon" style="background:#f0fdf4; color:#16a34a;">
+                <i class="material-icons">task_alt</i>
+            </div>
+            <div class="res-stat-info">
+                <h4>Đã phê duyệt</h4>
+                <div class="res-stat-val" style="color:#16a34a;">@approvedCount</div>
+                <small>Đang bàn giao</small>
+            </div>
+        </div>
+        <div class="res-stat-card">
+            <div class="res-stat-icon" style="background:#f0f9ff; color:#0284c7;">
+                <i class="material-icons">check_circle</i>
+            </div>
+            <div class="res-stat-info">
+                <h4>Đã hoàn tất bàn giao</h4>
+                <div class="res-stat-val" style="color:#0284c7;">@completedCount</div>
+                <small>Đã quyết toán thôi việc</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="res-toolbar-card">
+        <form method="get" asp-controller="Work" asp-action="Index" class="res-filter-form">
+            <input type="hidden" name="kind" value="resignation" />
+            <div class="res-search-input-wrap">
+                <i class="material-icons">search</i>
+                <input name="q" value="@Model.Query" class="form-control" placeholder="Tìm theo tên nhân viên, mã thủ tục, phòng ban…" />
+            </div>
+            <button class="hrm-btn hrm-btn-primary" type="submit">Tìm kiếm</button>
+            @if (!string.IsNullOrWhiteSpace(Model.Query))
+            {
+                <a class="hrm-btn" asp-controller="Work" asp-action="Index" asp-route-kind="resignation">Đặt lại</a>
+            }
+        </form>
+    </div>
+
+    <!-- Main Table -->
+    <div class="res-table-card">
+        <div class="table-responsive">
+            <table class="table table-hover res-main-table">
+                <thead>
+                    <tr>
+                        <th style="width:260px;">Nhân sự</th>
+                        <th>Mã thủ tục</th>
+                        <th>Lý do thôi việc</th>
+                        <th>Ngày thôi việc</th>
+                        <th>Nội dung bàn giao</th>
+                        <th>Trạng thái</th>
+                        <th style="text-align:right; width:180px;">Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (!Model.Available)
+                    {
+                        <tr><td colspan="7" class="text-center" style="padding:30px; color:#64748b;">Chưa kết nối được cơ sở dữ liệu. Vui lòng thử lại.</td></tr>
+                    }
+                    else if (items.Count == 0)
+                    {
+                        <tr>
+                            <td colspan="7" class="text-center" style="padding:40px; color:#64748b;">
+                                <i class="material-icons" style="font-size:40px; color:#cbd5e1; display:block; margin-bottom:8px;">inbox</i>
+                                <span>Chưa có đề nghị thôi việc nào.</span>
+                            </td>
+                        </tr>
+                    }
+                    else
+                    {
+                        foreach (var item in items)
+                        {
+                            var refCode = string.IsNullOrWhiteSpace(item.Reference) ? $"TV{item.Id:D8}" : item.Reference;
+                            var empName = item.EmployeeName ?? "Chưa phân công";
+                            var deptName = item.DepartmentName ?? "Chưa phân phòng";
+                            var initials = string.IsNullOrWhiteSpace(empName) ? "NV" : (empName.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries)[0].Length >= 2 ? empName.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries)[0].Substring(0, 2).ToUpperInvariant() : empName.Substring(0, 1).ToUpperInvariant());
+
+                            <tr>
+                                <td>
+                                    <div style="display:flex; align-items:center; gap:10px;">
+                                        <span class="res-table-avatar">@initials</span>
+                                        <div>
+                                            <div style="font-weight:700; color:#0f172a; font-size:13.5px;">@empName</div>
+                                            <div style="font-size:12px; color:#64748b;">@deptName</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <strong style="color:#0284c7; font-size:13px;">@refCode</strong>
+                                    <div style="font-size:11.5px; color:#94a3b8;">#@item.Id.ToString("D5")</div>
+                                </td>
+                                <td>
+                                    <span style="font-weight:600; color:#334155; font-size:13px;">@(item.Category ?? "Theo nguyện vọng")</span>
+                                </td>
+                                <td>
+                                    <span style="color:#0f172a; font-weight:600; font-size:13px;">@(item.DueDate?.ToString("dd/MM/yyyy") ?? "—")</span>
+                                </td>
+                                <td>
+                                    <div style="max-width:260px; font-size:12.5px; color:#475569; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="@item.Description">
+                                        @(string.IsNullOrWhiteSpace(item.Description) ? "Bàn giao công việc & tài sản" : item.Description)
+                                    </div>
+                                    @if (!string.IsNullOrWhiteSpace(item.LastActionNote))
+                                    {
+                                        <div style="font-size:11.5px; color:#059669; margin-top:2px;">
+                                            <i class="material-icons" style="font-size:12px; vertical-align:middle;">comment</i> @item.LastActionNote
+                                        </div>
+                                    }
+                                </td>
+                                <td>
+                                    @if (item.Status == "APPROVED")
+                                    {
+                                        <span class="res-status-badge status-approved"><i class="material-icons">check_circle</i> Đã duyệt</span>
+                                    }
+                                    else if (item.Status is "RESOLVED" or "COMPLETED")
+                                    {
+                                        <span class="res-status-badge status-completed"><i class="material-icons">verified</i> Đã bàn giao</span>
+                                    }
+                                    else if (item.Status == "REJECTED")
+                                    {
+                                        <span class="res-status-badge status-rejected"><i class="material-icons">cancel</i> Từ chối</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="res-status-badge status-pending"><i class="material-icons">schedule</i> Chờ duyệt</span>
+                                    }
+                                </td>
+                                <td style="text-align:right;">
+                                    <div style="display:inline-flex; gap:4px; align-items:center;">
+                                        <!-- Xem chi tiết / In biên bản bàn giao -->
+                                        <button type="button" class="btn btn-default btn-sm btn-view-resignation"
+                                                title="Xem chi tiết & In biên bản thôi việc"
+                                                data-id="@item.Id"
+                                                data-ref="@refCode"
+                                                data-emp="@empName"
+                                                data-dept="@deptName"
+                                                data-date="@(item.DueDate?.ToString("dd/MM/yyyy") ?? "")"
+                                                data-cat="@(item.Category ?? "Theo nguyện vọng")"
+                                                data-status="@item.Status"
+                                                data-desc="@(item.Description ?? "")"
+                                                data-note="@(item.LastActionNote ?? "")">
+                                            <i class="material-icons" style="font-size:16px;">visibility</i>
+                                        </button>
+
+                                        @if (canManage)
+                                        {
+                                            @if (item.Status == "PENDING")
+                                            {
+                                                <form method="post" asp-controller="Work" asp-action="ResignationAction" style="display:inline;">
+                                                    @Html.AntiForgeryToken()
+                                                    <input type="hidden" name="id" value="@item.Id" />
+                                                    <input type="hidden" name="command" value="APPROVE" />
+                                                    <button type="submit" class="btn btn-success btn-sm" title="Phê duyệt đơn thôi việc" style="padding:4px 8px;">
+                                                        <i class="material-icons" style="font-size:16px;">check</i>
+                                                    </button>
+                                                </form>
+                                                <form method="post" asp-controller="Work" asp-action="ResignationAction" style="display:inline;">
+                                                    @Html.AntiForgeryToken()
+                                                    <input type="hidden" name="id" value="@item.Id" />
+                                                    <input type="hidden" name="command" value="REJECT" />
+                                                    <button type="submit" class="btn btn-danger btn-sm" title="Từ chối đơn" style="padding:4px 8px;" onclick="return confirm('Bạn có chắc muốn từ chối đề nghị thôi việc này?');">
+                                                        <i class="material-icons" style="font-size:16px;">close</i>
+                                                    </button>
+                                                </form>
+                                            }
+                                            else if (item.Status == "APPROVED")
+                                            {
+                                                <form method="post" asp-controller="Work" asp-action="ResignationAction" style="display:inline;">
+                                                    @Html.AntiForgeryToken()
+                                                    <input type="hidden" name="id" value="@item.Id" />
+                                                    <input type="hidden" name="command" value="COMPLETE" />
+                                                    <button type="submit" class="btn btn-info btn-sm" title="Hoàn tất thủ tục bàn giao" style="padding:4px 8px; background:#0284c7; border-color:#0284c7; color:#fff;" onclick="return confirm('Xác nhận nhân sự đã hoàn tất mọi thủ tục bàn giao tài sản và công việc?');">
+                                                        <i class="material-icons" style="font-size:16px;">done_all</i>
+                                                    </button>
+                                                </form>
+                                            }
+
+                                            <form method="post" asp-controller="Work" asp-action="DeleteResignation" style="display:inline;" onsubmit="return confirm('Bạn có chắc chắn muốn xóa bản ghi thôi việc này?');">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="id" value="@item.Id" />
+                                                <button type="submit" class="btn btn-default btn-sm text-danger" title="Xóa bản ghi" style="padding:4px 8px;">
+                                                    <i class="material-icons" style="font-size:16px; color:#ef4444;">delete</i>
+                                                </button>
+                                            </form>
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL 1: TẠO ĐỀ NGHỊ / MỞ THỦ TỤC THÔI VIỆC -->
+<div class="modal fade" id="modalCreateResignation" tabindex="-1" role="dialog" aria-labelledby="modalCreateResignationLabel">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content" style="border-radius:14px; overflow:hidden;">
+            <form method="post" asp-controller="Work" asp-action="Create">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="Kind" value="resignation" />
+                <div class="modal-header" style="background: linear-gradient(135deg, #0284c7, #0369a1); color:#ffffff; padding:18px 24px;">
+                    <button type="button" class="close" data-dismiss="modal" style="color:#ffffff; opacity:0.85;">&times;</button>
+                    <h4 class="modal-title" id="modalCreateResignationLabel" style="font-weight:700; display:flex; align-items:center; gap:8px;">
+                        <i class="material-icons">person_remove</i>
+                        @(isEmployee ? "Gửi đơn xin nghỉ việc & thôi việc" : "Mở thủ tục bàn giao thôi việc")
+                    </h4>
+                </div>
+                <div class="modal-body" style="padding:24px;">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label style="font-weight:700; color:#1e293b;">Tiêu đề thủ tục *</label>
+                                <input name="Title" class="form-control" required value="Thủ tục thôi việc & Bàn giao công tác" />
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label style="font-weight:700; color:#1e293b;">Mã thủ tục</label>
+                                <input name="Reference" class="form-control" placeholder="Tự động (VD: TV-2026-001)" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        @if (canManage)
+                        {
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label style="font-weight:700; color:#1e293b;">Nhân viên thôi việc *</label>
+                                    <select name="EmployeeId" class="form-control" required>
+                                        <option value="">-- Chọn nhân viên --</option>
+                                        @foreach (var person in Model.People)
+                                        {
+                                            <option value="@person.Id">@person.DisplayName (@person.DepartmentName)</option>
+                                        }
+                                    </select>
+                                </div>
+                            </div>
+                        }
+                        else
+                        {
+                            <input type="hidden" name="EmployeeId" value="@(User.Identity.Name)" />
+                        }
+                        <div class="col-md-@(canManage ? "6" : "12")">
+                            <div class="form-group">
+                                <label style="font-weight:700; color:#1e293b;">Lý do thôi việc *</label>
+                                <select name="Category" class="form-control" required>
+                                    <option value="Theo nguyện vọng cá nhân">Theo nguyện vọng cá nhân</option>
+                                    <option value="Hết hạn hợp đồng lao động">Hết hạn hợp đồng lao động</option>
+                                    <option value="Thỏa thuận chấm dứt HĐLĐ">Thỏa thuận chấm dứt HĐLĐ</option>
+                                    <option value="Chuyển định cư / Lý do gia đình">Chuyển định cư / Lý do gia đình</option>
+                                    <option value="Lý do sức khỏe">Lý do sức khỏe</option>
+                                    <option value="Khác">Khác</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label style="font-weight:700; color:#1e293b;">Ngày làm việc cuối cùng / Ngày thôi việc *</label>
+                                <input type="date" name="DueDate" class="form-control" required value="@DateTime.Now.AddDays(30).ToString("yyyy-MM-dd")" />
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label style="font-weight:700; color:#1e293b;">Người tiếp nhận bàn giao</label>
+                                <input name="ContactName" class="form-control" placeholder="Họ tên người tiếp nhận công việc & tài sản" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label style="font-weight:700; color:#1e293b;">Nội dung chi tiết bàn giao công việc & tài sản *</label>
+                        <textarea name="Description" class="form-control" rows="4" required placeholder="Bàn giao các dự án đang phụ trách, tài liệu, thiết bị máy móc công ty, thẻ nhân viên và các khoản công nợ...">Bàn giao đầy đủ công việc đang phụ trách, tài liệu dự án, máy tính và thiết bị công ty cấp phát.</textarea>
+                    </div>
+                </div>
+                <div class="modal-footer" style="background:#f8fafc; border-top:1px solid #e2e8f0;">
+                    <button type="button" class="hrm-btn" data-dismiss="modal">Hủy</button>
+                    <button type="submit" class="hrm-btn hrm-btn-primary">
+                        <i class="material-icons">send</i> Gửi yêu cầu thôi việc
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL 2: XEM CHI TIẾT & IN BIÊN BẢN BÀN GIAO THÔI VIỆC -->
+<div class="modal fade" id="modalResignationDetail" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content" style="border-radius:14px; overflow:hidden;">
+            <div class="modal-header" style="background:#1e293b; color:#ffffff; padding:18px 24px; display:flex; justify-content:space-between; align-items:center;">
+                <h4 class="modal-title" style="font-weight:700; display:flex; align-items:center; gap:8px;">
+                    <i class="material-icons">description</i> Biên bản bàn giao thôi việc: <span id="resDetailRef">—</span>
+                </h4>
+                <button type="button" class="close" data-dismiss="modal" style="color:#ffffff; opacity:0.85;">&times;</button>
+            </div>
+            <div class="modal-body" style="padding:24px; background:#f8fafc;">
+                <!-- Printable document box -->
+                <div id="printableResignationArea" style="background:#ffffff; border:1px solid #e2e8f0; border-radius:10px; padding:36px 40px; box-shadow:0 4px 12px rgba(0,0,0,0.04);">
+                    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid #0f172a; padding-bottom:16px; margin-bottom:24px;">
+                        <div style="display:flex; align-items:center; gap:12px;">
+                            <img src="~/images/nhigia-logo.png" style="width:50px; height:50px; object-fit:contain;" alt="Nhị Gia" />
+                            <div>
+                                <div style="font-size:16px; font-weight:800; color:#1e3a8a;">CÔNG TY TNHH TM & DV NHỊ GIA</div>
+                                <div style="font-size:11.5px; color:#64748b;">Phòng Nhân sự - Hành chính</div>
+                            </div>
+                        </div>
+                        <div style="text-align:right; font-size:12.5px; color:#334155;">
+                            <div>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</div>
+                            <div style="font-size:11px; font-style:italic;">Độc lập - Tự do - Hạnh phúc</div>
+                        </div>
+                    </div>
+
+                    <div style="text-align:center; margin-bottom:24px;">
+                        <h3 style="font-size:20px; font-weight:800; color:#0f172a; margin:0 0 6px;">BIÊN BẢN BÀN GIAO CÔNG VIỆC & THÔI VIỆC</h3>
+                        <div style="font-size:13px; color:#64748b; font-style:italic;">Số: <span id="printResRef">—</span></div>
+                    </div>
+
+                    <div style="font-size:14px; color:#334155; line-height:1.8; margin-bottom:20px;">
+                        <p>Hôm nay, ngày <strong id="printResDay">14</strong> tháng <strong id="printResMonth">09</strong> năm <strong id="printResYear">2026</strong>, tại Văn phòng Công ty Nhị Gia, chúng tôi gồm có:</p>
+                        <table style="width:100%; border-collapse:collapse; margin:14px 0;">
+                            <tr>
+                                <td style="padding:6px 0; width:50%;"><strong>1. Người bàn giao (Nhân sự thôi việc):</strong></td>
+                                <td style="padding:6px 0;"><strong>2. Người nhận bàn giao (Bộ phận):</strong></td>
+                            </tr>
+                            <tr>
+                                <td>Họ và tên: <strong id="resDetailEmp">—</strong></td>
+                                <td>Phòng ban: <strong id="resDetailDept">—</strong></td>
+                            </tr>
+                            <tr>
+                                <td>Lý do thôi việc: <span id="resDetailCat">—</span></td>
+                                <td>Ngày thôi việc chính thức: <strong id="resDetailDate">—</strong></td>
+                            </tr>
+                        </table>
+
+                        <div style="margin-top:16px;">
+                            <strong>Nội dung và hạng mục bàn giao:</strong>
+                            <div id="resDetailDescText" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:12px 16px; margin-top:6px; font-size:13.5px; line-height:1.6;">
+                                —
+                            </div>
+                        </div>
+
+                        <div style="margin-top:14px;">
+                            <strong>Tình trạng phê duyệt:</strong> <span id="resDetailStatusBadge" class="label label-info">—</span>
+                        </div>
+                    </div>
+
+                    <div style="display:flex; justify-content:space-between; margin-top:50px; text-align:center;">
+                        <div style="width:200px;">
+                            <strong>Người bàn giao</strong>
+                            <div style="font-size:12px; color:#64748b; margin-bottom:55px;">(Ký và ghi rõ họ tên)</div>
+                            <div id="printSignEmp" style="font-weight:700;">—</div>
+                        </div>
+                        <div style="width:200px;">
+                            <strong>Người nhận bàn giao</strong>
+                            <div style="font-size:12px; color:#64748b; margin-bottom:55px;">(Ký và ghi rõ họ tên)</div>
+                            <div style="font-weight:700;">Phụ trách bộ phận</div>
+                        </div>
+                        <div style="width:200px;">
+                            <strong>Đại diện Ban Giám đốc</strong>
+                            <div style="font-size:12px; color:#64748b; margin-bottom:55px;">(Ký và đóng dấu)</div>
+                            <div style="font-weight:700;">Trần Thế Đạt</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer" style="background:#ffffff; border-top:1px solid #e2e8f0; display:flex; justify-content:space-between;">
+                <button type="button" class="hrm-btn" data-dismiss="modal">Đóng</button>
+                <button type="button" class="hrm-btn hrm-btn-primary" onclick="printResignationDoc()" style="background:#0284c7; border-color:#0284c7;">
+                    <i class="material-icons">print</i> In biên bản bàn giao
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .resignation-container { width: 100%; margin-top: 6px; }
+    .res-hero {
+        background: linear-gradient(135deg, #0284c7 0%, #0369a1 50%, #075985 100%);
+        border-radius: 16px; padding: 24px 28px; color: #ffffff; margin-bottom: 24px;
+        box-shadow: 0 10px 25px -5px rgba(2, 132, 199, 0.25);
+        display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;
+    }
+    .res-hero-title {
+        margin: 0 0 6px; font-size: 24px; font-weight: 700; display: flex; align-items: center; gap: 10px; color:#fff;
+    }
+    .res-hero-subtitle { margin: 0; font-size: 13.5px; color: rgba(255, 255, 255, 0.85); max-width: 700px; }
+    .res-btn-create {
+        background: #ffffff; color: #0284c7; font-weight: 700; border: none; padding: 10px 20px;
+        border-radius: 10px; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    .res-btn-create:hover { background: #f0f9ff; color: #0369a1; }
+    .res-stats-grid {
+        display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px;
+    }
+    @@media (max-width: 992px) { .res-stats-grid { grid-template-columns: repeat(2, 1fr); } }
+    @@media (max-width: 576px) { .res-stats-grid { grid-template-columns: 1fr; } }
+    .res-stat-card {
+        background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px;
+        padding: 16px 20px; display: flex; align-items: center; gap: 16px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+    }
+    .res-stat-icon {
+        width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center;
+        font-size: 24px; flex-shrink: 0;
+    }
+    .res-stat-info h4 { font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase; margin: 0 0 4px; letter-spacing: 0.3px; }
+    .res-stat-val { font-size: 24px; font-weight: 800; color: #0f172a; line-height: 1.1; margin-bottom: 2px; }
+    .res-stat-info small { font-size: 11.5px; color: #94a3b8; }
+    .res-toolbar-card {
+        background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px;
+        padding: 14px 20px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+    }
+    .res-filter-form { display: flex; gap: 12px; align-items: center; }
+    .res-search-input-wrap { position: relative; flex: 1; }
+    .res-search-input-wrap i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 18px; }
+    .res-search-input-wrap input { padding-left: 38px; height: 38px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 13.5px; }
+    .res-table-card {
+        background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.04); overflow: hidden;
+    }
+    .res-main-table { margin: 0; }
+    .res-main-table thead th {
+        background: #f8fafc; font-size: 12px; font-weight: 700; color: #475569;
+        text-transform: uppercase; letter-spacing: 0.3px; border-bottom: 1px solid #e2e8f0; padding: 12px 16px;
+    }
+    .res-main-table tbody td { padding: 14px 16px; vertical-align: middle; border-bottom: 1px solid #f1f5f9; }
+    .res-table-avatar {
+        width: 34px; height: 34px; border-radius: 50%; background: #0284c7; color: #fff;
+        display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px;
+    }
+    .res-status-badge {
+        display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 14px;
+        font-size: 12px; font-weight: 600; white-space: nowrap;
+    }
+    .res-status-badge i { font-size: 14px; }
+    .status-pending { background: #fef3c7; color: #b45309; }
+    .status-approved { background: #dcfce7; color: #15803d; }
+    .status-completed { background: #e0f2fe; color: #0369a1; }
+    .status-rejected { background: #fee2e2; color: #b91c1c; }
+</style>
+
+<script>
+    $(document).ready(function() {
+        $(document).on('click', '.btn-view-resignation', function() {
+            var btn = $(this);
+            var ref = btn.data('ref') || 'TV00000001';
+            var emp = btn.data('emp') || '—';
+            var dept = btn.data('dept') || '—';
+            var date = btn.data('date') || '—';
+            var cat = btn.data('cat') || 'Theo nguyện vọng';
+            var status = btn.data('status') || 'PENDING';
+            var desc = btn.data('desc') || 'Bàn giao công việc & tài sản';
+
+            $('#resDetailRef').text(ref);
+            $('#printResRef').text(ref);
+            $('#resDetailEmp').text(emp);
+            $('#printSignEmp').text(emp);
+            $('#resDetailDept').text(dept);
+            $('#resDetailDate').text(date);
+            $('#resDetailCat').text(cat);
+            $('#resDetailDescText').text(desc);
+
+            var today = new Date();
+            $('#printResDay').text(('0' + today.getDate()).slice(-2));
+            $('#printResMonth').text(('0' + (today.getMonth() + 1)).slice(-2));
+            $('#printResYear').text(today.getFullYear());
+
+            var statusEl = $('#resDetailStatusBadge');
+            if (status === 'APPROVED') {
+                statusEl.attr('class', 'label label-success').text('Đã phê duyệt');
+            } else if (status === 'RESOLVED' || status === 'COMPLETED') {
+                statusEl.attr('class', 'label label-info').text('Đã hoàn tất bàn giao');
+            } else if (status === 'REJECTED') {
+                statusEl.attr('class', 'label label-danger').text('Từ chối');
+            } else {
+                statusEl.attr('class', 'label label-warning').text('Chờ phê duyệt');
+            }
+
+            $('#modalResignationDetail').modal('show');
+        });
+    });
+
+    function printResignationDoc() {
+        var printArea = document.getElementById('printableResignationArea');
+        if (!printArea) return;
+        var iframe = document.createElement('iframe');
+        iframe.style.position = 'fixed';
+        iframe.style.right = '0';
+        iframe.style.bottom = '0';
+        iframe.style.width = '0';
+        iframe.style.height = '0';
+        iframe.style.border = '0';
+        document.body.appendChild(iframe);
+        var doc = iframe.contentWindow.document;
+        var styleContent = 'body{font-family:"Times New Roman",serif;padding:30px;line-height:1.6;color:#111;} table{width:100%;border-collapse:collapse;margin:15px 0;} table td{padding:6px;}';
+        var s = doc.createElement('style');
+        s.textContent = styleContent;
+        doc.head.appendChild(s);
+        doc.body.innerHTML = printArea.innerHTML;
+        setTimeout(function() {
+            iframe.contentWindow.focus();
+            iframe.contentWindow.print();
+            setTimeout(function() { document.body.removeChild(iframe); }, 1000);
+        }, 250);
+    }
+</script>
+

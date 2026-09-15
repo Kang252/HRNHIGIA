@@ -1,0 +1,344 @@
+@model WorkPage
+@{
+    var items = Model.Items ?? new List<WorkItem>();
+    var totalPositions = items.Count;
+    var totalApplicants = items.Sum(x => x.Actual ?? 0);
+    var totalTarget = items.Sum(x => x.Target ?? 0);
+}
+
+<div class="recruitment-container">
+    <!-- Header -->
+    <div class="recruitment-header-hero">
+        <div>
+            <h2 style="font-weight:700; color:#0f172a; margin:0 0 6px;">Nhu cầu tuyển dụng</h2>
+            <p style="color:#64748b; margin:0; font-size:14px;">Theo dõi nhu cầu tuyển dụng và tiến độ ứng viên theo từng vị trí.</p>
+        </div>
+        <div>
+            <a class="hrm-btn hrm-btn-primary" asp-controller="Work" asp-action="CreateRecruitmentPosition" style="display:inline-flex; align-items:center; gap:6px; padding:9px 18px; font-weight:600; border-radius:8px;">
+                <i class="material-icons" style="font-size:18px;">add</i> Tạo vị trí mới
+            </a>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="recruitment-stats-grid">
+        <div class="rec-stat-card">
+            <div class="rec-stat-icon" style="background:#eff6ff; color:#2563eb;">
+                <i class="material-icons">work</i>
+            </div>
+            <div class="rec-stat-info">
+                <h4>Vị trí đang tuyển</h4>
+                <div class="rec-stat-val">@totalPositions</div>
+                <small>Chiến dịch tuyển dụng</small>
+            </div>
+        </div>
+        <div class="rec-stat-card">
+            <div class="rec-stat-icon" style="background:#f0fdf4; color:#16a34a;">
+                <i class="material-icons">group_add</i>
+            </div>
+            <div class="rec-stat-info">
+                <h4>Chỉ tiêu cần tuyển</h4>
+                <div class="rec-stat-val">@totalTarget.ToString("N0")</div>
+                <small>Nhân sự mục tiêu</small>
+            </div>
+        </div>
+        <div class="rec-stat-card">
+            <div class="rec-stat-icon" style="background:#fdf4ff; color:#a855f7;">
+                <i class="material-icons">description</i>
+            </div>
+            <div class="rec-stat-info">
+                <h4>Số lượng CV nhận</h4>
+                <div class="rec-stat-val">@totalApplicants.ToString("N0")</div>
+                <small>Hồ sơ ứng viên</small>
+            </div>
+        </div>
+        <div class="rec-stat-card">
+            <div class="rec-stat-icon" style="background:#fffbeb; color:#d97706;">
+                <i class="material-icons">how_to_reg</i>
+            </div>
+            <div class="rec-stat-info">
+                <h4>Tiến độ tiếp nhận</h4>
+                <div class="rec-stat-val">@(totalTarget > 0 ? Math.Round((double)totalApplicants * 100 / (double)totalTarget, 0) : 0)%</div>
+                <small>Tỷ lệ ứng tuyển</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter toolbar -->
+    <div class="recruitment-toolbar-card">
+        <form method="get" asp-controller="Work" asp-action="Index" class="recruitment-filter-form">
+            <input type="hidden" name="kind" value="recruitment" />
+            <div class="rec-search-input-wrap">
+                <i class="material-icons">search</i>
+                <input name="q" value="@Model.Query" class="form-control" placeholder="Tìm theo tên vị trí, mã, phòng ban…" />
+            </div>
+            <button class="hrm-btn hrm-btn-primary" type="submit" style="padding:8px 16px; border-radius:8px;">Tìm kiếm</button>
+            @if (!string.IsNullOrWhiteSpace(Model.Query))
+            {
+                <a class="hrm-btn" asp-controller="Work" asp-action="Index" asp-route-kind="recruitment" style="border-radius:8px;">Đặt lại</a>
+            }
+        </form>
+    </div>
+
+    <!-- Table -->
+    <div class="recruitment-table-card">
+        <div class="table-responsive">
+            <table class="table table-hover recruitment-main-table">
+                <thead>
+                    <tr>
+                        <th style="width:280px;">Vị trí tuyển dụng</th>
+                        <th>Phòng ban</th>
+                        <th>Chỉ tiêu</th>
+                        <th>Số lượng CV</th>
+                        <th>Hạn nộp</th>
+                        <th>Địa điểm</th>
+                        <th>Trạng thái</th>
+                        <th style="text-align:right; width:130px;">Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (!Model.Available)
+                    {
+                        <tr><td colspan="8" class="text-center" style="padding:30px; color:#64748b;">Chưa kết nối được cơ sở dữ liệu. Vui lòng thử lại.</td></tr>
+                    }
+                    else if (items.Count == 0)
+                    {
+                        <tr>
+                            <td colspan="8" class="text-center" style="padding:40px; color:#64748b;">
+                                <i class="material-icons" style="font-size:40px; color:#cbd5e1; display:block; margin-bottom:8px;">inventory_2</i>
+                                <span>Chưa có vị trí tuyển dụng nào phù hợp.</span>
+                            </td>
+                        </tr>
+                    }
+                    else
+                    {
+                        foreach (var item in items)
+                        {
+                            var target = item.Target ?? 1;
+                            var cvCount = item.Actual ?? 0;
+                            var pct = target > 0 ? Math.Min(100, Math.Round((double)cvCount * 100 / (double)target, 0)) : 0;
+                            <tr>
+                                <td>
+                                    <div style="font-weight:700; color:#0f172a; font-size:14px;">@item.Title</div>
+                                    <small style="color:#64748b; font-size:12px;">Mã: @(item.Reference ?? $"TD-{item.Id:D3}")</small>
+                                </td>
+                                <td>
+                                    <span style="font-weight:500; color:#334155;">@(item.DepartmentName ?? "Chưa phân phòng")</span>
+                                    @if (!string.IsNullOrWhiteSpace(item.JobLevel))
+                                    {
+                                        <div style="font-size:11.5px; color:#64748b;">Cấp bậc: @item.JobLevel</div>
+                                    }
+                                </td>
+                                <td>
+                                    <strong style="color:#0f172a; font-size:13.5px;">@target.ToString("N0")</strong>
+                                    <span style="font-size:12px; color:#64748b;">người</span>
+                                </td>
+                                <td>
+                                    <div style="display:flex; align-items:center; gap:8px;">
+                                        <strong style="color:#2563eb; font-size:13.5px;">@cvCount.ToString("N0")</strong>
+                                        <span style="font-size:11.5px; color:#64748b;">(@pct%)</span>
+                                    </div>
+                                    <div class="rec-progress-track">
+                                        <div class="rec-progress-fill" style="width:@pct%;"></div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span style="color:#334155; font-size:13px;">@(item.DueDate?.ToString("dd/MM/yyyy") ?? "—")</span>
+                                </td>
+                                <td>
+                                    <span style="color:#64748b; font-size:13px;">@(item.WorkLocation ?? "TP. Hồ Chí Minh")</span>
+                                </td>
+                                <td>
+                                    <span class="rec-status-badge status-active">Đang tuyển</span>
+                                </td>
+                                <td style="text-align:right;">
+                                    <div style="display:inline-flex; gap:4px;">
+                                        <button type="button" class="btn btn-default btn-sm btn-view-recruitment"
+                                                title="Xem chi tiết vị trí"
+                                                data-id="@item.Id"
+                                                data-title="@item.Title"
+                                                data-ref="@(item.Reference ?? $"TD-{item.Id:D3}")"
+                                                data-dept="@(item.DepartmentName ?? "")"
+                                                data-target="@target"
+                                                data-actual="@cvCount"
+                                                data-due="@(item.DueDate?.ToString("dd/MM/yyyy") ?? "")"
+                                                data-start="@(item.StartDate?.ToString("dd/MM/yyyy") ?? "")"
+                                                data-loc="@(item.WorkLocation ?? "TP. Hồ Chí Minh")"
+                                                data-joblevel="@(item.JobLevel ?? "")"
+                                                data-salary="@(item.SalaryRange ?? "Thỏa thuận")"
+                                                data-contract="@(item.ContractType ?? "Toàn thời gian")"
+                                                data-desc="@item.Description"
+                                                data-skills="@item.SkillRequirements"
+                                                data-benefits="@item.Benefits"
+                                                data-contact="@item.ContactName"
+                                                data-phone="@item.ContactPhone"
+                                                data-email="@item.ContactEmail">
+                                            <i class="material-icons" style="font-size:16px;">visibility</i>
+                                        </button>
+                                        @if (Model.CanManage)
+                                        {
+                                            <form method="post" asp-controller="Work" asp-action="DeleteRecruitmentPosition" style="display:inline;" onsubmit="return confirm('Bạn có chắc chắn muốn xóa vị trí tuyển dụng này?');">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="id" value="@item.Id" />
+                                                <button type="submit" class="btn btn-default btn-sm text-danger" title="Xóa vị trí">
+                                                    <i class="material-icons" style="font-size:16px; color:#ef4444;">delete</i>
+                                                </button>
+                                            </form>
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: CHI TIẾT VỊ TRÍ TUYỂN DỤNG -->
+<div class="modal fade" id="modalRecruitmentDetail" tabindex="-1" role="dialog" aria-labelledby="modalRecruitmentDetailTitle">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content" style="border-radius:14px; overflow:hidden;">
+            <div class="modal-header" style="background: linear-gradient(135deg, #1e3a8a, #2563eb); color:#ffffff; padding:18px 24px;">
+                <button type="button" class="close" data-dismiss="modal" style="color:#ffffff; opacity:0.85;">&times;</button>
+                <h4 class="modal-title" id="modalRecruitmentDetailTitle" style="font-weight:700; display:flex; align-items:center; gap:8px;">
+                    <i class="material-icons">work</i> <span id="recDetailTitle">Chi tiết vị trí tuyển dụng</span>
+                </h4>
+            </div>
+            <div class="modal-body" style="padding:24px;">
+                <!-- Overview Row -->
+                <div class="rec-modal-grid">
+                    <div><span>Mã vị trí:</span> <strong id="recDetailRef">—</strong></div>
+                    <div><span>Phòng ban:</span> <strong id="recDetailDept">—</strong></div>
+                    <div><span>Số lượng tuyển:</span> <strong id="recDetailTarget" class="text-blue">—</strong></div>
+                    <div><span>Số lượng CV nộp:</span> <strong id="recDetailActual" class="text-emerald">—</strong></div>
+                    <div><span>Hạn nộp hồ sơ:</span> <strong id="recDetailDue">—</strong></div>
+                    <div><span>Địa điểm:</span> <strong id="recDetailLoc">—</strong></div>
+                    <div><span>Cấp bậc:</span> <strong id="recDetailLevel">—</strong></div>
+                    <div><span>Mức lương:</span> <strong id="recDetailSalary" style="color:#059669;">—</strong></div>
+                </div>
+
+                <div style="margin-top:20px;">
+                    <h5 style="font-weight:700; color:#0f172a; margin-bottom:6px;"><i class="material-icons" style="font-size:16px; vertical-align:middle;">subject</i> Mô tả công việc</h5>
+                    <div id="recDetailDesc" class="rec-modal-section-box">Chưa có mô tả chi tiết.</div>
+                </div>
+
+                <div style="margin-top:16px;">
+                    <h5 style="font-weight:700; color:#0f172a; margin-bottom:6px;"><i class="material-icons" style="font-size:16px; vertical-align:middle;">checklist</i> Yêu cầu kỹ năng & kinh nghiệm</h5>
+                    <div id="recDetailSkills" class="rec-modal-section-box">Chưa có yêu cầu kỹ năng.</div>
+                </div>
+
+                <div style="margin-top:16px;">
+                    <h5 style="font-weight:700; color:#0f172a; margin-bottom:6px;"><i class="material-icons" style="font-size:16px; vertical-align:middle;">card_giftcard</i> Quyền lợi & Đãi ngộ</h5>
+                    <div id="recDetailBenefits" class="rec-modal-section-box">Chưa có quyền lợi chi tiết.</div>
+                </div>
+
+                <div style="margin-top:16px; padding:12px 16px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px;">
+                    <div style="font-size:12.5px; color:#64748b; font-weight:600; text-transform:uppercase; margin-bottom:4px;">Thông tin liên hệ tuyển dụng</div>
+                    <div style="font-size:13.5px; color:#1e293b;">
+                        <span id="recDetailContact">Người liên hệ: Phòng Nhân sự</span> |
+                        <span id="recDetailPhone">SĐT: 0901 234 567</span> |
+                        <span id="recDetailEmail">Email: tuyendung@nhigia.vn</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer" style="background:#f8fafc; border-top:1px solid #e2e8f0;">
+                <button type="button" class="hrm-btn" data-dismiss="modal">Đóng</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .recruitment-container { width: 100%; margin-top: 6px; }
+    .recruitment-header-hero {
+        display: flex; justify-content: space-between; align-items: center;
+        background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px;
+        padding: 20px 24px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }
+    .recruitment-stats-grid {
+        display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px;
+    }
+    @@media (max-width: 992px) { .recruitment-stats-grid { grid-template-columns: repeat(2, 1fr); } }
+    @@media (max-width: 576px) { .recruitment-stats-grid { grid-template-columns: 1fr; } }
+    .rec-stat-card {
+        background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px;
+        padding: 16px 20px; display: flex; align-items: center; gap: 16px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+    }
+    .rec-stat-icon {
+        width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center;
+        font-size: 24px; flex-shrink: 0;
+    }
+    .rec-stat-info h4 { font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase; margin: 0 0 4px; letter-spacing: 0.3px; }
+    .rec-stat-val { font-size: 24px; font-weight: 800; color: #0f172a; line-height: 1.1; margin-bottom: 2px; }
+    .rec-stat-info small { font-size: 11.5px; color: #94a3b8; }
+    .recruitment-toolbar-card {
+        background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px;
+        padding: 14px 20px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+    }
+    .recruitment-filter-form { display: flex; gap: 12px; align-items: center; }
+    .rec-search-input-wrap { position: relative; flex: 1; }
+    .rec-search-input-wrap i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 18px; }
+    .rec-search-input-wrap input { padding-left: 38px; height: 38px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 13.5px; }
+    .recruitment-table-card {
+        background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.04); overflow: hidden;
+    }
+    .recruitment-main-table { margin: 0; }
+    .recruitment-main-table thead th {
+        background: #f8fafc; font-size: 12px; font-weight: 700; color: #475569;
+        text-transform: uppercase; letter-spacing: 0.3px; border-bottom: 1px solid #e2e8f0; padding: 12px 16px;
+    }
+    .recruitment-main-table tbody td { padding: 14px 16px; vertical-align: middle; border-bottom: 1px solid #f1f5f9; }
+    .rec-progress-track {
+        height: 6px; background: #e2e8f0; border-radius: 3px; overflow: hidden; margin-top: 4px; width: 100px;
+    }
+    .rec-progress-fill { height: 100%; background: #2563eb; border-radius: 3px; }
+    .rec-status-badge {
+        display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 12px; font-weight: 600;
+    }
+    .status-active { background: #dbeafe; color: #1e40af; }
+    .rec-modal-grid {
+        display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;
+        background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px;
+    }
+    .rec-modal-grid div { font-size: 13.5px; color: #475569; }
+    .rec-modal-grid div span { color: #64748b; margin-right: 4px; }
+    .rec-modal-section-box {
+        background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px;
+        padding: 12px 16px; font-size: 13.5px; color: #334155; line-height: 1.6; white-space: pre-line;
+    }
+</style>
+
+<script>
+    $(document).ready(function() {
+        $(document).on('click', '.btn-view-recruitment', function() {
+            var btn = $(this);
+            $('#recDetailTitle').text(btn.data('title') || 'Vị trí tuyển dụng');
+            $('#recDetailRef').text(btn.data('ref') || '—');
+            $('#recDetailDept').text(btn.data('dept') || '—');
+            $('#recDetailTarget').text((btn.data('target') || '0') + ' người');
+            $('#recDetailActual').text((btn.data('actual') || '0') + ' hồ sơ');
+            $('#recDetailDue').text(btn.data('due') || '—');
+            $('#recDetailLoc').text(btn.data('loc') || 'TP. Hồ Chí Minh');
+            $('#recDetailLevel').text(btn.data('joblevel') || 'Nhân viên');
+            $('#recDetailSalary').text(btn.data('salary') || 'Thỏa thuận');
+
+            $('#recDetailDesc').text(btn.data('desc') || 'Chưa có mô tả chi tiết.');
+            $('#recDetailSkills').text(btn.data('skills') || 'Chưa có yêu cầu kỹ năng.');
+            $('#recDetailBenefits').text(btn.data('benefits') || 'Chưa có thông tin đãi ngộ.');
+
+            var contact = btn.data('contact');
+            var phone = btn.data('phone');
+            var email = btn.data('email');
+            $('#recDetailContact').text('Người liên hệ: ' + (contact || 'Phòng Tuyển dụng'));
+            $('#recDetailPhone').text('SĐT: ' + (phone || '0901 234 567'));
+            $('#recDetailEmail').text('Email: ' + (email || 'tuyendung@nhigia.vn'));
+
+            $('#modalRecruitmentDetail').modal('show');
+        });
+    });
+</script>
+

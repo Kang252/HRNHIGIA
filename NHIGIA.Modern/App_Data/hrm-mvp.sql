@@ -2,17 +2,6 @@ SET NOCOUNT ON;
 SET QUOTED_IDENTIFIER ON;
 SET ANSI_NULLS ON;
 
-IF OBJECT_ID('dbo.HrmDataProtectionKey', 'U') IS NULL
-BEGIN
-    CREATE TABLE dbo.HrmDataProtectionKey (
-        Id INT IDENTITY(1,1) NOT NULL CONSTRAINT PK_HrmDataProtectionKey PRIMARY KEY,
-        FriendlyName NVARCHAR(200) NULL,
-        Xml NVARCHAR(MAX) NOT NULL,
-        CreatedAt DATETIME2 NOT NULL CONSTRAINT DF_HrmDataProtectionKey_CreatedAt DEFAULT (SYSUTCDATETIME())
-    );
-END;
-GO
-
 
 IF OBJECT_ID('dbo.HrmDepartment', 'U') IS NULL
 BEGIN
@@ -187,13 +176,6 @@ BEGIN
 END;
 GO
 
-IF COL_LENGTH('dbo.HrmLeaveRequest', 'AttachmentContentType') IS NULL
-    ALTER TABLE dbo.HrmLeaveRequest ADD AttachmentContentType NVARCHAR(100) NULL;
-GO
-IF COL_LENGTH('dbo.HrmLeaveRequest', 'AttachmentContent') IS NULL
-    ALTER TABLE dbo.HrmLeaveRequest ADD AttachmentContent VARBINARY(MAX) NULL;
-GO
-
 IF OBJECT_ID('dbo.HrmCommunication', 'U') IS NULL
 BEGIN
     CREATE TABLE dbo.HrmCommunication (
@@ -300,6 +282,11 @@ GO
 IF NOT EXISTS (SELECT 1 FROM dbo.HrmDepartment WHERE Code = 'BOD') INSERT dbo.HrmDepartment(Code, Name) VALUES ('BOD', N'Ban Giám đốc');
 IF NOT EXISTS (SELECT 1 FROM dbo.HrmDepartment WHERE Code = 'HR') INSERT dbo.HrmDepartment(Code, Name) VALUES ('HR', N'Phòng Nhân sự');
 IF NOT EXISTS (SELECT 1 FROM dbo.HrmDepartment WHERE Code = 'IT') INSERT dbo.HrmDepartment(Code, Name) VALUES ('IT', N'Phòng Công nghệ thông tin');
+IF NOT EXISTS (SELECT 1 FROM dbo.HrmDepartment WHERE Code = 'QLTS') INSERT dbo.HrmDepartment(Code, Name) VALUES ('QLTS', N'Phòng Ban Quản Lý Tài Sản');
+IF NOT EXISTS (SELECT 1 FROM dbo.HrmDepartment WHERE Code = 'TTNB') INSERT dbo.HrmDepartment(Code, Name) VALUES ('TTNB', N'Phòng Ban Truyền Thông Nội Bộ');
+IF NOT EXISTS (SELECT 1 FROM dbo.HrmDepartment WHERE Code = 'BH_CU') INSERT dbo.HrmDepartment(Code, Name) VALUES ('BH_CU', N'Phòng Ban Bán Hàng và Cung Ứng');
+IF NOT EXISTS (SELECT 1 FROM dbo.HrmDepartment WHERE Code = 'DA_TT') INSERT dbo.HrmDepartment(Code, Name) VALUES ('DA_TT', N'Phòng Dự Án Thông Tin');
+IF NOT EXISTS (SELECT 1 FROM dbo.HrmDepartment WHERE Code = 'CSKH') INSERT dbo.HrmDepartment(Code, Name) VALUES ('CSKH', N'Phòng Ban Hỗ Trợ Khách Hàng');
 GO
 
 IF NOT EXISTS (SELECT 1 FROM dbo.HrmUserAccount WHERE Username = 'admin')
@@ -311,7 +298,7 @@ IF NOT EXISTS (SELECT 1 FROM dbo.HrmUserAccount WHERE Username = 'thedt')
 IF NOT EXISTS (SELECT 1 FROM dbo.HrmUserAccount WHERE Username = 'huongtm')
     INSERT dbo.HrmUserAccount(Username, PasswordHash, PasswordSalt, DisplayName, RoleCode, DepartmentId) VALUES ('huongtm', 'dwjzkd1+uqTVlCYCrgRvfPhtl+9LJ8JLuJR2Z+GLodc=', 'SLgp7cdbMeklGBDGrauqbg==', N'Trưởng phòng', 'MANAGER', (SELECT Id FROM dbo.HrmDepartment WHERE Code='IT'));
 IF NOT EXISTS (SELECT 1 FROM dbo.HrmUserAccount WHERE Username = 'anhvt')
-    INSERT dbo.HrmUserAccount(Username, PasswordHash, PasswordSalt, DisplayName, RoleCode, DepartmentId, SupervisorUserId) VALUES ('anhvt', '1NVAHjhZ1bhmA5ZfU2t/qbNk4dyyl5/g9M7ybLNea18=', 'jl5wrk1kwMsd8JVs2oxcGQ==', N'Nhân viên', 'EMPLOYEE', (SELECT Id FROM dbo.HrmDepartment WHERE Code='IT'), (SELECT Id FROM dbo.HrmUserAccount WHERE Username='huongtm'));
+    INSERT dbo.HrmUserAccount(Username, PasswordHash, PasswordSalt, DisplayName, RoleCode, DepartmentId, SupervisorUserId) VALUES ('anhvt', '1NVAHjhZ1bhmA5ZfU2t/qbNk4dyyl5/g9M7ybLNea18=', 'jl5wrk1kwMsd8JVs2oxcGQ==', N'Nguyễn Văn A', 'EMPLOYEE', (SELECT Id FROM dbo.HrmDepartment WHERE Code='IT'), (SELECT Id FROM dbo.HrmUserAccount WHERE Username='huongtm'));
 GO
 
 IF NOT EXISTS (SELECT 1 FROM dbo.HrmEmployeeProfile p INNER JOIN dbo.HrmUserAccount u ON u.Id=p.UserId WHERE u.Username='admin')
@@ -356,7 +343,7 @@ SET DisplayName = CASE Username
     WHEN 'hradmin' THEN N'Quản trị nhân sự'
     WHEN 'thedt' THEN N'Giám đốc'
     WHEN 'huongtm' THEN N'Trưởng phòng'
-    WHEN 'anhvt' THEN N'Nhân viên'
+    WHEN 'anhvt' THEN N'Nguyễn Văn A'
 END
 WHERE Username IN ('admin', 'hradmin', 'thedt', 'huongtm', 'anhvt')
   AND (DisplayName LIKE N'%Ã%' OR DisplayName LIKE N'%Æ%' OR DisplayName LIKE N'%Ä%' OR DisplayName LIKE N'%º%' OR DisplayName LIKE N'%»%');
@@ -398,9 +385,16 @@ IF OBJECT_ID('dbo.HrmWorkItem', 'U') IS NULL
 BEGIN
  CREATE TABLE dbo.HrmWorkItem (
   Id INT IDENTITY PRIMARY KEY,
-  Kind NVARCHAR(20) NOT NULL CHECK (Kind IN ('kpi','payroll','recruitment','training','overtime','resignation','transfer','assets','helpdesk','vehicle','meeting','business-trip','offboarding')),
+  Kind NVARCHAR(20) NOT NULL CHECK (Kind IN ('kpi','payroll','recruitment','recruitment-plan','recruitment-round','talent-pool','walkin-profile','candidate-intake','training','overtime','resignation','transfer','transfer-decision','assets','helpdesk')),
   Title NVARCHAR(200) NOT NULL, Description NVARCHAR(2000) NULL,
   Category NVARCHAR(100) NULL, Reference NVARCHAR(100) NULL,
+  WorkLocation NVARCHAR(250) NULL, JobLevel NVARCHAR(100) NULL, ExperienceRequired NVARCHAR(100) NULL,
+  EducationRequired NVARCHAR(100) NULL, GenderRequirement NVARCHAR(50) NULL, AgeRange NVARCHAR(50) NULL,
+  SalaryRange NVARCHAR(100) NULL, SkillRequirements NVARCHAR(2000) NULL, Benefits NVARCHAR(2000) NULL,
+  RecruitmentProcess NVARCHAR(500) NULL,
+  RecruitmentReason NVARCHAR(250) NULL, StartDate DATE NULL, ContractType NVARCHAR(100) NULL,
+  ProbationPeriod NVARCHAR(100) NULL, RecruitmentChannel NVARCHAR(150) NULL, ContactEmail NVARCHAR(150) NULL,
+  ContactPhone NVARCHAR(30) NULL, ContactName NVARCHAR(150) NULL, ContactAddress NVARCHAR(500) NULL, Keywords NVARCHAR(500) NULL,
   EmployeeId INT NULL REFERENCES dbo.HrmUserAccount(Id),
   DepartmentId INT NULL REFERENCES dbo.HrmDepartment(Id),
   DueDate DATE NULL, Target DECIMAL(19,4) NULL, Actual DECIMAL(19,4) NULL,
@@ -420,29 +414,64 @@ SELECT TOP (1) @workKindConstraint = cc.name
 FROM sys.check_constraints cc
 WHERE cc.parent_object_id = OBJECT_ID('dbo.HrmWorkItem')
   AND cc.definition LIKE '%Kind%';
-IF @workKindConstraint IS NOT NULL AND @workKindConstraint <> 'CK_HrmWorkItem_Kind'
+IF @workKindConstraint IS NOT NULL
 BEGIN
     SET @dropWorkKindConstraintSql = N'ALTER TABLE dbo.HrmWorkItem DROP CONSTRAINT ' + QUOTENAME(@workKindConstraint);
     EXEC sys.sp_executesql @dropWorkKindConstraintSql;
 END;
 IF OBJECT_ID('dbo.CK_HrmWorkItem_Kind', 'C') IS NULL
     ALTER TABLE dbo.HrmWorkItem WITH CHECK ADD CONSTRAINT CK_HrmWorkItem_Kind
-    CHECK (Kind IN ('kpi','payroll','recruitment','training','overtime','resignation','transfer','assets','helpdesk','vehicle','meeting','business-trip','offboarding'));
-GO
-
-IF OBJECT_ID('dbo.CK_HrmWorkItem_Kind', 'C') IS NOT NULL
-   AND NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE name='CK_HrmWorkItem_Kind' AND definition LIKE '%business-trip%')
-BEGIN
-    ALTER TABLE dbo.HrmWorkItem DROP CONSTRAINT CK_HrmWorkItem_Kind;
-    ALTER TABLE dbo.HrmWorkItem WITH CHECK ADD CONSTRAINT CK_HrmWorkItem_Kind
-        CHECK (Kind IN ('kpi','payroll','recruitment','training','overtime','resignation','transfer','assets','helpdesk','vehicle','meeting','business-trip','offboarding'));
-END;
+    CHECK (Kind IN ('kpi','payroll','payroll-allowance','payroll-deduction','payroll-advance','recruitment','recruitment-plan','recruitment-round','talent-pool','walkin-profile','candidate-intake','training','overtime','resignation','transfer','transfer-decision','assets','asset-handover','helpdesk','vehicle','meeting','business-trip','offboarding'));
 GO
 
 IF COL_LENGTH('dbo.HrmWorkItem', 'UpdatedAt') IS NULL
     ALTER TABLE dbo.HrmWorkItem ADD UpdatedAt DATETIME2 NULL;
 IF COL_LENGTH('dbo.HrmWorkItem', 'LastActionNote') IS NULL
     ALTER TABLE dbo.HrmWorkItem ADD LastActionNote NVARCHAR(1000) NULL;
+IF COL_LENGTH('dbo.HrmWorkItem', 'WorkLocation') IS NULL
+    ALTER TABLE dbo.HrmWorkItem ADD WorkLocation NVARCHAR(250) NULL;
+IF COL_LENGTH('dbo.HrmWorkItem', 'JobLevel') IS NULL
+    ALTER TABLE dbo.HrmWorkItem ADD JobLevel NVARCHAR(100) NULL;
+IF COL_LENGTH('dbo.HrmWorkItem', 'ExperienceRequired') IS NULL
+    ALTER TABLE dbo.HrmWorkItem ADD ExperienceRequired NVARCHAR(100) NULL;
+IF COL_LENGTH('dbo.HrmWorkItem', 'EducationRequired') IS NULL
+    ALTER TABLE dbo.HrmWorkItem ADD EducationRequired NVARCHAR(100) NULL;
+IF COL_LENGTH('dbo.HrmWorkItem', 'GenderRequirement') IS NULL
+    ALTER TABLE dbo.HrmWorkItem ADD GenderRequirement NVARCHAR(50) NULL;
+IF COL_LENGTH('dbo.HrmWorkItem', 'AgeRange') IS NULL
+    ALTER TABLE dbo.HrmWorkItem ADD AgeRange NVARCHAR(50) NULL;
+IF COL_LENGTH('dbo.HrmWorkItem', 'SalaryRange') IS NULL
+    ALTER TABLE dbo.HrmWorkItem ADD SalaryRange NVARCHAR(100) NULL;
+IF COL_LENGTH('dbo.HrmWorkItem', 'SkillRequirements') IS NULL
+    ALTER TABLE dbo.HrmWorkItem ADD SkillRequirements NVARCHAR(2000) NULL;
+IF COL_LENGTH('dbo.HrmWorkItem', 'Benefits') IS NULL
+    ALTER TABLE dbo.HrmWorkItem ADD Benefits NVARCHAR(2000) NULL;
+IF COL_LENGTH('dbo.HrmWorkItem', 'RecruitmentProcess') IS NULL
+    ALTER TABLE dbo.HrmWorkItem ADD RecruitmentProcess NVARCHAR(500) NULL;
+IF COL_LENGTH('dbo.HrmWorkItem', 'RecruitmentReason') IS NULL
+    ALTER TABLE dbo.HrmWorkItem ADD RecruitmentReason NVARCHAR(250) NULL;
+IF COL_LENGTH('dbo.HrmWorkItem', 'StartDate') IS NULL
+    ALTER TABLE dbo.HrmWorkItem ADD StartDate DATE NULL;
+IF COL_LENGTH('dbo.HrmWorkItem', 'ContractType') IS NULL
+    ALTER TABLE dbo.HrmWorkItem ADD ContractType NVARCHAR(100) NULL;
+IF COL_LENGTH('dbo.HrmWorkItem', 'ProbationPeriod') IS NULL
+    ALTER TABLE dbo.HrmWorkItem ADD ProbationPeriod NVARCHAR(100) NULL;
+IF COL_LENGTH('dbo.HrmWorkItem', 'RecruitmentChannel') IS NULL
+    ALTER TABLE dbo.HrmWorkItem ADD RecruitmentChannel NVARCHAR(150) NULL;
+IF COL_LENGTH('dbo.HrmWorkItem', 'ContactEmail') IS NULL
+    ALTER TABLE dbo.HrmWorkItem ADD ContactEmail NVARCHAR(150) NULL;
+IF COL_LENGTH('dbo.HrmWorkItem', 'ContactPhone') IS NULL
+    ALTER TABLE dbo.HrmWorkItem ADD ContactPhone NVARCHAR(30) NULL;
+IF COL_LENGTH('dbo.HrmWorkItem', 'ContactName') IS NULL
+    ALTER TABLE dbo.HrmWorkItem ADD ContactName NVARCHAR(150) NULL;
+IF COL_LENGTH('dbo.HrmWorkItem', 'ContactAddress') IS NULL
+    ALTER TABLE dbo.HrmWorkItem ADD ContactAddress NVARCHAR(500) NULL;
+IF COL_LENGTH('dbo.HrmWorkItem', 'Keywords') IS NULL
+    ALTER TABLE dbo.HrmWorkItem ADD Keywords NVARCHAR(MAX) NULL;
+ELSE
+    ALTER TABLE dbo.HrmWorkItem ALTER COLUMN Keywords NVARCHAR(MAX) NULL;
+GO
+
 IF COL_LENGTH('dbo.HrmWorkItem', 'StartAt') IS NULL
     ALTER TABLE dbo.HrmWorkItem ADD StartAt DATETIME2 NULL;
 IF COL_LENGTH('dbo.HrmWorkItem', 'EndAt') IS NULL
@@ -461,8 +490,6 @@ IF COL_LENGTH('dbo.HrmWorkItem', 'AssetDisposed') IS NULL
     ALTER TABLE dbo.HrmWorkItem ADD AssetDisposed INT NOT NULL CONSTRAINT DF_HrmWorkItem_AssetDisposed DEFAULT (0);
 IF COL_LENGTH('dbo.HrmWorkItem', 'AssetDamaged') IS NULL
     ALTER TABLE dbo.HrmWorkItem ADD AssetDamaged INT NOT NULL CONSTRAINT DF_HrmWorkItem_AssetDamaged DEFAULT (0);
-UPDATE dbo.HrmWorkItem SET AssetInUse=1
-WHERE Kind='assets' AND Status='ASSIGNED' AND EmployeeId IS NOT NULL AND AssetInUse=0;
 GO
 
 IF OBJECT_ID('dbo.HrmWorkItemParticipant', 'U') IS NULL

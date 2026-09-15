@@ -1,492 +1,123 @@
 @model WorkPage
 @{
-    var statusLabels = new Dictionary<string, string>
-    {
-        ["TRACKING"] = "Đang theo dõi", ["PENDING"] = "Chờ phê duyệt",
-        ["AVAILABLE"] = "Sẵn sàng", ["ASSIGNED"] = "Đã cấp phát",
-        ["OPEN"] = "Đang xử lý", ["DRAFT"] = "Bản nháp", ["PLANNED"] = "Đã lên lịch",
-        ["PENDING_APPROVAL"] = "Chờ Giám đốc duyệt", ["APPROVED"] = "Đã duyệt",
-        ["REJECTED"] = "Cần điều chỉnh", ["LOCKED"] = "Đã khóa",
-        ["PUBLISHED"] = "Đã phát hành", ["PAID"] = "Đã thanh toán",
-        ["DISPUTED"] = "Có khiếu nại", ["RESOLVED"] = "Đã xử lý khiếu nại",
-        ["CANCELLED"] = "Đã hủy"
-    };
-    var priorityLabels = new Dictionary<string, string>
-    {
-        ["LOW"] = "Thấp", ["NORMAL"] = "Bình thường", ["HIGH"] = "Cao", ["URGENT"] = "Khẩn cấp"
-    };
-    var currentUser = HrmUser.Current;
-    var isAdmin = currentUser?.RoleCode == HrmRoles.Admin;
-    var isHr = currentUser?.RoleCode == HrmRoles.Hr;
-    var isDirector = currentUser?.RoleCode == HrmRoles.Director;
-    var canEditPayroll = isAdmin || isHr;
-    var canApprovePayroll = isAdmin || isDirector;
-    var canConfigure = isAdmin || isHr || isDirector;
-    var canEditKpi = Model.Kind == "kpi" && Model.CanManage;
-    var isRequestFlow = Model.Kind is "vehicle" or "meeting" or "business-trip" or "offboarding";
-    var requestEditorIsPrimary = Model.Kind is "vehicle" or "meeting" or "business-trip" or "offboarding";
-    var showEditor = Model.CanCreate || (canEditKpi && Model.EditId.HasValue);
-    var formAction = Model.EditId.HasValue ? (Model.Kind == "kpi" ? "UpdateKpi" : "UpdatePayroll") : "Create";
-    var showEmployee = Model.Kind is "kpi" or "transfer" or "payroll" or "assets" or "training" or "business-trip" or "offboarding"
-        || (Model.CanManage && Model.Kind is "overtime" or "resignation");
-    var employeeRequired = Model.Kind is "transfer" or "payroll" or "overtime" or "resignation" or "business-trip" or "offboarding";
-    var showDepartment = Model.Kind is "kpi" or "transfer" or "recruitment" or "training";
-    var showReference = Model.Kind is "kpi" or "assets" or "payroll" or "recruitment" or "training" or "business-trip";
-    var referenceRequired = Model.Kind is "kpi" or "assets" or "recruitment";
-    var showCategory = Model.Kind is "kpi" or "payroll" or "recruitment" or "training" or "vehicle" or "business-trip" or "offboarding";
-    var showDate = Model.Kind is "kpi" or "payroll" or "recruitment" or "training" or "overtime" or "resignation" or "transfer" or "offboarding";
-    var showTimeRange = Model.Kind is "vehicle" or "meeting" or "business-trip";
-    var dateLabel = Model.Kind switch
-    {
-        "payroll" => "Ngày thanh toán", "recruitment" => "Hạn tuyển",
-        "training" => "Ngày tổ chức", "overtime" => "Ngày tăng ca",
-        "resignation" => "Ngày làm việc cuối cùng", "transfer" => "Ngày điều chuyển dự kiến", "offboarding" => "Ngày thôi việc",
-        _ => "Hạn hoàn thành"
-    };
-    var categoryLabel = Model.Kind switch
-    {
-        "payroll" => "Kỳ tính lương", "recruitment" => "Hình thức làm việc",
-        "training" => "Hình thức đào tạo", "kpi" => "Đơn vị đo", "vehicle" => "Loại xe",
-        "business-trip" => "Phương tiện", "offboarding" => "Lý do thôi việc", _ => "Phân loại"
-    };
-    var kpiWeight = Model.Kind == "kpi" ? Model.Items.Sum(item => item.Weight ?? 0) : 0;
-    var completedKpis = Model.Kind == "kpi" ? Model.Items.Count(item => item.Target > 0 && item.Actual >= item.Target) : 0;
-    var averageKpiProgress = Model.Kind == "kpi" && Model.Items.Count > 0
-        ? Model.Items.Average(item => item.Target > 0 ? Math.Min(100, (item.Actual ?? 0) * 100 / item.Target.Value) : 0)
-        : 0;
-    var showRowPreview = Model.Kind is "training" or "overtime" or "resignation" or "helpdesk" or "vehicle" or "meeting" or "business-trip" or "offboarding";
+    var showHeader = Model.Kind != "recruitment" && Model.Kind != "assets" && Model.Kind != "transfer" && Model.Kind != "payroll" && Model.Kind != "kpi" && Model.Kind != "training" && Model.Kind != "overtime" && Model.Kind != "resignation";
 }
 
-@if (Model.Kind == "payroll")
+@if (showHeader)
 {
-    @await Html.PartialAsync("_PayrollModule", Model)
+    <div class="hrm-page-header">
+        <div><h2>@Model.Title</h2><p>@Model.Subtitle</p></div>
+        <span class="hrm-badge">@Model.Items.Count bản ghi</span>
+    </div>
 }
-else
-{
-<div class="hrm-page-header">
-    <div><h2>@Model.Title</h2><p>@Model.Subtitle</p></div>
-    <span class="hrm-badge">@Model.Items.Count bản ghi</span>
-</div>
 
 <div asp-validation-summary="All" class="alert alert-danger" role="alert"></div>
 @if (TempData["WorkSuccess"] is string success) { <div class="alert alert-success" role="status">@success</div> }
 @if (TempData["WorkError"] is string error) { <div class="alert alert-danger" role="alert">@error</div> }
 
-@if (Model.Kind == "payroll")
-{
-    <ol class="payroll-flow" aria-label="Quy trình bảng lương">
-        <li>Nháp</li><li>Chờ duyệt</li><li>Đã duyệt</li><li>Khóa</li><li>Phát hành</li><li>Thanh toán</li>
-    </ol>
-}
-
-@if (isRequestFlow)
-{
-    <ol class="request-flow" aria-label="Quy trình xử lý">
-        <li><i class="material-icons">edit_note</i><span><strong>Tạo yêu cầu</strong><small>Nhập đủ thông tin và thời gian</small></span></li>
-        <li><i class="material-icons">fact_check</i><span><strong>@(Model.Kind == "meeting" && Model.CanManage ? "Tự động xác nhận" : "Phê duyệt")</strong><small>@(Model.Kind == "meeting" && Model.CanManage ? "Quản lý, HR và Ban giám đốc không cần chờ duyệt" : "Quản lý kiểm tra và phản hồi")</small></span></li>
-        <li><i class="material-icons">notifications_active</i><span><strong>Thực hiện</strong><small>Theo dõi kết quả trên hệ thống</small></span></li>
-    </ol>
-}
-
 @if (Model.Kind == "kpi")
 {
-    <div class="hrm-grid hrm-grid-3" style="margin-bottom:18px">
-        <div class="hrm-card hrm-stat"><div class="hrm-stat-top"><span class="hrm-stat-label">Tiêu chí KPI</span><span class="hrm-stat-icon"><i class="material-icons">checklist</i></span></div><div class="hrm-stat-value">@Model.Items.Count</div><div class="hrm-stat-note">Trong phạm vi đang xem</div></div>
-        <div class="hrm-card hrm-stat"><div class="hrm-stat-top"><span class="hrm-stat-label">Tổng tỷ trọng hiển thị</span><span class="hrm-stat-icon orange"><i class="material-icons">donut_small</i></span></div><div class="hrm-stat-value">@kpiWeight.ToString("N0")%</div><div class="hrm-stat-note">Mỗi đối tượng nhận tối đa 100%</div></div>
-        <div class="hrm-card hrm-stat"><div class="hrm-stat-top"><span class="hrm-stat-label">Tiến độ trung bình</span><span class="hrm-stat-icon green"><i class="material-icons">trending_up</i></span></div><div class="hrm-stat-value">@averageKpiProgress.ToString("N0")%</div><div class="hrm-stat-note">@completedKpis tiêu chí đã đạt chỉ tiêu</div></div>
+    @await Html.PartialAsync("_KpiModule", Model)
+}
+else if (Model.Kind == "recruitment")
+{
+    @await Html.PartialAsync("_RecruitmentModule", Model)
+}
+else if (Model.Kind == "training")
+{
+    @await Html.PartialAsync("_TrainingModule", Model)
+}
+else if (Model.Kind == "overtime")
+{
+    @await Html.PartialAsync("_OvertimeModule", Model)
+}
+else if (Model.Kind == "transfer")
+{
+    @await Html.PartialAsync("_TransferModule", Model)
+}
+else if (Model.Kind == "assets")
+{
+    @await Html.PartialAsync("_AssetsModule", Model)
+}
+else if (Model.Kind == "payroll")
+{
+    @await Html.PartialAsync("_PayrollModule", Model)
+}
+else if (Model.Kind == "resignation")
+{
+    @await Html.PartialAsync("_ResignationModule", Model)
+}
+else
+{
+    <!-- Default / Helpdesk IT -->
+    <div class="work-layout">
+        <section class="work-panel">
+            <h3>Danh sách @Model.Title</h3>
+            <form method="get" asp-controller="Work" asp-action="Index" class="work-search">
+                <input type="hidden" name="kind" value="@Model.Kind" />
+                <input class="form-control" name="q" value="@Model.Query" placeholder="Tìm theo tên, mã, nhân viên…" aria-label="Tìm kiếm" />
+                <button class="hrm-btn" type="submit">Tìm kiếm</button>
+            </form>
+            @if (!Model.Available) { <p>Chưa tải được dữ liệu. Vui lòng thử lại sau.</p> }
+            else if (Model.Items.Count == 0)
+            {
+                <div class="work-empty"><i class="material-icons">inbox</i><h4>Chưa có bản ghi</h4><p>@(Model.CanCreate ? "Điền biểu mẫu bên cạnh để tạo bản ghi đầu tiên." : "Các bản ghi liên quan đến bạn sẽ hiển thị tại đây.")</p></div>
+            }
+            else
+            {
+                <div class="table-responsive"><table class="table table-hover">
+                    <thead><tr><th>Nội dung</th><th>Người tạo</th><th>Mức ưu tiên</th><th>Trạng thái</th></tr></thead>
+                    <tbody>
+                    @foreach (var item in Model.Items)
+                    {
+                        <tr>
+                            <td>
+                                <strong>@item.Title</strong><small class="work-muted">#@item.Id.ToString("D5") @(string.IsNullOrWhiteSpace(item.Reference) ? "" : "· " + item.Reference)</small>
+                                <p class="work-description">@item.Description</p>
+                            </td>
+                            <td>@(item.EmployeeName ?? "Chưa phân công")</td>
+                            <td>
+                                <span>@(item.Priority ?? "Bình thường")</span>
+                                <small class="work-muted">@item.CreatedAt.ToString("dd/MM/yyyy HH:mm")</small>
+                            </td>
+                            <td>
+                                <span class="work-status work-status-@item.Status?.ToLowerInvariant()">@(item.Status ?? "Mới")</span>
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table></div>
+            }
+        </section>
+
+        @if (Model.CanCreate)
+        {
+            <section class="work-panel">
+                <h3>Tạo yêu cầu Helpdesk IT</h3>
+                <form method="post" asp-controller="Work" asp-action="Create">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="Kind" value="@Model.Kind" />
+                    <div class="form-group">
+                        <label for="Title">Tiêu đề yêu cầu *</label>
+                        <input id="Title" name="Title" class="form-control" required maxlength="200" placeholder="Ví dụ: Lỗi kết nối mạng, cài đặt phần mềm..." />
+                    </div>
+                    <div class="form-group">
+                        <label for="Priority">Mức độ ưu tiên</label>
+                        <select id="Priority" name="Priority" class="form-control">
+                            <option value="LOW">Thấp</option>
+                            <option value="NORMAL" selected>Bình thường</option>
+                            <option value="HIGH">Cao</option>
+                            <option value="URGENT">Khẩn cấp</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="Description">Nội dung chi tiết yêu cầu *</label>
+                        <textarea id="Description" name="Description" class="form-control" rows="5" required placeholder="Mô tả chi tiết vấn đề bạn đang gặp phải để IT hỗ trợ nhanh nhất..."></textarea>
+                    </div>
+                    <button type="submit" class="hrm-btn hrm-btn-primary"><i class="material-icons">send</i> Gửi yêu cầu hỗ trợ</button>
+                </form>
+            </section>
+        }
     </div>
 }
 
-<div class="work-layout @(requestEditorIsPrimary ? "work-layout-editor-primary" : "") @(Model.Kind == "vehicle" ? "work-layout-vehicle" : "")">
-    <section class="work-panel">
-        <h3>@(requestEditorIsPrimary ? "Danh sách và phê duyệt " : "Danh sách ")@Model.Title</h3>
-        <form method="get" asp-controller="Work" asp-action="Index" class="work-search">
-            <input type="hidden" name="kind" value="@Model.Kind" />
-            <input class="form-control" name="q" value="@Model.Query" placeholder="Tìm theo tên, mã, nhân viên…" aria-label="Tìm kiếm" />
-            <button class="hrm-btn" type="submit">Tìm kiếm</button>
-        </form>
-        @if (!Model.Available) { <p>Chưa tải được dữ liệu. Vui lòng thử lại sau.</p> }
-        else if (Model.Items.Count == 0)
-        {
-            <div class="work-empty"><i class="material-icons">inbox</i><h4>Chưa có bản ghi</h4><p>@(Model.CanCreate ? "Điền biểu mẫu bên cạnh để tạo bản ghi đầu tiên." : "Các bản ghi liên quan đến bạn sẽ hiển thị tại đây.")</p></div>
-        }
-        else
-        {
-            <div class="table-responsive"><table class="table table-hover">
-                <thead><tr><th>Nội dung</th><th>@(Model.Kind == "kpi" ? "Đối tượng nhận" : Model.Kind == "recruitment" ? "Phòng ban" : Model.Kind is "meeting" or "vehicle" ? "Danh sách nhân viên" : "Nhân viên")</th><th>Thông tin chính</th><th>Trạng thái</th>@if (Model.Kind == "payroll" || canEditKpi || isRequestFlow) { <th>Thao tác</th> }</tr></thead>
-                <tbody>
-                @foreach (var item in Model.Items)
-                {
-                    <tr class="@(showRowPreview ? "hrm-preview-row" : null)" tabindex="@(showRowPreview ? "0" : null)" aria-label="@(showRowPreview ? "Xem chi tiết " + item.Title : null)">
-                        <td>
-                            <strong>@item.Title</strong>@if (Model.Kind == "resignation") { <span class="hrm-badge">@(item.Kind == "offboarding" ? "Thủ tục thôi việc" : "Đề nghị nghỉ việc")</span> }<small class="work-muted">@item.RecordCode @(string.IsNullOrWhiteSpace(item.Reference) ? "" : "· " + item.Reference)</small><p class="work-description">@item.Description</p>
-                            @if (showRowPreview)
-                            {
-                                <span class="hrm-preview-hint"><i class="material-icons">visibility</i> Rê chuột để xem chi tiết</span>
-                                <template class="hrm-preview-template">
-                                    <div class="hrm-preview-title">@item.Title</div>
-                                    <div class="hrm-preview-grid">
-                                        <span>Mã bản ghi</span><strong>@item.RecordCode</strong>
-                                        <span>@(Model.Kind is "meeting" or "vehicle" ? "Danh sách nhân viên" : "Nhân viên")</span><strong>@(Model.Kind is "meeting" or "vehicle" ? item.ParticipantNames ?? "Chưa chọn" : item.EmployeeName ?? "Chưa phân công")</strong>
-                                        <span>Phòng ban</span><strong>@(item.DepartmentName ?? "Chưa phân phòng")</strong>
-                                        @if (Model.Kind == "training") { <span>Mã khóa học</span><strong>@(item.Reference ?? "—")</strong><span>Hình thức</span><strong>@(item.Category ?? "—")</strong><span>Ngày tổ chức</span><strong>@(item.DueDate?.ToString("dd/MM/yyyy") ?? "—")</strong> }
-                                        @if (Model.Kind == "overtime") { <span>Ngày tăng ca</span><strong>@(item.DueDate?.ToString("dd/MM/yyyy") ?? "—")</strong><span>Số giờ</span><strong>@(item.Target?.ToString("0.##") ?? "—") giờ</strong> }
-                                        @if (Model.Kind == "helpdesk") { <span>Mức ưu tiên</span><strong>@priorityLabels.GetValueOrDefault(item.Priority ?? "NORMAL", item.Priority ?? "NORMAL")</strong><span>Ngày tạo</span><strong>@item.CreatedAt.ToString("dd/MM/yyyy HH:mm")</strong> }
-                                        @if (Model.Kind is "vehicle" or "meeting" or "business-trip") { <span>Bắt đầu</span><strong>@item.StartAt?.ToString("dd/MM/yyyy HH:mm")</strong><span>Kết thúc</span><strong>@item.EndAt?.ToString("dd/MM/yyyy HH:mm")</strong> }
-                                        @if (Model.Kind == "vehicle") { <span>Điểm đón</span><strong>@item.Location</strong><span>Điểm đến</span><strong>@item.Destination</strong><span>Loại xe</span><strong>@item.Category</strong><span>Số người</span><strong>@item.Target?.ToString("0")</strong> }
-                                        @if (Model.Kind == "meeting") { <span>Phòng họp</span><strong>@item.Location</strong><span>Số người</span><strong>@item.Target?.ToString("0")</strong> }
-                                        @if (Model.Kind == "business-trip") { <span>Nơi công tác</span><strong>@item.Destination</strong><span>Phương tiện</span><strong>@(item.Category ?? "—")</strong><span>Số quyết định</span><strong>@(item.Reference ?? "—")</strong> }
-                                        @if (item.Kind == "offboarding") { <span>Ngày thôi việc</span><strong>@item.DueDate?.ToString("dd/MM/yyyy")</strong><span>Lý do</span><strong>@(item.Category ?? "—")</strong><span>Mã thủ tục</span><strong>@(item.Reference ?? "—")</strong> }
-                                        @if (item.Kind == "resignation") { <span>Ngày làm việc cuối</span><strong>@item.DueDate?.ToString("dd/MM/yyyy")</strong><span>Lý do nghỉ việc</span><strong>@(item.Description ?? "—")</strong> }
-                                        <span>Trạng thái</span><strong>@(statusLabels.GetValueOrDefault(item.Status, item.Status))</strong>
-                                        <span>Mô tả</span><strong>@(string.IsNullOrWhiteSpace(item.Description) ? "—" : item.Description)</strong>
-                                        @if (!string.IsNullOrWhiteSpace(item.LastActionNote)) { <span>Ghi chú xử lý</span><strong>@item.LastActionNote</strong> }
-                                    </div>
-                                </template>
-                            }
-                        </td>
-                        @if (Model.Kind == "kpi")
-                        {
-                            <td><strong>@(item.EmployeeName ?? item.DepartmentName ?? "Chưa phân công")</strong><small class="work-muted">@(item.EmployeeName == null && item.DepartmentName != null ? "Phòng ban" : item.DepartmentName)</small></td>
-                        }
-                        else
-                        {
-                            <td>@(Model.Kind == "recruitment" ? item.DepartmentName : Model.Kind is "meeting" or "vehicle" ? item.ParticipantNames ?? "Chưa chọn" : item.EmployeeName ?? "Chưa phân công")<small class="work-muted">@(Model.Kind == "recruitment" ? item.Category : Model.Kind is "meeting" or "vehicle" ? $"{item.Target:0} người" : item.DepartmentName)</small></td>
-                        }
-                        <td>
-                            @if (Model.Kind == "kpi")
-                            {
-                                var progress = item.Target > 0 ? Math.Min(100, (item.Actual ?? 0) * 100 / item.Target.Value) : 0;
-                                <strong>@(item.Actual ?? 0) / @item.Target @item.Category</strong>
-                                <div class="hrm-progress" style="margin:7px 0 5px"><span style="width:@progress.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)%"></span></div>
-                                <small class="work-muted">Tiến độ: @progress.ToString("N0")% · Tỷ trọng: @item.Weight%</small>
-                            }
-                            else if (Model.Kind == "payroll") { <strong>Thực nhận: @item.Actual?.ToString("N0")</strong><small class="work-muted">Tổng thu nhập: @item.Target?.ToString("N0") · @item.Category</small> }
-                            else if (Model.Kind == "recruitment") { <strong>@(item.Actual ?? 0) / @item.Target ứng viên</strong> }
-                            else if (Model.Kind == "overtime") { <strong>@item.Target giờ</strong> }
-                            else if (Model.Kind == "vehicle") { <strong>@item.Location → @item.Destination</strong><small class="work-muted">@item.StartAt?.ToString("dd/MM/yyyy HH:mm") · @item.Category · @item.Target người</small> }
-                            else if (Model.Kind == "meeting") { <strong>@item.Location</strong><small class="work-muted">@item.StartAt?.ToString("dd/MM/yyyy HH:mm") — @item.EndAt?.ToString("HH:mm") · @item.Target người</small> }
-                            else if (Model.Kind == "business-trip") { <strong>@item.Destination</strong><small class="work-muted">@item.StartAt?.ToString("dd/MM/yyyy") — @item.EndAt?.ToString("dd/MM/yyyy") · @item.Category</small> }
-                            else if (item.Kind == "offboarding") { <strong>Ngày thôi việc: @item.DueDate?.ToString("dd/MM/yyyy")</strong><small class="work-muted">@item.Category</small> }
-                            else if (item.Kind == "resignation") { <strong>Ngày làm việc cuối: @item.DueDate?.ToString("dd/MM/yyyy")</strong> }
-                            else { <span>@item.Category</span> }
-                            @if (Model.Kind is not ("vehicle" or "meeting" or "business-trip" or "offboarding"))
-                            {
-                                <small class="work-muted">@item.DueDate?.ToString("dd/MM/yyyy")</small>
-                            }
-                            @if (Model.Kind == "helpdesk") { <span>@item.Priority</span> }
-                        </td>
-                        <td><span class="work-status work-status-@item.Status?.ToLowerInvariant()">@(statusLabels.GetValueOrDefault(item.Status, item.Status))</span>@if (!string.IsNullOrWhiteSpace(item.LastActionNote)) { <small class="work-muted">@item.LastActionNote</small> }</td>
-                        @if (canEditKpi)
-                        {
-                            <td><a class="hrm-btn" asp-controller="Work" asp-action="Index" asp-route-kind="kpi" asp-route-editId="@item.Id"><i class="material-icons">edit</i> Cập nhật</a></td>
-                        }
-                        @if (Model.Kind == "payroll")
-                        {
-                            <td class="payroll-actions">
-                                @if (canEditPayroll && item.Status is "DRAFT" or "REJECTED")
-                                {
-                                    <a class="hrm-btn" asp-controller="Work" asp-action="Index" asp-route-kind="payroll" asp-route-editId="@item.Id">Sửa</a>
-                                }
-                                @if ((canEditPayroll && item.Status is "DRAFT" or "REJECTED") || (canApprovePayroll && item.Status == "PENDING_APPROVAL") || (canEditPayroll && item.Status is "APPROVED" or "LOCKED" or "PUBLISHED" or "DISPUTED") || (!Model.CanManage && item.Status is "PUBLISHED" or "PAID"))
-                                {
-                                    <form method="post" asp-controller="Work" asp-action="PayrollAction" class="payroll-action-form">
-                                        <input type="hidden" name="id" value="@item.Id" />
-                                        @if ((canApprovePayroll && item.Status == "PENDING_APPROVAL") || (!Model.CanManage && item.Status is "PUBLISHED" or "PAID"))
-                                        {
-                                            <input class="form-control" name="note" maxlength="1000" placeholder="Ghi chú / lý do" />
-                                        }
-                                        @if (canEditPayroll && item.Status == "DRAFT") { <button class="hrm-btn hrm-btn-primary" name="command" value="submit">Gửi duyệt</button> }
-                                        @if (canEditPayroll && item.Status == "REJECTED") { <button class="hrm-btn hrm-btn-primary" name="command" value="resubmit">Gửi lại</button> }
-                                        @if (canApprovePayroll && item.Status == "PENDING_APPROVAL")
-                                        {
-                                            <button class="hrm-btn hrm-btn-primary" name="command" value="approve">Duyệt</button>
-                                            <button class="hrm-btn" name="command" value="reject">Trả lại</button>
-                                        }
-                                        @if (canEditPayroll && item.Status == "APPROVED") { <button class="hrm-btn hrm-btn-primary" name="command" value="lock">Khóa bảng lương</button> }
-                                        @if (canEditPayroll && item.Status == "LOCKED") { <button class="hrm-btn hrm-btn-primary" name="command" value="publish">Phát hành</button> }
-                                        @if (canEditPayroll && item.Status == "PUBLISHED") { <button class="hrm-btn hrm-btn-primary" name="command" value="pay">Đã thanh toán</button> }
-                                        @if (!Model.CanManage && item.Status == "PUBLISHED") { <button class="hrm-btn" name="command" value="dispute">Báo sai lệch</button> }
-                                        @if (!Model.CanManage && item.Status == "PAID") { <button class="hrm-btn" name="command" value="disputepaid">Báo sai lệch</button> }
-                                        @if (canEditPayroll && item.Status == "DISPUTED") { <button class="hrm-btn hrm-btn-primary" name="command" value="resolve">Đã xử lý</button> }
-                                    </form>
-                                }
-                            </td>
-                        }
-                        @if (isRequestFlow)
-                        {
-                            <td class="booking-actions">
-                                @if (item.Status == "PENDING")
-                                {
-                                    <form method="post" asp-controller="Work" asp-action="BookingAction" class="booking-action-form">
-                                        <input type="hidden" name="id" value="@item.Id" />
-                                        <input type="hidden" name="kind" value="@Model.Kind" />
-                                        @if (Model.CanManage)
-                                        {
-                                            <input class="form-control" name="note" maxlength="1000" placeholder="Ghi chú / lý do từ chối" />
-                                            <button class="hrm-btn hrm-btn-primary" name="command" value="approve">Duyệt</button>
-                                            <button class="hrm-btn" name="command" value="reject">Từ chối</button>
-                                        }
-                                        @if (item.EmployeeId == currentUser?.Id || item.CreatedBy == currentUser?.Id)
-                                        {
-                                            <button class="hrm-btn" name="command" value="cancel">Hủy</button>
-                                        }
-                                    </form>
-                                }
-                                else { <span class="work-muted">Đã xử lý</span> }
-                            </td>
-                        }
-                    </tr>
-                }
-                </tbody>
-            </table></div>
-        }
-    </section>
-
-    @if (showEditor)
-    {
-        <section class="work-panel">
-            <h3>@(Model.Kind switch { "kpi" => Model.EditId.HasValue ? "Cập nhật KPI" : "Giao tiêu chí KPI", "helpdesk" => "Tạo yêu cầu Helpdesk IT", "vehicle" => "Tạo yêu cầu đặt xe", "meeting" => "Đặt phòng họp", "business-trip" => "Tạo phân công công tác", "offboarding" => "Mở thủ tục thôi việc", _ => Model.EditId.HasValue ? "Cập nhật bảng lương" : "Thêm mới" })</h3>
-            <form method="post" asp-controller="Work" asp-action="@formAction">
-                <fieldset disabled="@(!Model.Available)">
-                    <input type="hidden" name="Kind" value="@Model.Kind" />
-                    @if (Model.EditId.HasValue) { <input type="hidden" name="Id" value="@Model.EditId" /> }
-                    <label for="Title">@(Model.Kind switch { "kpi" => "Tên tiêu chí KPI", "assets" => "Tên tài sản", "recruitment" => "Vị trí tuyển dụng", "training" => "Tên khóa đào tạo", "vehicle" => "Mục đích chuyến đi", "meeting" => "Chủ đề cuộc họp", "business-trip" => "Nội dung công tác", "offboarding" => "Tên thủ tục", _ => "Tiêu đề" }) *</label>
-                    <input id="Title" name="Title" class="form-control" required maxlength="200" value="@Model.Draft.Title" />
-
-                    @if (showEmployee)
-                    {
-                        <label for="EmployeeId">@(Model.Kind == "kpi" ? "Nhân viên nhận KPI" : "Nhân viên") @(employeeRequired ? "*" : "")</label>
-                        <input id="EmployeeId" name="EmployeeId" type="hidden" value="@Model.Draft.EmployeeId" />
-                        <section class="meeting-employee-picker single-employee-picker" aria-labelledby="singleEmployeePickerTitle">
-                            <div class="meeting-picker-head"><strong id="singleEmployeePickerTitle">Chọn nhân viên</strong><span id="singleEmployeeSelection">@(Model.People.FirstOrDefault(x => x.Id == Model.Draft.EmployeeId)?.DisplayName ?? "Chưa chọn")</span></div>
-                            <div class="meeting-picker-search"><i class="material-icons">search</i><input id="singleEmployeeSearch" type="search" placeholder="Tìm theo tên hoặc phòng ban..." autocomplete="off" /></div>
-                            <div id="singleEmployeeList" class="meeting-employee-list">
-                                @foreach (var person in Model.People)
-                                {
-                                    <label class="meeting-employee-option" data-search="@($"{person.DisplayName} {person.DepartmentName}".ToLowerInvariant())">
-                                        <input type="radio" name="EmployeePickerId" value="@person.Id" required="@employeeRequired" checked="@(Model.Draft.EmployeeId == person.Id)" />
-                                        <span class="hrm-avatar">@(person.DisplayName.Substring(0, Math.Min(2, person.DisplayName.Length)).ToUpperInvariant())</span>
-                                        <span><strong>@person.DisplayName</strong><small>@(person.DepartmentName ?? "Chưa phân phòng")</small></span>
-                                    </label>
-                                }
-                                <div id="singleEmployeeEmpty" class="meeting-employee-empty" hidden>Không tìm thấy nhân viên phù hợp.</div>
-                            </div>
-                            @if (!employeeRequired) { <button id="clearSingleEmployee" class="employee-picker-clear" type="button">Bỏ chọn nhân viên</button> }
-                        </section>
-                    }
-                    @if (showDepartment)
-                    {
-                        <label for="DepartmentId">@(Model.Kind == "kpi" ? "Phòng ban nhận KPI" : Model.Kind == "transfer" ? "Phòng ban mới" : "Phòng ban") @(Model.Kind is "transfer" or "recruitment" ? "*" : "")</label>
-                        <select id="DepartmentId" name="DepartmentId" class="form-control" required="@(Model.Kind is "transfer" or "recruitment")"><option value="">Chọn phòng ban</option>@foreach (var department in Model.Departments) { <option value="@department.Id" selected="@(Model.Draft.DepartmentId == department.Id)">@department.Name</option> }</select>
-                        @if (Model.Kind == "kpi") { <small class="work-muted">Chọn một nhân viên hoặc một phòng ban.</small> }
-                    }
-                    @if (showReference)
-                    {
-                        <label for="Reference">@(Model.Kind switch { "kpi" => "Mã KPI / Từ khóa", "assets" => "Mã tài sản", "payroll" => "Mã bảng lương", "recruitment" => "Mã nhu cầu", "business-trip" => "Số quyết định", "offboarding" => "Mã hồ sơ thôi việc", _ => "Mã khóa học" }) @(referenceRequired ? "*" : "")</label>
-                        <input id="Reference" name="Reference" class="form-control" required="@referenceRequired" maxlength="100" value="@Model.Draft.Reference" placeholder="@(Model.Kind == "kpi" ? "Ví dụ: KPI-SALES-01" : null)" />
-                    }
-                    @if (showCategory)
-                    {
-                        <label for="Category">@categoryLabel @(Model.Kind is "kpi" or "payroll" ? "*" : "")</label>
-                        @if (Model.Kind == "vehicle") { <select id="Category" name="Category" class="form-control" required><option value="">Chọn loại xe</option>@foreach (var option in new[] { "Xe 4 chỗ", "Xe 7 chỗ", "Xe 16 chỗ", "Xe tải", "Khác" }) { <option selected="@(Model.Draft.Category == option)">@option</option> }</select> }
-                        else if (Model.Kind == "business-trip") { <select id="Category" name="Category" class="form-control"><option value="">Chọn phương tiện</option>@foreach (var option in new[] { "Xe công ty", "Máy bay", "Tàu hỏa", "Xe khách", "Tự túc" }) { <option selected="@(Model.Draft.Category == option)">@option</option> }</select> }
-                        else if (Model.Kind == "offboarding") { <select id="Category" name="Category" class="form-control"><option value="">Chọn lý do</option>@foreach (var option in new[] { "Theo nguyện vọng", "Hết hạn hợp đồng", "Thỏa thuận chấm dứt", "Điều chuyển", "Khác" }) { <option selected="@(Model.Draft.Category == option)">@option</option> }</select> }
-                        else { <input id="Category" name="Category" class="form-control" required="@(Model.Kind is "kpi" or "payroll")" maxlength="100" value="@Model.Draft.Category" placeholder="@(Model.Kind == "payroll" ? "Ví dụ: 09/2026" : Model.Kind == "kpi" ? "%, VNĐ, hồ sơ, giờ…" : null)" /> }
-                    }
-                    @if (Model.Kind is "kpi" or "payroll" or "recruitment" or "overtime" or "vehicle" or "meeting")
-                    {
-                        <label for="Target">@(Model.Kind switch { "payroll" => "Tổng thu nhập", "recruitment" => "Số lượng cần tuyển", "overtime" => "Số giờ tăng ca", "vehicle" => "Số người đi", "meeting" => "Số người tham dự", _ => "Mục tiêu" }) *</label>
-                        <input id="Target" name="Target" class="form-control" type="number" min="@(Model.Kind is "meeting" or "vehicle" ? "1" : "0.01")" max="@(Model.Kind == "meeting" ? "30" : Model.Kind == "vehicle" ? "300" : "1000000000")" step="@(Model.Kind is "meeting" or "vehicle" ? "1" : "0.01")" required value="@Model.Draft.Target" />
-                        @if (Model.Kind is "meeting" or "vehicle")
-                        {
-                            <section class="meeting-employee-picker" aria-labelledby="meetingEmployeePickerTitle">
-                                <div class="meeting-picker-head"><strong id="meetingEmployeePickerTitle">@(Model.Kind == "vehicle" ? "Chọn nhân viên đi xe" : "Chọn nhân viên tham dự")</strong><span id="meetingParticipantCount">0 / 0 đã chọn</span></div>
-                                <div class="meeting-picker-search"><i class="material-icons">search</i><input id="meetingEmployeeSearch" type="search" placeholder="Tìm theo tên hoặc phòng ban..." autocomplete="off" /></div>
-                                <div id="meetingEmployeeList" class="meeting-employee-list">
-                                    @foreach (var person in Model.People)
-                                    {
-                                        var checkedParticipant = Model.Draft.ParticipantIds?.Contains(person.Id) == true;
-                                        <label class="meeting-employee-option" data-search="@($"{person.DisplayName} {person.DepartmentName}".ToLowerInvariant())">
-                                            <input type="checkbox" name="ParticipantIds" value="@person.Id" checked="@checkedParticipant" />
-                                            <span class="hrm-avatar">@(person.DisplayName.Substring(0, Math.Min(2, person.DisplayName.Length)).ToUpperInvariant())</span>
-                                            <span><strong>@person.DisplayName</strong><small>@(person.DepartmentName ?? "Chưa phân phòng")</small></span>
-                                        </label>
-                                    }
-                                    <div id="meetingEmployeeEmpty" class="meeting-employee-empty" hidden>Không tìm thấy nhân viên phù hợp.</div>
-                                </div>
-                            </section>
-                            <small class="work-muted">Nhập số người trước, sau đó tìm kiếm và chọn đủ nhân viên trong danh sách.</small>
-                        }
-                    }
-                    @if (Model.Kind is "kpi" or "payroll" or "recruitment")
-                    {
-                        <label for="Actual">@(Model.Kind switch { "payroll" => "Thực nhận", "recruitment" => "Số ứng viên hiện tại", _ => "Kết quả thực tế" }) @(Model.Kind == "payroll" ? "*" : "")</label>
-                        <input id="Actual" name="Actual" class="form-control" type="number" min="0" max="1000000000" step="0.01" required="@(Model.Kind == "payroll")" value="@Model.Draft.Actual" />
-                    }
-                    @if (Model.Kind == "kpi") { <label for="Weight">Trọng số (%) *</label><input id="Weight" name="Weight" class="form-control" type="number" min="1" max="100" step="0.01" required value="@Model.Draft.Weight" /> }
-                    @if (showDate) { <label for="DueDate">@dateLabel *</label><input id="DueDate" name="DueDate" type="date" class="form-control" required value="@Model.Draft.DueDate?.ToString("yyyy-MM-dd")" /> }
-                    @if (showTimeRange)
-                    {
-                        <div class="booking-time-grid">
-                            <label for="StartAt">Bắt đầu *<input id="StartAt" name="StartAt" type="datetime-local" class="form-control" required value="@Model.Draft.StartAt?.ToString("yyyy-MM-ddTHH:mm")" /></label>
-                            <label for="EndAt">Kết thúc *<input id="EndAt" name="EndAt" type="datetime-local" class="form-control" required value="@Model.Draft.EndAt?.ToString("yyyy-MM-ddTHH:mm")" /></label>
-                        </div>
-                    }
-                    @if (Model.Kind == "meeting")
-                    {
-                        <label for="Location">Phòng họp *<select id="Location" name="Location" class="form-control" required><option value="">Chọn phòng họp</option>@foreach (var room in new[] { "Phòng họp 1 · 8 người", "Phòng họp 2 · 16 người", "Phòng đào tạo · 30 người" }) { <option selected="@(Model.Draft.Location == room)">@room</option> }</select></label>
-                        <small class="work-muted">Các lịch trong cùng phòng phải cách nhau ít nhất 10 phút.</small>
-                    }
-                    @if (Model.Kind == "vehicle")
-                    {
-                        <label for="Location">Điểm đón *<input id="Location" name="Location" class="form-control" required maxlength="250" value="@Model.Draft.Location" /></label>
-                    }
-                    @if (Model.Kind is "vehicle" or "business-trip")
-                    {
-                        <label for="Destination">@(Model.Kind == "vehicle" ? "Điểm đến" : "Nơi công tác") *<input id="Destination" name="Destination" class="form-control" required maxlength="250" value="@Model.Draft.Destination" /></label>
-                    }
-                    @if (Model.Kind == "helpdesk")
-                    {
-                        <label for="Priority">Mức ưu tiên *</label><select id="Priority" name="Priority" class="form-control">@foreach (var priority in new Dictionary<string, string> { { "LOW", "Thấp" }, { "NORMAL", "Bình thường" }, { "HIGH", "Cao" }, { "URGENT", "Khẩn cấp" } }) { <option value="@priority.Key" selected="@(Model.Draft.Priority == priority.Key)">@priority.Value</option> }</select>
-                    }
-                    <label for="Description">@(Model.Kind switch { "kpi" => "Cách đo / Nguồn dữ liệu", "overtime" => "Lý do tăng ca", "resignation" => "Lý do nghỉ việc", "vehicle" => "Yêu cầu chuyến xe", "meeting" => "Thiết bị và ghi chú", "business-trip" => "Nhiệm vụ công tác", "offboarding" => "Nội dung bàn giao", _ => "Mô tả" }) @(Model.Kind is "kpi" or "helpdesk" or "overtime" or "resignation" or "offboarding" ? "*" : "")</label>
-                    <textarea id="Description" name="Description" class="form-control" rows="4" maxlength="2000" required="@(Model.Kind is "kpi" or "helpdesk" or "overtime" or "resignation" or "offboarding")" placeholder="@(Model.Kind == "kpi" ? "Mô tả công thức, nguồn số liệu và điều kiện ghi nhận hoàn thành" : Model.Kind == "offboarding" ? "Bàn giao công việc, tài sản, hồ sơ và công nợ" : null)">@Model.Draft.Description</textarea>
-                    <button type="submit" class="hrm-btn hrm-btn-primary work-submit">@(Model.Kind switch { "meeting" when Model.CanManage => "Đặt và xác nhận", "helpdesk" or "vehicle" or "meeting" => "Gửi yêu cầu", "business-trip" => "Lưu phân công", "offboarding" => "Tạo thủ tục", _ => Model.EditId.HasValue ? "Lưu thay đổi" : "Lưu bản ghi" })</button>
-                    @if (Model.EditId.HasValue) { <a class="hrm-btn work-cancel" asp-controller="Work" asp-action="Index" asp-route-kind="@Model.Kind">Hủy sửa</a> }
-                </fieldset>
-            </form>
-        </section>
-    }
-</div>
-
-@if (Model.Kind == "resignation" && canConfigure)
-{
-    <section class="work-panel resignation-offboarding-panel">
-        <div class="hrm-card-header"><div><h3>Mở thủ tục thôi việc</h3><p class="hrm-card-subtitle">Tạo hồ sơ bàn giao ngay tại màn hình quản lý nghỉ việc.</p></div><span class="hrm-badge">@Model.NextOffboardingReference</span></div>
-        <form method="post" asp-controller="Work" asp-action="Create" class="offboarding-inline-form">
-            <input type="hidden" name="Kind" value="offboarding" />
-            <input type="hidden" name="Reference" value="@Model.NextOffboardingReference" />
-            <label>Tên thủ tục *<input name="Title" class="form-control" maxlength="200" required value="@Model.OffboardingDraft.Title" placeholder="Ví dụ: Bàn giao thôi việc" /></label>
-            <label>Nhân viên *<select name="EmployeeId" class="form-control" required><option value="">Chọn nhân viên</option>@foreach (var person in Model.People) { <option value="@person.Id" selected="@(Model.OffboardingDraft.EmployeeId == person.Id)">@person.DisplayName · @(person.DepartmentName ?? "Chưa phân phòng")</option> }</select></label>
-            <label>Ngày thôi việc *<input name="DueDate" type="date" class="form-control" required value="@Model.OffboardingDraft.DueDate?.ToString("yyyy-MM-dd")" /></label>
-            <label>Lý do<select name="Category" class="form-control"><option value="">Chọn lý do</option>@foreach (var option in new[] { "Theo nguyện vọng", "Hết hạn hợp đồng", "Thỏa thuận chấm dứt", "Điều chuyển", "Khác" }) { <option selected="@(Model.OffboardingDraft.Category == option)">@option</option> }</select></label>
-            <label class="offboarding-wide">Nội dung bàn giao *<textarea name="Description" class="form-control" rows="3" maxlength="2000" required placeholder="Bàn giao công việc, tài sản, hồ sơ và công nợ">@Model.OffboardingDraft.Description</textarea></label>
-            <div class="offboarding-wide"><button class="hrm-btn hrm-btn-primary" type="submit"><i class="material-icons">assignment_return</i> Tạo thủ tục</button></div>
-        </form>
-    </section>
-}
-
-@if (Model.Kind is "meeting" or "vehicle")
-{
-    <script>
-        (function () {
-            var countInput = document.getElementById('Target');
-            var searchInput = document.getElementById('meetingEmployeeSearch');
-            var list = document.getElementById('meetingEmployeeList');
-            var counter = document.getElementById('meetingParticipantCount');
-            var empty = document.getElementById('meetingEmployeeEmpty');
-            if (!countInput || !searchInput || !list || !counter) return;
-            var checkboxes = Array.prototype.slice.call(list.querySelectorAll('input[type="checkbox"]'));
-            var rows = Array.prototype.slice.call(list.querySelectorAll('.meeting-employee-option'));
-            var maximumParticipants = @(Model.Kind == "meeting" ? 30 : 300);
-
-            function targetCount() { return Math.max(0, Math.min(maximumParticipants, parseInt(countInput.value, 10) || 0)); }
-            function checkedBoxes() { return checkboxes.filter(function (checkbox) { return checkbox.checked; }); }
-            function updateSelection(changed) {
-                var target = targetCount();
-                var selected = checkedBoxes();
-                if (changed && changed.checked && (!target || selected.length > target)) {
-                    changed.checked = false;
-                    selected = checkedBoxes();
-                }
-                counter.textContent = selected.length + ' / ' + target + ' đã chọn';
-                counter.classList.toggle('is-complete', target > 0 && selected.length === target);
-                countInput.setCustomValidity(target > 0 && selected.length !== target ? 'Vui lòng chọn đủ ' + target + ' nhân viên tham dự.' : '');
-                checkboxes.forEach(function (checkbox) { checkbox.disabled = !checkbox.checked && (!target || selected.length >= target); });
-            }
-            function filterEmployees() {
-                var keyword = searchInput.value.trim().toLocaleLowerCase('vi');
-                var visible = 0;
-                rows.forEach(function (row) {
-                    var matches = !keyword || row.getAttribute('data-search').indexOf(keyword) >= 0;
-                    row.hidden = !matches;
-                    if (matches) visible++;
-                });
-                empty.hidden = visible > 0;
-            }
-            checkboxes.forEach(function (checkbox) { checkbox.addEventListener('change', function () { updateSelection(checkbox); }); });
-            countInput.addEventListener('input', function () {
-                var target = targetCount();
-                checkedBoxes().slice(target).forEach(function (checkbox) { checkbox.checked = false; });
-                updateSelection();
-            });
-            searchInput.addEventListener('input', filterEmployees);
-            updateSelection();
-        })();
-    </script>
-}
-
-@if (showEmployee)
-{
-    <script>
-        (function () {
-            var hidden = document.getElementById('EmployeeId');
-            var search = document.getElementById('singleEmployeeSearch');
-            var list = document.getElementById('singleEmployeeList');
-            var selectedLabel = document.getElementById('singleEmployeeSelection');
-            var clear = document.getElementById('clearSingleEmployee');
-            var empty = document.getElementById('singleEmployeeEmpty');
-            if (!hidden || !search || !list) return;
-            var rows = Array.prototype.slice.call(list.querySelectorAll('.meeting-employee-option'));
-            var radios = Array.prototype.slice.call(list.querySelectorAll('input[type="radio"]'));
-            radios.forEach(function (radio) {
-                radio.addEventListener('change', function () {
-                    hidden.value = radio.value;
-                    selectedLabel.textContent = radio.closest('label').querySelector('strong').textContent;
-                    hidden.dispatchEvent(new Event('change'));
-                });
-            });
-            search.addEventListener('input', function () {
-                var keyword = search.value.trim().toLocaleLowerCase('vi');
-                var visible = 0;
-                rows.forEach(function (row) {
-                    var matches = !keyword || row.getAttribute('data-search').indexOf(keyword) >= 0;
-                    row.hidden = !matches;
-                    if (matches) visible++;
-                });
-                empty.hidden = visible > 0;
-            });
-            if (clear) clear.addEventListener('click', function () {
-                radios.forEach(function (radio) { radio.checked = false; });
-                hidden.value = '';
-                selectedLabel.textContent = 'Chưa chọn';
-                hidden.dispatchEvent(new Event('change'));
-            });
-        })();
-    </script>
-}
-
-@if (Model.Kind == "kpi" && showEditor)
-{
-    <script>
-        (() => {
-            const employee = document.getElementById("EmployeeId");
-            const department = document.getElementById("DepartmentId");
-            if (!employee || !department) return;
-
-            employee.addEventListener("change", () => {
-                if (employee.value) department.value = "";
-            });
-            department.addEventListener("change", () => {
-                if (department.value) {
-                    employee.value = "";
-                    document.querySelectorAll('#singleEmployeeList input[type="radio"]').forEach(radio => radio.checked = false);
-                    const label = document.getElementById('singleEmployeeSelection');
-                    if (label) label.textContent = 'Chưa chọn';
-                }
-            });
-        })();
-    </script>
-}
-}

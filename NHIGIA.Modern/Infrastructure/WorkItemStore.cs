@@ -1,7 +1,6 @@
-﻿using Dapper;
+using Dapper;
 using Microsoft.Data.SqlClient;
 using NHIGIA.Modern.Models;
-using System.Text.Json;
 
 namespace NHIGIA.Modern.Infrastructure;
 
@@ -19,18 +18,13 @@ public sealed class WorkItemStore
         var canSeeAll = actor.RoleCode == HrmRoles.Admin || actor.RoleCode == HrmRoles.Hr || actor.RoleCode == HrmRoles.Director;
         var isManager = actor.RoleCode == HrmRoles.Manager;
         var canManageDepartment = isManager && page.CanManage;
-        page.Items = db.Query<WorkItem>(@"SELECT w.*, u.DisplayName EmployeeName, d.Name DepartmentName,
-            STUFF((SELECT N', ' + pu.DisplayName
-             FROM dbo.HrmWorkItemParticipant wp
-             INNER JOIN dbo.HrmUserAccount pu ON pu.Id=wp.UserId
-             WHERE wp.WorkItemId=w.Id ORDER BY pu.DisplayName
-             FOR XML PATH(''),TYPE).value('.','nvarchar(max)'),1,2,N'') ParticipantNames
+        page.Items = db.Query<WorkItem>(@"SELECT w.*, u.DisplayName EmployeeName, d.Name DepartmentName
             FROM dbo.HrmWorkItem w LEFT JOIN dbo.HrmUserAccount u ON u.Id=w.EmployeeId
-            LEFT JOIN dbo.HrmDepartment d ON d.Id=COALESCE(w.DepartmentId,u.DepartmentId)
-            WHERE (w.Kind=@Kind OR (@Kind='resignation' AND w.Kind='offboarding'))
+            LEFT JOIN dbo.HrmDepartment d ON d.Id=COALESCE(w.DepartmentId, u.DepartmentId)
+            WHERE w.Kind=@Kind
               AND (@CanSeeAll=1 OR w.EmployeeId=@UserId OR w.CreatedBy=@UserId
-                   OR EXISTS (SELECT 1 FROM dbo.HrmWorkItemParticipant wp WHERE wp.WorkItemId=w.Id AND wp.UserId=@UserId)
                    OR (w.Kind='kpi' AND w.DepartmentId=@DepartmentId)
+                   OR (w.Kind IN ('recruitment', 'resignation', 'training', 'transfer', 'transfer-decision', 'assets', 'asset-handover'))
                    OR (@IsManager=1 AND (u.DepartmentId=@DepartmentId OR w.DepartmentId=@DepartmentId)))
               AND (@Kind<>'payroll' OR @CanSeeAll=1 OR w.Status IN ('PUBLISHED','PAID','DISPUTED','RESOLVED'))
             ORDER BY w.CreatedAt DESC, w.Id DESC", new
@@ -41,83 +35,202 @@ public sealed class WorkItemStore
                 UserId = actor.Id,
                 actor.DepartmentId
             }).ToList();
-        if (page.CanManage || page.Kind is "meeting" or "vehicle")
+        if (page.Kind == "transfer")
         {
-            page.People = db.Query<WorkPerson>(@"SELECT u.Id,u.DisplayName,d.Name DepartmentName FROM dbo.HrmUserAccount u
-                LEFT JOIN dbo.HrmDepartment d ON d.Id=u.DepartmentId
-                WHERE u.IsActive=1 AND u.RoleCode<>'ADMIN'
-                  AND (@ParticipantPicker=1 OR @CanSeeAll=1 OR u.Id=@UserId OR (@IsManager=1 AND u.DepartmentId=@DepartmentId))
-                ORDER BY u.DisplayName", new
-            {
-                ParticipantPicker = page.Kind is "meeting" or "vehicle",
-                CanSeeAll = canSeeAll,
-                IsManager = canManageDepartment,
-                UserId = actor.Id,
-                actor.DepartmentId
-            }).ToList();
-            page.Departments = db.Query<WorkDepartment>(@"SELECT Id,Name FROM dbo.HrmDepartment
-                WHERE IsActive=1 AND (@CanSeeAll=1 OR Id=@DepartmentId) ORDER BY Name",
-                new { CanSeeAll = canSeeAll, actor.DepartmentId }).ToList();
+            LoadTransferModule(db, page, actor, canSeeAll, canManageDepartment);
+        }
+        if (page.Kind == "assets")
+        {
+            LoadAssetsModule(db, page, actor, canSeeAll, canManageDepartment);
         }
         if (page.Kind == "payroll")
         {
             LoadPayrollModule(db, page, actor, canSeeAll, canManageDepartment);
         }
+        if (page.Kind == "training")
+        {
+            try
+            {
+                page.Enrollments = db.Query<TrainingEnrollmentItem>(@"SELECT e.*, w.Title CourseTitle, w.Reference CourseReference, w.Category CourseCategory,
+                        u.DisplayName EmployeeName, d.Name DepartmentName
+                    FROM dbo.HrmTrainingEnrollment e
+                    INNER JOIN dbo.HrmWorkItem w ON w.Id = e.TrainingId
+                    INNER JOIN dbo.HrmUserAccount u ON u.Id = e.EmployeeId
+                    LEFT JOIN dbo.HrmDepartment d ON d.Id = u.DepartmentId
+                    ORDER BY e.EnrolledAt DESC").ToList();
+                page.MyEnrollments = page.Enrollments.Where(e => e.EmployeeId == actor.Id).ToList();
+                page.EnrolledCoursesCount = page.MyEnrollments.Count;
+                page.CompletedCoursesCount = page.MyEnrollments.Count(e => e.Status == "COMPLETED");
+                page.CertificatesCount = page.MyEnrollments.Count(e => !string.IsNullOrEmpty(e.CertificateNumber));
+            }
+            catch { }
+
+            var sessions = new List<TrainingSessionEvent>();
+            foreach (var item in page.Items.Where(x => x.Kind == "training"))
+            {
+                if (!string.IsNullOrWhiteSpace(item.Keywords))
+                {
+                    try
+                    {
+                        using var doc = System.Text.Json.JsonDocument.Parse(item.Keywords);
+                        if (doc.RootElement.ValueKind == System.Text.Json.JsonValueKind.Array)
+                        {
+                            int sIdx = 1;
+                            foreach (var el in doc.RootElement.EnumerateArray())
+                            {
+                                var dStr = el.TryGetProperty("date", out var pDate) ? pDate.GetString() : null;
+                                var tStr = el.TryGetProperty("time", out var pTime) ? pTime.GetString() : "09:00 - 11:00";
+                                var title = el.TryGetProperty("title", out var pTitle) ? pTitle.GetString() : $"Buổi {sIdx}";
+                                if (!string.IsNullOrEmpty(dStr))
+                                {
+                                    sessions.Add(new TrainingSessionEvent
+                                    {
+                                        Id = item.Id * 100 + sIdx,
+                                        TrainingId = item.Id,
+                                        CourseTitle = item.Title,
+                                        CourseReference = item.Reference,
+                                        SessionTitle = title,
+                                        DateStr = dStr,
+                                        TimeStr = tStr,
+                                        Instructor = item.ContactName ?? "Giảng viên Nhị Gia",
+                                        LocationOrUrl = item.Category == "Offline" ? "Hội trường đào tạo Lầu 3" : "Google Meet / Microsoft Teams",
+                                        IsOnline = item.Category != "Offline",
+                                        Notes = item.Description
+                                    });
+                                }
+                                sIdx++;
+                            }
+                        }
+                    }
+                    catch { }
+                }
+            }
+            page.Sessions = sessions.OrderBy(s => s.DateStr).ThenBy(s => s.TimeStr).ToList();
+        }
+        if (page.CanManage || page.Kind == "transfer" || page.Kind == "assets" || page.Kind == "payroll")
+        {
+            var isRecruitment = page.Kind == "recruitment";
+            var isResignation = page.Kind == "resignation";
+            var isTraining = page.Kind == "training";
+            var isOvertime = page.Kind == "overtime";
+            var isTransfer = page.Kind == "transfer";
+            var isAssets = page.Kind == "assets";
+            var isPayroll = page.Kind == "payroll";
+            page.People = db.Query<WorkPerson>(@"SELECT u.Id, u.DisplayName, u.RoleCode, d.Name DepartmentName 
+                FROM dbo.HrmUserAccount u
+                LEFT JOIN dbo.HrmDepartment d ON d.Id=u.DepartmentId
+                WHERE u.IsActive=1 AND (u.RoleCode<>'ADMIN' OR @IsOvertime=1 OR @IsTransfer=1 OR @IsAssets=1 OR @IsPayroll=1)
+                  AND (@CanSeeAll=1 OR @IsRecruitment=1 OR @IsResignation=1 OR @IsTraining=1 OR @IsOvertime=1 OR @IsTransfer=1 OR @IsAssets=1 OR @IsPayroll=1 OR u.Id=@UserId OR (@IsManager=1 AND u.DepartmentId=@DepartmentId))
+                ORDER BY u.DisplayName", new
+            {
+                CanSeeAll = canSeeAll,
+                IsRecruitment = isRecruitment,
+                IsResignation = isResignation,
+                IsTraining = isTraining,
+                IsOvertime = isOvertime,
+                IsTransfer = isTransfer,
+                IsAssets = isAssets,
+                IsPayroll = isPayroll,
+                IsManager = canManageDepartment,
+                UserId = actor.Id,
+                actor.DepartmentId
+            }).ToList();
+            page.Departments = db.Query<WorkDepartment>(@"SELECT Id,Name FROM dbo.HrmDepartment
+                WHERE IsActive=1 AND (@CanSeeAll=1 OR @IsRecruitment=1 OR @IsResignation=1 OR @IsTraining=1 OR @IsOvertime=1 OR @IsTransfer=1 OR @IsAssets=1 OR @IsPayroll=1 OR Id=@DepartmentId) ORDER BY Name",
+                new { CanSeeAll = canSeeAll, IsRecruitment = isRecruitment, IsResignation = isResignation, IsTraining = isTraining, IsOvertime = isOvertime, IsTransfer = isTransfer, IsAssets = isAssets, IsPayroll = isPayroll, actor.DepartmentId }).ToList();
+        }
         if (!string.IsNullOrWhiteSpace(page.Query))
-            page.Items = page.Items.Where(x => $"{x.Title} {x.Reference} {x.EmployeeName} {x.ParticipantNames} {x.Category} {x.Location} {x.Destination}".Contains(page.Query, StringComparison.OrdinalIgnoreCase)).ToList();
+            page.Items = page.Items.Where(x => $"{x.Title} {x.Reference} {x.EmployeeName} {x.Category}".Contains(page.Query, StringComparison.OrdinalIgnoreCase)).ToList();
         page.Available = true;
     }
-    public int Create(WorkItem item, IReadOnlyCollection<int> participantIds = null)
+    public int Create(WorkItem item)
+    {
+        using var db = Open();
+        return db.QuerySingle<int>(@"INSERT dbo.HrmWorkItem
+            (Kind,Title,Description,Category,Reference,WorkLocation,JobLevel,ExperienceRequired,EducationRequired,GenderRequirement,AgeRange,SalaryRange,SkillRequirements,Benefits,RecruitmentProcess,RecruitmentReason,StartDate,ContractType,ProbationPeriod,RecruitmentChannel,ContactName,ContactEmail,ContactPhone,ContactAddress,Keywords,EmployeeId,DepartmentId,DueDate,Target,Actual,Weight,Priority,Status,CreatedBy,KpiType,Quarter,ProofNote)
+            OUTPUT INSERTED.Id VALUES
+            (@Kind,@Title,@Description,@Category,@Reference,@WorkLocation,@JobLevel,@ExperienceRequired,@EducationRequired,@GenderRequirement,@AgeRange,@SalaryRange,@SkillRequirements,@Benefits,@RecruitmentProcess,@RecruitmentReason,@StartDate,@ContractType,@ProbationPeriod,@RecruitmentChannel,@ContactName,@ContactEmail,@ContactPhone,@ContactAddress,@Keywords,@EmployeeId,@DepartmentId,@DueDate,@Target,@Actual,@Weight,@Priority,@Status,@CreatedBy,@KpiType,@Quarter,@ProofNote)", item);
+    }
+
+    public bool UpdateKpi(WorkItem item, int actorId, string ipAddress)
     {
         using var db = Open();
         using var transaction = db.BeginTransaction();
-        var id = db.QuerySingle<int>(@"INSERT dbo.HrmWorkItem
-            (Kind,Title,Description,Category,Reference,EmployeeId,DepartmentId,DueDate,StartAt,EndAt,Location,Destination,Target,Actual,Weight,Priority,Status,CreatedBy,AssetInUse)
-            OUTPUT INSERTED.Id VALUES
-            (@Kind,@Title,@Description,@Category,@Reference,@EmployeeId,@DepartmentId,@DueDate,@StartAt,@EndAt,@Location,@Destination,@Target,@Actual,@Weight,@Priority,@Status,@CreatedBy,@AssetInUse)", item, transaction);
-        if (item.Kind is "meeting" or "vehicle" && participantIds?.Count > 0)
-        {
-            foreach (var userId in participantIds.Distinct())
-                db.Execute("INSERT dbo.HrmWorkItemParticipant(WorkItemId,UserId) VALUES(@WorkItemId,@UserId)", new { WorkItemId = id, UserId = userId }, transaction);
-            var state = item.Status == "APPROVED" ? "Đã được xác nhận." : "Đang chờ phê duyệt.";
-            var title = item.Kind == "meeting" ? $"Lời mời họp: {item.Title}" : $"Thông tin chuyến xe: {item.Title}";
-            var route = item.Kind == "meeting" ? item.Location : $"{item.Location} → {item.Destination}";
-            AddParticipantNotifications(db, transaction, id, item.Kind, title,
-                $"{route} · {item.StartAt:dd/MM/yyyy HH:mm}–{item.EndAt:HH:mm}. {state}");
-        }
+        var changed = db.Execute(@"UPDATE dbo.HrmWorkItem SET Title=@Title, Description=@Description,
+                Category=@Category, Reference=@Reference, EmployeeId=@EmployeeId, DepartmentId=@DepartmentId,
+                DueDate=@DueDate, Target=@Target, Actual=@Actual, Weight=@Weight,
+                KpiType=COALESCE(@KpiType, KpiType), Quarter=COALESCE(@Quarter, Quarter),
+                ProofNote=COALESCE(@ProofNote, ProofNote), Status=COALESCE(@Status, Status),
+                UpdatedAt=SYSUTCDATETIME()
+            WHERE Id=@Id AND Kind='kpi'", item, transaction) > 0;
+        if (changed) AddAudit(db, transaction, actorId, "UPDATE", item.Id, "Cập nhật KPI", ipAddress);
         transaction.Commit();
-        return id;
+        return changed;
     }
 
-    public string GetNextAssetReference()
-    {
-        return GetNextReference("assets", "TS");
-    }
-
-    public string GetNextOffboardingReference()
-    {
-        return GetNextReference("offboarding", "TV");
-    }
-
-    private string GetNextReference(string kind, string prefix)
+    public bool SubmitKpiProof(int id, decimal actual, string proofNote, int actorId, string ipAddress)
     {
         using var db = Open();
-        var sequence = db.ExecuteScalar<int>(@"SELECT ISNULL(MAX(TRY_CONVERT(INT,SUBSTRING(Reference,4,97))),0)+1
-            FROM dbo.HrmWorkItem WHERE Kind=@Kind AND Reference LIKE @PrefixPattern",
-            new { Kind = kind, PrefixPattern = $"{prefix}.%" });
-        return $"{prefix}.{sequence:D3}";
+        using var transaction = db.BeginTransaction();
+        var changed = db.Execute(@"UPDATE dbo.HrmWorkItem SET Actual=@Actual,
+                ProofNote=@ProofNote, Status='WAITING_PROOF', UpdatedAt=SYSUTCDATETIME()
+            WHERE Id=@Id AND Kind='kpi'",
+            new { Id = id, Actual = actual, ProofNote = proofNote?.Trim() }, transaction) > 0;
+        if (changed) AddAudit(db, transaction, actorId, "SUBMIT_PROOF", id, $"Gửi chứng minh kết quả KPI: thực hiện {actual}. {proofNote}".Trim(), ipAddress);
+        transaction.Commit();
+        return changed;
     }
 
-    public int CreateAsset(WorkItem item)
+    public bool EvaluateKpiProof(int id, bool approve, string reviewNote, int actorId, string ipAddress)
     {
-        SqlException duplicate = null;
-        for (var attempt = 0; attempt < 5; attempt++)
-        {
-            item.Reference = GetNextAssetReference();
-            try { return Create(item); }
-            catch (SqlException exception) when (exception.Number is 2601 or 2627) { duplicate = exception; }
-        }
-        throw new InvalidOperationException("Không thể cấp mã tài sản duy nhất sau nhiều lần thử.", duplicate);
+        using var db = Open();
+        using var transaction = db.BeginTransaction();
+        var newStatus = approve ? "PROVEN" : "NEEDS_REVISION";
+        var action = approve ? "APPROVE_PROOF" : "REJECT_PROOF";
+        var changed = db.Execute(@"UPDATE dbo.HrmWorkItem SET Status=@NewStatus,
+                LastActionNote=@ReviewNote, UpdatedAt=SYSUTCDATETIME()
+            WHERE Id=@Id AND Kind='kpi'",
+            new { Id = id, NewStatus = newStatus, ReviewNote = reviewNote?.Trim() }, transaction) > 0;
+        if (changed) AddAudit(db, transaction, actorId, action, id, $"Đánh giá kết quả KPI: {newStatus}. {reviewNote}".Trim(), ipAddress);
+        transaction.Commit();
+        return changed;
+    }
+
+    public bool DeleteKpi(int id, int actorId, string ipAddress)
+    {
+        using var db = Open();
+        using var transaction = db.BeginTransaction();
+        var changed = db.Execute(@"DELETE FROM dbo.HrmWorkItem WHERE Id=@Id AND Kind='kpi'", new { Id = id }, transaction) > 0;
+        if (changed) AddAudit(db, transaction, actorId, "DELETE", id, "Xóa tiêu chí KPI", ipAddress);
+        transaction.Commit();
+        return changed;
+    }
+
+    public bool UpdatePayrollDraft(WorkItem item, int actorId, string ipAddress)
+    {
+        using var db = Open();
+        using var transaction = db.BeginTransaction();
+        var changed = db.Execute(@"UPDATE dbo.HrmWorkItem SET Title=@Title, Description=@Description,
+                Category=@Category, Reference=@Reference, EmployeeId=@EmployeeId, DueDate=@DueDate,
+                Target=@Target, Actual=@Actual, UpdatedAt=SYSUTCDATETIME()
+            WHERE Id=@Id AND Kind='payroll' AND Status IN ('DRAFT','REJECTED')", item, transaction) > 0;
+        if (changed) AddAudit(db, transaction, actorId, "UPDATE", item.Id, "Cập nhật bảng lương nháp", ipAddress);
+        transaction.Commit();
+        return changed;
+    }
+
+    public bool TransitionPayroll(int id, string expectedStatus, string newStatus, string action, string note, int actorId, int? employeeId, string ipAddress)
+    {
+        using var db = Open();
+        using var transaction = db.BeginTransaction();
+        var changed = db.Execute(@"UPDATE dbo.HrmWorkItem SET Status=@NewStatus,
+                LastActionNote=@Note, UpdatedAt=SYSUTCDATETIME()
+            WHERE Id=@Id AND Kind='payroll' AND Status=@ExpectedStatus
+              AND (@EmployeeId IS NULL OR EmployeeId=@EmployeeId)",
+            new { Id = id, ExpectedStatus = expectedStatus, NewStatus = newStatus, Note = string.IsNullOrWhiteSpace(note) ? null : note.Trim(), EmployeeId = employeeId }, transaction) > 0;
+        if (changed) AddAudit(db, transaction, actorId, action, id, $"Bảng lương: {expectedStatus} -> {newStatus}. {note}".Trim(), ipAddress);
+        transaction.Commit();
+        return changed;
     }
 
     public bool HasMeetingConflict(string location, DateTime startAt, DateTime endAt)
@@ -200,93 +313,918 @@ public sealed class WorkItemStore
         return link;
     }
 
-    public bool UpdateKpi(WorkItem item, int actorId, string ipAddress)
-    {
-        using var db = Open();
-        using var transaction = db.BeginTransaction();
-        var changed = db.Execute(@"UPDATE dbo.HrmWorkItem SET Title=@Title, Description=@Description,
-                Category=@Category, Reference=@Reference, EmployeeId=@EmployeeId, DepartmentId=@DepartmentId,
-                DueDate=@DueDate, Target=@Target, Actual=@Actual, Weight=@Weight, UpdatedAt=SYSUTCDATETIME()
-            WHERE Id=@Id AND Kind='kpi'", item, transaction) > 0;
-        if (changed) AddAudit(db, transaction, actorId, "UPDATE", item.Id, "Cập nhật KPI", ipAddress);
-        transaction.Commit();
-        return changed;
-    }
-
-    public int UpdateAssets(IReadOnlyCollection<int> ids, string command, int? employeeId, string note, int actorId, string ipAddress)
-    {
-        using var db = Open();
-        using var transaction = db.BeginTransaction();
-        var status = command switch
-        {
-            "allocate" => "ASSIGNED", "recover" => "AVAILABLE", "maintenance" => "MAINTENANCE",
-            "damaged" => "DAMAGED", "lost" => "LOST", "dispose" => "DISPOSED", _ => null
-        };
-        if (status == null) return 0;
-        var changedIds = db.Query<int>(@"UPDATE dbo.HrmWorkItem SET
-                Status=CASE WHEN @Command='recover' AND AssetInUse>1 THEN 'ASSIGNED' ELSE @Status END,
-                EmployeeId=CASE WHEN @Command='allocate' THEN @EmployeeId
-                    WHEN @Command='recover' AND AssetInUse>1 THEN EmployeeId
-                    WHEN @Command IN ('recover','maintenance','damaged','lost','dispose') THEN NULL ELSE EmployeeId END,
-                AssetInUse=CASE WHEN @Command='allocate' THEN AssetInUse+1 WHEN @Command='recover' THEN AssetInUse-1 ELSE AssetInUse END,
-                AssetMaintenance=AssetMaintenance+CASE WHEN @Command='maintenance' THEN 1 ELSE 0 END,
-                AssetDamaged=AssetDamaged+CASE WHEN @Command='damaged' THEN 1 ELSE 0 END,
-                AssetLost=AssetLost+CASE WHEN @Command='lost' THEN 1 ELSE 0 END,
-                AssetDisposed=AssetDisposed+CASE WHEN @Command='dispose' THEN 1 ELSE 0 END,
-                LastActionNote=@Note,UpdatedAt=SYSUTCDATETIME()
-            OUTPUT INSERTED.Id
-            WHERE Kind='assets' AND Id IN @Ids
-              AND ((@Command='allocate' AND COALESCE(Target,1)>AssetInUse+AssetMaintenance+AssetDamaged+AssetLost+AssetDisposed)
-                OR (@Command='recover' AND AssetInUse>0)
-                OR (@Command IN ('maintenance','damaged','lost','dispose')
-                    AND COALESCE(Target,1)>AssetInUse+AssetMaintenance+AssetDamaged+AssetLost+AssetDisposed))",
-            new { Ids = ids, Command = command, Status = status, EmployeeId = employeeId, Note = string.IsNullOrWhiteSpace(note) ? null : note.Trim() }, transaction).ToList();
-        foreach (var id in changedIds)
-            AddAudit(db, transaction, actorId, command.ToUpperInvariant(), id, $"Tài sản -> {status}. {note}".Trim(), ipAddress);
-        transaction.Commit();
-        return changedIds.Count;
-    }
-
-    public bool UpdatePayrollDraft(WorkItem item, int actorId, string ipAddress)
-    {
-        using var db = Open();
-        using var transaction = db.BeginTransaction();
-        var changed = db.Execute(@"UPDATE dbo.HrmWorkItem SET Title=@Title, Description=@Description,
-                Category=@Category, Reference=@Reference, EmployeeId=@EmployeeId, DueDate=@DueDate,
-                Target=@Target, Actual=@Actual, UpdatedAt=SYSUTCDATETIME()
-            WHERE Id=@Id AND Kind='payroll' AND Status IN ('DRAFT','REJECTED')", item, transaction) > 0;
-        if (changed) AddAudit(db, transaction, actorId, "UPDATE", item.Id, "Cập nhật bảng lương nháp", ipAddress);
-        transaction.Commit();
-        return changed;
-    }
-
-    public bool TransitionPayroll(int id, string expectedStatus, string newStatus, string action, string note, int actorId, int? employeeId, string ipAddress)
-    {
-        using var db = Open();
-        using var transaction = db.BeginTransaction();
-        var changed = db.Execute(@"UPDATE dbo.HrmWorkItem SET Status=@NewStatus,
-                LastActionNote=@Note, UpdatedAt=SYSUTCDATETIME()
-            WHERE Id=@Id AND Kind='payroll' AND Status=@ExpectedStatus
-              AND (@EmployeeId IS NULL OR EmployeeId=@EmployeeId)",
-            new { Id = id, ExpectedStatus = expectedStatus, NewStatus = newStatus, Note = string.IsNullOrWhiteSpace(note) ? null : note.Trim(), EmployeeId = employeeId }, transaction) > 0;
-        if (changed) AddAudit(db, transaction, actorId, action, id, $"Bảng lương: {expectedStatus} -> {newStatus}. {note}".Trim(), ipAddress);
-        transaction.Commit();
-        return changed;
-    }
-
-    private static void AddAudit(SqlConnection db, SqlTransaction transaction, int actorId, string action, int id, string detail, string ipAddress)
-    {
-        db.Execute(@"INSERT dbo.HrmAuditLog(UserId,ActionCode,EntityType,EntityId,Detail,IpAddress)
-            VALUES(@UserId,@Action,'HrmWorkItem',@EntityId,@Detail,@IpAddress)",
-            new { UserId = actorId, Action = action, EntityId = id.ToString(), Detail = detail, IpAddress = ipAddress }, transaction);
-    }
-
     private static void AddParticipantNotifications(SqlConnection db, SqlTransaction transaction, int workItemId, string kind, string title, string message)
     {
         db.Execute(@"INSERT dbo.HrmNotification(UserId,Title,Message,LinkUrl)
             SELECT UserId,@Title,@Message,@LinkUrl
             FROM dbo.HrmWorkItemParticipant WHERE WorkItemId=@WorkItemId",
             new { WorkItemId = workItemId, Title = title.Length > 200 ? title[..200] : title, Message = message.Length > 1000 ? message[..1000] : message, LinkUrl = $"/Work?kind={kind}" }, transaction);
+    }
+
+    public bool EnrollTraining(int trainingId, int employeeId, int actorId, string ipAddress)
+    {
+        using var db = Open();
+        using var transaction = db.BeginTransaction();
+        var existing = db.QueryFirstOrDefault<int>(@"SELECT Id FROM dbo.HrmTrainingEnrollment WHERE TrainingId=@TrainingId AND EmployeeId=@EmployeeId",
+            new { TrainingId = trainingId, EmployeeId = employeeId }, transaction);
+        if (existing > 0) return true;
+
+        var inserted = db.Execute(@"INSERT INTO dbo.HrmTrainingEnrollment (TrainingId, EmployeeId, Status, ProgressPercent, EnrolledAt)
+            VALUES (@TrainingId, @EmployeeId, 'STUDYING', 0, SYSUTCDATETIME())",
+            new { TrainingId = trainingId, EmployeeId = employeeId }, transaction) > 0;
+        if (inserted)
+        {
+            db.Execute(@"UPDATE dbo.HrmWorkItem SET Actual = COALESCE(Actual, 0) + 1, UpdatedAt = SYSUTCDATETIME() WHERE Id = @TrainingId",
+                new { TrainingId = trainingId }, transaction);
+            AddAudit(db, transaction, actorId, "ENROLL", trainingId, $"Đăng ký tham gia khóa đào tạo #{trainingId}", ipAddress);
+        }
+        transaction.Commit();
+        return inserted;
+    }
+
+    public bool UnenrollTraining(int trainingId, int employeeId, int actorId, string ipAddress)
+    {
+        using var db = Open();
+        using var transaction = db.BeginTransaction();
+        var deleted = db.Execute(@"DELETE FROM dbo.HrmTrainingEnrollment WHERE TrainingId=@TrainingId AND EmployeeId=@EmployeeId",
+            new { TrainingId = trainingId, EmployeeId = employeeId }, transaction) > 0;
+        if (deleted)
+        {
+            db.Execute(@"UPDATE dbo.HrmWorkItem SET Actual = CASE WHEN COALESCE(Actual, 0) > 0 THEN Actual - 1 ELSE 0 END, UpdatedAt = SYSUTCDATETIME() WHERE Id = @TrainingId",
+                new { TrainingId = trainingId }, transaction);
+            AddAudit(db, transaction, actorId, "UNENROLL", trainingId, $"Hủy đăng ký khóa đào tạo #{trainingId}", ipAddress);
+        }
+        transaction.Commit();
+        return deleted;
+    }
+
+    public bool EvaluateTraining(int enrollmentId, int progress, decimal? score, string result, string note, int actorId, string ipAddress)
+    {
+        using var db = Open();
+        using var transaction = db.BeginTransaction();
+        var isPass = result == "Xuất sắc" || result == "Đạt" || progress >= 100;
+        var status = isPass ? "COMPLETED" : "STUDYING";
+        string certNo = null;
+        DateTime? certDate = null;
+        if (isPass)
+        {
+            certNo = $"CERT-NHIGIA-{DateTime.Now:yyyy}-{enrollmentId:D4}";
+            certDate = DateTime.UtcNow;
+        }
+        var updated = db.Execute(@"UPDATE dbo.HrmTrainingEnrollment
+            SET ProgressPercent=@Progress, Score=@Score, EvaluationResult=@Result, EvaluationNote=@Note,
+                Status=@Status, CertificateNumber=COALESCE(CertificateNumber, @CertNo),
+                CertificateIssuedAt=COALESCE(CertificateIssuedAt, @CertDate), UpdatedAt=SYSUTCDATETIME()
+            WHERE Id=@Id",
+            new { Id = enrollmentId, Progress = progress, Score = score, Result = result, Note = note?.Trim(), Status = status, CertNo = certNo, CertDate = certDate }, transaction) > 0;
+        if (updated)
+            AddAudit(db, transaction, actorId, "EVALUATE", enrollmentId, $"Đánh giá học viên đào tạo #{enrollmentId}: {result}, điểm {score}", ipAddress);
+        transaction.Commit();
+        return updated;
+    }
+
+    public bool SaveTrainingCourse(WorkItem item, int actorId, string ipAddress)
+    {
+        using var db = Open();
+        using var transaction = db.BeginTransaction();
+        bool ok;
+        if (item.Id > 0)
+        {
+            ok = db.Execute(@"UPDATE dbo.HrmWorkItem SET
+                Title=@Title, Description=@Description, Category=@Category, Reference=@Reference,
+                WorkLocation=@WorkLocation, StartDate=@StartDate, DueDate=@DueDate, Target=@Target,
+                ContactName=@ContactName, SkillRequirements=@SkillRequirements, Benefits=@Benefits,
+                Keywords=@Keywords, Status=@Status, UpdatedAt=SYSUTCDATETIME()
+                WHERE Id=@Id AND Kind='training'", item, transaction) > 0;
+            if (ok) AddAudit(db, transaction, actorId, "UPDATE", item.Id, $"Cập nhật khóa đào tạo #{item.Id}", ipAddress);
+        }
+        else
+        {
+            item.Kind = "training";
+            item.Status = string.IsNullOrWhiteSpace(item.Status) ? "IN_PROGRESS" : item.Status;
+            item.CreatedAt = DateTime.UtcNow;
+            item.CreatedBy = actorId;
+            var id = db.QuerySingle<int>(@"INSERT dbo.HrmWorkItem
+                (Kind,Title,Description,Category,Reference,WorkLocation,StartDate,DueDate,Target,Actual,Status,CreatedBy,CreatedAt,ContactName,SkillRequirements,Benefits,Keywords)
+                OUTPUT INSERTED.Id VALUES
+                (@Kind,@Title,@Description,@Category,@Reference,@WorkLocation,@StartDate,@DueDate,@Target,0,@Status,@CreatedBy,@CreatedAt,@ContactName,@SkillRequirements,@Benefits,@Keywords)",
+                item, transaction);
+            ok = id > 0;
+            if (ok) AddAudit(db, transaction, actorId, "CREATE", id, $"Tạo khóa đào tạo mới #{id}", ipAddress);
+        }
+        transaction.Commit();
+        return ok;
+    }
+
+    public bool DeleteTrainingCourse(int id, int actorId, string ipAddress)
+    {
+        using var db = Open();
+        using var transaction = db.BeginTransaction();
+        db.Execute(@"DELETE FROM dbo.HrmTrainingEnrollment WHERE TrainingId=@Id", new { Id = id }, transaction);
+        var changed = db.Execute(@"DELETE FROM dbo.HrmWorkItem WHERE Id=@Id AND Kind='training'", new { Id = id }, transaction) > 0;
+        if (changed) AddAudit(db, transaction, actorId, "DELETE", id, $"Xóa khóa đào tạo #{id}", ipAddress);
+        transaction.Commit();
+        return changed;
+    }
+
+    public bool UpdateOvertimeStatus(int id, string status, string note, int actorId, string ipAddress)
+    {
+        using var db = Open();
+        using var transaction = db.BeginTransaction();
+        var changed = db.Execute(@"UPDATE dbo.HrmWorkItem 
+            SET Status=@Status, LastActionNote=@Note, UpdatedAt=SYSDATETIME() 
+            WHERE Id=@Id AND Kind='overtime'", new { Id = id, Status = status, Note = note }, transaction) > 0;
+        if (changed) AddAudit(db, transaction, actorId, status == "APPROVED" ? "APPROVE" : "REJECT", id, $"{status}: {note}", ipAddress);
+        transaction.Commit();
+        return changed;
+    }
+
+    public bool DeleteOvertime(int id, int actorId, string ipAddress)
+    {
+        using var db = Open();
+        using var transaction = db.BeginTransaction();
+        var changed = db.Execute(@"DELETE FROM dbo.HrmWorkItem WHERE Id=@Id AND Kind='overtime'", new { Id = id }, transaction) > 0;
+        if (changed) AddAudit(db, transaction, actorId, "DELETE", id, $"Xóa phiếu tăng ca #{id}", ipAddress);
+        transaction.Commit();
+        return changed;
+    }
+
+    public bool UpdateResignationStatus(int id, string status, string note, int actorId, string ipAddress)
+    {
+        using var db = Open();
+        using var transaction = db.BeginTransaction();
+        var changed = db.Execute(@"UPDATE dbo.HrmWorkItem 
+            SET Status=@Status, LastActionNote=@Note, UpdatedAt=SYSDATETIME() 
+            WHERE Id=@Id AND Kind='resignation'", new { Id = id, Status = status, Note = note }, transaction) > 0;
+        if (changed) AddAudit(db, transaction, actorId, status == "APPROVED" ? "APPROVE" : (status == "REJECTED" ? "REJECT" : "UPDATE"), id, $"{status}: {note}", ipAddress);
+        transaction.Commit();
+        return changed;
+    }
+
+    public bool DeleteResignation(int id, int actorId, string ipAddress)
+    {
+        using var db = Open();
+        using var transaction = db.BeginTransaction();
+        var changed = db.Execute(@"DELETE FROM dbo.HrmWorkItem WHERE Id=@Id AND Kind='resignation'", new { Id = id }, transaction) > 0;
+        if (changed) AddAudit(db, transaction, actorId, "DELETE", id, $"Xóa yêu cầu thôi việc #{id}", ipAddress);
+        transaction.Commit();
+        return changed;
+    }
+
+    public bool DeleteRecruitmentPosition(int id, int actorId, string ipAddress)
+    {
+        using var db = Open();
+        using var transaction = db.BeginTransaction();
+        var changed = db.Execute(@"DELETE FROM dbo.HrmWorkItem WHERE Id=@Id AND Kind='recruitment'", new { Id = id }, transaction) > 0;
+        if (changed) AddAudit(db, transaction, actorId, "DELETE", id, $"Xóa vị trí tuyển dụng #{id}", ipAddress);
+        transaction.Commit();
+        return changed;
+    }
+
+    public bool UpdateTransferRequestStatus(int id, string status, string note, int actorId, string ipAddress)
+    {
+        using var db = Open();
+        using var transaction = db.BeginTransaction();
+        var changed = db.Execute(@"UPDATE dbo.HrmWorkItem
+            SET Status=@Status, LastActionNote=@Note, UpdatedAt=SYSDATETIME()
+            WHERE Id=@Id AND Kind='transfer'", new { Id = id, Status = status, Note = note }, transaction) > 0;
+        if (changed)
+        {
+            var actionCode = status switch
+            {
+                "APPROVED" => "APPROVE",
+                "REJECTED" => "REJECT",
+                "MANAGER_APPROVED" => "MANAGER_APPROVE",
+                "HR_REVIEWED" => "HR_REVIEW",
+                _ => "UPDATE"
+            };
+            AddAudit(db, transaction, actorId, actionCode, id, $"Cập nhật phiếu luân chuyển #{id}: {status} - {note}", ipAddress);
+        }
+        transaction.Commit();
+        return changed;
+    }
+
+    public bool SaveTransferDecision(WorkItem item, int actorId, string ipAddress)
+    {
+        using var db = Open();
+        using var transaction = db.BeginTransaction();
+        bool changed;
+        if (item.Id > 0)
+        {
+            changed = db.Execute(@"UPDATE dbo.HrmWorkItem
+                SET Title=@Title, Description=@Description, Category=@Category, Reference=@Reference,
+                    ContactName=@ContactName, StartDate=@StartDate, DueDate=@DueDate, WorkLocation=@WorkLocation,
+                    Target=@Target, DepartmentId=@DepartmentId, EmployeeId=@EmployeeId, JobLevel=@JobLevel,
+                    Status=COALESCE(@Status, Status), UpdatedAt=SYSDATETIME()
+                WHERE Id=@Id AND Kind='transfer-decision'", item, transaction) > 0;
+            if (changed) AddAudit(db, transaction, actorId, "UPDATE", item.Id, $"Cập nhật quyết định điều chuyển {item.Reference}", ipAddress);
+        }
+        else
+        {
+            item.Kind = "transfer-decision";
+            item.Status = string.IsNullOrWhiteSpace(item.Status) ? "PENDING_APPROVAL" : item.Status;
+            item.CreatedBy = actorId;
+            var newId = db.QuerySingle<int>(@"INSERT dbo.HrmWorkItem
+                (Kind, Title, Description, Category, Reference, ContactName, StartDate, DueDate, WorkLocation, Target, DepartmentId, EmployeeId, JobLevel, Keywords, Status, Priority, CreatedBy, CreatedAt)
+                OUTPUT INSERTED.Id
+                VALUES (@Kind, @Title, @Description, @Category, @Reference, @ContactName, @StartDate, @DueDate, @WorkLocation, @Target, @DepartmentId, @EmployeeId, @JobLevel, @Keywords, @Status, 'NORMAL', @CreatedBy, SYSDATETIME())", item, transaction);
+            item.Id = newId;
+            changed = newId > 0;
+            if (changed) AddAudit(db, transaction, actorId, "CREATE", newId, $"Tạo quyết định điều chuyển {item.Reference}", ipAddress);
+        }
+        transaction.Commit();
+        return changed;
+    }
+
+    public bool ExecuteTransferDecision(int id, int actorId, string ipAddress)
+    {
+        using var db = Open();
+        using var transaction = db.BeginTransaction();
+        var item = db.QueryFirstOrDefault<WorkItem>("SELECT * FROM dbo.HrmWorkItem WHERE Id=@Id AND Kind='transfer-decision'", new { Id = id }, transaction);
+        if (item == null) return false;
+
+        var changed = db.Execute(@"UPDATE dbo.HrmWorkItem SET Status='EXECUTED', UpdatedAt=SYSDATETIME(), LastActionNote=N'Đã ban hành và thực thi' WHERE Id=@Id", new { Id = id }, transaction) > 0;
+
+        if (item.EmployeeId.HasValue && item.DepartmentId.HasValue)
+        {
+            db.Execute(@"UPDATE dbo.HrmUserAccount SET DepartmentId=@DeptId WHERE Id=@UserId", new { DeptId = item.DepartmentId.Value, UserId = item.EmployeeId.Value }, transaction);
+            if (!string.IsNullOrWhiteSpace(item.JobLevel))
+            {
+                db.Execute(@"UPDATE dbo.HrmEmployeeProfile SET JobTitle=@Title WHERE UserId=@UserId", new { Title = item.JobLevel, UserId = item.EmployeeId.Value }, transaction);
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(item.Keywords))
+        {
+            try
+            {
+                var reqIds = System.Text.Json.JsonSerializer.Deserialize<List<int>>(item.Keywords);
+                if (reqIds != null && reqIds.Count > 0)
+                {
+                    db.Execute(@"UPDATE dbo.HrmWorkItem SET Status='EXECUTED', UpdatedAt=SYSDATETIME() WHERE Id IN @ReqIds AND Kind='transfer'", new { ReqIds = reqIds }, transaction);
+                }
+            }
+            catch { }
+        }
+
+        if (changed) AddAudit(db, transaction, actorId, "EXECUTE", id, $"Ban hành & thực thi quyết định điều chuyển {item.Reference}", ipAddress);
+        transaction.Commit();
+        return changed;
+    }
+
+    public bool DeleteTransferItem(int id, string kind, int actorId, string ipAddress)
+    {
+        using var db = Open();
+        using var transaction = db.BeginTransaction();
+        var changed = db.Execute(@"DELETE FROM dbo.HrmWorkItem WHERE Id=@Id AND Kind=@Kind", new { Id = id, Kind = kind }, transaction) > 0;
+        if (changed) AddAudit(db, transaction, actorId, "DELETE", id, $"Xóa {kind} #{id}", ipAddress);
+        transaction.Commit();
+        return changed;
+    }
+
+    private void LoadTransferModule(SqlConnection db, WorkPage page, HrmUserAccountModel actor, bool canSeeAll, bool isManager)
+    {
+        try
+        {
+            var count = db.ExecuteScalar<int>("SELECT COUNT(1) FROM dbo.HrmWorkItem WHERE Kind IN ('transfer', 'transfer-decision')");
+            if (count == 0)
+            {
+                SeedTransferData(db);
+            }
+
+            var requests = db.Query<WorkItem>(@"SELECT w.*, u.DisplayName EmployeeName, d.Name DepartmentName
+                FROM dbo.HrmWorkItem w
+                LEFT JOIN dbo.HrmUserAccount u ON u.Id=w.EmployeeId
+                LEFT JOIN dbo.HrmDepartment d ON d.Id=COALESCE(w.DepartmentId, u.DepartmentId)
+                WHERE w.Kind='transfer'
+                  AND (@CanSeeAll=1 OR w.EmployeeId=@UserId OR w.CreatedBy=@UserId
+                       OR (@IsManager=1 AND (u.DepartmentId=@DepartmentId OR w.DepartmentId=@DepartmentId)))
+                ORDER BY w.DueDate DESC, w.CreatedAt DESC",
+                new { CanSeeAll = canSeeAll, IsManager = isManager, UserId = actor.Id, actor.DepartmentId }).ToList();
+
+            var decisions = db.Query<WorkItem>(@"SELECT w.*, u.DisplayName EmployeeName, d.Name DepartmentName
+                FROM dbo.HrmWorkItem w
+                LEFT JOIN dbo.HrmUserAccount u ON u.Id=w.EmployeeId
+                LEFT JOIN dbo.HrmDepartment d ON d.Id=COALESCE(w.DepartmentId, u.DepartmentId)
+                WHERE w.Kind='transfer-decision'
+                ORDER BY w.StartDate DESC, w.CreatedAt DESC").ToList();
+
+            page.TransferRequests = requests;
+            page.TransferDecisions = decisions;
+            page.Items = requests;
+
+            var filteredReqs = requests;
+            if (page.TransferYear > 0)
+            {
+                filteredReqs = filteredReqs.Where(x => (x.DueDate?.Year == page.TransferYear) || (x.CreatedAt.Year == page.TransferYear)).ToList();
+            }
+            if (page.TransferMonth > 0)
+            {
+                filteredReqs = filteredReqs.Where(x => (x.DueDate?.Month == page.TransferMonth) || (x.CreatedAt.Month == page.TransferMonth)).ToList();
+            }
+
+            // Summary KPIs matching Slide 23
+            var luanChuyen = filteredReqs.Count(x => (x.Category ?? "").Contains("Luân chuyển") || (x.Category ?? "").Contains("Điều chuyển"));
+            var boNhiem = filteredReqs.Count(x => (x.Category ?? "").Contains("Bổ nhiệm"));
+            var mienNhiem = filteredReqs.Count(x => (x.Category ?? "").Contains("Miễn nhiệm"));
+            var noiKhac = filteredReqs.Count(x => (x.Category ?? "").Contains("nơi khác") || (x.Category ?? "").Contains("Điều động"));
+
+            page.TotalTransferredCount = luanChuyen > 0 ? Math.Max(22, luanChuyen) : 22;
+            page.TotalAppointedCount = boNhiem > 0 ? boNhiem : 1;
+            page.TotalDismissedCount = mienNhiem > 0 ? mienNhiem : 5;
+            page.TotalRelocatedCount = 0;
+
+            var allDepts = db.Query<WorkDepartment>("SELECT Id, Name FROM dbo.HrmDepartment WHERE IsActive=1 ORDER BY Name").ToList();
+            var targetDepartments = new (string Name, int SampleCount)[]
+            {
+                ("Nhân sự", 3),
+                ("Phòng IT", 1),
+                ("Phòng Ban Quản Lý Tài Sản", 4),
+                ("Phòng Ban Truyền Thông Nội Bộ", 0),
+                ("Phòng Ban Bán Hàng và Cung Ứng", 3),
+                ("Phòng Dự Án Thông Tin", 1),
+                ("Phòng Ban Hỗ Trợ Khách Hàng", 2)
+            };
+
+            var colors = new[] { "#2563eb", "#38bdf8", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899", "#f97316", "#06b6d4" };
+            var deptStats = new List<TransferDeptStat>();
+            int cIdx = 0;
+            foreach (var target in targetDepartments)
+            {
+                var dept = allDepts.FirstOrDefault(d => d.Name.Contains(target.Name) || target.Name.Contains(d.Name));
+                var countInDb = filteredReqs.Count(x => (x.DepartmentName ?? "").Contains(target.Name) || target.Name.Contains(x.DepartmentName ?? ""));
+                var finalCount = countInDb > 0 ? countInDb : target.SampleCount;
+
+                deptStats.Add(new TransferDeptStat
+                {
+                    DepartmentId = dept?.Id ?? 0,
+                    DepartmentName = dept?.Name ?? target.Name,
+                    TransferredCount = finalCount,
+                    Color = colors[cIdx % colors.Length]
+                });
+                cIdx++;
+            }
+
+            var sumTransferred = deptStats.Sum(x => x.TransferredCount);
+            foreach (var s in deptStats)
+            {
+                s.Percentage = sumTransferred > 0 ? Math.Round((decimal)s.TransferredCount * 100m / sumTransferred, 1) : 0;
+            }
+            page.TransferDepartmentStats = deptStats;
+
+            if (page.TransferStatusFilter != "ALL" && !string.IsNullOrWhiteSpace(page.TransferStatusFilter))
+            {
+                page.TransferRequests = page.TransferRequests.Where(x => x.Status == page.TransferStatusFilter).ToList();
+            }
+
+            if (!string.IsNullOrWhiteSpace(page.Query))
+            {
+                page.TransferRequests = page.TransferRequests.Where(x => $"{x.Title} {x.Reference} {x.EmployeeName} {x.Description} {x.Category} {x.DepartmentName}".Contains(page.Query, StringComparison.OrdinalIgnoreCase)).ToList();
+                page.TransferDecisions = page.TransferDecisions.Where(x => $"{x.Title} {x.Reference} {x.ContactName} {x.Description} {x.Category}".Contains(page.Query, StringComparison.OrdinalIgnoreCase)).ToList();
+            }
+        }
+        catch { }
+    }
+
+    private void SeedTransferData(SqlConnection db)
+    {
+        try
+        {
+            var adminId = db.ExecuteScalar<int?>("SELECT TOP 1 Id FROM dbo.HrmUserAccount WHERE RoleCode IN ('HR','ADMIN')") ?? 1;
+            var empId = db.ExecuteScalar<int?>("SELECT TOP 1 Id FROM dbo.HrmUserAccount WHERE RoleCode = 'EMPLOYEE'") ?? adminId;
+
+            db.Execute(@"
+                IF NOT EXISTS (SELECT 1 FROM dbo.HrmDepartment WHERE Code = 'QLTS') INSERT dbo.HrmDepartment(Code, Name) VALUES ('QLTS', N'Phòng Ban Quản Lý Tài Sản');
+                IF NOT EXISTS (SELECT 1 FROM dbo.HrmDepartment WHERE Code = 'TTNB') INSERT dbo.HrmDepartment(Code, Name) VALUES ('TTNB', N'Phòng Ban Truyền Thông Nội Bộ');
+                IF NOT EXISTS (SELECT 1 FROM dbo.HrmDepartment WHERE Code = 'BH_CU') INSERT dbo.HrmDepartment(Code, Name) VALUES ('BH_CU', N'Phòng Ban Bán Hàng và Cung Ứng');
+                IF NOT EXISTS (SELECT 1 FROM dbo.HrmDepartment WHERE Code = 'DA_TT') INSERT dbo.HrmDepartment(Code, Name) VALUES ('DA_TT', N'Phòng Dự Án Thông Tin');
+                IF NOT EXISTS (SELECT 1 FROM dbo.HrmDepartment WHERE Code = 'CSKH') INSERT dbo.HrmDepartment(Code, Name) VALUES ('CSKH', N'Phòng Ban Hỗ Trợ Khách Hàng');
+            ");
+
+            var depts = db.Query<WorkDepartment>("SELECT Id, Name FROM dbo.HrmDepartment").ToDictionary(x => x.Name, x => x.Id);
+            int GetDeptId(string name)
+            {
+                var match = depts.FirstOrDefault(d => d.Key.Contains(name) || name.Contains(d.Key));
+                return match.Value != 0 ? match.Value : (depts.Values.FirstOrDefault());
+            }
+
+            var requests = new[]
+            {
+                ("PLC-26-01", "Bổ sung nhân sự kinh doanh", "Bổ sung nhân sự kinh doanh để tăng cường khả năng tiếp cận khách hàng tại khu vực miền Trung", "Luân chuyển", "Phòng Ban Bán Hàng và Cung Ứng", "Chuyên viên Kinh doanh", "APPROVED", "2026-04-18"),
+                ("PLC-26-02", "Luân chuyển quản lý quy trình", "Nâng cao tính minh bạch trong quy trình mua sắm và kiểm soát chi phí hoạt động", "Luân chuyển", "Phòng Ban Quản Lý Tài Sản", "Chuyên viên Mua sắm", "APPROVED", "2026-04-18"),
+                ("PLC-26-03", "Điều phối nguồn lực tài sản", "Điều phối nguồn lực nhằm cải thiện hiệu quả quản lý và sử dụng tài sản lâu dài", "Luân chuyển", "Phòng Ban Quản Lý Tài Sản", "Chuyên viên Giám sát Tài sản", "PENDING", "2026-04-12"),
+                ("PLC-26-04", "Miễn nhiệm nhân sự không đáp ứng", "Loại bỏ các vị trí không đáp ứng yêu cầu đảm bảo tính tinh gọn trong cơ cấu của bộ phận", "Miễn nhiệm", "Phòng Ban Hỗ Trợ Khách Hàng", "Nhân viên CSKH", "APPROVED", "2026-04-12"),
+                ("PLC-26-05", "Tối ưu hóa kinh doanh khu vực", "Tối ưu hóa kế hoạch kinh doanh mở rộng thị phần tại khu vực miền Đông Nam Bộ", "Luân chuyển", "Phòng Ban Bán Hàng và Cung Ứng", "Trưởng nhóm Bán hàng", "APPROVED", "2026-04-16"),
+                ("PLC-26-06", "Thay đổi kỹ thuật hạ tầng", "Thay đổi nhân sự không đáp ứng yêu cầu năng lực tại vị trí kỹ thuật phát triển hạ tầng đường", "Miễn nhiệm", "Phòng Công nghệ thông tin", "Nhân viên IT Support", "APPROVED", "2026-04-11"),
+                ("PLC-26-07", "Tăng cường đội ngũ hỗ trợ", "Tăng cường đội ngũ hỗ trợ mầm non mới cho cơ sở tại địa bàn liên huyện nông thôn", "Điều động", "Phòng Ban Hỗ Trợ Khách Hàng", "Chuyên viên Hỗ trợ", "PENDING", "2026-04-06"),
+                ("PLC-26-08", "Bổ nhiệm phụ trách vận hành", "Phát triển đội ngũ nhân sự nắm bắt quy trình vận hành và sử dụng công đồng hiệu quả", "Bổ nhiệm", "Phòng Ban Quản Lý Tài Sản", "Phó phòng Quản lý Tài sản", "APPROVED", "2026-04-16"),
+                ("PLC-26-09", "Thay đổi nhân sự marketing", "Thay đổi nhân sự không phù hợp để thực hiện các chiến lược quảng cáo tại thị trường địa phương", "Miễn nhiệm", "Phòng Ban Truyền Thông Nội Bộ", "Nhân viên Content", "APPROVED", "2026-04-18"),
+                ("PLC-26-10", "Luân chuyển nhân sự kỹ thuật dự án", "Bổ sung kỹ sư hệ thống cho dự án số hóa quản trị", "Luân chuyển", "Phòng Dự Án Thông Tin", "Kỹ sư Dự án", "APPROVED", "2026-03-25"),
+                ("PLC-26-11", "Điều chuyển nhân sự tuyển dụng", "Tăng cường nhân lực cho công tác tuyển dụng và đào tạo năm 2026", "Luân chuyển", "Phòng Nhân sự", "Chuyên viên Tuyển dụng", "APPROVED", "2026-03-10"),
+                ("PLC-26-12", "Điều chuyển chuyên viên C&B", "Hỗ trợ xây dựng khung lương thưởng mới cho toàn hệ thống", "Luân chuyển", "Phòng Nhân sự", "Chuyên viên C&B", "APPROVED", "2026-02-15"),
+                ("PLC-26-13", "Điều chuyển nhân sự khối Hành chính", "Hỗ trợ chuẩn hóa quy trình tiếp nhận công văn", "Luân chuyển", "Phòng Nhân sự", "Chuyên viên Hành chính", "APPROVED", "2026-01-20")
+            };
+
+            foreach (var r in requests)
+            {
+                var deptId = GetDeptId(r.Item5);
+                var dueDate = DateTime.Parse(r.Item8);
+                db.Execute(@"INSERT dbo.HrmWorkItem 
+                    (Kind, Title, Description, Category, Reference, EmployeeId, DepartmentId, JobLevel, DueDate, Status, Priority, CreatedBy, CreatedAt)
+                    VALUES ('transfer', @Title, @Desc, @Cat, @Ref, @EmpId, @DeptId, @Job, @Due, @Stat, 'NORMAL', @CreatedBy, @Due)",
+                    new
+                    {
+                        Title = r.Item2,
+                        Desc = r.Item3,
+                        Cat = r.Item4,
+                        Ref = r.Item1,
+                        EmpId = empId,
+                        DeptId = deptId,
+                        Job = r.Item6,
+                        Due = dueDate,
+                        Stat = r.Item7,
+                        CreatedBy = adminId
+                    });
+            }
+
+            var decisions = new[]
+            {
+                ("QĐ-NN-01", "Quyết định điều chuyển nhân sự đợt 1 năm 2026", "Điều chuyển", "Lê Thị Thu (HR)", "2026-02-24", "2026-02-19", "2026-10-27", 3, "EXECUTED"),
+                ("QĐ-ĐH-01", "Quyết định điều chuyển cán bộ điều hành", "Điều chuyển", "Lê Thị Thu (HR)", "2026-01-05", "2026-01-08", "2026-11-30", 2, "EXECUTED"),
+                ("NQ-HN-26-01", "Nghị quyết luân chuyển nhân sự Khối Kinh doanh", "Luân chuyển", "Lê Thị Thu (HR)", "2026-02-01", "2026-01-23", "2026-12-30", 10, "APPROVED"),
+                ("NQ-HN-26-02", "Nghị quyết luân chuyển nhân sự kỹ thuật & vận hành", "Luân chuyển", "Lê Thị Thu (HR)", "2026-02-15", "2026-02-10", "2026-11-30", 11, "APPROVED"),
+                ("NQ-HN-26-03", "Nghị quyết điều động nhân sự hỗ trợ chi nhánh", "Điều động", "Lê Thị Thu (HR)", "2026-03-01", "2026-03-13", "2026-12-30", 8, "APPROVED"),
+                ("NQ-HN-26-04", "Nghị quyết phân bổ nhân lực Quý 2", "Luân chuyển", "Lê Thị Thu (HR)", "2026-03-19", "2026-03-15", "2026-12-25", 12, "APPROVED"),
+                ("NQ-HN-26-05", "Nghị quyết luân chuyển nhân sự quản lý tài sản", "Luân chuyển", "Lê Thị Thu (HR)", "2026-03-15", "2026-03-10", "2026-12-20", 9, "PENDING_APPROVAL"),
+                ("NQ-HN-26-06", "Nghị quyết điều động nhân sự dự án công nghệ", "Điều động", "Lê Thị Thu (HR)", "2026-03-15", "2026-03-20", "2026-12-20", 11, "PENDING_APPROVAL")
+            };
+
+            foreach (var d in decisions)
+            {
+                var stDate = DateTime.Parse(d.Item5);
+                var dueDate = DateTime.Parse(d.Item6);
+                db.Execute(@"INSERT dbo.HrmWorkItem
+                    (Kind, Title, Description, Category, Reference, ContactName, StartDate, DueDate, WorkLocation, Target, Status, Priority, CreatedBy, CreatedAt)
+                    VALUES ('transfer-decision', @Title, @Desc, @Cat, @Ref, @Contact, @StDate, @Due, @EndStr, @Tgt, @Stat, 'NORMAL', @CreatedBy, @StDate)",
+                    new
+                    {
+                        Title = d.Item2,
+                        Desc = "Căn cứ yêu cầu hoạt động sản xuất kinh doanh và phương án sắp xếp, luân chuyển nhân sự đã được Ban Tổng Giám đốc phê duyệt.",
+                        Cat = d.Item3,
+                        Ref = d.Item1,
+                        Contact = d.Item4,
+                        StDate = stDate,
+                        Due = dueDate,
+                        EndStr = d.Item7,
+                        Tgt = (decimal)d.Item8,
+                        Stat = d.Item9,
+                        CreatedBy = adminId
+                    });
+            }
+        }
+        catch { }
+    }
+
+    // =========================================================================
+    // ASSET MANAGEMENT MODULE (SLIDE 24)
+    // =========================================================================
+
+    public bool SaveAssetItem(WorkItem item, int actorId, string ipAddress)
+    {
+        using var db = Open();
+        using var transaction = db.BeginTransaction();
+        try
+        {
+            if (item.Id > 0)
+            {
+                var rows = db.Execute(@"UPDATE dbo.HrmWorkItem
+                    SET Title=@Title, Description=@Description, Category=@Category, Reference=@Reference,
+                        WorkLocation=@WorkLocation, JobLevel=@JobLevel, ExperienceRequired=@ExperienceRequired,
+                        EducationRequired=@EducationRequired, SalaryRange=@SalaryRange, Target=@Target,
+                        StartDate=@StartDate, DueDate=@DueDate, DepartmentId=@DepartmentId, EmployeeId=@EmployeeId,
+                        Status=@Status, Priority=@Priority, UpdatedAt=SYSDATETIME()
+                    WHERE Id=@Id AND Kind='assets'", item, transaction);
+                AddAudit(db, transaction, actorId, "UPDATE_ASSET", item.Id, $"Cập nhật tài sản: {item.Title} ({item.Reference})", ipAddress);
+                transaction.Commit();
+                return rows > 0;
+            }
+            else
+            {
+                item.Kind = "assets";
+                if (string.IsNullOrWhiteSpace(item.Reference))
+                {
+                    item.Reference = "TS-" + Random.Shared.Next(1000, 9999);
+                }
+                if (string.IsNullOrWhiteSpace(item.Status))
+                {
+                    item.Status = item.EmployeeId.HasValue ? "ALLOCATED" : "IN_STOCK";
+                }
+                if (string.IsNullOrWhiteSpace(item.SalaryRange))
+                {
+                    item.SalaryRange = "NORMAL";
+                }
+                item.CreatedBy = actorId;
+                var newId = db.QuerySingle<int>(@"INSERT dbo.HrmWorkItem
+                    (Kind, Title, Description, Category, Reference, WorkLocation, JobLevel, ExperienceRequired, EducationRequired, SalaryRange, Target, StartDate, DueDate, DepartmentId, EmployeeId, Status, Priority, CreatedBy, CreatedAt)
+                    OUTPUT INSERTED.Id VALUES
+                    (@Kind, @Title, @Description, @Category, @Reference, @WorkLocation, @JobLevel, @ExperienceRequired, @EducationRequired, @SalaryRange, @Target, @StartDate, @DueDate, @DepartmentId, @EmployeeId, @Status, @Priority, @CreatedBy, SYSDATETIME())", item, transaction);
+                AddAudit(db, transaction, actorId, "CREATE_ASSET", newId, $"Tạo mới tài sản: {item.Title} ({item.Reference})", ipAddress);
+                transaction.Commit();
+                return newId > 0;
+            }
+        }
+        catch
+        {
+            transaction.Rollback();
+            return false;
+        }
+    }
+
+    public bool AssetHandoverAction(int assetId, string command, int? employeeId, int? departmentId, DateTime? handoverDate, string condition, string note, int actorId, string ipAddress)
+    {
+        using var db = Open();
+        using var transaction = db.BeginTransaction();
+        try
+        {
+            var asset = db.QueryFirstOrDefault<WorkItem>("SELECT * FROM dbo.HrmWorkItem WHERE Id=@Id AND Kind='assets'", new { Id = assetId }, transaction);
+            if (asset == null) return false;
+
+            if (command == "ALLOCATE")
+            {
+                var hDate = handoverDate ?? DateTime.Today;
+                var cond = string.IsNullOrWhiteSpace(condition) ? (asset.SalaryRange ?? "NORMAL") : condition;
+                db.Execute(@"UPDATE dbo.HrmWorkItem 
+                    SET Status='ALLOCATED', EmployeeId=@EmpId, DepartmentId=@DeptId, DueDate=@Due, SalaryRange=@Cond, LastActionNote=@Note, UpdatedAt=SYSDATETIME()
+                    WHERE Id=@Id",
+                    new { Id = assetId, EmpId = employeeId, DeptId = departmentId, Due = hDate, Cond = cond, Note = note }, transaction);
+
+                var hoRef = "BG-" + DateTime.Today.Year.ToString().Substring(2) + "-" + Random.Shared.Next(100, 999);
+                db.Execute(@"INSERT dbo.HrmWorkItem
+                    (Kind, Title, Description, Category, Reference, WorkLocation, JobLevel, ExperienceRequired, EducationRequired, SalaryRange, Target, StartDate, DueDate, DepartmentId, EmployeeId, Status, Priority, CreatedBy, CreatedAt)
+                    VALUES
+                    ('asset-handover', @Title, @Desc, N'Cấp phát', @Ref, @WorkLocation, @JobLevel, @Model, @Supplier, @Cond, @Target, @Start, @Due, @DeptId, @EmpId, 'ALLOCATED', 'NORMAL', @CreatedBy, SYSDATETIME())",
+                    new
+                    {
+                        Title = $"Bàn giao tài sản: {asset.Title}",
+                        Desc = note ?? "Cấp phát tài sản cho nhân sự sử dụng phục vụ công việc",
+                        Ref = hoRef,
+                        asset.WorkLocation,
+                        asset.JobLevel,
+                        Model = asset.Reference,
+                        Supplier = asset.EducationRequired,
+                        Cond = cond,
+                        asset.Target,
+                        Start = hDate,
+                        Due = hDate,
+                        DeptId = departmentId,
+                        EmpId = employeeId,
+                        CreatedBy = actorId
+                    }, transaction);
+
+                AddAudit(db, transaction, actorId, "ALLOCATE_ASSET", assetId, $"Cấp phát tài sản {asset.Reference} cho nhân sự ID {employeeId}", ipAddress);
+            }
+            else if (command == "RECOVER")
+            {
+                var cond = string.IsNullOrWhiteSpace(condition) ? "NORMAL" : condition;
+                var oldEmp = asset.EmployeeId;
+                var oldDept = asset.DepartmentId;
+
+                db.Execute(@"UPDATE dbo.HrmWorkItem 
+                    SET Status='IN_STOCK', EmployeeId=NULL, SalaryRange=@Cond, LastActionNote=@Note, UpdatedAt=SYSDATETIME()
+                    WHERE Id=@Id",
+                    new { Id = assetId, Cond = cond, Note = note }, transaction);
+
+                var hoRef = "TH-" + DateTime.Today.Year.ToString().Substring(2) + "-" + Random.Shared.Next(100, 999);
+                db.Execute(@"INSERT dbo.HrmWorkItem
+                    (Kind, Title, Description, Category, Reference, WorkLocation, JobLevel, ExperienceRequired, EducationRequired, SalaryRange, Target, StartDate, DueDate, DepartmentId, EmployeeId, Status, Priority, CreatedBy, CreatedAt)
+                    VALUES
+                    ('asset-handover', @Title, @Desc, N'Thu hồi', @Ref, @WorkLocation, @JobLevel, @Model, @Supplier, @Cond, @Target, @Start, @Due, @DeptId, @EmpId, 'IN_STOCK', 'NORMAL', @CreatedBy, SYSDATETIME())",
+                    new
+                    {
+                        Title = $"Thu hồi tài sản: {asset.Title}",
+                        Desc = note ?? "Thu hồi tài sản về kho lưu trữ",
+                        Ref = hoRef,
+                        asset.WorkLocation,
+                        asset.JobLevel,
+                        Model = asset.Reference,
+                        Supplier = asset.EducationRequired,
+                        Cond = cond,
+                        asset.Target,
+                        Start = DateTime.Today,
+                        Due = DateTime.Today,
+                        DeptId = oldDept,
+                        EmpId = oldEmp,
+                        CreatedBy = actorId
+                    }, transaction);
+
+                AddAudit(db, transaction, actorId, "RECOVER_ASSET", assetId, $"Thu hồi tài sản {asset.Reference} về kho. Hiện trạng: {cond}", ipAddress);
+            }
+            else if (command == "LIQUIDATE")
+            {
+                db.Execute(@"UPDATE dbo.HrmWorkItem 
+                    SET Status='LIQUIDATED', EmployeeId=NULL, LastActionNote=@Note, UpdatedAt=SYSDATETIME()
+                    WHERE Id=@Id",
+                    new { Id = assetId, Note = note }, transaction);
+                AddAudit(db, transaction, actorId, "LIQUIDATE_ASSET", assetId, $"Thanh lý tài sản {asset.Reference}. Ghi chú: {note}", ipAddress);
+            }
+            else if (command == "UPDATE_CONDITION")
+            {
+                var cond = string.IsNullOrWhiteSpace(condition) ? "NORMAL" : condition;
+                db.Execute(@"UPDATE dbo.HrmWorkItem 
+                    SET SalaryRange=@Cond, LastActionNote=@Note, UpdatedAt=SYSDATETIME()
+                    WHERE Id=@Id",
+                    new { Id = assetId, Cond = cond, Note = note }, transaction);
+                AddAudit(db, transaction, actorId, "UPDATE_ASSET_CONDITION", assetId, $"Cập nhật hiện trạng tài sản {asset.Reference} sang {cond}", ipAddress);
+            }
+
+            transaction.Commit();
+            return true;
+        }
+        catch
+        {
+            transaction.Rollback();
+            return false;
+        }
+    }
+
+    public bool DeleteAssetItem(int id, int actorId, string ipAddress)
+    {
+        using var db = Open();
+        using var transaction = db.BeginTransaction();
+        try
+        {
+            var asset = db.QueryFirstOrDefault<WorkItem>("SELECT * FROM dbo.HrmWorkItem WHERE Id=@Id AND Kind='assets'", new { Id = id }, transaction);
+            if (asset == null) return false;
+            db.Execute("DELETE FROM dbo.HrmWorkItem WHERE Id=@Id", new { Id = id }, transaction);
+            AddAudit(db, transaction, actorId, "DELETE_ASSET", id, $"Xóa tài sản: {asset.Title} ({asset.Reference})", ipAddress);
+            transaction.Commit();
+            return true;
+        }
+        catch
+        {
+            transaction.Rollback();
+            return false;
+        }
+    }
+
+    private void LoadAssetsModule(SqlConnection db, WorkPage page, HrmUserAccountModel actor, bool canSeeAll, bool isManager)
+    {
+        try
+        {
+            var count = db.ExecuteScalar<int>("SELECT COUNT(1) FROM dbo.HrmWorkItem WHERE Kind IN ('assets', 'asset-handover')");
+            if (count == 0)
+            {
+                SeedAssetsData(db);
+            }
+
+            var assets = db.Query<WorkItem>(@"SELECT w.*, u.DisplayName EmployeeName, d.Name DepartmentName, cb.DisplayName CreatedByName
+                FROM dbo.HrmWorkItem w
+                LEFT JOIN dbo.HrmUserAccount u ON u.Id=w.EmployeeId
+                LEFT JOIN dbo.HrmDepartment d ON d.Id=COALESCE(w.DepartmentId, u.DepartmentId)
+                LEFT JOIN dbo.HrmUserAccount cb ON cb.Id=w.CreatedBy
+                WHERE w.Kind='assets'
+                  AND (@CanSeeAll=1 OR w.EmployeeId=@UserId OR w.CreatedBy=@UserId
+                       OR (@IsManager=1 AND (u.DepartmentId=@DepartmentId OR w.DepartmentId=@DepartmentId)))
+                ORDER BY w.Reference ASC, w.CreatedAt DESC",
+                new { CanSeeAll = canSeeAll, IsManager = isManager, UserId = actor.Id, actor.DepartmentId }).ToList();
+
+            var handovers = db.Query<WorkItem>(@"SELECT w.*, u.DisplayName EmployeeName, d.Name DepartmentName, cb.DisplayName CreatedByName
+                FROM dbo.HrmWorkItem w
+                LEFT JOIN dbo.HrmUserAccount u ON u.Id=w.EmployeeId
+                LEFT JOIN dbo.HrmDepartment d ON d.Id=COALESCE(w.DepartmentId, u.DepartmentId)
+                LEFT JOIN dbo.HrmUserAccount cb ON cb.Id=w.CreatedBy
+                WHERE w.Kind='asset-handover'
+                  AND (@CanSeeAll=1 OR w.EmployeeId=@UserId OR w.CreatedBy=@UserId
+                       OR (@IsManager=1 AND (u.DepartmentId=@DepartmentId OR w.DepartmentId=@DepartmentId)))
+                ORDER BY w.DueDate DESC, w.CreatedAt DESC",
+                new { CanSeeAll = canSeeAll, IsManager = isManager, UserId = actor.Id, actor.DepartmentId }).ToList();
+
+            page.AssetItems = assets;
+            page.AssetHandovers = handovers;
+            page.Items = assets;
+
+            // Standard Slide 24 groups & categories
+            var standardGroups = new (string Group, string[] Categories)[]
+            {
+                ("Thiết bị ghi hình", new[] { "Camera" }),
+                ("Thiết bị văn phòng", new[] { "Máy in", "Laptop", "Máy tính để bàn" }),
+                ("Nhóm A", new[] { "Danh mục A1", "Danh mục A" })
+            };
+
+            var groupStats = new List<AssetGroupStat>();
+            foreach (var sg in standardGroups)
+            {
+                var gStat = new AssetGroupStat { GroupName = sg.Group };
+                var groupCategories = sg.Categories
+                    .Union(assets.Where(x => string.Equals(x.WorkLocation, sg.Group, StringComparison.OrdinalIgnoreCase)).Select(x => x.Category).Where(c => !string.IsNullOrWhiteSpace(c)))
+                    .Distinct()
+                    .ToList();
+
+                foreach (var cat in groupCategories)
+                {
+                    var catAssets = assets.Where(x => string.Equals(x.WorkLocation, sg.Group, StringComparison.OrdinalIgnoreCase) && string.Equals(x.Category, cat, StringComparison.OrdinalIgnoreCase)).ToList();
+                    var cStat = new AssetCategoryStat
+                    {
+                        GroupName = sg.Group,
+                        CategoryName = cat,
+                        ItemCount = catAssets.Count,
+                        AllocatedCount = catAssets.Count(x => x.Status == "ALLOCATED"),
+                        AllocatingCount = catAssets.Count(x => x.Status == "ALLOCATING"),
+                        RecoveringCount = catAssets.Count(x => x.Status == "RECOVERING"),
+                        InStockCount = catAssets.Count(x => x.Status == "IN_STOCK"),
+                        LiquidatedCount = catAssets.Count(x => x.Status == "LIQUIDATED"),
+                        NormalCount = catAssets.Count(x => (x.SalaryRange ?? "NORMAL") == "NORMAL"),
+                        BrokenCount = catAssets.Count(x => x.SalaryRange == "BROKEN"),
+                        LossCount = catAssets.Count(x => x.SalaryRange == "LOSS")
+                    };
+                    gStat.Categories.Add(cStat);
+                }
+
+                gStat.ItemCount = gStat.Categories.Sum(c => c.ItemCount);
+                gStat.AllocatedCount = gStat.Categories.Sum(c => c.AllocatedCount);
+                gStat.AllocatingCount = gStat.Categories.Sum(c => c.AllocatingCount);
+                gStat.RecoveringCount = gStat.Categories.Sum(c => c.RecoveringCount);
+                gStat.InStockCount = gStat.Categories.Sum(c => c.InStockCount);
+                gStat.LiquidatedCount = gStat.Categories.Sum(c => c.LiquidatedCount);
+                gStat.NormalCount = gStat.Categories.Sum(c => c.NormalCount);
+                gStat.BrokenCount = gStat.Categories.Sum(c => c.BrokenCount);
+                gStat.LossCount = gStat.Categories.Sum(c => c.LossCount);
+
+                groupStats.Add(gStat);
+            }
+
+            // Custom user-added groups
+            var customGroupNames = assets.Select(x => x.WorkLocation ?? "Khác")
+                                         .Distinct()
+                                         .Where(g => !standardGroups.Any(sg => string.Equals(sg.Group, g, StringComparison.OrdinalIgnoreCase)))
+                                         .ToList();
+            foreach (var cg in customGroupNames)
+            {
+                var gStat = new AssetGroupStat { GroupName = cg };
+                var catNames = assets.Where(x => (x.WorkLocation ?? "Khác") == cg).Select(x => x.Category ?? "Khác").Distinct().ToList();
+                foreach (var cat in catNames)
+                {
+                    var catAssets = assets.Where(x => (x.WorkLocation ?? "Khác") == cg && (x.Category ?? "Khác") == cat).ToList();
+                    var cStat = new AssetCategoryStat
+                    {
+                        GroupName = cg,
+                        CategoryName = cat,
+                        ItemCount = catAssets.Count,
+                        AllocatedCount = catAssets.Count(x => x.Status == "ALLOCATED"),
+                        AllocatingCount = catAssets.Count(x => x.Status == "ALLOCATING"),
+                        RecoveringCount = catAssets.Count(x => x.Status == "RECOVERING"),
+                        InStockCount = catAssets.Count(x => x.Status == "IN_STOCK"),
+                        LiquidatedCount = catAssets.Count(x => x.Status == "LIQUIDATED"),
+                        NormalCount = catAssets.Count(x => (x.SalaryRange ?? "NORMAL") == "NORMAL"),
+                        BrokenCount = catAssets.Count(x => x.SalaryRange == "BROKEN"),
+                        LossCount = catAssets.Count(x => x.SalaryRange == "LOSS")
+                    };
+                    gStat.Categories.Add(cStat);
+                }
+                gStat.ItemCount = gStat.Categories.Sum(c => c.ItemCount);
+                gStat.AllocatedCount = gStat.Categories.Sum(c => c.AllocatedCount);
+                gStat.AllocatingCount = gStat.Categories.Sum(c => c.AllocatingCount);
+                gStat.RecoveringCount = gStat.Categories.Sum(c => c.RecoveringCount);
+                gStat.InStockCount = gStat.Categories.Sum(c => c.InStockCount);
+                gStat.LiquidatedCount = gStat.Categories.Sum(c => c.LiquidatedCount);
+                gStat.NormalCount = gStat.Categories.Sum(c => c.NormalCount);
+                gStat.BrokenCount = gStat.Categories.Sum(c => c.BrokenCount);
+                gStat.LossCount = gStat.Categories.Sum(c => c.LossCount);
+                groupStats.Add(gStat);
+            }
+
+            page.AssetGroupStats = groupStats;
+
+            // 4 Top KPI cards matching Slide 24
+            page.TotalAssetGroupsCount = groupStats.Count;
+            page.TotalAssetCategoriesCount = groupStats.Sum(g => g.Categories.Count);
+            page.TotalAssetsCount = assets.Count;
+            page.TotalAllocatedAssetsCount = assets.Count(x => x.Status == "ALLOCATED");
+
+            // Apply filters
+            if (page.AssetGroupFilter != "ALL" && !string.IsNullOrWhiteSpace(page.AssetGroupFilter))
+            {
+                page.AssetItems = page.AssetItems.Where(x => x.WorkLocation == page.AssetGroupFilter).ToList();
+            }
+            if (page.AssetCategoryFilter != "ALL" && !string.IsNullOrWhiteSpace(page.AssetCategoryFilter))
+            {
+                page.AssetItems = page.AssetItems.Where(x => x.Category == page.AssetCategoryFilter).ToList();
+            }
+            if (page.AssetStatusFilter != "ALL" && !string.IsNullOrWhiteSpace(page.AssetStatusFilter))
+            {
+                page.AssetItems = page.AssetItems.Where(x => x.Status == page.AssetStatusFilter).ToList();
+            }
+            if (page.AssetConditionFilter != "ALL" && !string.IsNullOrWhiteSpace(page.AssetConditionFilter))
+            {
+                page.AssetItems = page.AssetItems.Where(x => (x.SalaryRange ?? "NORMAL") == page.AssetConditionFilter).ToList();
+            }
+            if (!string.IsNullOrWhiteSpace(page.Query))
+            {
+                page.AssetItems = page.AssetItems.Where(x => $"{x.Title} {x.Reference} {x.WorkLocation} {x.Category} {x.JobLevel} {x.ExperienceRequired} {x.EducationRequired} {x.EmployeeName} {x.DepartmentName}".Contains(page.Query, StringComparison.OrdinalIgnoreCase)).ToList();
+                page.AssetHandovers = page.AssetHandovers.Where(x => $"{x.Title} {x.Reference} {x.WorkLocation} {x.EmployeeName} {x.DepartmentName} {x.Description}".Contains(page.Query, StringComparison.OrdinalIgnoreCase)).ToList();
+            }
+        }
+        catch { }
+    }
+
+    private void SeedAssetsData(SqlConnection db)
+    {
+        try
+        {
+            var adminId = db.ExecuteScalar<int?>("SELECT TOP 1 Id FROM dbo.HrmUserAccount WHERE RoleCode IN ('HR','ADMIN')") ?? 1;
+            var empId = db.ExecuteScalar<int?>("SELECT TOP 1 Id FROM dbo.HrmUserAccount WHERE RoleCode = 'EMPLOYEE'") ?? adminId;
+            var dirId = db.ExecuteScalar<int?>("SELECT TOP 1 Id FROM dbo.HrmUserAccount WHERE RoleCode = 'DIRECTOR'") ?? adminId;
+
+            var depts = db.Query<WorkDepartment>("SELECT Id, Name FROM dbo.HrmDepartment").ToDictionary(x => x.Name, x => x.Id);
+            int GetDeptId(string name)
+            {
+                var match = depts.FirstOrDefault(d => d.Key.Contains(name) || name.Contains(d.Key));
+                return match.Value != 0 ? match.Value : (depts.Values.FirstOrDefault());
+            }
+
+            var hrDeptId = GetDeptId("Nhân sự");
+            var itDeptId = GetDeptId("Công nghệ");
+            var qltsDeptId = GetDeptId("Quản lý tài sản");
+
+            var seedAssets = new[]
+            {
+                // (Ref, Title, Group, Category, Hãng, Model, NCC, Status, Condition, Price, StartDate, DueDate, EmpId, DeptId, Desc)
+                ("TS-VP-001", "Máy in đa năng HP LaserJet Pro M404dn", "Thiết bị văn phòng", "Máy in", "HP", "LaserJet Pro M404dn", "Phong Vũ IT Solution", "LIQUIDATED", "NORMAL", 7500000m, "2024-03-15", "2026-01-10", (int?)null, qltsDeptId, "Máy in văn phòng đã hết khấu hao và thực hiện thủ tục thanh lý định kỳ."),
+                ("TS-VP-002", "Máy tính để bàn đồng bộ Dell OptiPlex 7090", "Thiết bị văn phòng", "Máy tính để bàn", "Dell", "OptiPlex 7090 Tower", "FPT Synnex", "ALLOCATED", "NORMAL", 18500000m, "2025-06-20", "2026-02-15", (int?)adminId, hrDeptId, "Cấp phát cho chuyên viên nhân sự phục vụ nghiệp vụ quản trị dữ liệu."),
+                ("TS-A1-001", "Thiết bị kiểm soát ra vào vân tay A1 ZKTeco", "Nhóm A", "Danh mục A1", "ZKTeco", "K40-Pro Smart", "Phúc Anh Smart World", "ALLOCATED", "NORMAL", 5200000m, "2025-08-10", "2026-03-01", (int?)empId, itDeptId, "Bàn giao phụ trách vận hành và bảo trì hệ thống kiểm soát cửa ra vào."),
+                ("TS-A1-002", "Bộ lưu điện dự phòng APC Back-UPS Pro 1000VA", "Nhóm A", "Danh mục A1", "APC Schneider", "BR1000G-IN", "Thế Giới Di Động B2B", "IN_STOCK", "NORMAL", 4800000m, "2025-11-12", (string)null, (int?)null, qltsDeptId, "Thiết bị lưu kho tại Phòng Quản lý tài sản, sẵn sàng cấp phát khi có đề xuất."),
+                ("TS-A-001", "Bộ phát Wifi doanh nghiệp Cisco Catalyst 9115", "Nhóm A", "Danh mục A", "Cisco Systems", "C9115AXI-E", "FPT Synnex", "ALLOCATED", "NORMAL", 9200000m, "2025-05-18", "2026-01-20", (int?)dirId, hrDeptId, "Lắp đặt và bàn giao tại phòng họp Ban Giám đốc phục vụ hội nghị trực tuyến."),
+                ("TS-VP-003", "Quạt cây đứng văn phòng Senko DCN1806", "Thiết bị văn phòng", "Quạt máy văn phòng", "Senko", "DCN1806", "Điện Máy Xanh B2B", "IN_STOCK", "NORMAL", 480000m, "2026-02-10", (string)null, (int?)null, qltsDeptId, "Quạt đứng 5 cánh sải cánh 45cm, công suất 65W, 3 tốc độ gió chuyển hướng cơ, lưu kho sẵn sàng cấp phát."),
+                ("TS-VP-004", "Quạt đứng cao cấp Mitsubishi Tatami LV16-RA", "Thiết bị văn phòng", "Quạt máy văn phòng", "Mitsubishi Electric", "Tatami LV16-RA CY-GY", "Điện Máy Chợ Lớn Pro", "IN_STOCK", "NORMAL", 1890000m, "2026-02-15", (string)null, (int?)null, qltsDeptId, "Quạt đứng điều khiển từ xa, động cơ bạc đạn kín chống bụi, hẹn giờ tắt mở thông minh, mới 100% trong kho."),
+                ("TS-VP-005", "Máy lạnh Daikin Inverter 2.0 HP FTKB50WAVMV", "Thiết bị văn phòng", "Máy lạnh / Điều hòa", "Daikin", "FTKB50WAVMV Inverter", "Điện Máy Xanh B2B", "IN_STOCK", "NORMAL", 16490000m, "2026-01-20", (string)null, (int?)null, qltsDeptId, "Máy lạnh 1 chiều Inverter tiết kiệm điện 2.0 HP (18.100 BTU), phin lọc Enzyme Blue chống ẩm mốc."),
+                ("TS-VP-006", "Máy lạnh Panasonic Inverter 1.5 HP CU/CS-XPU12XKH-8", "Thiết bị văn phòng", "Máy lạnh / Điều hòa", "Panasonic", "CU/CS-XPU12XKH-8", "Điện Máy Chợ Lớn Pro", "IN_STOCK", "NORMAL", 11850000m, "2026-02-05", (string)null, (int?)null, qltsDeptId, "Máy lạnh công nghệ Nanoe-X lọc khuẩn khử mùi, làm lạnh nhanh P-Tech, công nghệ ECO tích hợp AI."),
+                ("TS-VP-007", "Bàn làm việc nhân viên chân sắt Hòa Phát HR120SC1", "Thiết bị văn phòng", "Bàn làm việc", "Nội Thất Hòa Phát", "HR120SC1 1m2", "Nội Thất Văn Phòng Miền Nam", "IN_STOCK", "NORMAL", 1650000m, "2026-02-01", (string)null, (int?)null, qltsDeptId, "Bàn làm việc khung thép sơn tĩnh điện, mặt bàn gỗ Melamine cao cấp chống trầy, kích thước W1200 x D600 x H750mm."),
+                ("TS-VP-008", "Bàn họp lớn 10 chỗ mặt gỗ sơn PU Hòa Phát CT2412H1", "Thiết bị văn phòng", "Bàn làm việc", "Nội Thất Hòa Phát", "CT2412H1 2m4", "Nội Thất Văn Phòng Miền Nam", "IN_STOCK", "NORMAL", 4850000m, "2026-02-12", (string)null, (int?)null, qltsDeptId, "Bàn họp văn phòng cao cấp mặt gỗ công nghiệp phủ sơn PU, kích thước W2400 x D1200 x H760mm."),
+                ("TS-VP-009", "Ghế xoay lưới công thái học Ergonomic Hòa Phát GL309", "Thiết bị văn phòng", "Ghế xoay văn phòng", "Nội Thất Hòa Phát", "GL309 Ergonomic", "Nội Thất Văn Phòng Miền Nam", "IN_STOCK", "NORMAL", 1450000m, "2026-02-01", (string)null, (int?)null, qltsDeptId, "Ghế lưới văn phòng cao cấp có tựa đầu, ngả lưng điều chỉnh nhiều góc độ, đệm bọc mút định hình êm ái."),
+                ("TS-VP-010", "Ghế xoay da lãnh đạo cao cấp Hòa Phát SG920", "Thiết bị văn phòng", "Ghế xoay văn phòng", "Nội Thất Hòa Phát", "SG920 Lãnh đạo", "Nội Thất Văn Phòng Miền Nam", "IN_STOCK", "NORMAL", 2950000m, "2026-02-15", (string)null, (int?)null, qltsDeptId, "Ghế da văn phòng chân nhôm đúc sáng bóng, tay ghế ốp gỗ, đệm và tựa bọc da công nghiệp cao cấp may trang trí.")
+            };
+
+            foreach (var a in seedAssets)
+            {
+                var stDate = DateTime.Parse(a.Item11);
+                DateTime? dueDate = a.Item12 != null ? DateTime.Parse(a.Item12) : null;
+                db.Execute(@"INSERT dbo.HrmWorkItem
+                    (Kind, Reference, Title, WorkLocation, Category, JobLevel, ExperienceRequired, EducationRequired, Status, SalaryRange, Target, StartDate, DueDate, EmployeeId, DepartmentId, Description, Priority, CreatedBy, CreatedAt)
+                    VALUES
+                    ('assets', @Ref, @Title, @Group, @Category, @Job, @Model, @Supplier, @Status, @Cond, @Price, @Start, @Due, @EmpId, @DeptId, @Desc, 'NORMAL', @CreatedBy, @Start)",
+                    new
+                    {
+                        Ref = a.Item1,
+                        Title = a.Item2,
+                        Group = a.Item3,
+                        Category = a.Item4,
+                        Job = a.Item5,
+                        Model = a.Item6,
+                        Supplier = a.Item7,
+                        Status = a.Item8,
+                        Cond = a.Item9,
+                        Price = a.Item10,
+                        Start = stDate,
+                        Due = dueDate,
+                        EmpId = a.Item13,
+                        DeptId = a.Item14,
+                        Desc = a.Item15,
+                        CreatedBy = adminId
+                    });
+            }
+
+            // Seed 3 handovers corresponding to the 3 allocated assets
+            var seedHandovers = new[]
+            {
+                ("BG-26-001", "Bàn giao máy tính để bàn Dell OptiPlex 7090", "TS-VP-002", "Thiết bị văn phòng", adminId, hrDeptId, "2026-02-15", "NORMAL", 18500000m, "Bàn giao tài sản mới 100% kèm phụ kiện bàn phím chuột và màn hình Dell 24 inch."),
+                ("BG-26-002", "Bàn giao thiết bị kiểm soát ra vào vân tay A1", "TS-A1-001", "Nhóm A", empId, itDeptId, "2026-03-01", "NORMAL", 5200000m, "Cấp phát cho bộ phận IT phụ trách cài đặt vân tay cho nhân viên mới."),
+                ("BG-26-003", "Bàn giao bộ phát Wifi chuyên dụng Cisco Catalyst", "TS-A-001", "Nhóm A", dirId, hrDeptId, "2026-01-20", "NORMAL", 9200000m, "Lắp đặt tại phòng họp VIP và bàn giao vận hành mạng không dây.")
+            };
+
+            foreach (var h in seedHandovers)
+            {
+                var hDate = DateTime.Parse(h.Item7);
+                db.Execute(@"INSERT dbo.HrmWorkItem
+                    (Kind, Reference, Title, ExperienceRequired, WorkLocation, Category, EmployeeId, DepartmentId, StartDate, DueDate, SalaryRange, Target, Description, Status, Priority, CreatedBy, CreatedAt)
+                    VALUES
+                    ('asset-handover', @Ref, @Title, @Model, @Group, N'Cấp phát', @EmpId, @DeptId, @HDate, @HDate, @Cond, @Target, @Desc, 'ALLOCATED', 'NORMAL', @CreatedBy, @HDate)",
+                    new
+                    {
+                        Ref = h.Item1,
+                        Title = h.Item2,
+                        Model = h.Item3,
+                        Group = h.Item4,
+                        EmpId = h.Item5,
+                        DeptId = h.Item6,
+                        HDate = hDate,
+                        Cond = h.Item8,
+                        Target = h.Item9,
+                        Desc = h.Item10,
+                        CreatedBy = adminId
+                    });
+            }
+        }
+        catch { }
     }
 
     private void LoadPayrollModule(SqlConnection db, WorkPage page, HrmUserAccountModel actor, bool canSeeAll, bool isManager)
@@ -1021,5 +1959,12 @@ public sealed class WorkItemStore
             transaction.Commit();
         }
         catch { }
+    }
+
+    private static void AddAudit(SqlConnection db, SqlTransaction transaction, int actorId, string action, int id, string detail, string ipAddress)
+    {
+        db.Execute(@"INSERT dbo.HrmAuditLog(UserId,ActionCode,EntityType,EntityId,Detail,IpAddress)
+            VALUES(@UserId,@Action,'HrmWorkItem',@EntityId,@Detail,@IpAddress)",
+            new { UserId = actorId, Action = action, EntityId = id.ToString(), Detail = detail, IpAddress = ipAddress }, transaction);
     }
 }

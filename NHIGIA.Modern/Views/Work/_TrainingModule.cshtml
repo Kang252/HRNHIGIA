@@ -1,0 +1,909 @@
+@model WorkPage
+@{
+    var currentTab = Model.TrainingTab ?? "ALL";
+    var filteredCourses = Model.Items.Where(x => x.Kind == "training").ToList();
+    if (currentTab == "ENROLLED")
+    {
+        filteredCourses = filteredCourses.Where(c => Model.MyEnrollments.Any(e => e.TrainingId == c.Id)).ToList();
+    }
+    else if (currentTab == "NOT_ENROLLED")
+    {
+        filteredCourses = filteredCourses.Where(c => !Model.MyEnrollments.Any(e => e.TrainingId == c.Id)).ToList();
+    }
+}
+
+    <div class="trn-container">
+        <!-- 1. HÀNG THỐNG KÊ TỔNG QUAN (Slide 16) -->
+        <div class="trn-stats-row">
+            <div class="trn-stat-card">
+                <div class="trn-stat-icon trn-icon-blue"><i class="material-icons">school</i></div>
+                <div class="trn-stat-info">
+                    <span class="trn-stat-val">@Model.Items.Count(x => x.Kind == "training")</span>
+                    <span class="trn-stat-lbl">Tổng số khóa học</span>
+                </div>
+            </div>
+            <div class="trn-stat-card">
+                <div class="trn-stat-icon trn-icon-amber"><i class="material-icons">auto_stories</i></div>
+                <div class="trn-stat-info">
+                    <span class="trn-stat-val">@Model.EnrolledCoursesCount</span>
+                    <span class="trn-stat-lbl">Khóa đang tham gia</span>
+                </div>
+            </div>
+            <div class="trn-stat-card">
+                <div class="trn-stat-icon trn-icon-green"><i class="material-icons">task_alt</i></div>
+                <div class="trn-stat-info">
+                    <span class="trn-stat-val">@Model.CompletedCoursesCount</span>
+                    <span class="trn-stat-lbl">Khóa đã hoàn thành</span>
+                </div>
+            </div>
+            <div class="trn-stat-card">
+                <div class="trn-stat-icon trn-icon-purple"><i class="material-icons">workspace_premium</i></div>
+                <div class="trn-stat-info">
+                    <span class="trn-stat-val">@Model.CertificatesCount</span>
+                    <span class="trn-stat-lbl">Chứng chỉ đạt được</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. THANH ĐIỀU HƯỚNG TAB & TÌM KIẾM -->
+        <div class="trn-toolbar">
+            <div class="trn-tabs">
+                <a href="@Url.Action("Index", new { kind = "training", trainingTab = "ALL", q = Model.Query })"
+                   class="trn-tab-btn @(currentTab == "ALL" ? "active" : "")">
+                    <i class="material-icons">view_module</i> Tất cả khóa đào tạo
+                </a>
+                <a href="@Url.Action("Index", new { kind = "training", trainingTab = "ENROLLED", q = Model.Query })"
+                   class="trn-tab-btn @(currentTab == "ENROLLED" ? "active" : "")">
+                    <i class="material-icons">menu_book</i> Khóa đang học (@Model.EnrolledCoursesCount)
+                </a>
+                <a href="@Url.Action("Index", new { kind = "training", trainingTab = "NOT_ENROLLED", q = Model.Query })"
+                   class="trn-tab-btn @(currentTab == "NOT_ENROLLED" ? "active" : "")">
+                    <i class="material-icons">app_registration</i> Khóa chưa đăng ký
+                </a>
+                <a href="@Url.Action("Index", new { kind = "training", trainingTab = "CALENDAR" })"
+                   class="trn-tab-btn @(currentTab == "CALENDAR" ? "active" : "")">
+                    <i class="material-icons">calendar_month</i> Thời gian biểu học tập
+                </a>
+                <a href="@Url.Action("Index", new { kind = "training", trainingTab = "CERTIFICATES" })"
+                   class="trn-tab-btn @(currentTab == "CERTIFICATES" ? "active" : "")">
+                    <i class="material-icons">verified</i> Chứng chỉ & Đánh giá
+                </a>
+            </div>
+
+            <div class="trn-toolbar-actions">
+                <form method="get" asp-controller="Work" asp-action="Index" class="trn-search-box">
+                    <input type="hidden" name="kind" value="training" />
+                    <input type="hidden" name="trainingTab" value="@currentTab" />
+                    <i class="material-icons">search</i>
+                    <input name="q" value="@Model.Query" placeholder="Tìm khóa học, giảng viên..." />
+                </form>
+
+                @if (Model.CanManage)
+                {
+                    <button type="button" class="hrm-btn hrm-btn-primary" data-toggle="modal" data-target="#modalCreateTraining" style="padding: 7px 14px; font-size: 13px;">
+                        <i class="material-icons" style="font-size:18px;">add</i> Tạo khóa mới
+                    </button>
+                }
+            </div>
+        </div>
+
+        @if (currentTab == "CERTIFICATES")
+        {
+            <!-- TAB 1: CHỨNG CHỈ & ĐÁNH GIÁ (Slide 16 & 17) -->
+            <div class="trn-catalog-card">
+                <div class="trn-section-header">
+                    <div>
+                        <span class="trn-section-tag" style="background:#059669;"><i class="material-icons" style="font-size:14px;vertical-align:middle;">verified</i> Kho tri thức & Chứng nhận</span>
+                        <h3 class="trn-section-title">Kết quả đánh giá & Chứng chỉ hoàn thành khóa đào tạo</h3>
+                    </div>
+                </div>
+
+                @if (Model.MyEnrollments.Count == 0 && !Model.CanManage)
+                {
+                    <div class="work-empty">
+                        <i class="material-icons">workspace_premium</i>
+                        <h4>Chưa có chứng chỉ nào</h4>
+                        <p>Hãy tham gia các khóa đào tạo và hoàn thành bài tập để nhận chứng chỉ từ Nhị Gia.</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="trn-cert-grid">
+                        @foreach (var cert in (Model.CanManage ? Model.Enrollments : Model.MyEnrollments))
+                        {
+                            var isPass = cert.Status == "COMPLETED" || cert.Score >= 50;
+                            var certNo = string.IsNullOrWhiteSpace(cert.CertificateNumber) ? $"CERT-NHIGIA-{DateTime.Now.Year}-{cert.Id:D4}" : cert.CertificateNumber;
+
+                            <div class="trn-cert-card">
+                                <div class="trn-cert-top">
+                                    <div>
+                                        <h4 class="trn-cert-title">@cert.CourseTitle</h4>
+                                        <span class="trn-cert-code">@certNo</span>
+                                    </div>
+                                    <div class="trn-cert-seal">
+                                        <i class="material-icons">military_tech</i>
+                                    </div>
+                                </div>
+
+                                <div class="trn-cert-info-row">
+                                    <span>Học viên:</span>
+                                    <strong>@cert.EmployeeName</strong>
+                                </div>
+                                <div class="trn-cert-info-row">
+                                    <span>Hình thức:</span>
+                                    <strong>@(cert.CourseCategory ?? "Online")</strong>
+                                </div>
+                                <div class="trn-cert-info-row">
+                                    <span>Tiến độ hoàn thành:</span>
+                                    <strong>@cert.ProgressPercent%</strong>
+                                </div>
+                                <div class="trn-cert-info-row">
+                                    <span>Đánh giá kết quả:</span>
+                                    @if (cert.Score.HasValue)
+                                    {
+                                        <span class="trn-cert-score-badge">
+                                            <i class="material-icons" style="font-size:15px;">check_circle</i>
+                                            @cert.EvaluationResult (@cert.Score/100 điểm)
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge" style="background:#f1f5f9; color:#64748b;">Đang theo học</span>
+                                    }
+                                </div>
+                                @if (!string.IsNullOrWhiteSpace(cert.EvaluationNote))
+                                {
+                                    <div style="background:#f8fafc; border-radius:6px; padding:8px 10px; margin-top:10px; font-size:12px; color:#475569; font-style:italic;">
+                                        " @cert.EvaluationNote "
+                                    </div>
+                                }
+
+                                <div style="display:flex; justify-content:space-between; align-items:center; margin-top:16px; padding-top:12px; border-top:1px solid #f1f5f9;">
+                                    <button type="button" class="trn-btn-detail btn-view-cert"
+                                            data-title="@cert.CourseTitle"
+                                            data-name="@cert.EmployeeName"
+                                            data-code="@certNo"
+                                            data-score="@(cert.Score?.ToString("0.#") ?? "100")"
+                                            data-result="@(cert.EvaluationResult ?? "Đạt")"
+                                            data-date="@(cert.CertificateIssuedAt?.ToString("dd/MM/yyyy") ?? DateTime.Now.ToString("dd/MM/yyyy"))">
+                                        <i class="material-icons" style="font-size:15px;">card_membership</i> Xem chứng chỉ
+                                    </button>
+
+                                    @if (Model.CanManage)
+                                    {
+                                        <button type="button" class="trn-btn-detail btn-open-eval"
+                                                data-id="@cert.Id"
+                                                data-course="@cert.CourseTitle"
+                                                data-student="@cert.EmployeeName"
+                                                data-progress="@cert.ProgressPercent"
+                                                data-score="@(cert.Score?.ToString("0.#") ?? "")"
+                                                data-result="@(cert.EvaluationResult ?? "Đạt")"
+                                                data-note="@(cert.EvaluationNote ?? "")">
+                                            <i class="material-icons" style="font-size:15px;">rate_review</i> Đánh giá
+                                        </button>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <!-- BỐ CỤC 2 CỘT CHUẨN SLIDE 17 (Trái: Danh sách khóa học - Phải: Thời gian biểu) -->
+            <div class="trn-main-layout">
+                <!-- CỘT TRÁI: "Đăng ký khoá đào tạo theo nhu cầu" -->
+                <div class="trn-catalog-card">
+                    <div class="trn-section-header">
+                        <div>
+                            <span class="trn-section-tag">Đăng ký khoá đào tạo theo nhu cầu</span>
+                            <h3 class="trn-section-title">@(currentTab == "ENROLLED" ? "Danh sách khóa đào tạo đang học" : "Danh sách khóa đào tạo")</h3>
+                        </div>
+                        <span class="badge" style="background:#e0f2fe; color:#0369a1; font-weight:700; padding:6px 10px; font-size:12px;">
+                            @filteredCourses.Count khóa học
+                        </span>
+                    </div>
+
+                    @if (filteredCourses.Count == 0)
+                    {
+                        <div class="work-empty">
+                            <i class="material-icons">search_off</i>
+                            <h4>Không tìm thấy khóa đào tạo phù hợp</h4>
+                            <p>Vui lòng chọn tab khác hoặc thử từ khóa tìm kiếm mới.</p>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="trn-course-grid">
+                            @foreach (var item in filteredCourses)
+                            {
+                                var isEnrolled = Model.MyEnrollments.Any(e => e.TrainingId == item.Id);
+                                var enrollment = Model.MyEnrollments.FirstOrDefault(e => e.TrainingId == item.Id);
+                                var isOffline = item.Category == "Offline";
+                                var bannerInfo = GetCourseBannerInfo(item.Reference, item.Title, item.Category);
+
+                                <div class="trn-card">
+                                    <!-- Banner ảnh / nghệ thuật nhận diện khóa học -->
+                                    <div class="trn-card-banner" style="@bannerInfo.Gradient">
+                                        <span class="trn-card-badge @(isOffline ? "badge-offline" : "badge-online")">
+                                            @(isOffline ? "Offline" : "Online")
+                                        </span>
+                                        <div class="trn-banner-art">
+                                            @foreach (var pill in bannerInfo.Pills)
+                                            {
+                                                <span class="trn-banner-icon-pill" style="color:@pill.Color;"><i class="material-icons" style="font-size:15px;">@pill.Icon</i> @pill.Text</span>
+                                            }
+                                        </div>
+                                    </div>
+
+                                    <!-- Thân thẻ: Tiêu đề & Thông tin -->
+                                    <div class="trn-card-body">
+                                        <h4 class="trn-card-title" title="@item.Title">@item.Title</h4>
+                                        <p class="trn-card-desc" title="@item.Description">@item.Description</p>
+
+                                        <div class="trn-card-meta">
+                                            <div class="trn-meta-row">
+                                                <span>Phạm vi:</span> <strong>@(item.WorkLocation ?? "Tất cả")</strong>
+                                            </div>
+                                            <div class="trn-meta-row">
+                                                <span>Thời gian:</span>
+                                                <strong>@(item.StartDate?.ToString("dd/MM/yyyy") ?? "01/01/2025") - @(item.DueDate?.ToString("dd/MM/yyyy") ?? "31/03/2025")</strong>
+                                            </div>
+                                            @if (!string.IsNullOrWhiteSpace(item.ContactName))
+                                            {
+                                                <div class="trn-meta-row">
+                                                    <span>Giảng viên:</span> <strong>@item.ContactName</strong>
+                                                </div>
+                                            }
+                                        </div>
+                                    </div>
+
+                                    <!-- Chân thẻ: Thao tác đăng ký / xem chi tiết -->
+                                    <div class="trn-card-footer">
+                                        <div>
+                                            @if (isEnrolled)
+                                            {
+                                                <span class="trn-btn-enrolled">
+                                                    <i class="material-icons" style="font-size:14px;">check</i> Đang tham gia
+                                                </span>
+                                            }
+                                            else
+                                            {
+                                                <form method="post" asp-controller="Work" asp-action="EnrollTraining" style="display:inline;">
+                                                    @Html.AntiForgeryToken()
+                                                    <input type="hidden" name="trainingId" value="@item.Id" />
+                                                    <button type="submit" class="trn-btn-enroll">
+                                                        <i class="material-icons" style="font-size:14px;">how_to_reg</i> Đăng ký
+                                                    </button>
+                                                </form>
+                                            }
+                                        </div>
+
+                                        <div style="display:flex; gap:4px;">
+                                            <button type="button" class="trn-btn-detail btn-open-detail"
+                                                    data-id="@item.Id"
+                                                    data-title="@item.Title"
+                                                    data-ref="@item.Reference"
+                                                    data-cat="@item.Category"
+                                                    data-scope="@item.WorkLocation"
+                                                    data-start="@(item.StartDate?.ToString("dd/MM/yyyy") ?? "")"
+                                                    data-due="@(item.DueDate?.ToString("dd/MM/yyyy") ?? "")"
+                                                    data-hours="@(item.Target?.ToString("0") ?? "24")"
+                                                    data-instructor="@item.ContactName"
+                                                    data-desc="@item.Description"
+                                                    data-skills="@item.SkillRequirements"
+                                                    data-benefits="@item.Benefits"
+                                                    data-enrolled="@(isEnrolled ? "true" : "false")">
+                                                Chi tiết
+                                            </button>
+
+                                            <button type="button" class="trn-btn-detail btn-jump-cal" data-year="@(item.StartDate?.Year ?? 2026)" data-month="@(item.StartDate?.Month ?? 1)" title="Xem lịch học trên thời gian biểu">
+                                                <i class="material-icons" style="font-size:14px;vertical-align:middle;margin-right:2px;">event</i> Lịch học
+                                            </button>
+
+                                            @if (Model.CanManage)
+                                            {
+                                                <div class="dropdown" style="display:inline-block;">
+                                                    <button class="trn-btn-detail dropdown-toggle" type="button" data-toggle="dropdown" style="padding:5px 8px;">
+                                                        <i class="material-icons" style="font-size:16px;">more_vert</i>
+                                                    </button>
+                                                    <ul class="dropdown-menu dropdown-menu-right" style="border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,0.12);">
+                                                        <li>
+                                                            <a href="javascript:void(0)" class="btn-edit-course"
+                                                               data-id="@item.Id"
+                                                               data-title="@item.Title"
+                                                               data-ref="@item.Reference"
+                                                               data-cat="@item.Category"
+                                                               data-scope="@item.WorkLocation"
+                                                               data-start="@(item.StartDate?.ToString("yyyy-MM-dd") ?? "")"
+                                                               data-due="@(item.DueDate?.ToString("yyyy-MM-dd") ?? "")"
+                                                               data-hours="@(item.Target?.ToString("0") ?? "24")"
+                                                               data-instructor="@item.ContactName"
+                                                               data-desc="@item.Description"
+                                                               data-skills="@item.SkillRequirements"
+                                                               data-benefits="@item.Benefits"
+                                                               data-keywords="@item.Keywords">
+                                                                <i class="material-icons" style="font-size:16px;vertical-align:middle;margin-right:6px;">edit</i> Chỉnh sửa khóa học
+                                                            </a>
+                                                        </li>
+                                                        <li role="separator" class="divider"></li>
+                                                        <li>
+                                                            <form method="post" asp-controller="Work" asp-action="DeleteTrainingCourse" onsubmit="return confirm('Bạn có chắc chắn muốn xóa khóa đào tạo này?');">
+                                                                @Html.AntiForgeryToken()
+                                                                <input type="hidden" name="id" value="@item.Id" />
+                                                                <button type="submit" style="background:none; border:none; color:#dc2626; padding:8px 20px; width:100%; text-align:left; font-size:13px; cursor:pointer;">
+                                                                    <i class="material-icons" style="font-size:16px;vertical-align:middle;margin-right:6px;">delete</i> Xóa khóa học
+                                                                </button>
+                                                            </form>
+                                                        </li>
+                                                    </ul>
+                                                </div>
+                                            }
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+
+                        <!-- Phân trang danh sách khóa học (Slide 17) -->
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:20px; padding-top:14px; border-top:1px solid #f1f5f9;">
+                            <span style="font-size:12.5px; color:#64748b;">Đang hiển thị 1 - @filteredCourses.Count của @filteredCourses.Count khóa học</span>
+                            <div style="display:flex; gap:6px;">
+                                <button type="button" class="trn-btn-detail" disabled style="opacity:0.5;">Trang trước</button>
+                                <button type="button" class="trn-btn-detail" disabled style="opacity:0.5;">Trang sau</button>
+                            </div>
+                        </div>
+                    }
+                </div>
+
+                <!-- CỘT PHẢI: "Quản lý thời gian biểu học tập của bạn" (Slide 17) -->
+                <div class="trn-calendar-card" id="trnCalendarSection">
+                    <div class="trn-cal-header-bar">
+                        <div>
+                            <span class="trn-section-tag" style="background:#16a34a;">Quản lý thời gian biểu học tập của bạn</span>
+                            <h3 class="trn-section-title" style="font-size:15.5px;">Lịch trình buổi học trong tháng</h3>
+                        </div>
+                        <div class="trn-cal-month-nav">
+                            <button type="button" class="trn-cal-month-btn" id="btnPrevMonth" title="Tháng trước"><i class="material-icons" style="font-size:18px;">chevron_left</i></button>
+                            <span class="trn-cal-month-title" id="lblMonthTitle">Tháng 01/2026</span>
+                            <button type="button" class="trn-cal-month-btn" id="btnNextMonth" title="Tháng sau"><i class="material-icons" style="font-size:18px;">chevron_right</i></button>
+                        </div>
+                    </div>
+
+                    <!-- Bảng Lịch học 7 cột (T2 -> CN) chuẩn Slide 17 -->
+                    <div class="table-responsive" style="margin-top:10px;">
+                        <table class="trn-calendar-table">
+                            <thead>
+                                <tr>
+                                    <th>T2</th>
+                                    <th>T3</th>
+                                    <th>T4</th>
+                                    <th>T5</th>
+                                    <th>T6</th>
+                                    <th>T7</th>
+                                    <th>CN</th>
+                                </tr>
+                            </thead>
+                            <tbody id="trnCalendarBody">
+                                <!-- Hàng 1 (30/12/2025 -> 05/01/2026) -->
+                                <tr>
+                                    <td class="other-month"><div class="trn-cal-date-num">30</div></td>
+                                    <td class="other-month"><div class="trn-cal-date-num">31</div></td>
+                                    <td>
+                                        <div class="trn-cal-date-num">01</div>
+                                        <div class="trn-cal-chips-wrap">
+                                            <span class="trn-cal-chip btn-cal-chip" data-title="Buổi 1 - Khóa tiếng Anh" data-course="Khóa đào tạo Kỹ năng tiếng Anh kinh doanh" data-time="08:00 - 10:00" data-inst="Emma Watson" data-room="Google Meet Online">[08:00-10:00] Buổi 1 - Khóa tiếng Anh</span>
+                                            <span class="trn-cal-chip btn-cal-chip" data-title="Buổi học 1 - Phát triển phần mềm" data-course="Phát triển ứng dụng web với React/Angular/Vue" data-time="09:00 - 11:00" data-inst="Trần Quốc Bảo" data-room="Google Meet Online">[09:00-11:00] Buổi học 1 - Phát triển phần mềm</span>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="trn-cal-date-num">02</div>
+                                        <div class="trn-cal-chips-wrap">
+                                            <span class="trn-cal-chip btn-cal-chip" data-title="Buổi học 1 - Triển khai CI/CD" data-course="Triển khai CI/CD với Jenkins/Docker/Kubernetes" data-time="08:00 - 10:00" data-inst="Hoàng Minh Tuấn" data-room="Google Meet Online">[08:00-10:00] Buổi học 1 - Triển khai CI/CD</span>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="trn-cal-date-num">03</div>
+                                        <div class="trn-cal-chips-wrap">
+                                            <span class="trn-cal-chip btn-cal-chip" data-title="Buổi 2 - Khóa tiếng Anh" data-course="Khóa đào tạo Kỹ năng tiếng Anh kinh doanh" data-time="09:00 - 12:00" data-inst="Emma Watson" data-room="Google Meet Online">[09:00-12:00] Buổi 2 - Khóa tiếng Anh</span>
+                                        </div>
+                                    </td>
+                                    <td class="trn-cal-active-day">
+                                        <div class="trn-cal-date-num">04</div>
+                                    </td>
+                                    <td>
+                                        <div class="trn-cal-date-num">05</div>
+                                    </td>
+                                </tr>
+
+                                <!-- Hàng 2 (06/01 -> 12/01) -->
+                                <tr>
+                                    <td>
+                                        <div class="trn-cal-date-num">06</div>
+                                        <div class="trn-cal-chips-wrap">
+                                            <span class="trn-cal-chip btn-cal-chip" data-title="Buổi 3 - Khóa tiếng Anh" data-course="Khóa đào tạo Kỹ năng tiếng Anh kinh doanh" data-time="14:00 - 16:00" data-inst="Emma Watson" data-room="Google Meet Online">[14:00-16:00] Buổi 3 - Khóa tiếng Anh</span>
+                                        </div>
+                                    </td>
+                                    <td><div class="trn-cal-date-num">07</div></td>
+                                    <td><div class="trn-cal-date-num">08</div></td>
+                                    <td><div class="trn-cal-date-num">09</div></td>
+                                    <td>
+                                        <div class="trn-cal-date-num">10</div>
+                                        <div class="trn-cal-chips-wrap">
+                                            <span class="trn-cal-chip btn-cal-chip" data-title="Buổi 4 - Khóa tiếng Anh" data-course="Khóa đào tạo Kỹ năng tiếng Anh kinh doanh" data-time="14:00 - 16:00" data-inst="Emma Watson" data-room="Google Meet Online">[14:00-16:00] Buổi 4 - Khóa tiếng Anh</span>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="trn-cal-date-num">11</div>
+                                        <div class="trn-cal-chips-wrap">
+                                            <span class="trn-cal-chip btn-cal-chip" data-title="Buổi học 1 - Quy trình phát triển Agile/Scrum" data-course="Quy trình phát triển phần mềm Agile/Scrum" data-time="07:00 - 10:00" data-inst="Phạm Hải Đăng" data-room="Google Meet Online">[07:00-10:00] Buổi học 1 - Quy trình Agile</span>
+                                        </div>
+                                    </td>
+                                    <td><div class="trn-cal-date-num">12</div></td>
+                                </tr>
+
+                                <!-- Hàng 3 (13/01 -> 19/01) -->
+                                <tr>
+                                    <td><div class="trn-cal-date-num">13</div></td>
+                                    <td><div class="trn-cal-date-num">14</div></td>
+                                    <td>
+                                        <div class="trn-cal-date-num">15</div>
+                                        <div class="trn-cal-chips-wrap">
+                                            <span class="trn-cal-chip btn-cal-chip" data-title="Buổi 5 - Khóa tiếng Anh" data-course="Khóa đào tạo Kỹ năng tiếng Anh kinh doanh" data-time="10:00 - 12:00" data-inst="Emma Watson" data-room="Google Meet Online">[10:00-12:00] Buổi 5 - Khóa tiếng Anh</span>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="trn-cal-date-num">16</div>
+                                        <div class="trn-cal-chips-wrap">
+                                            <span class="trn-cal-chip btn-cal-chip" data-title="Buổi học 2 - Quy trình phát triển Agile/Scrum" data-course="Quy trình phát triển phần mềm Agile/Scrum" data-time="09:00 - 12:00" data-inst="Phạm Hải Đăng" data-room="Google Meet Online">[09:00-12:00] Buổi học 2 - Quy trình Agile</span>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="trn-cal-date-num">17</div>
+                                        <div class="trn-cal-chips-wrap">
+                                            <span class="trn-cal-chip btn-cal-chip" data-title="Buổi 6 - Khóa tiếng Anh" data-course="Khóa đào tạo Kỹ năng tiếng Anh kinh doanh" data-time="14:00 - 16:00" data-inst="Emma Watson" data-room="Google Meet Online">[14:00-16:00] Buổi 6 - Khóa tiếng Anh</span>
+                                        </div>
+                                    </td>
+                                    <td><div class="trn-cal-date-num">18</div></td>
+                                    <td><div class="trn-cal-date-num">19</div></td>
+                                </tr>
+
+                                <!-- Hàng 4 (20/01 -> 26/01) -->
+                                <tr>
+                                    <td><div class="trn-cal-date-num">20</div></td>
+                                    <td><div class="trn-cal-date-num">21</div></td>
+                                    <td>
+                                        <div class="trn-cal-date-num">22</div>
+                                        <div class="trn-cal-chips-wrap">
+                                            <span class="trn-cal-chip btn-cal-chip" data-title="Buổi 7 - Khóa tiếng Anh" data-course="Khóa đào tạo Kỹ năng tiếng Anh kinh doanh" data-time="14:00 - 16:00" data-inst="Emma Watson" data-room="Google Meet Online">[14:00-16:00] Buổi 7 - Khóa tiếng Anh</span>
+                                        </div>
+                                    </td>
+                                    <td><div class="trn-cal-date-num">23</div></td>
+                                    <td>
+                                        <div class="trn-cal-date-num">24</div>
+                                        <div class="trn-cal-chips-wrap">
+                                            <span class="trn-cal-chip btn-cal-chip" data-title="Buổi 8 - Khóa tiếng Anh" data-course="Khóa đào tạo Kỹ năng tiếng Anh kinh doanh" data-time="14:00 - 16:00" data-inst="Emma Watson" data-room="Google Meet Online">[14:00-16:00] Buổi 8 - Khóa tiếng Anh</span>
+                                        </div>
+                                    </td>
+                                    <td><div class="trn-cal-date-num">25</div></td>
+                                    <td><div class="trn-cal-date-num">26</div></td>
+                                </tr>
+
+                                <!-- Hàng 5 (27/01 -> 02/02) -->
+                                <tr>
+                                    <td><div class="trn-cal-date-num">27</div></td>
+                                    <td><div class="trn-cal-date-num">28</div></td>
+                                    <td>
+                                        <div class="trn-cal-date-num">29</div>
+                                        <div class="trn-cal-chips-wrap">
+                                            <span class="trn-cal-chip btn-cal-chip" data-title="Buổi 9 - Khóa tiếng Anh" data-course="Khóa đào tạo Kỹ năng tiếng Anh kinh doanh" data-time="08:00 - 11:00" data-inst="Emma Watson" data-room="Google Meet Online">[08:00-11:00] Buổi 9 - Khóa tiếng Anh</span>
+                                        </div>
+                                    </td>
+                                    <td><div class="trn-cal-date-num">30</div></td>
+                                    <td>
+                                        <div class="trn-cal-date-num">31</div>
+                                        <div class="trn-cal-chips-wrap">
+                                            <span class="trn-cal-chip btn-cal-chip" data-title="Buổi 10 - Khóa tiếng Anh" data-course="Khóa đào tạo Kỹ năng tiếng Anh kinh doanh" data-time="14:00 - 17:00" data-inst="Emma Watson" data-room="Google Meet Online">[14:00-17:00] Buổi 10 - Khóa tiếng Anh</span>
+                                            <span class="trn-cal-chip btn-cal-chip" data-title="Buổi học 1 - Quản lý dự án" data-course="Khóa đào tạo về Quản lý dự án" data-time="07:00 - 10:00" data-inst="Ngô Thành Đạt" data-room="Google Meet Online">[07:00-10:00] Buổi học 1 - Quản lý dự án</span>
+                                        </div>
+                                    </td>
+                                    <td class="other-month"><div class="trn-cal-date-num">01</div></td>
+                                    <td class="other-month"><div class="trn-cal-date-num">02</div></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+
+    <!-- MODAL 1: CHI TIẾT KHÓA ĐÀO TẠO & KHO TÀI LIỆU (Slide 16 & 17) -->
+    <div class="modal fade" id="modalTrainingDetail" tabindex="-1" role="dialog">
+        <div class="modal-dialog modal-lg" role="document">
+            <div class="modal-content" style="border-radius:14px; overflow:hidden;">
+                <div class="modal-header trn-modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                    <h4 class="modal-title" id="dtCourseTitle" style="font-weight:700;"><i class="material-icons" style="vertical-align:middle;margin-right:6px;">school</i> Chi tiết khóa đào tạo</h4>
+                </div>
+                <div class="modal-body trn-modal-body">
+                    <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:12px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:14px; margin-bottom:18px;">
+                        <div><span style="color:#64748b; font-size:12px;">Mã khóa học:</span> <div id="dtCourseRef" style="font-weight:700; color:#0284c7;">—</div></div>
+                        <div><span style="color:#64748b; font-size:12px;">Hình thức:</span> <div id="dtCourseCat" style="font-weight:700;">—</div></div>
+                        <div><span style="color:#64748b; font-size:12px;">Thời lượng:</span> <div id="dtCourseHours" style="font-weight:700;">— giờ</div></div>
+                        <div><span style="color:#64748b; font-size:12px;">Phạm vi:</span> <div id="dtCourseScope" style="font-weight:700;">—</div></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label style="font-weight:700; color:#1e293b;">Mô tả khóa đào tạo</label>
+                        <p id="dtCourseDesc" style="color:#475569; font-size:13.5px; line-height:1.6; margin:0;"></p>
+                    </div>
+
+                    <div class="row" style="margin-top:16px;">
+                        <div class="col-md-6">
+                            <label style="font-weight:700; color:#1e293b;"><i class="material-icons" style="font-size:16px;color:#16a34a;vertical-align:middle;">task_alt</i> Mục tiêu & Kỹ năng đạt được</label>
+                            <div id="dtCourseSkills" style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:12px; font-size:13px; color:#166534; line-height:1.5;"></div>
+                        </div>
+                        <div class="col-md-6">
+                            <label style="font-weight:700; color:#1e293b;"><i class="material-icons" style="font-size:16px;color:#0284c7;vertical-align:middle;">folder_open</i> Kho tri thức & Tài liệu học tập</label>
+                            <div id="dtCourseBenefits" style="background:#f0f9ff; border:1px solid #bae6fd; border-radius:8px; padding:12px; font-size:13px; color:#0369a1; line-height:1.5;"></div>
+                        </div>
+                    </div>
+
+                    <div style="margin-top:20px;">
+                        <label style="font-weight:700; color:#1e293b;"><i class="material-icons" style="font-size:16px;color:#d97706;vertical-align:middle;">person</i> Giảng viên phụ trách</label>
+                        <div id="dtCourseInstructor" style="font-size:13.5px; color:#334155; font-weight:600;">—</div>
+                    </div>
+                </div>
+                <div class="modal-footer" style="background:#fafafa; border-top:1px solid #e2e8f0;">
+                    <button type="button" class="hrm-btn" data-dismiss="modal">Đóng</button>
+                    <div id="dtEnrollActionWrap" style="display:inline-block;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 2: TẠO / SỬA KHÓA ĐÀO TẠO (Slide 16: Tạo và quản lý chương trình) -->
+    @if (Model.CanManage)
+    {
+        <div class="modal fade" id="modalCreateTraining" tabindex="-1" role="dialog">
+            <div class="modal-dialog modal-lg" role="document">
+                <div class="modal-content" style="border-radius:14px; overflow:hidden;">
+                    <form method="post" asp-controller="Work" asp-action="SaveTrainingCourse">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="Id" id="editTrnId" value="0" />
+                        <input type="hidden" name="Keywords" id="trnKeywords" value="" />
+                        <div class="modal-header trn-modal-header">
+                            <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                            <h4 class="modal-title" id="modalCreateTrainingTitle"><i class="material-icons" style="vertical-align:middle;margin-right:6px;">school</i> Thiết lập chương trình đào tạo</h4>
+                        </div>
+                        <div class="modal-body trn-modal-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="trnTitle" style="font-weight:700;">Tên khóa đào tạo *</label>
+                                        <input id="trnTitle" name="Title" class="form-control" required placeholder="Nhập tên khóa học..." />
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-group">
+                                        <label for="trnRef" style="font-weight:700;">Mã khóa học</label>
+                                        <input id="trnRef" name="Reference" class="form-control" placeholder="Tự động (VD: TRN-DEV-01)" />
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-group">
+                                        <label for="trnThemePill" style="font-weight:700;">Chủ đề nhận diện</label>
+                                        <select id="trnThemePill" class="form-control">
+                                            <option value="">Tự động theo tên</option>
+                                            <option value="TRN-DEV">Công nghệ phần mềm</option>
+                                            <option value="TRN-DEVOPS">DevOps & Cloud</option>
+                                            <option value="TRN-WEB">Phát triển Web</option>
+                                            <option value="TRN-PM">Quản lý dự án</option>
+                                            <option value="TRN-AGILE">Agile & Scrum</option>
+                                            <option value="TRN-ENG">Tiếng Anh kinh doanh</option>
+                                            <option value="TRN-TIME">Quản lý thời gian</option>
+                                            <option value="TRN-LEAD">Lãnh đạo & Quản trị</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-3">
+                                    <div class="form-group">
+                                        <label for="trnCategory" style="font-weight:700;">Hình thức</label>
+                                        <select id="trnCategory" name="Category" class="form-control">
+                                            <option value="Online">Online</option>
+                                            <option value="Offline">Offline</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-group">
+                                        <label for="trnLocation" style="font-weight:700;">Phạm vi áp dụng</label>
+                                        <input id="trnLocation" name="WorkLocation" class="form-control" value="Tất cả" placeholder="Tất cả / Phòng ban..." />
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-group">
+                                        <label for="trnTarget" style="font-weight:700;">Thời lượng (Giờ)</label>
+                                        <input type="number" id="trnTarget" name="Target" class="form-control" value="24" min="1" max="500" />
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-group">
+                                        <label for="trnInstructor" style="font-weight:700;">Giảng viên / Chuyên gia</label>
+                                        <input id="trnInstructor" name="ContactName" class="form-control" placeholder="Họ tên giảng viên..." />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="trnStart" style="font-weight:700;">Ngày bắt đầu</label>
+                                        <input type="text" id="trnStart" name="StartDate" class="form-control hrm-date-input" data-hrm-datepicker="true" value="2026-01-01" autocomplete="off" />
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="trnDue" style="font-weight:700;">Ngày kết thúc</label>
+                                        <input type="text" id="trnDue" name="DueDate" class="form-control hrm-date-input" data-hrm-datepicker="true" value="2026-03-31" autocomplete="off" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="trnDesc" style="font-weight:700;">Mô tả tóm tắt nội dung</label>
+                                <textarea id="trnDesc" name="Description" class="form-control" rows="2" placeholder="Giới thiệu nội dung trọng tâm của khóa học..."></textarea>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="trnSkills" style="font-weight:700;">Mục tiêu & Kỹ năng đầu ra</label>
+                                        <textarea id="trnSkills" name="SkillRequirements" class="form-control" rows="2" placeholder="Kiến thức học viên đạt được..."></textarea>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="trnBenefits" style="font-weight:700;">Kho tài liệu & Quyền lợi</label>
+                                        <textarea id="trnBenefits" name="Benefits" class="form-control" rows="2" placeholder="Slide, video bài giảng, tài liệu tham khảo..."></textarea>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer" style="background:#fafafa; border-top:1px solid #e2e8f0;">
+                            <button type="button" class="hrm-btn" data-dismiss="modal">Hủy</button>
+                            <button type="submit" class="hrm-btn hrm-btn-primary"><i class="material-icons">save</i> Lưu khóa đào tạo</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL 3: ĐÁNH GIÁ HỌC VIÊN & CẤP CHỨNG CHỈ (Slide 16) -->
+        <div class="modal fade" id="modalEvaluateStudent" tabindex="-1" role="dialog">
+            <div class="modal-dialog" role="document">
+                <div class="modal-content" style="border-radius:14px; overflow:hidden;">
+                    <form method="post" asp-controller="Work" asp-action="EvaluateTrainingStudent">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="enrollmentId" id="evalEnrollmentId" value="" />
+                        <div class="modal-header trn-modal-header" style="background: linear-gradient(135deg, #065f46, #047857);">
+                            <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                            <h4 class="modal-title"><i class="material-icons" style="vertical-align:middle;margin-right:6px;">rate_review</i> Đánh giá học viên & Cấp chứng chỉ</h4>
+                        </div>
+                        <div class="modal-body trn-modal-body">
+                            <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:12px; margin-bottom:16px;">
+                                <div><span style="color:#64748b; font-size:12px;">Khóa học:</span> <strong id="evalCourseTitle" style="color:#065f46;">—</strong></div>
+                                <div><span style="color:#64748b; font-size:12px;">Học viên:</span> <strong id="evalStudentName">—</strong></div>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="evalProgress" style="font-weight:700;">Tiến độ hoàn thành (%) *</label>
+                                <input type="number" id="evalProgress" name="progress" min="0" max="100" class="form-control" required />
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="evalScore" style="font-weight:700;">Điểm số đánh giá (thang 100)</label>
+                                        <input type="number" step="0.5" id="evalScore" name="score" min="0" max="100" class="form-control" placeholder="VD: 90" />
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="evalResult" style="font-weight:700;">Xếp loại kết quả *</label>
+                                        <select id="evalResult" name="result" class="form-control" required>
+                                            <option value="Xuất sắc">Xuất sắc</option>
+                                            <option value="Đạt">Đạt</option>
+                                            <option value="Cần cải thiện">Cần cải thiện</option>
+                                            <option value="Chưa đạt">Chưa đạt</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="evalNote" style="font-weight:700;">Nhận xét của giảng viên / quản lý</label>
+                                <textarea id="evalNote" name="note" class="form-control" rows="3" placeholder="Nhận xét tinh thần học tập, kết quả bài thi hoặc áp dụng vào thực tế..."></textarea>
+                            </div>
+                        </div>
+                        <div class="modal-footer" style="background:#fafafa; border-top:1px solid #e2e8f0;">
+                            <button type="button" class="hrm-btn" data-dismiss="modal">Đóng</button>
+                            <button type="submit" class="hrm-btn hrm-btn-primary" style="background:#059669;"><i class="material-icons">verified</i> Cập nhật & Cấp chứng chỉ</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- MODAL 4: CHI TIẾT BUỔI HỌC (Click từ lịch) -->
+    <div class="modal fade" id="modalSessionDetail" tabindex="-1" role="dialog">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content" style="border-radius:14px; overflow:hidden;">
+                <div class="modal-header trn-modal-header" style="background: linear-gradient(135deg, #15803d, #16a34a);">
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                    <h4 class="modal-title"><i class="material-icons" style="vertical-align:middle;margin-right:6px;">event</i> Thông tin buổi học</h4>
+                </div>
+                <div class="modal-body trn-modal-body">
+                    <h3 id="sesTitle" style="font-size:17px; font-weight:750; color:#0f172a; margin:0 0 6px;">—</h3>
+                    <div id="sesCourse" style="font-size:13.5px; color:#15803d; font-weight:700; margin-bottom:16px;">—</div>
+
+                    <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:14px; display:flex; flex-direction:column; gap:10px;">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <i class="material-icons" style="color:#0284c7; font-size:20px;">schedule</i>
+                            <span style="font-size:13.5px; color:#334155;">Thời gian: <strong id="sesTime">—</strong></span>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <i class="material-icons" style="color:#d97706; font-size:20px;">person</i>
+                            <span style="font-size:13.5px; color:#334155;">Giảng viên: <strong id="sesInstructor">—</strong></span>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <i class="material-icons" style="color:#7c3aed; font-size:20px;">room</i>
+                            <span style="font-size:13.5px; color:#334155;">Địa điểm / Phòng: <strong id="sesRoom">—</strong></span>
+                        </div>
+                    </div>
+
+                    <div style="margin-top:18px; text-align:center;">
+                        <a href="https://meet.google.com" target="_blank" class="hrm-btn hrm-btn-primary" style="display:inline-flex; align-items:center; gap:6px; padding:8px 18px; text-decoration:none;">
+                            <i class="material-icons">video_camera_front</i> Tham gia lớp học trực tuyến
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 5: XEM CHỨNG CHỈ VINH DANH (Giấy chứng nhận Nhị Gia) -->
+    <div class="modal fade" id="modalViewCert" tabindex="-1" role="dialog">
+        <div class="modal-dialog modal-lg" role="document">
+            <div class="modal-content" style="border-radius:16px; overflow:hidden; border: 4px double #d97706; background:#fffdfa;">
+                <div class="modal-body" style="padding:40px; text-align:center; position:relative;">
+                    <button type="button" class="close" data-dismiss="modal" style="position:absolute; top:16px; right:20px; font-size:28px;">&times;</button>
+                    <div style="display:flex; justify-content:center; align-items:center; gap:12px; margin-bottom:12px;">
+                        <img src="~/images/nhigia-logo.png" style="width:52px; height:52px; object-fit:contain;" alt="Nhị Gia" />
+                        <div style="text-align:left;">
+                            <div style="font-size:18px; font-weight:800; color:#1e3a8a; letter-spacing:1px;">CÔNG TY TNHH TM VÀ DV NHỊ GIA</div>
+                            <div style="font-size:12px; color:#64748b;">HỌC VIỆN PHÁT TRIỂN NĂNG LỰC & ĐÀO TẠO NỘI BỘ</div>
+                        </div>
+                    </div>
+                    <hr style="border-top:1px solid #fde68a; margin:16px auto 24px; width:70%;" />
+                    <div style="font-size:14px; text-transform:uppercase; letter-spacing:3px; color:#b45309; font-weight:700;">GIẤY CHỨNG NHẬN HOÀN THÀNH KHÓA ĐÀO TẠO</div>
+                    <h2 style="font-size:26px; font-weight:800; color:#0f172a; margin:14px 0 6px;">CERTIFICATE OF COMPLETION</h2>
+                    <p style="font-size:13px; color:#64748b;">Chứng nhận anh/chị:</p>
+                    <h3 id="certStudentName" style="font-size:24px; font-weight:800; color:#1e40af; margin:6px 0 16px; text-transform:uppercase;">—</h3>
+                    <p style="font-size:13.5px; color:#475569; max-width:600px; margin:0 auto;">
+                        Đã hoàn thành xuất sắc khóa đào tạo chuyên sâu:
+                    </p>
+                    <h4 id="certCourseTitle" style="font-size:18px; font-weight:750; color:#0f172a; margin:10px 0 16px;">—</h4>
+                    <div style="display:inline-block; background:#ecfdf5; border:1px solid #86efac; border-radius:20px; padding:6px 20px; font-size:13px; color:#065f46; font-weight:700;">
+                        Kết quả: <span id="certResult">Xuất sắc</span> (<span id="certScore">95</span>/100 điểm)
+                    </div>
+                    <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-top:40px; padding:0 30px;">
+                        <div style="text-align:left; font-size:12px; color:#64748b;">
+                            <div>Mã chứng chỉ: <strong id="certCode" style="color:#0284c7;">—</strong></div>
+                            <div>Ngày cấp: <strong id="certDate">—</strong></div>
+                        </div>
+                        <div style="text-align:center;">
+                            <div style="font-size:12px; color:#64748b; margin-bottom:45px;">GIÁM ĐỐC TRUNG TÂM ĐÀO TẠO</div>
+                            <div style="font-weight:750; font-size:14px; color:#0f172a;">NHỊ GIA HRM ACADEMY</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer" style="background:#fefce8; border-top:1px solid #fef08a; text-align:center;">
+                    <button type="button" class="hrm-btn" onclick="window.print();"><i class="material-icons">print</i> In chứng chỉ</button>
+                    <button type="button" class="hrm-btn hrm-btn-primary" data-dismiss="modal">Đóng</button>
+                </div>
+            </div>
+        </div>
+    </div>
+<script>
+    $(document).ready(function() {
+        // 1. Chi tiết khóa đào tạo
+        $(document).on('click', '.btn-open-detail', function() {
+            var btn = $(this);
+            $('#dtCourseTitle').html('<i class="material-icons" style="vertical-align:middle;margin-right:6px;">school</i> ' + (btn.data('title') || ''));
+            $('#dtCourseRef').text(btn.data('ref') || '—');
+            $('#dtCourseCat').text(btn.data('cat') || 'Chung');
+            $('#dtCourseScope').text(btn.data('scope') || 'Tất cả');
+            $('#dtCourseHours').text((btn.data('hours') || '24') + ' giờ');
+            $('#dtCourseDesc').text(btn.data('desc') || 'Chưa có mô tả chi tiết.');
+            $('#dtCourseSkills').text(btn.data('skills') || 'Kỹ năng làm việc chuyên môn.');
+            $('#dtCourseBenefits').text(btn.data('benefits') || 'Kho tài liệu & slide bài giảng.');
+            $('#dtCourseInstructor').text(btn.data('instructor') || 'Giảng viên Nhị Gia');
+
+            var isEnrolled = btn.data('enrolled') === true || btn.data('enrolled') === 'true';
+            var courseId = btn.data('id');
+            if (isEnrolled) {
+                $('#dtEnrollActionWrap').html('<span class="label label-success" style="font-size:13px; padding:6px 12px;"><i class="material-icons" style="font-size:14px; vertical-align:middle;">check</i> Bạn đang tham gia khóa học này</span>');
+            } else {
+                $('#dtEnrollActionWrap').html('<form method="post" action="/Work/EnrollTraining" style="display:inline;">@Html.AntiForgeryToken()<input type="hidden" name="trainingId" value="' + courseId + '" /><button type="submit" class="hrm-btn hrm-btn-primary"><i class="material-icons" style="font-size:14px;">how_to_reg</i> Đăng ký tham gia</button></form>');
+            }
+            $('#modalTrainingDetail').modal('show');
+        });
+
+        // 2. Chỉnh sửa khóa đào tạo
+        $(document).on('click', '.btn-edit-course', function() {
+            var btn = $(this);
+            $('#editTrnId').val(btn.data('id'));
+            $('#trnTitle').val(btn.data('title'));
+            $('#trnRef').val(btn.data('ref'));
+            $('#trnCategory').val(btn.data('cat') || 'Online');
+            $('#trnWorkLocation').val(btn.data('scope') || '');
+            $('#trnStartDate').val(btn.data('start') || '');
+            $('#trnDueDate').val(btn.data('due') || '');
+            $('#trnTarget').val(btn.data('hours') || '24');
+            $('#trnContactName').val(btn.data('instructor') || '');
+            $('#trnDescription').val(btn.data('desc') || '');
+            $('#trnSkillRequirements').val(btn.data('skills') || '');
+            $('#trnBenefits').val(btn.data('benefits') || '');
+            $('#modalCreateTrainingTitle').html('<i class="material-icons">edit</i> Chỉnh sửa chương trình đào tạo');
+            $('#modalCreateTraining').modal('show');
+        });
+
+        // 3. Đánh giá học viên & Cấp chứng chỉ
+        $(document).on('click', '.btn-eval-student', function() {
+            var btn = $(this);
+            $('#evalEnrollmentId').val(btn.data('id'));
+            $('#evalCourseTitle').text(btn.data('course') || '—');
+            $('#evalStudentName').text(btn.data('student') || '—');
+            $('#evalProgress').val(btn.data('progress') || 100);
+            $('#evalScore').val(btn.data('score') || '');
+            $('#evalResult').val(btn.data('result') || 'Đạt');
+            $('#evalNote').val(btn.data('note') || '');
+            $('#modalEvaluateStudent').modal('show');
+        });
+
+        // 4. Xem chứng chỉ vinh danh
+        $(document).on('click', '.btn-view-cert', function() {
+            var btn = $(this);
+            $('#certStudentName').text(btn.data('student') || '—');
+            $('#certCourseTitle').text(btn.data('course') || '—');
+            $('#certResult').text(btn.data('result') || 'Đạt');
+            $('#certScore').text(btn.data('score') || '90');
+            $('#certCode').text(btn.data('cert') || 'NG-CERT-2026');
+            $('#certDate').text(btn.data('date') || '—');
+            $('#modalViewCert').modal('show');
+        });
+
+        // 5. Chi tiết buổi học (Session click)
+        $(document).on('click', '.trn-session-item, .btn-session-detail', function() {
+            var item = $(this);
+            $('#sesTitle').text(item.data('title') || 'Buổi học');
+            $('#sesCourse').text(item.data('course') || '');
+            $('#sesTime').text((item.data('date') || '') + ' (' + (item.data('time') || '') + ')');
+            $('#sesInstructor').text(item.data('instructor') || 'Giảng viên Nhị Gia');
+            $('#sesRoom').text(item.data('room') || 'Phòng đào tạo Lầu 3');
+            $('#modalSessionDetail').modal('show');
+        });
+
+        // 6. Chuyển sang lịch học
+        $(document).on('click', '.btn-jump-cal', function() {
+            window.location.href = '/Work?kind=training&trainingTab=CALENDAR';
+        });
+    });
+</script>

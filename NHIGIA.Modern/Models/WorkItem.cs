@@ -10,21 +10,32 @@ public sealed class WorkItem
     [StringLength(2000)] public string Description { get; set; }
     [StringLength(100)] public string Category { get; set; }
     [StringLength(100)] public string Reference { get; set; }
+    [StringLength(250)] public string WorkLocation { get; set; }
+    [StringLength(100)] public string JobLevel { get; set; }
+    [StringLength(100)] public string ExperienceRequired { get; set; }
+    [StringLength(100)] public string EducationRequired { get; set; }
+    [StringLength(50)] public string GenderRequirement { get; set; }
+    [StringLength(50)] public string AgeRange { get; set; }
+    [StringLength(100)] public string SalaryRange { get; set; }
+    [StringLength(2000)] public string SkillRequirements { get; set; }
+    [StringLength(2000)] public string Benefits { get; set; }
+    [StringLength(500)] public string RecruitmentProcess { get; set; }
+    [StringLength(250)] public string RecruitmentReason { get; set; }
+    public DateTime? StartDate { get; set; }
+    [StringLength(100)] public string ContractType { get; set; }
+    [StringLength(100)] public string ProbationPeriod { get; set; }
+    [StringLength(150)] public string RecruitmentChannel { get; set; }
+    [StringLength(150)] public string ContactEmail { get; set; }
+    [StringLength(30)] public string ContactPhone { get; set; }
+    [StringLength(150)] public string ContactName { get; set; }
+    [StringLength(500)] public string ContactAddress { get; set; }
+    [StringLength(500)] public string Keywords { get; set; }
     public int? EmployeeId { get; set; }
     public int? DepartmentId { get; set; }
     public DateTime? DueDate { get; set; }
-    public DateTime? StartAt { get; set; }
-    public DateTime? EndAt { get; set; }
-    [StringLength(250)] public string Location { get; set; }
-    [StringLength(250)] public string Destination { get; set; }
     [Range(0, 1000000000)] public decimal? Target { get; set; }
     [Range(0, 1000000000)] public decimal? Actual { get; set; }
     [Range(1, 100)] public decimal? Weight { get; set; }
-    public int AssetInUse { get; set; }
-    public int AssetMaintenance { get; set; }
-    public int AssetLost { get; set; }
-    public int AssetDisposed { get; set; }
-    public int AssetDamaged { get; set; }
     [StringLength(20)] public string Priority { get; set; } = "NORMAL";
     public string Status { get; set; }
     public int CreatedBy { get; set; }
@@ -33,15 +44,22 @@ public sealed class WorkItem
     public string LastActionNote { get; set; }
     public string EmployeeName { get; set; }
     public string DepartmentName { get; set; }
+    public string KpiType { get; set; } = "ASSIGNED";
+    public string Quarter { get; set; } = "Q1-2025";
+    public string ProofNote { get; set; }
+    public bool IsAchieved => Target > 0 && Actual >= Target;
+    public decimal CompletionRate => Target > 0 ? Math.Min(200, ((Actual ?? 0) * 100m) / Target.Value) : 0;
+    public DateTime? StartAt { get; set; }
+    public DateTime? EndAt { get; set; }
+    [StringLength(250)] public string Location { get; set; }
+    [StringLength(250)] public string Destination { get; set; }
+    public int AssetInUse { get; set; }
+    public int AssetMaintenance { get; set; }
+    public int AssetLost { get; set; }
+    public int AssetDisposed { get; set; }
+    public int AssetDamaged { get; set; }
     public string ParticipantNames { get; set; }
     public List<int> ParticipantIds { get; set; } = new();
-    [StringLength(250)] public string WorkLocation { get; set; }
-    [StringLength(100)] public string JobLevel { get; set; }
-    [StringLength(100)] public string SalaryRange { get; set; }
-    [StringLength(150)] public string ContactEmail { get; set; }
-    [StringLength(2000)] public string Keywords { get; set; }
-    public DateTime? StartDate { get; set; }
-    public string Quarter { get; set; }
 
     public string RecordCode => FormatCode(Kind, Id);
 
@@ -72,11 +90,55 @@ public sealed class WorkPage
     public WorkItem Draft { get; set; } = new();
     public WorkItem OffboardingDraft { get; set; } = new();
     public string NextOffboardingReference { get; set; }
+    public string PeriodType { get; set; } = "QUARTER";
+    public string FromQuarter { get; set; } = "Q1-2025";
+    public string ToQuarter { get; set; } = "Q2-2025";
+    public string KpiTypeFilter { get; set; } = "ASSIGNED";
+    public int TotalAssignedKpiCount { get; set; }
+    public int ProvenKpiCount { get; set; }
+    public decimal KpiPassRate { get; set; }
+    public decimal KpiAverageExecutionRate { get; set; }
     public List<WorkItem> Items { get; set; } = new();
     public List<WorkPerson> People { get; set; } = new();
     public List<WorkDepartment> Departments { get; set; } = new();
+    public string TrainingTab { get; set; } = "ALL";
+    public string TrainingMonth { get; set; } = "2025-01";
+    public int EnrolledCoursesCount { get; set; }
+    public int CompletedCoursesCount { get; set; }
+    public int CertificatesCount { get; set; }
+    public List<TrainingEnrollmentItem> Enrollments { get; set; } = new();
+    public List<TrainingEnrollmentItem> MyEnrollments { get; set; } = new();
+    public List<TrainingSessionEvent> Sessions { get; set; } = new();
+    public string OvertimeTab { get; set; } = "dashboard";
+    public int OvertimeYear { get; set; } = 2026;
+    public string OvertimeMonth { get; set; } = "2026-01";
+    public string TransferTab { get; set; } = "dashboard";
+    public int TransferMonth { get; set; } = 0;
+    public int TransferYear { get; set; } = 2026;
+    public string TransferStatusFilter { get; set; } = "ALL";
+    public int TotalTransferredCount { get; set; }
+    public int TotalAppointedCount { get; set; }
+    public int TotalDismissedCount { get; set; }
+    public int TotalRelocatedCount { get; set; }
+    public List<WorkItem> TransferRequests { get; set; } = new();
+    public List<WorkItem> TransferDecisions { get; set; } = new();
+    public List<TransferDeptStat> TransferDepartmentStats { get; set; } = new();
 
-    // Payroll Management
+    // Asset Management (Slide 24)
+    public string AssetTab { get; set; } = "dashboard";
+    public string AssetGroupFilter { get; set; } = "ALL";
+    public string AssetCategoryFilter { get; set; } = "ALL";
+    public string AssetStatusFilter { get; set; } = "ALL";
+    public string AssetConditionFilter { get; set; } = "ALL";
+    public int TotalAssetGroupsCount { get; set; }
+    public int TotalAssetCategoriesCount { get; set; }
+    public int TotalAssetsCount { get; set; }
+    public int TotalAllocatedAssetsCount { get; set; }
+    public List<AssetGroupStat> AssetGroupStats { get; set; } = new();
+    public List<WorkItem> AssetItems { get; set; } = new();
+    public List<WorkItem> AssetHandovers { get; set; } = new();
+
+    // Payroll Management (Slide 6 & 7)
     public string PayrollTab { get; set; } = "dashboard";
     public string PayrollPeriod { get; set; } = "2026-02";
     public string PayrollDeptFilter { get; set; } = "ALL";
@@ -93,8 +155,86 @@ public sealed class WorkPage
     public List<PayrollDeductionItem> PayrollDeductions { get; set; } = new();
     public List<PayrollAdvanceItem> PayrollAdvances { get; set; } = new();
 }
-public sealed class WorkPerson { public int Id { get; set; } public string DisplayName { get; set; } public string DepartmentName { get; set; } }
+
+public sealed class AssetCategoryStat
+{
+    public string GroupName { get; set; }
+    public string CategoryName { get; set; }
+    public int ItemCount { get; set; }
+    public int AllocatedCount { get; set; }
+    public int AllocatingCount { get; set; }
+    public int RecoveringCount { get; set; }
+    public int InStockCount { get; set; }
+    public int LiquidatedCount { get; set; }
+    public int NormalCount { get; set; }
+    public int BrokenCount { get; set; }
+    public int LossCount { get; set; }
+}
+
+public sealed class AssetGroupStat
+{
+    public string GroupName { get; set; }
+    public int ItemCount { get; set; }
+    public int AllocatedCount { get; set; }
+    public int AllocatingCount { get; set; }
+    public int RecoveringCount { get; set; }
+    public int InStockCount { get; set; }
+    public int LiquidatedCount { get; set; }
+    public int NormalCount { get; set; }
+    public int BrokenCount { get; set; }
+    public int LossCount { get; set; }
+    public List<AssetCategoryStat> Categories { get; set; } = new();
+}
+
+public sealed class TransferDeptStat
+{
+    public int DepartmentId { get; set; }
+    public string DepartmentName { get; set; }
+    public int TransferredCount { get; set; }
+    public int AppointedCount { get; set; }
+    public int DismissedCount { get; set; }
+    public int RelocatedCount { get; set; }
+    public int TotalCount => TransferredCount + AppointedCount + DismissedCount + RelocatedCount;
+    public decimal Percentage { get; set; }
+    public string Color { get; set; }
+}
+public sealed class WorkPerson { public int Id { get; set; } public string DisplayName { get; set; } public string RoleCode { get; set; } public string DepartmentName { get; set; } }
 public sealed class WorkDepartment { public int Id { get; set; } public string Name { get; set; } }
+
+public sealed class TrainingEnrollmentItem
+{
+    public int Id { get; set; }
+    public int TrainingId { get; set; }
+    public string CourseTitle { get; set; }
+    public string CourseReference { get; set; }
+    public string CourseCategory { get; set; }
+    public int EmployeeId { get; set; }
+    public string EmployeeName { get; set; }
+    public string DepartmentName { get; set; }
+    public DateTime EnrolledAt { get; set; }
+    public string Status { get; set; } = "ENROLLED";
+    public int ProgressPercent { get; set; }
+    public decimal? Score { get; set; }
+    public string EvaluationResult { get; set; }
+    public string EvaluationNote { get; set; }
+    public string CertificateNumber { get; set; }
+    public DateTime? CertificateIssuedAt { get; set; }
+}
+
+public sealed class TrainingSessionEvent
+{
+    public int Id { get; set; }
+    public int TrainingId { get; set; }
+    public string CourseTitle { get; set; }
+    public string CourseReference { get; set; }
+    public string SessionTitle { get; set; }
+    public string DateStr { get; set; }
+    public string TimeStr { get; set; }
+    public string Instructor { get; set; }
+    public string LocationOrUrl { get; set; }
+    public bool IsOnline { get; set; } = true;
+    public string Notes { get; set; }
+}
 
 public sealed class PayrollDepartmentStat
 {

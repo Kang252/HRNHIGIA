@@ -1,0 +1,2192 @@
+@using NHIGIA.Modern.Models
+@{
+    var currentHrmUser = HrmUser.Current;
+    var currentDisplayName = currentHrmUser?.DisplayName ?? "Tôi";
+    var currentUserId = currentHrmUser?.Id ?? 0;
+    var roleCode = currentHrmUser?.RoleCode ?? "";
+}
+
+<style>
+/* ==========================================================================
+   SHARED TANCA CREATE REQUEST MODAL
+   ========================================================================== */
+:root {
+    --tc-primary: #1769e0;
+    --tc-primary-hover: #0f52b8;
+    --tc-primary-light: #eaf2ff;
+    --tc-text-main: #1d2939;
+    --tc-text-muted: #667085;
+    --tc-text-light: #98a2b3;
+    --tc-border: #eaecf0;
+    --tc-border-subtle: #f2f4f7;
+    --tc-bg-page: #f8f9fa;
+    --tc-bg-card: #ffffff;
+    --tc-success: #027a48;
+    --tc-success-bg: #ecfdf3;
+    --tc-success-border: #a6f4c5;
+    --tc-warning: #b54708;
+    --tc-warning-bg: #fffaeb;
+    --tc-warning-border: #fedf89;
+    --tc-danger: #b42318;
+    --tc-danger-bg: #fef3f2;
+    --tc-danger-border: #fecdca;
+    --tc-neutral: #344054;
+    --tc-neutral-bg: #f2f4f7;
+}
+
+/* Modal Backdrop */
+.tc-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(15,23,42,0.55);
+    backdrop-filter: blur(3px);
+    z-index: 1070;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s ease, visibility 0.2s ease;
+}
+.tc-modal-backdrop.is-open {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* Modal Dialog */
+.tc-create-modal {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -48%) scale(0.96);
+    width: 980px;
+    max-width: 95vw;
+    height: 88vh;
+    max-height: 88vh;
+    background: #fff;
+    border-radius: 14px;
+    box-shadow: 0 24px 48px -12px rgba(15,23,42,0.25);
+    z-index: 1080;
+    display: flex;
+    flex-direction: column;
+    opacity: 0;
+    visibility: hidden;
+    overflow: hidden;
+    transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    color: var(--tc-text-main);
+}
+.tc-create-modal.is-open {
+    opacity: 1;
+    visibility: visible;
+    transform: translate(-50%, -50%) scale(1);
+}
+
+.tc-create-step {
+    display: none;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+    flex: 1;
+    overflow: hidden;
+}
+.tc-create-step.is-active {
+    display: flex;
+}
+
+.tc-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--tc-border);
+    flex-shrink: 0;
+}
+.tc-modal-header h3 {
+    margin: 0 0 4px;
+    font-size: 19px;
+    font-weight: 700;
+    color: #101828;
+}
+.tc-modal-header p {
+    margin: 0;
+    font-size: 13px;
+    color: var(--tc-text-muted);
+}
+.tc-modal-close {
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    border: 0;
+    background: #f2f4f7;
+    color: #667085;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+.tc-modal-close:hover {
+    background: #e4e7ec;
+    color: #101828;
+}
+
+.tc-modal-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 24px;
+    background: #f8fafc;
+    border-bottom: 1px solid var(--tc-border);
+    flex-shrink: 0;
+}
+.tc-modal-search {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 320px;
+    height: 36px;
+    padding: 0 10px;
+    background: #fff;
+    border: 1px solid var(--tc-border);
+    border-radius: 7px;
+    color: var(--tc-text-light);
+}
+.tc-modal-search input {
+    width: 100%;
+    border: 0;
+    outline: 0;
+    font-size: 13px;
+    color: var(--tc-text-main);
+    background: transparent;
+}
+.tc-modal-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px 24px;
+    min-height: 0;
+}
+.tc-modal-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 24px;
+    border-top: 1px solid var(--tc-border);
+    background: #fff;
+    flex-shrink: 0;
+}
+.tc-modal-summary {
+    font-size: 13px;
+    color: var(--tc-text-muted);
+}
+.tc-modal-summary strong {
+    color: var(--tc-primary);
+}
+
+/* Category Groups */
+.tc-create-cat {
+    margin-bottom: 22px;
+}
+.tc-category-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+}
+.tc-category-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 700;
+    background: #f2f4f7;
+    color: #1e293b;
+}
+.tc-category-badge .material-icons {
+    font-size: 16px;
+}
+.tc-category-badge.cat-time { background: #e0f2fe; color: #0369a1; }
+.tc-category-badge.cat-finance { background: #dcfce7; color: #15803d; }
+.tc-category-badge.cat-hr { background: #f3e8ff; color: #7e22ce; }
+.tc-category-badge.cat-mgmt { background: #fef9c3; color: #a16207; }
+
+/* Grid Items */
+.tc-create-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(215px, 1fr));
+    gap: 12px;
+}
+.tc-create-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 11px 14px;
+    background: #ffffff;
+    border: 1.5px solid var(--tc-border);
+    border-radius: 10px;
+    cursor: pointer;
+    user-select: none;
+    transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+    position: relative;
+    text-align: left;
+}
+.tc-create-item:hover {
+    border-color: var(--tc-primary);
+    background: #f8fbff;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 14px rgba(23, 105, 224, 0.12);
+}
+.tc-create-item:hover .tc-item-icon {
+    transform: scale(1.08);
+}
+.tc-item-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 40px;
+    transition: transform 0.18s ease;
+}
+.tc-svg-icon {
+    width: 22px;
+    height: 22px;
+    display: block;
+}
+.tc-item-text {
+    flex: 1;
+    min-width: 0;
+}
+.tc-item-title {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: #1e293b;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.tc-create-item .tc-item-arrow {
+    margin-left: auto;
+    font-size: 18px;
+    color: #cbd5e1;
+    transition: all 0.15s ease;
+}
+.tc-create-item:hover .tc-item-arrow {
+    color: var(--tc-primary);
+    transform: translateX(3px);
+}
+
+/* Selected Type Banner */
+.tc-type-selected-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 18px;
+    background: linear-gradient(135deg, #f0f7ff 0%, #e0effe 100%);
+    border: 1px solid #bfdbfe;
+    border-radius: 10px;
+    margin-bottom: 20px;
+}
+.tc-type-selected-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.tc-type-selected-text h4 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 700;
+    color: #1e3a8a;
+}
+.tc-type-selected-text p {
+    margin: 2px 0 0;
+    font-size: 12px;
+    color: #3b82f6;
+}
+.tc-btn-change-type {
+    padding: 6px 12px;
+    font-size: 12.5px;
+    font-weight: 600;
+    background: #fff;
+    border: 1px solid #93c5fd;
+    border-radius: 6px;
+    color: var(--tc-primary);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+.tc-btn-change-type:hover {
+    background: var(--tc-primary);
+    color: #fff;
+}
+.tc-btn-icon-back {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    border: 1px solid var(--tc-border);
+    background: #fff;
+    color: #475467;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+.tc-btn-icon-back:hover {
+    background: #f2f4f7;
+    color: #101828;
+}
+
+/* Forms */
+.tc-tanca-form {
+    padding: 4px 2px;
+}
+.tc-tanca-row {
+    display: grid;
+    grid-template-columns: 180px 1fr;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 14px;
+}
+.tc-tanca-row.align-top {
+    align-items: flex-start;
+    padding-top: 4px;
+}
+.tc-tanca-row label {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: #334155;
+    margin: 0;
+    line-height: 1.4;
+}
+.tc-tanca-row label .req {
+    color: #ef4444;
+    font-weight: 700;
+    margin-left: 2px;
+}
+.tc-tanca-input, .tc-tanca-select, .tc-tanca-textarea {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 8px 14px;
+    height: 38px;
+    font-size: 13.5px;
+    color: #1e293b;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    outline: none;
+    transition: all 0.15s ease;
+}
+.tc-tanca-input:focus, .tc-tanca-select:focus, .tc-tanca-textarea:focus {
+    background: #ffffff;
+    border-color: #10b981;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.12);
+}
+.tc-tanca-input::placeholder, .tc-tanca-textarea::placeholder {
+    color: #94a3b8;
+}
+.tc-tanca-textarea {
+    height: auto;
+    min-height: 72px;
+    resize: vertical;
+}
+.tc-dashed-divider {
+    border: none;
+    border-top: 1px dashed #cbd5e1;
+    margin: 20px 0 16px;
+}
+.tc-detail-section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+.tc-detail-section-title {
+    font-size: 14.5px;
+    font-weight: 700;
+    color: #1e293b;
+}
+.tc-btn-add-detail {
+    background: transparent;
+    border: none;
+    color: #10b981;
+    font-size: 13.5px;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    border-radius: 6px;
+    transition: background 0.15s ease;
+}
+.tc-btn-add-detail:hover {
+    background: #ecfdf5;
+}
+.tc-detail-card {
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 16px 18px;
+    background: #ffffff;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+    margin-bottom: 14px;
+    position: relative;
+}
+.tc-detail-card .btn-remove-detail {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: transparent;
+    border: none;
+    color: #94a3b8;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+}
+.tc-detail-card .btn-remove-detail:hover {
+    color: #ef4444;
+    background: #fef2f2;
+}
+.tc-inline-grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+.tc-calc-badge {
+    display: inline-block;
+    padding: 3px 8px;
+    background: #ecfdf5;
+    color: #059669;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    margin-left: 8px;
+}
+.tc-btn-upload {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 16px;
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #334155;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+.tc-btn-upload:hover {
+    background: #f1f5f9;
+    border-color: #94a3b8;
+    color: #0f172a;
+}
+.tc-flow-preview {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 14px;
+    background: #f8fafc;
+    border: 1px solid var(--tc-border);
+    border-radius: 8px;
+    margin-top: 10px;
+}
+.tc-flow-step {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12.5px;
+    color: #475467;
+}
+.tc-flow-step .material-icons {
+    font-size: 16px;
+    color: var(--tc-primary);
+}
+.tc-flow-arrow {
+    color: #cbd5e1;
+    font-size: 16px;
+}
+.tc-btn-create-green {
+    background: #10b981;
+    color: #ffffff;
+    border: none;
+    border-radius: 8px;
+    padding: 9px 24px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.15s ease;
+}
+.tc-btn-create-green:hover {
+    background: #059669;
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25);
+}
+.tc-btn-modal-cancel {
+    background: #fff;
+    border: 1px solid var(--tc-border);
+    border-radius: 8px;
+    padding: 8px 18px;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: #344054;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.15s ease;
+}
+.tc-btn-modal-cancel:hover {
+    background: #f8fafc;
+    color: #101828;
+}
+
+/* Toast */
+.tc-toast-container {
+    position: fixed;
+    top: 68px;
+    right: 24px;
+    z-index: 10050;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    pointer-events: none;
+}
+.tc-toast {
+    pointer-events: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    background: #ffffff;
+    color: #1d2939;
+    font-size: 13.5px;
+    font-weight: 500;
+    border-radius: 8px;
+    box-shadow: 0 10px 30px rgba(15,23,42,0.18);
+    transform: translateY(-16px);
+    opacity: 0;
+    transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.tc-toast.is-visible {
+    transform: translateY(0);
+    opacity: 1;
+}
+.tc-toast.success { border-left: 4px solid var(--tc-success); }
+.tc-toast.danger { border-left: 4px solid var(--tc-danger); }
+.tc-toast.info { border-left: 4px solid var(--tc-primary); }
+
+@@media (max-width: 768px) {
+    .tc-create-modal { width: 98vw; height: 94vh; }
+    .tc-create-grid { grid-template-columns: 1fr; }
+    .tc-tanca-row { grid-template-columns: 1fr; gap: 6px; }
+    .tc-inline-grid-2 { grid-template-columns: 1fr; }
+}
+</style>
+
+<!-- Hidden token form -->
+<form id="tcTokenFormShared" style="display:none">@Html.AntiForgeryToken()</form>
+<div id="tcToastContainerShared" class="tc-toast-container"></div>
+
+<!-- CREATE REQUEST MODAL BACKDROP -->
+<div id="tcCreateModalBackdrop" class="tc-modal-backdrop" aria-hidden="true"></div>
+
+<!-- CREATE REQUEST MODAL (TANCA STYLE: 24 LOẠI YÊU CẦU & DYNAMIC FORMS) -->
+<div id="tcCreateModal" class="tc-create-modal" role="dialog" aria-labelledby="createModalTitle" aria-modal="true">
+    <!-- Bước 1: Danh mục các loại yêu cầu chuẩn Tanca (24 loại) -->
+    <div id="createStepTypes" class="tc-create-step is-active">
+        <div class="tc-modal-header">
+            <div>
+                <h3 id="createModalTitle">Tạo yêu cầu mới</h3>
+                <p>Chọn loại yêu cầu bạn muốn gửi để bắt đầu quy trình phê duyệt.</p>
+            </div>
+            <button id="tcCreateModalClose" type="button" class="tc-modal-close" aria-label="Đóng">
+                <i class="material-icons">close</i>
+            </button>
+        </div>
+
+        <div class="tc-modal-toolbar">
+            <label class="tc-modal-search" style="width:100%;max-width:380px;">
+                <i class="material-icons" style="font-size:18px;">search</i>
+                <input id="createSearchInput" type="text" placeholder="Tìm loại yêu cầu (Nghỉ phép, Công tác, Ca làm, v.v.)..." />
+            </label>
+            <div class="tc-modal-quick-actions">
+                <span style="font-size:12.5px;color:var(--tc-text-muted);">Bấm vào loại yêu cầu để điền thông tin</span>
+            </div>
+        </div>
+
+        <div class="tc-modal-body">
+            <!-- Nhóm 1: Lượt chấm công (9) -->
+            <div class="tc-create-cat">
+                <div class="tc-category-header">
+                    <span class="tc-category-badge cat-time">
+                        <i class="material-icons">alarm_on</i> Lượt chấm công (9)
+                    </span>
+                </div>
+                <div class="tc-create-grid">
+                    <div class="tc-create-item" data-type="Công tác/Ra ngoài" data-cat="Lượt chấm công">
+                        <span class="tc-item-icon" style="background:#e0f2fe;color:#0284c7;" title="Công tác/Ra ngoài">
+                            <svg class="tc-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M2.5 19h19" />
+                                <path d="M20.5 4.5a2.12 2.12 0 0 0-3 0L12 10 5 9 3 11l6 4 1 7 2-1 1-5 5.5-2.5a2.12 2.12 0 0 0 0-3z" />
+                            </svg>
+                        </span>
+                        <div class="tc-item-text"><span class="tc-item-title">Công tác/Ra ngoài</span></div>
+                        <i class="material-icons tc-item-arrow">chevron_right</i>
+                    </div>
+                    <div class="tc-create-item" data-type="Đi muộn về sớm" data-cat="Lượt chấm công">
+                        <span class="tc-item-icon" style="background:#ffedd5;color:#ea580c;" title="Đi muộn về sớm">
+                            <svg class="tc-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="13" r="8" />
+                                <polyline points="12 9 12 13 15 15" />
+                                <path d="M5 3L2 6" /><path d="M22 6l-3-3" />
+                                <path d="M6 19l-2 2" /><path d="M20 21l-2-2" />
+                            </svg>
+                        </span>
+                        <div class="tc-item-text"><span class="tc-item-title">Đi muộn về sớm</span></div>
+                        <i class="material-icons tc-item-arrow">chevron_right</i>
+                    </div>
+                    <div class="tc-create-item" data-type="Nghỉ phép" data-cat="Lượt chấm công">
+                        <span class="tc-item-icon" style="background:#d1fae5;color:#059669;" title="Nghỉ phép">
+                            <svg class="tc-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M12 2v20" />
+                                <path d="M12 2a10 10 0 0 1 10 10c0 1.5-1.5 2-3 2-2 0-3-1-4-1s-2 1-3 1-2-1-3-1-2 1-4 1c-1.5 0-3-.5-3-2A10 10 0 0 1 12 2z" />
+                                <circle cx="12" cy="12" r="1.5" />
+                            </svg>
+                        </span>
+                        <div class="tc-item-text"><span class="tc-item-title">Nghỉ phép</span></div>
+                        <i class="material-icons tc-item-arrow">chevron_right</i>
+                    </div>
+                    <div class="tc-create-item" data-type="Làm thêm giờ" data-cat="Lượt chấm công">
+                        <span class="tc-item-icon" style="background:#ede9fe;color:#7c3aed;" title="Làm thêm giờ">
+                            <svg class="tc-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="9" />
+                                <polyline points="12 7 12 12 15 14" />
+                                <path d="M18 3v4" /><path d="M16 5h4" />
+                            </svg>
+                        </span>
+                        <div class="tc-item-text"><span class="tc-item-title">Làm thêm giờ</span></div>
+                        <i class="material-icons tc-item-arrow">chevron_right</i>
+                    </div>
+                    <div class="tc-create-item" data-type="Ca làm" data-cat="Lượt chấm công">
+                        <span class="tc-item-icon" style="background:#fef3c7;color:#d97706;" title="Ca làm">
+                            <svg class="tc-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                                <line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" />
+                                <line x1="3" y1="10" x2="21" y2="10" />
+                            </svg>
+                        </span>
+                        <div class="tc-item-text"><span class="tc-item-title">Ca làm</span></div>
+                        <i class="material-icons tc-item-arrow">chevron_right</i>
+                    </div>
+                    <div class="tc-create-item" data-type="Thay đổi giờ vào/ra" data-cat="Lượt chấm công">
+                        <span class="tc-item-icon" style="background:#fce7f3;color:#db2777;" title="Thay đổi giờ vào/ra">
+                            <svg class="tc-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="10" />
+                                <polyline points="12 6 12 12 16 14" />
+                                <path d="M12 2a10 10 0 0 1 7.07 17.07" />
+                            </svg>
+                        </span>
+                        <div class="tc-item-text"><span class="tc-item-title">Thay đổi giờ vào/ra</span></div>
+                        <i class="material-icons tc-item-arrow">chevron_right</i>
+                    </div>
+                    <div class="tc-create-item" data-type="Suất ăn" data-cat="Lượt chấm công">
+                        <span class="tc-item-icon" style="background:#ffe4e6;color:#e11d48;" title="Suất ăn">
+                            <svg class="tc-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M18 2v20" />
+                                <path d="M21 2v6a3 3 0 0 1-3 3" />
+                                <path d="M6 2v7a2 2 0 0 0 2 2v11" />
+                                <path d="M3 2v4a2 2 0 0 0 2 2" />
+                                <path d="M9 2v4a2 2 0 0 1-2 2" />
+                            </svg>
+                        </span>
+                        <div class="tc-item-text"><span class="tc-item-title">Suất ăn</span></div>
+                        <i class="material-icons tc-item-arrow">chevron_right</i>
+                    </div>
+                    <div class="tc-create-item" data-type="Đăng ký ca làm" data-cat="Lượt chấm công">
+                        <span class="tc-item-icon" style="background:#ccfbf1;color:#0d9488;" title="Đăng ký ca làm">
+                            <svg class="tc-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+                                <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
+                                <path d="M9 14l2 2 4-4" />
+                            </svg>
+                        </span>
+                        <div class="tc-item-text"><span class="tc-item-title">Đăng ký ca làm</span></div>
+                        <i class="material-icons tc-item-arrow">chevron_right</i>
+                    </div>
+                    <div class="tc-create-item" data-type="Đổi ca làm" data-cat="Lượt chấm công">
+                        <span class="tc-item-icon" style="background:#cffafe;color:#0891b2;" title="Đổi ca làm">
+                            <svg class="tc-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="17 1 21 5 17 9" />
+                                <path d="M3 5h18" />
+                                <polyline points="7 23 3 19 7 15" />
+                                <path d="M21 19H3" />
+                            </svg>
+                        </span>
+                        <div class="tc-item-text"><span class="tc-item-title">Đổi ca làm</span></div>
+                        <i class="material-icons tc-item-arrow">chevron_right</i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Nhóm 2: Tài chính (9) -->
+            <div class="tc-create-cat">
+                <div class="tc-category-header">
+                    <span class="tc-category-badge cat-finance">
+                        <i class="material-icons">account_balance</i> Tài chính (9)
+                    </span>
+                </div>
+                <div class="tc-create-grid">
+                    <div class="tc-create-item" data-type="Tạm ứng lương" data-cat="Tài chính">
+                        <span class="tc-item-icon" style="background:#dcfce7;color:#15803d;" title="Tạm ứng lương">
+                            <svg class="tc-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="2" y="6" width="20" height="12" rx="2" />
+                                <circle cx="12" cy="12" r="3" />
+                                <line x1="6" y1="12" x2="6.01" y2="12" /><line x1="18" y1="12" x2="18.01" y2="12" />
+                            </svg>
+                        </span>
+                        <div class="tc-item-text"><span class="tc-item-title">Tạm ứng lương</span></div>
+                        <i class="material-icons tc-item-arrow">chevron_right</i>
+                    </div>
+                    <div class="tc-create-item" data-type="Tạm ứng" data-cat="Tài chính">
+                        <span class="tc-item-icon" style="background:#d1fae5;color:#059669;" title="Tạm ứng">
+                            <svg class="tc-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4" />
+                                <path d="M4 6v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V12a2 2 0 0 0-2-2H4z" />
+                                <circle cx="18" cy="15" r="1" />
+                            </svg>
+                        </span>
+                        <div class="tc-item-text"><span class="tc-item-title">Tạm ứng</span></div>
+                        <i class="material-icons tc-item-arrow">chevron_right</i>
+                    </div>
+                    <div class="tc-create-item" data-type="Hoàn ứng" data-cat="Tài chính">
+                        <span class="tc-item-icon" style="background:#dbeafe;color:#2563eb;" title="Hoàn ứng">
+                            <svg class="tc-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="9 14 4 9 9 4" />
+                                <path d="M20 20v-7a4 4 0 0 0-4-4H4" />
+                                <circle cx="12" cy="16" r="2" />
+                            </svg>
+                        </span>
+                        <div class="tc-item-text"><span class="tc-item-title">Hoàn ứng</span></div>
+                        <i class="material-icons tc-item-arrow">chevron_right</i>
+                    </div>
+                    <div class="tc-create-item" data-type="Phiếu đề nghị" data-cat="Tài chính">
+                        <span class="tc-item-icon" style="background:#f1f5f9;color:#475467;" title="Phiếu đề nghị">
+                            <svg class="tc-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                <polyline points="14 2 14 8 20 8" />
+                                <line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" />
+                            </svg>
+                        </span>
+                        <div class="tc-item-text"><span class="tc-item-title">Phiếu đề nghị</span></div>
+                        <i class="material-icons tc-item-arrow">chevron_right</i>
+                    </div>
+                    <div class="tc-create-item" data-type="Thanh toán chi phí đi lại" data-cat="Tài chính">
+                        <span class="tc-item-icon" style="background:#ede9fe;color:#7c3aed;" title="Thanh toán chi phí đi lại">
+                            <svg class="tc-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="3" y="11" width="18" height="8" rx="2" />
+                                <path d="M5 11l2-6h10l2 6" />
+                                <circle cx="7.5" cy="15.5" r="1.5" /><circle cx="16.5" cy="15.5" r="1.5" />
+                            </svg>
+                        </span>
+                        <div class="tc-item-text"><span class="tc-item-title">Thanh toán chi phí đi lại</span></div>
+                        <i class="material-icons tc-item-arrow">chevron_right</i>
+                    </div>
+                    <div class="tc-create-item" data-type="Thanh toán" data-cat="Tài chính">
+                        <span class="tc-item-icon" style="background:#fef3c7;color:#b45309;" title="Thanh toán">
+                            <svg class="tc-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <line x1="12" y1="1" x2="12" y2="23" />
+                                <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+                            </svg>
+                        </span>
+                        <div class="tc-item-text"><span class="tc-item-title">Thanh toán</span></div>
+                        <i class="material-icons tc-item-arrow">chevron_right</i>
+                    </div>
+                    <div class="tc-create-item" data-type="Trả góp" data-cat="Tài chính">
+                        <span class="tc-item-icon" style="background:#ffedd5;color:#c2410c;" title="Trả góp">
+                            <svg class="tc-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
+                                <polyline points="17 6 23 6 23 12" />
+                            </svg>
+                        </span>
+                        <div class="tc-item-text"><span class="tc-item-title">Trả góp</span></div>
+                        <i class="material-icons tc-item-arrow">chevron_right</i>
+                    </div>
+                    <div class="tc-create-item" data-type="Tiền thưởng" data-cat="Tài chính">
+                        <span class="tc-item-icon" style="background:#ecfdf5;color:#047857;" title="Tiền thưởng">
+                            <svg class="tc-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
+                                <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
+                                <path d="M4 22h16" />
+                                <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" />
+                                <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" />
+                                <path d="M18 2H6v7a6 6 0 0 0 12 0V2z" />
+                            </svg>
+                        </span>
+                        <div class="tc-item-text"><span class="tc-item-title">Tiền thưởng</span></div>
+                        <i class="material-icons tc-item-arrow">chevron_right</i>
+                    </div>
+                    <div class="tc-create-item" data-type="Hoa hồng" data-cat="Tài chính">
+                        <span class="tc-item-icon" style="background:#fef2f2;color:#b91c1c;" title="Hoa hồng">
+                            <svg class="tc-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="10" />
+                                <path d="M16 8l-8 8" />
+                                <circle cx="9" cy="9" r="1" /><circle cx="15" cy="15" r="1" />
+                            </svg>
+                        </span>
+                        <div class="tc-item-text"><span class="tc-item-title">Hoa hồng</span></div>
+                        <i class="material-icons tc-item-arrow">chevron_right</i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Nhóm 3: Nhân sự & Quản lý (6) -->
+            <div class="tc-create-cat">
+                <div class="tc-category-header">
+                    <span class="tc-category-badge cat-hr">
+                        <i class="material-icons">badge</i> Nhân sự & Quản lý (6)
+                    </span>
+                </div>
+                <div class="tc-create-grid">
+                    <div class="tc-create-item" data-type="Tuyển dụng" data-cat="Nhân sự">
+                        <span class="tc-item-icon" style="background:#f3e8ff;color:#7e22ce;" title="Tuyển dụng">
+                            <svg class="tc-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                                <circle cx="8.5" cy="7" r="4" />
+                                <line x1="20" y1="8" x2="20" y2="14" /><line x1="23" y1="11" x2="17" y2="11" />
+                            </svg>
+                        </span>
+                        <div class="tc-item-text"><span class="tc-item-title">Tuyển dụng</span></div>
+                        <i class="material-icons tc-item-arrow">chevron_right</i>
+                    </div>
+                    <div class="tc-create-item" data-type="Nghỉ việc" data-cat="Nhân sự">
+                        <span class="tc-item-icon" style="background:#fee2e2;color:#dc2626;" title="Nghỉ việc">
+                            <svg class="tc-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                                <polyline points="16 17 21 12 16 7" />
+                                <line x1="21" y1="12" x2="9" y2="12" />
+                            </svg>
+                        </span>
+                        <div class="tc-item-text"><span class="tc-item-title">Nghỉ việc</span></div>
+                        <i class="material-icons tc-item-arrow">chevron_right</i>
+                    </div>
+                    <div class="tc-create-item" data-type="Bổ nhiệm" data-cat="Nhân sự">
+                        <span class="tc-item-icon" style="background:#e0e7ff;color:#4338ca;" title="Bổ nhiệm">
+                            <svg class="tc-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                            </svg>
+                        </span>
+                        <div class="tc-item-text"><span class="tc-item-title">Bổ nhiệm</span></div>
+                        <i class="material-icons tc-item-arrow">chevron_right</i>
+                    </div>
+                    <div class="tc-create-item" data-type="Điều chuyển" data-cat="Nhân sự">
+                        <span class="tc-item-icon" style="background:#fef9c3;color:#854d0e;" title="Điều chuyển">
+                            <svg class="tc-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="16 3 21 3 21 8" />
+                                <line x1="4" y1="20" x2="21" y2="3" />
+                                <polyline points="21 16 21 21 16 21" />
+                                <line x1="15" y1="15" x2="21" y2="21" />
+                                <line x1="4" y1="4" x2="9" y2="9" />
+                            </svg>
+                        </span>
+                        <div class="tc-item-text"><span class="tc-item-title">Điều chuyển</span></div>
+                        <i class="material-icons tc-item-arrow">chevron_right</i>
+                    </div>
+                    <div class="tc-create-item" data-type="Khen thưởng" data-cat="Nhân sự">
+                        <span class="tc-item-icon" style="background:#dcfce7;color:#16a34a;" title="Khen thưởng">
+                            <svg class="tc-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="8" r="7" />
+                                <polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88" />
+                            </svg>
+                        </span>
+                        <div class="tc-item-text"><span class="tc-item-title">Khen thưởng</span></div>
+                        <i class="material-icons tc-item-arrow">chevron_right</i>
+                    </div>
+                    <div class="tc-create-item" data-type="Kỷ luật" data-cat="Nhân sự">
+                        <span class="tc-item-icon" style="background:#fee2e2;color:#991b1b;" title="Kỷ luật">
+                            <svg class="tc-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M14 13l-7.5 7.5a2.12 2.12 0 0 1-3-3L11 10" />
+                                <path d="M16 16l6-6a2 2 0 0 0 0-2.83l-3.17-3.17a2 2 0 0 0-2.83 0L10 10" />
+                                <path d="M8 2l4 4" /><path d="M18 12l4 4" />
+                            </svg>
+                        </span>
+                        <div class="tc-item-text"><span class="tc-item-title">Kỷ luật</span></div>
+                        <i class="material-icons tc-item-arrow">chevron_right</i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="tc-modal-footer">
+            <div class="tc-modal-summary">
+                Có tổng cộng <strong>24</strong> loại yêu cầu đề xuất
+            </div>
+            <div>
+                <button id="tcCreateModalCancel" type="button" class="tc-btn-modal-cancel">Đóng</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bước 2: Form điền thông tin yêu cầu đề xuất -->
+    <div id="createStepForm" class="tc-create-step">
+        <div class="tc-modal-header">
+            <div style="display:flex;align-items:center;gap:12px;">
+                <button type="button" id="btnBackToTypes" class="tc-btn-icon-back" title="Quay lại danh mục chọn loại khác">
+                    <i class="material-icons">arrow_back</i>
+                </button>
+                <div>
+                    <h3 id="newReqModalHeaderTitle">Tạo đề xuất mới</h3>
+                    <p id="newReqModalHeaderSub">Điền thông tin chi tiết và gửi đề xuất vào quy trình phê duyệt.</p>
+                </div>
+            </div>
+            <button id="tcCreateFormClose" type="button" class="tc-modal-close" aria-label="Đóng">
+                <i class="material-icons">close</i>
+            </button>
+        </div>
+
+        <div class="tc-modal-body" style="padding:20px 24px;">
+            <!-- Selected Type Banner -->
+            <div class="tc-type-selected-banner">
+                <div class="tc-type-selected-info">
+                    <span id="newReqSelectedIcon" class="tc-item-icon" style="background:#d1fae5;color:#059669;">
+                        <svg class="tc-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 2v20" />
+                            <path d="M12 2a10 10 0 0 1 10 10c0 1.5-1.5 2-3 2-2 0-3-1-4-1s-2 1-3 1-2-1-3-1-2 1-4 1c-1.5 0-3-.5-3-2A10 10 0 0 1 12 2z" />
+                            <circle cx="12" cy="12" r="1.5" />
+                        </svg>
+                    </span>
+                    <div class="tc-type-selected-text">
+                        <h4 id="newReqTypeBadge">Nghỉ phép</h4>
+                        <p id="newReqCatBadge">Nhóm: Lượt chấm công</p>
+                    </div>
+                </div>
+                <button type="button" id="btnChangeType" class="tc-btn-change-type">
+                    <i class="material-icons" style="font-size:14px;vertical-align:middle;">swap_horiz</i> Đổi loại yêu cầu
+                </button>
+            </div>
+
+            <!-- Dynamic Form Container for specialized forms -->
+            <div id="dynamicFormContainer"></div>
+        </div>
+
+        <div class="tc-modal-footer">
+            <button type="button" id="btnCancelCreateForm" class="tc-btn-modal-cancel">
+                <i class="material-icons" style="font-size:16px;">arrow_back</i> Quay lại
+            </button>
+            <button type="button" id="btnSubmitDynamicRequest" class="tc-btn-create-green">
+                <i class="material-icons" style="font-size:18px;">add_task</i> Tạo mới
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    var currentDisplayName = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(currentDisplayName));
+    var currentUserId = @currentUserId;
+    var roleCode = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(roleCode));
+
+    function esc(v) {
+        return $('<div>').text(v == null ? '' : v).html();
+    }
+    function fmtDate(v) {
+        return v ? moment(v).format('DD/MM/YYYY') : '—';
+    }
+    function fmtMoney(n) {
+        return (n || 0).toLocaleString('vi-VN');
+    }
+    function calcDays(start, end) {
+        if (!start || !end) return 1;
+        var s = moment(start).startOf('day');
+        var e = moment(end).startOf('day');
+        return Math.max(1, e.diff(s, 'days') + 1);
+    }
+
+    function showToast(msg, type) {
+        var container = $('#tcToastContainerShared');
+        if (!container.length) container = $('#tcToastContainer');
+        var toast = $('<div class="tc-toast ' + (type || 'info') + '">' +
+            '<i class="material-icons" style="font-size:18px;">' + (type === 'success' ? 'check_circle' : type === 'danger' ? 'error' : 'info') + '</i>' +
+            '<span>' + esc(msg) + '</span>' +
+            '</div>');
+        container.append(toast);
+        setTimeout(function () { toast.addClass('is-visible'); }, 20);
+        setTimeout(function () {
+            toast.removeClass('is-visible');
+            setTimeout(function () { toast.remove(); }, 300);
+        }, 3600);
+    }
+    window.showTancaToast = showToast;
+
+    /* User Cache for Dynamic Dropdowns */
+    var cachedUsers = [];
+    function loadCachedUsers() {
+        if (!cachedUsers.length) {
+            $.get('@Url.Action("Users", "Hrm")').done(function (res) {
+                cachedUsers = res.Data || [];
+            });
+        }
+    }
+
+    function getRequestCategoryTemplate(type, cat) {
+        var t = (type || '').toLowerCase();
+        var c = (cat || '').toLowerCase();
+        if (c.indexOf('tài chính') !== -1 || t.indexOf('tạm ứng') !== -1 || t.indexOf('hoàn ứng') !== -1 ||
+            t.indexOf('thanh toán') !== -1 || t.indexOf('phiếu đề nghị') !== -1 || t.indexOf('trả góp') !== -1 ||
+            t.indexOf('tiền thưởng') !== -1 || t.indexOf('hoa hồng') !== -1 || t.indexOf('chi phí') !== -1) {
+            return 'FINANCE';
+        }
+        if (t.indexOf('làm thêm') !== -1 || t.indexOf('ot') !== -1 || t.indexOf('tăng ca') !== -1) {
+            return 'OVERTIME';
+        }
+        if (t.indexOf('đi muộn') !== -1 || t.indexOf('về sớm') !== -1 || t.indexOf('thay đổi giờ') !== -1) {
+            return 'ATTENDANCE';
+        }
+        if (t.indexOf('ca làm') !== -1 || t.indexOf('đổi ca') !== -1 || t.indexOf('đăng ký ca') !== -1) {
+            return 'SHIFT';
+        }
+        if (t.indexOf('suất ăn') !== -1 || t.indexOf('cơm') !== -1) {
+            return 'MEAL';
+        }
+        if (t.indexOf('tuyển dụng') !== -1) {
+            return 'RECRUITMENT';
+        }
+        if (t.indexOf('nghỉ việc') !== -1 || t.indexOf('thôi việc') !== -1) {
+            return 'RESIGNATION';
+        }
+        if (t.indexOf('bổ nhiệm') !== -1 || t.indexOf('điều chuyển') !== -1) {
+            return 'APPOINTMENT';
+        }
+        if (t.indexOf('khen thưởng') !== -1 || t.indexOf('kỷ luật') !== -1) {
+            return 'REWARD_DISCIPLINE';
+        }
+        return 'LEAVE';
+    }
+
+    function renderEmployeeRow(label, id) {
+        var html = '<div class="tc-tanca-row">';
+        html += '<label>' + esc(label || 'Nhân viên') + ' <span class="req">*</span></label>';
+        html += '<div>';
+        html += '<input type="text" id="dynEmployeeInput" class="tc-tanca-input" placeholder="Nhập tên nhân viên" value="' + esc(currentDisplayName) + '" autocomplete="off" spellcheck="false" />';
+        html += '<input type="hidden" id="' + (id || 'dynEmployeeId') + '" value="' + (currentUserId || '') + '" />';
+        html += '</div></div>';
+        return html;
+    }
+
+    function renderAttachmentRow() {
+        return '<div class="tc-tanca-row align-top">' +
+            '<label>Tài liệu</label>' +
+            '<div>' +
+                '<button type="button" class="tc-btn-upload" onclick="$(\'#dynAttachmentFile\').click();">' +
+                    '<i class="material-icons" style="font-size:16px;">cloud_upload</i> Tải tài liệu lên' +
+                '</button>' +
+                '<input type="file" id="dynAttachmentFile" style="display:none;" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx" />' +
+                '<span id="dynAttachmentName" style="margin-left:10px;font-size:13px;color:#64748b;">Chưa có tệp nào</span>' +
+            '</div>' +
+        '</div>';
+    }
+
+    function renderFlowPreviewRow(s1, s2, s3) {
+        var approverStep = (roleCode === 'MANAGER') ? 'Giám đốc phê duyệt' : 'Trưởng phòng phê duyệt';
+        if (s2 && s2.indexOf('Giám đốc') !== -1) {
+            approverStep = s2;
+        }
+        return '<div class="tc-tanca-row align-top" style="margin-top:14px;">' +
+            '<label>Quy trình duyệt</label>' +
+            '<div class="tc-flow-preview" style="width:100%;">' +
+                '<div class="tc-flow-step">' +
+                    '<i class="material-icons">person</i>' +
+                    '<span>' + esc(s1 || 'Người đề xuất') + '</span>' +
+                '</div>' +
+                '<i class="material-icons tc-flow-arrow">arrow_forward</i>' +
+                '<div class="tc-flow-step">' +
+                    '<i class="material-icons">verified_user</i>' +
+                    '<span>' + esc(approverStep) + '</span>' +
+                '</div>' +
+            '</div>' +
+        '</div>';
+    }
+
+    /* Template 1: Finance */
+    function renderFinanceForm(type, cat) {
+        var today = moment().format('YYYY-MM-DD');
+        var dueDate = moment().add(15, 'days').format('YYYY-MM-DD');
+        var html = '<div class="tc-tanca-form" data-template="FINANCE">';
+        html += '<input type="hidden" id="dynReqType" value="' + esc(type) + '" />';
+        html += '<input type="hidden" id="dynReqCategory" value="' + esc(cat) + '" />';
+        html += renderEmployeeRow('Nhân viên', 'dynEmployeeId');
+        html += '<div class="tc-tanca-row">';
+        html += '<label>Tiêu đề <span class="req">*</span></label>';
+        html += '<input type="text" id="dynTitle" class="tc-tanca-input" placeholder="Nhập tiêu đề đề xuất" value="' + esc(type) + '" required />';
+        html += '</div>';
+        html += '<div class="tc-tanca-row">';
+        html += '<label>Ngày <span class="req">*</span></label>';
+        html += '<input type="date" id="dynDate" class="tc-tanca-input" value="' + today + '" required />';
+        html += '</div>';
+        html += '<div class="tc-tanca-row">';
+        html += '<label>Nhóm</label>';
+        html += '<input type="text" class="tc-tanca-input" value="Tài chính & chi phí" readonly style="background:#f1f5f9;color:#64748b;" />';
+        html += '</div>';
+        html += '<div class="tc-tanca-row">';
+        html += '<label>Loại yêu cầu <span class="req">*</span></label>';
+        html += '<select id="dynSubtype" class="tc-tanca-select">';
+        html += '<option value="' + esc(type) + '" selected>' + esc(type) + '</option>';
+        html += '<option value="Tạm ứng">Tạm ứng</option>';
+        html += '<option value="Hoàn ứng">Hoàn ứng</option>';
+        html += '<option value="Tạm ứng lương">Tạm ứng lương</option>';
+        html += '<option value="Phiếu đề nghị">Phiếu đề nghị</option>';
+        html += '<option value="Thanh toán chi phí đi lại">Thanh toán chi phí đi lại</option>';
+        html += '<option value="Thanh toán">Thanh toán</option>';
+        html += '<option value="Trả góp">Trả góp</option>';
+        html += '<option value="Tiền thưởng">Tiền thưởng</option>';
+        html += '<option value="Hoa hồng">Hoa hồng</option>';
+        html += '</select></div>';
+        html += '<div class="tc-tanca-row">';
+        html += '<label>Mục đích thanh toán</label>';
+        html += '<select id="dynPurpose" class="tc-tanca-select">';
+        html += '<option value="Công tác phí">Công tác phí</option>';
+        html += '<option value="Chi phí dự án / khách hàng">Chi phí dự án / khách hàng</option>';
+        html += '<option value="Mua sắm văn phòng phẩm, thiết bị">Mua sắm văn phòng phẩm, thiết bị</option>';
+        html += '<option value="Chi phí tiếp khách, hội thảo">Chi phí tiếp khách, hội thảo</option>';
+        html += '<option value="Thanh toán hợp đồng, nhà cung cấp">Thanh toán hợp đồng, nhà cung cấp</option>';
+        html += '<option value="Tạm ứng lương định kỳ">Tạm ứng lương định kỳ</option>';
+        html += '<option value="Khác">Khác</option>';
+        html += '</select></div>';
+        html += '<div class="tc-tanca-row">';
+        html += '<label>Cách thức thanh toán <span class="req">*</span></label>';
+        html += '<select id="dynPaymentMethod" class="tc-tanca-select">';
+        html += '<option value="Chuyển khoản" selected>Chuyển khoản</option>';
+        html += '<option value="Tiền mặt">Tiền mặt</option>';
+        html += '</select></div>';
+        html += '<div class="tc-tanca-row">';
+        html += '<label>Thời hạn hoàn ứng</label>';
+        html += '<input type="date" id="dynDueDate" class="tc-tanca-input" value="' + dueDate + '" />';
+        html += '</div>';
+        html += '<hr class="tc-dashed-divider" />';
+        html += '<div class="tc-detail-section-header">';
+        html += '<span class="tc-detail-section-title">Chi tiết</span>';
+        html += '<button type="button" id="btnFinanceAddDetail" class="tc-btn-add-detail">';
+        html += '<i class="material-icons" style="font-size:18px;">add</i> Tạo mới';
+        html += '</button>';
+        html += '</div>';
+        html += '<div id="financeDetailList"></div>';
+        html += '<hr class="tc-dashed-divider" />';
+        html += '<div class="tc-tanca-row">';
+        html += '<label style="font-size:15px;font-weight:700;">Tổng số tiền</label>';
+        html += '<div id="financeGrandTotalDisplay" style="font-size:18px;font-weight:700;color:#10b981;">0 VNĐ</div>';
+        html += '<input type="hidden" id="financeGrandTotalVal" value="0" />';
+        html += '</div>';
+        html += renderAttachmentRow();
+        html += renderFlowPreviewRow('Người đề xuất', 'Trưởng bộ phận', 'Kế toán / HR');
+        html += '</div>';
+        return html;
+    }
+
+    /* Template 2: Leave & Work Trip */
+    function renderLeaveForm(type, cat) {
+        var today = moment().format('YYYY-MM-DD');
+        var isTrip = type.indexOf('Công tác') !== -1;
+        var html = '<div class="tc-tanca-form" data-template="LEAVE">';
+        html += '<input type="hidden" id="dynReqType" value="' + esc(type) + '" />';
+        html += '<input type="hidden" id="dynReqCategory" value="' + esc(cat) + '" />';
+        html += renderEmployeeRow('Nhân viên', 'dynEmployeeId');
+        html += '<div class="tc-tanca-row">';
+        html += '<label>Tiêu đề <span class="req">*</span></label>';
+        html += '<input type="text" id="dynTitle" class="tc-tanca-input" value="' + (isTrip ? 'Kế hoạch công tác' : 'Đơn xin nghỉ phép') + '" required />';
+        html += '</div>';
+        html += '<div class="tc-tanca-row">';
+        html += '<label>Hình thức đề xuất <span class="req">*</span></label>';
+        html += '<select id="dynLeaveSubtype" class="tc-tanca-select">';
+        if (isTrip) {
+            html += '<option value="Công tác nội thành">Công tác nội thành</option>';
+            html += '<option value="Công tác ngoại tỉnh">Công tác ngoại tỉnh</option>';
+            html += '<option value="Công tác nước ngoài">Công tác nước ngoài</option>';
+            html += '<option value="Ra ngoài gặp đối tác">Ra ngoài gặp đối tác</option>';
+        } else {
+            html += '<option value="Nghỉ phép năm">Nghỉ phép năm</option>';
+            html += '<option value="Nghỉ việc riêng (hưởng lương)">Nghỉ việc riêng (kết hôn, tang chế...)</option>';
+            html += '<option value="Nghỉ ốm đau / điều trị">Nghỉ ốm đau / điều trị</option>';
+            html += '<option value="Nghỉ thai sản">Nghỉ thai sản</option>';
+            html += '<option value="Nghỉ không hưởng lương">Nghỉ không hưởng lương</option>';
+        }
+        html += '</select></div>';
+        html += '<div class="tc-tanca-row">';
+        html += '<label>Thời gian <span class="req">*</span></label>';
+        html += '<div class="tc-inline-grid-2">';
+        html += '<div><input type="date" id="dynStartDate" class="tc-tanca-input" value="' + today + '" required /></div>';
+        html += '<div style="display:flex;align-items:center;gap:6px;">';
+        html += '<input type="date" id="dynEndDate" class="tc-tanca-input" value="' + today + '" required />';
+        html += '<span id="dynLeaveDaysCalc" class="tc-calc-badge">1 ngày</span>';
+        html += '</div></div></div>';
+        html += '<div class="tc-tanca-row">';
+        html += '<label>Buổi áp dụng</label>';
+        html += '<select id="dynSession" class="tc-tanca-select">';
+        html += '<option value="Cả ngày">Cả ngày</option>';
+        html += '<option value="Buổi sáng">Buổi sáng</option>';
+        html += '<option value="Buổi chiều">Buổi chiều</option>';
+        html += '</select></div>';
+        if (isTrip) {
+            html += '<div class="tc-tanca-row">';
+            html += '<label>Địa điểm công tác</label>';
+            html += '<input type="text" id="dynLocation" class="tc-tanca-input" placeholder="Nhập điểm đến, văn phòng đối tác..." />';
+            html += '</div>';
+        }
+        html += '<div class="tc-tanca-row">';
+        html += '<label>Bàn giao công việc</label>';
+        html += '<input type="text" id="dynHandover" class="tc-tanca-input" placeholder="Tên hoặc mã nhân sự nhận bàn giao..." />';
+        html += '</div>';
+        html += '<div class="tc-tanca-row align-top">';
+        html += '<label>Lý do đề xuất <span class="req">*</span></label>';
+        html += '<textarea id="dynReason" class="tc-tanca-textarea" placeholder="Nhập chi tiết lý do, kế hoạch công việc..."></textarea>';
+        html += '</div>';
+        html += renderAttachmentRow();
+        html += renderFlowPreviewRow('Nhân viên', 'Trưởng bộ phận', 'Ban Giám đốc & HR');
+        html += '</div>';
+        return html;
+    }
+
+    /* Template 3: Attendance (Đi muộn về sớm, thay đổi giờ) */
+    function renderAttendanceForm(type, cat) {
+        var today = moment().format('YYYY-MM-DD');
+        var html = '<div class="tc-tanca-form" data-template="ATTENDANCE">';
+        html += '<input type="hidden" id="dynReqType" value="' + esc(type) + '" />';
+        html += '<input type="hidden" id="dynReqCategory" value="' + esc(cat) + '" />';
+        html += renderEmployeeRow('Nhân viên', 'dynEmployeeId');
+        html += '<div class="tc-tanca-row">';
+        html += '<label>Tiêu đề <span class="req">*</span></label>';
+        html += '<input type="text" id="dynTitle" class="tc-tanca-input" value="Giải trình ' + esc(type) + '" required />';
+        html += '</div>';
+        html += '<div class="tc-tanca-row">';
+        html += '<label>Ngày áp dụng <span class="req">*</span></label>';
+        html += '<input type="date" id="dynDate" class="tc-tanca-input" value="' + today + '" required />';
+        html += '</div>';
+        html += '<div class="tc-tanca-row">';
+        html += '<label>Hình thức <span class="req">*</span></label>';
+        html += '<select id="dynAdjustType" class="tc-tanca-select">';
+        html += '<option value="Đi muộn (Đến sau giờ quy định)">Đi muộn (Đến sau giờ quy định)</option>';
+        html += '<option value="Về sớm (Về trước giờ kết thúc)">Về sớm (Về trước giờ kết thúc)</option>';
+        html += '<option value="Quên chấm công vào">Quên chấm công vào</option>';
+        html += '<option value="Quên chấm công ra">Quên chấm công ra</option>';
+        html += '<option value="Lỗi thiết bị chấm công / mạng">Lỗi thiết bị chấm công / mạng</option>';
+        html += '</select></div>';
+        html += '<div class="tc-tanca-row">';
+        html += '<label>Giờ quy định</label>';
+        html += '<input type="time" id="dynRuleTime" class="tc-tanca-input" value="08:00" />';
+        html += '</div>';
+        html += '<div class="tc-tanca-row">';
+        html += '<label>Giờ thực tế <span class="req">*</span></label>';
+        html += '<div style="display:flex;align-items:center;gap:8px;">';
+        html += '<input type="time" id="dynActualTime" class="tc-tanca-input" value="08:25" required />';
+        html += '<span id="dynAttendDiffCalc" class="tc-calc-badge" style="background:#fff7ed;color:#c2410c;">Chậm 25 phút</span>';
+        html += '</div></div>';
+        html += '<div class="tc-tanca-row">';
+        html += '<label>Ca làm việc</label>';
+        html += '<select id="dynShift" class="tc-tanca-select">';
+        html += '<option value="Ca hành chính (08:00 - 17:30)">Ca hành chính (08:00 - 17:30)</option>';
+        html += '<option value="Ca sáng (08:00 - 12:00)">Ca sáng (08:00 - 12:00)</option>';
+        html += '<option value="Ca chiều (13:30 - 17:30)">Ca chiều (13:30 - 17:30)</option>';
+        html += '</select></div>';
+        html += '<div class="tc-tanca-row align-top">';
+        html += '<label>Lý do giải trình <span class="req">*</span></label>';
+        html += '<textarea id="dynReason" class="tc-tanca-textarea" placeholder="Nhập chi tiết lý do đi muộn, về sớm hoặc sự cố máy chấm công..."></textarea>';
+        html += '</div>';
+        html += renderAttachmentRow();
+        html += renderFlowPreviewRow('Nhân viên', 'Trưởng phòng phê duyệt', 'Chấm công tự động cập nhật');
+        html += '</div>';
+        return html;
+    }
+
+    /* Template 4: Overtime (OT) */
+    function renderOvertimeForm(type, cat) {
+        var today = moment().format('YYYY-MM-DD');
+        var html = '<div class="tc-tanca-form" data-template="OVERTIME">';
+        html += '<input type="hidden" id="dynReqType" value="' + esc(type) + '" />';
+        html += '<input type="hidden" id="dynReqCategory" value="' + esc(cat) + '" />';
+        html += renderEmployeeRow('Nhân viên', 'dynEmployeeId');
+        html += '<div class="tc-tanca-row">';
+        html += '<label>Tiêu đề <span class="req">*</span></label>';
+        html += '<input type="text" id="dynTitle" class="tc-tanca-input" value="Đăng ký làm thêm giờ (OT)" required />';
+        html += '</div>';
+        html += '<div class="tc-tanca-row">';
+        html += '<label>Ngày làm thêm <span class="req">*</span></label>';
+        html += '<input type="date" id="dynDate" class="tc-tanca-input" value="' + today + '" required />';
+        html += '</div>';
+        html += '<div class="tc-tanca-row">';
+        html += '<label>Khung giờ OT <span class="req">*</span></label>';
+        html += '<div class="tc-inline-grid-2">';
+        html += '<div><input type="time" id="dynOtFrom" class="tc-tanca-input" value="18:00" required /></div>';
+        html += '<div style="display:flex;align-items:center;gap:6px;">';
+        html += '<input type="time" id="dynOtTo" class="tc-tanca-input" value="21:00" required />';
+        html += '<span id="dynOtHoursCalc" class="tc-calc-badge">3.0 giờ OT</span>';
+        html += '</div></div></div>';
+        html += '<div class="tc-tanca-row">';
+        html += '<label>Hệ số lương OT</label>';
+        html += '<select id="dynOtRate" class="tc-tanca-select">';
+        html += '<option value="150% (Ngày làm việc thường)">150% (Ngày làm việc thường)</option>';
+        html += '<option value="200% (Ngày nghỉ cuối tuần)">200% (Ngày nghỉ cuối tuần)</option>';
+        html += '<option value="300% (Ngày lễ, Tết)">300% (Ngày lễ, Tết)</option>';
+        html += '</select></div>';
+        html += '<div class="tc-tanca-row">';
+        html += '<label>Dự án / Mục tiêu <span class="req">*</span></label>';
+        html += '<input type="text" id="dynProject" class="tc-tanca-input" placeholder="Tên dự án hoặc công việc trọng điểm thực hiện..." required />';
+        html += '</div>';
+        html += '<div class="tc-tanca-row">';
+        html += '<label>Người giám sát</label>';
+        html += '<input type="text" id="dynSupervisor" class="tc-tanca-input" placeholder="Tên Quản lý ca hoặc Trưởng dự án..." />';
+        html += '</div>';
+        html += '<div class="tc-tanca-row align-top">';
+        html += '<label>Nội dung công việc <span class="req">*</span></label>';
+        html += '<textarea id="dynReason" class="tc-tanca-textarea" placeholder="Mô tả cụ thể khối lượng công việc cần hoàn thành trong đợt OT..."></textarea>';
+        html += '</div>';
+        html += renderAttachmentRow();
+        html += renderFlowPreviewRow('Nhân viên', 'Quản lý dự án / Trưởng phòng', 'HR tính lương OT');
+        html += '</div>';
+        return html;
+    }
+
+    /* Template 5: Shift (Đổi ca, Đăng ký ca) */
+    function renderShiftForm(type, cat) {
+        var today = moment().format('YYYY-MM-DD');
+        var html = '<div class="tc-tanca-form" data-template="SHIFT">';
+        html += '<input type="hidden" id="dynReqType" value="' + esc(type) + '" />';
+        html += '<input type="hidden" id="dynReqCategory" value="' + esc(cat) + '" />';
+        html += renderEmployeeRow('Nhân viên', 'dynEmployeeId');
+        html += '<div class="tc-tanca-row">';
+        html += '<label>Tiêu đề <span class="req">*</span></label>';
+        html += '<input type="text" id="dynTitle" class="tc-tanca-input" value="Đề xuất ' + esc(type) + '" required />';
+        html += '</div>';
+        html += '<div class="tc-tanca-row">';
+        html += '<label>Ngày áp dụng <span class="req">*</span></label>';
+        html += '<input type="date" id="dynDate" class="tc-tanca-input" value="' + today + '" required />';
+        html += '</div>';
+        html += '<div class="tc-tanca-row">';
+        html += '<label>Ca hiện tại</label>';
+        html += '<select id="dynCurShift" class="tc-tanca-select">';
+        html += '<option value="Ca sáng (08:00 - 12:00)">Ca sáng (08:00 - 12:00)</option>';
+        html += '<option value="Ca chiều (13:30 - 17:30)">Ca chiều (13:30 - 17:30)</option>';
+        html += '<option value="Ca tối (18:00 - 22:00)">Ca tối (18:00 - 22:00)</option>';
+        html += '<option value="Ca hành chính (08:00 - 17:30)" selected>Ca hành chính (08:00 - 17:30)</option>';
+        html += '</select></div>';
+        html += '<div class="tc-tanca-row">';
+        html += '<label>Ca mong muốn <span class="req">*</span></label>';
+        html += '<select id="dynNewShift" class="tc-tanca-select">';
+        html += '<option value="Ca chiều (13:30 - 17:30)">Ca chiều (13:30 - 17:30)</option>';
+        html += '<option value="Ca sáng (08:00 - 12:00)">Ca sáng (08:00 - 12:00)</option>';
+        html += '<option value="Ca tối (18:00 - 22:00)">Ca tối (18:00 - 22:00)</option>';
+        html += '<option value="Ca gãy đặc thù">Ca gãy đặc thù</option>';
+        html += '</select></div>';
+        html += '<div class="tc-tanca-row">';
+        html += '<label>Người cùng đổi ca</label>';
+        html += '<input type="text" id="dynSwapPartner" class="tc-tanca-input" placeholder="Tên hoặc mã nhân sự đồng ý đổi ca chéo..." />';
+        html += '</div>';
+        html += '<div class="tc-tanca-row align-top">';
+        html += '<label>Lý do đề xuất <span class="req">*</span></label>';
+        html += '<textarea id="dynReason" class="tc-tanca-textarea" placeholder="Nhập lý do đổi ca làm hoặc đăng ký ca mới..."></textarea>';
+        html += '</div>';
+        html += renderAttachmentRow();
+        html += renderFlowPreviewRow('Nhân viên', 'Quản lý ca / Trưởng phòng', 'HR duyệt lịch');
+        html += '</div>';
+        return html;
+    }
+
+    /* Template 6: Meal */
+    function renderMealForm(type, cat) {
+        var today = moment().format('YYYY-MM-DD');
+        var html = '<div class="tc-tanca-form" data-template="MEAL">';
+        html += '<input type="hidden" id="dynReqType" value="' + esc(type) + '" />';
+        html += '<input type="hidden" id="dynReqCategory" value="' + esc(cat) + '" />';
+        html += renderEmployeeRow('Nhân viên', 'dynEmployeeId');
+        html += '<div class="tc-tanca-row">';
+        html += '<label>Tiêu đề <span class="req">*</span></label>';
+        html += '<input type="text" id="dynTitle" class="tc-tanca-input" value="Đăng ký suất ăn" required />';
+        html += '</div>';
+        html += '<div class="tc-tanca-row">';
+        html += '<label>Thời gian áp dụng <span class="req">*</span></label>';
+        html += '<div class="tc-inline-grid-2">';
+        html += '<input type="date" id="dynStartDate" class="tc-tanca-input" value="' + today + '" required />';
+        html += '<input type="date" id="dynEndDate" class="tc-tanca-input" value="' + today + '" required />';
+        html += '</div></div>';
+        html += '<div class="tc-tanca-row">';
+        html += '<label>Loại suất ăn <span class="req">*</span></label>';
+        html += '<select id="dynMealType" class="tc-tanca-select">';
+        html += '<option value="Cơm trưa văn phòng">Cơm trưa văn phòng</option>';
+        html += '<option value="Cơm tăng ca tối">Cơm tăng ca tối</option>';
+        html += '<option value="Suất ăn chay">Suất ăn chay</option>';
+        html += '<option value="Suất ăn theo chế độ riêng">Suất ăn theo chế độ riêng</option>';
+        html += '</select></div>';
+        html += '<div class="tc-tanca-row">';
+        html += '<label>Địa điểm / Nhà ăn</label>';
+        html += '<input type="text" id="dynLocation" class="tc-tanca-input" value="Nhà ăn trụ sở chính" />';
+        html += '</div>';
+        html += '<div class="tc-tanca-row align-top">';
+        html += '<label>Ghi chú dinh dưỡng</label>';
+        html += '<textarea id="dynReason" class="tc-tanca-textarea" placeholder="Yêu cầu dinh dưỡng hoặc kiêng khem nếu có..."></textarea>';
+        html += '</div>';
+        html += renderFlowPreviewRow('Nhân viên', 'Hành chính bếp', 'Xác nhận');
+        html += '</div>';
+        return html;
+    }
+
+    /* Template 7: HR Recruitment */
+    function renderRecruitmentForm(type, cat) {
+        var targetDate = moment().add(30, 'days').format('YYYY-MM-DD');
+        var html = '<div class="tc-tanca-form" data-template="RECRUITMENT">';
+        html += '<input type="hidden" id="dynReqType" value="' + esc(type) + '" />';
+        html += '<input type="hidden" id="dynReqCategory" value="' + esc(cat) + '" />';
+        html += renderEmployeeRow('Người đề xuất', 'dynEmployeeId');
+        html += '<div class="tc-tanca-row">';
+        html += '<label>Tiêu đề <span class="req">*</span></label>';
+        html += '<input type="text" id="dynTitle" class="tc-tanca-input" value="Đề xuất tuyển dụng nhân sự mới" required />';
+        html += '</div>';
+        html += '<div class="tc-tanca-row">';
+        html += '<label>Vị trí cần tuyển <span class="req">*</span></label>';
+        html += '<input type="text" id="dynPosition" class="tc-tanca-input" placeholder="VD: Lập trình viên Backend .NET, Nhân viên Sales..." required />';
+        html += '</div>';
+        html += '<div class="tc-tanca-row">';
+        html += '<label>Phòng ban <span class="req">*</span></label>';
+        html += '<select id="dynDept" class="tc-tanca-select">';
+        html += '<option value="Phòng Công nghệ thông tin">Phòng Công nghệ thông tin</option>';
+        html += '<option value="Phòng Kinh doanh">Phòng Kinh doanh</option>';
+        html += '<option value="Phòng Kế toán">Phòng Kế toán</option>';
+        html += '<option value="Phòng Nhân sự">Phòng Nhân sự</option>';
+        html += '<option value="Phòng Marketing">Phòng Marketing</option>';
+        html += '</select></div>';
+        html += '<div class="tc-tanca-row">';
+        html += '<label>Số lượng cần tuyển <span class="req">*</span></label>';
+        html += '<input type="number" id="dynHeadcount" class="tc-tanca-input" min="1" max="100" value="1" required />';
+        html += '</div>';
+        html += '<div class="tc-tanca-row">';
+        html += '<label>Mức lương dự kiến</label>';
+        html += '<input type="text" id="dynSalary" class="tc-tanca-input" placeholder="VD: 15.000.000 - 22.000.000 VNĐ hoặc Thỏa thuận" />';
+        html += '</div>';
+        html += '<div class="tc-tanca-row">';
+        html += '<label>Hạn đi làm <span class="req">*</span></label>';
+        html += '<input type="date" id="dynTargetDate" class="tc-tanca-input" value="' + targetDate + '" required />';
+        html += '</div>';
+        html += '<div class="tc-tanca-row align-top">';
+        html += '<label>Mô tả & Lý do tuyển <span class="req">*</span></label>';
+        html += '<textarea id="dynReason" class="tc-tanca-textarea" placeholder="Nhập lý do tuyển dụng và tóm tắt yêu cầu chuyên môn (JD)..."></textarea>';
+        html += '</div>';
+        html += renderAttachmentRow();
+        html += renderFlowPreviewRow('Trưởng bộ phận đề xuất', 'Phòng Nhân sự (HR)', 'Tổng Giám đốc duyệt');
+        html += '</div>';
+        return html;
+    }
+
+    /* Template 8: HR Resignation */
+    function renderResignationForm(type, cat) {
+        var lastDay = moment().add(30, 'days').format('YYYY-MM-DD');
+        var hoDay = moment().add(28, 'days').format('YYYY-MM-DD');
+        var html = '<div class="tc-tanca-form" data-template="RESIGNATION">';
+        html += '<input type="hidden" id="dynReqType" value="' + esc(type) + '" />';
+        html += '<input type="hidden" id="dynReqCategory" value="' + esc(cat) + '" />';
+        html += renderEmployeeRow('Nhân viên xin nghỉ', 'dynEmployeeId');
+        html += '<div class="tc-tanca-row">';
+        html += '<label>Tiêu đề <span class="req">*</span></label>';
+        html += '<input type="text" id="dynTitle" class="tc-tanca-input" value="Đơn xin thôi việc" required />';
+        html += '</div>';
+        html += '<div class="tc-tanca-row">';
+        html += '<label>Ngày làm việc cuối <span class="req">*</span></label>';
+        html += '<input type="date" id="dynLastDay" class="tc-tanca-input" value="' + lastDay + '" required />';
+        html += '</div>';
+        html += '<div class="tc-tanca-row">';
+        html += '<label>Ngày hoàn tất bàn giao</label>';
+        html += '<input type="date" id="dynHandoverDay" class="tc-tanca-input" value="' + hoDay + '" />';
+        html += '</div>';
+        html += '<div class="tc-tanca-row">';
+        html += '<label>Bàn giao cho ai <span class="req">*</span></label>';
+        html += '<input type="text" id="dynHandover" class="tc-tanca-input" placeholder="Tên hoặc mã nhân sự tiếp nhận bàn giao..." required />';
+        html += '</div>';
+        html += '<div class="tc-tanca-row align-top">';
+        html += '<label>Lý do xin thôi việc <span class="req">*</span></label>';
+        html += '<textarea id="dynReason" class="tc-tanca-textarea" placeholder="Nhập chi tiết lý do xin thôi việc..."></textarea>';
+        html += '</div>';
+        html += renderAttachmentRow();
+        html += renderFlowPreviewRow('Nhân viên', 'Trưởng bộ phận', 'Ban Giám đốc & HR');
+        html += '</div>';
+        return html;
+    }
+
+    /* Template 9: HR Appointment & Transfer */
+    function renderAppointmentForm(type, cat) {
+        var today = moment().format('YYYY-MM-DD');
+        var html = '<div class="tc-tanca-form" data-template="APPOINTMENT">';
+        html += '<input type="hidden" id="dynReqType" value="' + esc(type) + '" />';
+        html += '<input type="hidden" id="dynReqCategory" value="' + esc(cat) + '" />';
+        html += renderEmployeeRow('Nhân sự áp dụng', 'dynEmployeeId');
+        html += '<div class="tc-tanca-row">';
+        html += '<label>Tiêu đề <span class="req">*</span></label>';
+        html += '<input type="text" id="dynTitle" class="tc-tanca-input" value="Đề xuất ' + esc(type) + '" required />';
+        html += '</div>';
+        html += '<div class="tc-tanca-row">';
+        html += '<label>Vị trí / Đơn vị cũ</label>';
+        html += '<input type="text" id="dynOldPos" class="tc-tanca-input" placeholder="Chức danh / Phòng ban hiện tại..." />';
+        html += '</div>';
+        html += '<div class="tc-tanca-row">';
+        html += '<label>Vị trí / Đơn vị mới <span class="req">*</span></label>';
+        html += '<input type="text" id="dynNewPos" class="tc-tanca-input" placeholder="Chức danh / Phòng ban điều chuyển mới..." required />';
+        html += '</div>';
+        html += '<div class="tc-tanca-row">';
+        html += '<label>Ngày hiệu lực <span class="req">*</span></label>';
+        html += '<input type="date" id="dynEffectiveDate" class="tc-tanca-input" value="' + today + '" required />';
+        html += '</div>';
+        html += '<div class="tc-tanca-row">';
+        html += '<label>Mức lương / Phụ cấp mới</label>';
+        html += '<input type="text" id="dynNewSalary" class="tc-tanca-input" placeholder="Mức lương hoặc phụ cấp mới (nếu có)..." />';
+        html += '</div>';
+        html += '<div class="tc-tanca-row align-top">';
+        html += '<label>Lý do đề xuất <span class="req">*</span></label>';
+        html += '<textarea id="dynReason" class="tc-tanca-textarea" placeholder="Nêu rõ lý do, năng lực đáp ứng..."></textarea>';
+        html += '</div>';
+        html += renderAttachmentRow();
+        html += renderFlowPreviewRow('Bộ phận đề xuất', 'HR thẩm định', 'Ban Giám đốc phê duyệt');
+        html += '</div>';
+        return html;
+    }
+
+    /* Template 10: HR Reward & Discipline */
+    function renderRewardDisciplineForm(type, cat) {
+        var today = moment().format('YYYY-MM-DD');
+        var isReward = type.indexOf('Khen thưởng') !== -1;
+        var html = '<div class="tc-tanca-form" data-template="REWARD_DISCIPLINE">';
+        html += '<input type="hidden" id="dynReqType" value="' + esc(type) + '" />';
+        html += '<input type="hidden" id="dynReqCategory" value="' + esc(cat) + '" />';
+        html += renderEmployeeRow('Nhân sự áp dụng', 'dynEmployeeId');
+        html += '<div class="tc-tanca-row">';
+        html += '<label>Tiêu đề <span class="req">*</span></label>';
+        html += '<input type="text" id="dynTitle" class="tc-tanca-input" value="' + (isReward ? 'Đề xuất khen thưởng thành tích xuất sắc' : 'Đề xuất xử lý kỷ luật') + '" required />';
+        html += '</div>';
+        html += '<div class="tc-tanca-row">';
+        html += '<label>Hình thức <span class="req">*</span></label>';
+        html += '<select id="dynFormType" class="tc-tanca-select">';
+        if (isReward) {
+            html += '<option value="Khen thưởng nhân viên xuất sắc">Khen thưởng nhân viên xuất sắc</option>';
+            html += '<option value="Thưởng nóng dự án / KPI">Thưởng nóng dự án / KPI</option>';
+            html += '<option value="Khen thưởng sáng kiến cải tiến">Khen thưởng sáng kiến cải tiến</option>';
+        } else {
+            html += '<option value="Khiển trách bằng văn bản">Khiển trách bằng văn bản</option>';
+            html += '<option value="Cảnh cáo toàn công ty">Cảnh cáo toàn công ty</option>';
+            html += '<option value="Kéo dài thời hạn nâng lương">Kéo dài thời hạn nâng lương</option>';
+        }
+        html += '</select></div>';
+        html += '<div class="tc-tanca-row">';
+        html += '<label>Số tiền thưởng/phạt</label>';
+        html += '<input type="text" id="dynAmount" class="tc-tanca-input" placeholder="VD: 2.000.000 VNĐ hoặc Để trống nếu không có tiền mặt" />';
+        html += '</div>';
+        html += '<div class="tc-tanca-row">';
+        html += '<label>Ngày hiệu lực <span class="req">*</span></label>';
+        html += '<input type="date" id="dynEffectiveDate" class="tc-tanca-input" value="' + today + '" required />';
+        html += '</div>';
+        html += '<div class="tc-tanca-row align-top">';
+        html += '<label>Chi tiết nội dung <span class="req">*</span></label>';
+        html += '<textarea id="dynReason" class="tc-tanca-textarea" placeholder="Nhập chi tiết thành tích đóng góp hoặc hành vi vi phạm kỷ luật..."></textarea>';
+        html += '</div>';
+        html += renderAttachmentRow();
+        html += renderFlowPreviewRow('Người đề xuất', 'Hội đồng thi đua / HR', 'Tổng Giám đốc phê duyệt');
+        html += '</div>';
+        return html;
+    }
+
+    /* Master Dynamic Form Renderer */
+    function renderDynamicCreateForm(type, cat) {
+        var tpl = getRequestCategoryTemplate(type, cat);
+        var container = $('#dynamicFormContainer');
+        var html = '';
+        switch (tpl) {
+            case 'FINANCE': html = renderFinanceForm(type, cat); break;
+            case 'OVERTIME': html = renderOvertimeForm(type, cat); break;
+            case 'ATTENDANCE': html = renderAttendanceForm(type, cat); break;
+            case 'SHIFT': html = renderShiftForm(type, cat); break;
+            case 'MEAL': html = renderMealForm(type, cat); break;
+            case 'RECRUITMENT': html = renderRecruitmentForm(type, cat); break;
+            case 'RESIGNATION': html = renderResignationForm(type, cat); break;
+            case 'APPOINTMENT': html = renderAppointmentForm(type, cat); break;
+            case 'REWARD_DISCIPLINE': html = renderRewardDisciplineForm(type, cat); break;
+            default: html = renderLeaveForm(type, cat); break;
+        }
+        container.html(html);
+
+        if (tpl === 'FINANCE') {
+            financeItemCounter = 0;
+            $('#financeDetailList').empty();
+            addFinanceDetailItem('Đề xuất chi phí đợt 1', 1, 0, '');
+        }
+    }
+
+    var financeItemCounter = 0;
+    function addFinanceDetailItem(prefillTitle, prefillQty, prefillPrice, prefillNote) {
+        financeItemCounter++;
+        var idx = financeItemCounter;
+        var cardHtml = '<div class="tc-detail-card" id="finDetailCard_' + idx + '" data-idx="' + idx + '">' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">' +
+                '<strong style="font-size:13.5px;color:#1e293b;" class="fin-card-title">Mục ' + ($('#financeDetailList .tc-detail-card').length + 1) + '</strong>' +
+                '<button type="button" class="btn-remove-detail" onclick="removeFinanceDetailItem(' + idx + ')" title="Xoá mục này">' +
+                    '<i class="material-icons" style="font-size:18px;">close</i>' +
+                '</button>' +
+            '</div>' +
+            '<div style="margin-bottom:10px;">' +
+                '<label style="display:block;font-size:12.5px;color:#475467;margin-bottom:4px;font-weight:600;">Nội dung đề xuất <span class="req">*</span></label>' +
+                '<input type="text" class="tc-tanca-input fin-item-title" placeholder="Nhập nội dung chi tiêu, mua sắm..." value="' + esc(prefillTitle || '') + '" required />' +
+            '</div>' +
+            '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:10px;">' +
+                '<div>' +
+                    '<label style="display:block;font-size:12.5px;color:#475467;margin-bottom:4px;font-weight:600;">Số lượng <span class="req">*</span></label>' +
+                    '<input type="number" class="tc-tanca-input fin-item-qty" min="1" step="1" value="' + (prefillQty || 1) + '" />' +
+                '</div>' +
+                '<div>' +
+                    '<label style="display:block;font-size:12.5px;color:#475467;margin-bottom:4px;font-weight:600;">Đơn giá (VNĐ) <span class="req">*</span></label>' +
+                    '<input type="number" class="tc-tanca-input fin-item-price" min="0" step="1000" placeholder="0" value="' + (prefillPrice || '') + '" />' +
+                '</div>' +
+                '<div>' +
+                    '<label style="display:block;font-size:12.5px;color:#475467;margin-bottom:4px;font-weight:600;">Tổng tiền</label>' +
+                    '<input type="text" class="tc-tanca-input fin-item-subtotal" readonly style="background:#f1f5f9;font-weight:700;color:#059669;" value="0 VNĐ" />' +
+                '</div>' +
+            '</div>' +
+            '<div>' +
+                '<label style="display:block;font-size:12.5px;color:#475467;margin-bottom:4px;font-weight:600;">Ghi chú</label>' +
+                '<input type="text" class="tc-tanca-input fin-item-note" placeholder="Nhập ghi chú thêm nếu có..." value="' + esc(prefillNote || '') + '" />' +
+            '</div>' +
+        '</div>';
+        $('#financeDetailList').append(cardHtml);
+        renumberFinanceCards();
+        recalcFinanceTotal();
+    }
+    window.addFinanceDetailItem = addFinanceDetailItem;
+
+    function removeFinanceDetailItem(idx) {
+        if ($('#financeDetailList .tc-detail-card').length <= 1) {
+            showToast('Cần ít nhất một mục chi tiết.', 'info');
+            return;
+        }
+        $('#finDetailCard_' + idx).remove();
+        renumberFinanceCards();
+        recalcFinanceTotal();
+    }
+    window.removeFinanceDetailItem = removeFinanceDetailItem;
+
+    function renumberFinanceCards() {
+        $('#financeDetailList .tc-detail-card').each(function(i) {
+            $(this).find('.fin-card-title').text('Mục ' + (i + 1));
+        });
+    }
+
+    function recalcFinanceTotal() {
+        var grandTotal = 0;
+        $('#financeDetailList .tc-detail-card').each(function() {
+            var qty = parseFloat($(this).find('.fin-item-qty').val()) || 0;
+            var price = parseFloat($(this).find('.fin-item-price').val()) || 0;
+            var subtotal = qty * price;
+            grandTotal += subtotal;
+            $(this).find('.fin-item-subtotal').val(fmtMoney(subtotal) + ' VNĐ');
+        });
+        $('#financeGrandTotalDisplay').text(fmtMoney(grandTotal) + ' VNĐ');
+        $('#financeGrandTotalVal').val(grandTotal);
+    }
+    window.recalcFinanceTotal = recalcFinanceTotal;
+
+    function selectCreateType(type, cat, iconHtml, iconBg, iconColor) {
+        $('#newReqTypeBadge').text(type);
+        $('#newReqCatBadge').text('Nhóm: ' + (cat || 'Yêu cầu nhân sự'));
+        $('#newReqSelectedIcon').html(iconHtml).css({
+            'background-color': iconBg || '#d1fae5',
+            'color': iconColor || '#059669'
+        });
+        $('#newReqModalHeaderTitle').text('Tạo yêu cầu: ' + type);
+        renderDynamicCreateForm(type, cat);
+        $('#createStepTypes').removeClass('is-active');
+        $('#createStepForm').addClass('is-active');
+    }
+
+    function openDirectLeaveModal() {
+        loadCachedUsers();
+        $('#createSearchInput').val('');
+        $('#tcCreateModalBackdrop').addClass('is-open');
+        $('#tcCreateModal').addClass('is-open');
+        selectCreateType('Nghỉ phép', 'Lượt chấm công', '<svg class="tc-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20" /><path d="M12 2a10 10 0 0 1 10 10c0 1.5-1.5 2-3 2-2 0-3-1-4-1s-2 1-3 1-2-1-3-1-2 1-4 1c-1.5 0-3-.5-3-2A10 10 0 0 1 12 2z" /><circle cx="12" cy="12" r="1.5" /></svg>', '#d1fae5', '#059669');
+    }
+    window.openDirectLeaveModal = openDirectLeaveModal;
+
+    function openCreateModal() {
+        loadCachedUsers();
+        $('#createSearchInput').val('');
+        $('.tc-create-item').show();
+        $('.tc-create-cat').show();
+        $('#createStepForm').removeClass('is-active');
+        $('#createStepTypes').addClass('is-active');
+        $('#tcCreateModalBackdrop').addClass('is-open');
+        $('#tcCreateModal').addClass('is-open');
+    }
+    window.openCreateModal = openCreateModal;
+
+    function closeCreateModal() {
+        $('#tcCreateModal').removeClass('is-open');
+        $('#tcCreateModalBackdrop').removeClass('is-open');
+        $('#dynamicFormContainer').empty();
+    }
+    window.closeCreateModal = closeCreateModal;
+
+    // Events
+    $(document).on('click', '#tcCreateModalClose, #tcCreateModalCancel, #tcCreateModalBackdrop, #tcCreateFormClose', closeCreateModal);
+    $(document).on('click', '#btnBackToTypes, #btnChangeType, #btnCancelCreateForm', function () {
+        $('#createStepForm').removeClass('is-active');
+        $('#createStepTypes').addClass('is-active');
+    });
+
+    $('#createSearchInput').on('input', function () {
+        var q = $(this).val().trim().toLowerCase();
+        $('.tc-create-item').each(function () {
+            var type = ($(this).data('type') || '').toLowerCase();
+            if (!q || type.indexOf(q) !== -1) {
+                $(this).show();
+            } else {
+                $(this).hide();
+            }
+        });
+        $('.tc-create-cat').each(function () {
+            var hasVisible = $(this).find('.tc-create-item:visible').length > 0;
+            $(this).toggle(hasVisible);
+        });
+    });
+
+    $(document).on('click', '.tc-create-item', function () {
+        var type = $(this).data('type');
+        var cat = $(this).data('cat');
+        var iconSpan = $(this).find('.tc-item-icon');
+        var iconHtml = iconSpan.html();
+        var iconBg = iconSpan.css('background-color');
+        var iconColor = iconSpan.css('color');
+        selectCreateType(type, cat, iconHtml, iconBg, iconColor);
+    });
+
+    $(document).on('input change', '.fin-item-qty, .fin-item-price', recalcFinanceTotal);
+    $(document).on('click', '#btnFinanceAddDetail', function () { addFinanceDetailItem('', 1, '', ''); });
+    $(document).on('change', '#dynAttachmentFile', function () {
+        var f = this.files && this.files[0];
+        $('#dynAttachmentName').html(f ? ('<i class="material-icons" style="font-size:14px;color:#10b981;vertical-align:middle;">check_circle</i> ' + esc(f.name) + ' (' + (f.size / 1024).toFixed(1) + ' KB)') : 'Chưa có tệp nào');
+    });
+    $(document).on('change', '#dynStartDate, #dynEndDate', function () {
+        var s = $('#dynStartDate').val();
+        var e = $('#dynEndDate').val();
+        if (s && e) {
+            var d = calcDays(s, e);
+            $('#dynLeaveDaysCalc').text(d + ' ngày');
+        }
+    });
+    $(document).on('input change', '#dynRuleTime, #dynActualTime', function () {
+        var r = $('#dynRuleTime').val();
+        var a = $('#dynActualTime').val();
+        if (r && a) {
+            var diff = moment(a, 'HH:mm').diff(moment(r, 'HH:mm'), 'minutes');
+            var txt = diff >= 0 ? ('Chậm ' + diff + ' phút') : ('Sớm ' + Math.abs(diff) + ' phút');
+            $('#dynAttendDiffCalc').text(txt);
+        }
+    });
+    $(document).on('input change', '#dynOtFrom, #dynOtTo', function () {
+        var f = $('#dynOtFrom').val();
+        var t = $('#dynOtTo').val();
+        if (f && t) {
+            var mins = moment(t, 'HH:mm').diff(moment(f, 'HH:mm'), 'minutes');
+            if (mins < 0) mins += 24 * 60;
+            var hrs = (mins / 60).toFixed(1);
+            $('#dynOtHoursCalc').text(hrs + ' giờ OT');
+        }
+    });
+
+    $(document).on('input change', '#dynEmployeeInput', function () {
+        var val = ($(this).val() || '').trim().toLowerCase();
+        var matchedId = '';
+        if (cachedUsers && cachedUsers.length) {
+            for (var i = 0; i < cachedUsers.length; i++) {
+                var u = cachedUsers[i];
+                var uName = (u.DisplayName || '').toLowerCase();
+                var fullText = (u.DisplayName + (u.DepartmentName ? ' - ' + u.DepartmentName : '')).toLowerCase();
+                if (val === uName || val === fullText) {
+                    matchedId = u.Id;
+                    break;
+                }
+            }
+        }
+        if (!matchedId && val === (currentDisplayName || '').toLowerCase()) {
+            matchedId = currentUserId;
+        }
+        $('#dynEmployeeId').val(matchedId);
+    });
+
+    /* Submit Dynamic Request Handler */
+    $(document).on('click', '#btnSubmitDynamicRequest', function () {
+        var formBox = $('#dynamicFormContainer .tc-tanca-form');
+        if (!formBox.length) return;
+        var tpl = formBox.data('template');
+        var type = $('#dynReqType').val() || 'Yêu cầu';
+        var empName = ($('#dynEmployeeInput').val() || '').trim();
+        var empId = $('#dynEmployeeId').val() || null;
+        var title = ($('#dynTitle').val() || '').trim();
+        var fileInput = $('#dynAttachmentFile')[0];
+        var file = fileInput && fileInput.files && fileInput.files[0];
+        var token = $('#tcTokenFormShared input[name="__RequestVerificationToken"]').val() ||
+                    $('#tcTokenForm input[name="__RequestVerificationToken"]').val() ||
+                    $('input[name="__RequestVerificationToken"]').val();
+
+        var startDate = moment().format('YYYY-MM-DD');
+        var endDate = startDate;
+        var sessionCode = 'Cả ngày';
+        var handoverTo = '';
+        var reason = '';
+
+        if (!empName) {
+            empName = currentDisplayName || 'Chính tôi';
+        }
+        if (!title) {
+            alert('Vui lòng nhập tiêu đề đề xuất.');
+            $('#dynTitle').focus();
+            return;
+        }
+
+        if (tpl === 'FINANCE') {
+            var date = $('#dynDate').val();
+            var subtype = $('#dynSubtype').val();
+            var purpose = $('#dynPurpose').val();
+            var payMethod = $('#dynPaymentMethod').val();
+            var dueDate = $('#dynDueDate').val();
+            var grandTotal = parseFloat($('#financeGrandTotalVal').val()) || 0;
+
+            if (!date) {
+                alert('Vui lòng chọn ngày đề xuất.');
+                return;
+            }
+
+            var items = [];
+            var hasInvalid = false;
+            $('#financeDetailList .tc-detail-card').each(function () {
+                var itTitle = ($(this).find('.fin-item-title').val() || '').trim();
+                var qty = parseFloat($(this).find('.fin-item-qty').val()) || 0;
+                var price = parseFloat($(this).find('.fin-item-price').val()) || 0;
+                var note = ($(this).find('.fin-item-note').val() || '').trim();
+                if (!itTitle) {
+                    hasInvalid = true;
+                    $(this).find('.fin-item-title').focus();
+                    return false;
+                }
+                items.push({ title: itTitle, qty: qty, price: price, subtotal: qty * price, note: note });
+            });
+
+            if (hasInvalid || !items.length) {
+                alert('Vui lòng điền nội dung đề xuất cho các mục chi tiết.');
+                return;
+            }
+
+            startDate = date;
+            endDate = dueDate || date;
+            sessionCode = payMethod;
+            handoverTo = purpose;
+
+            var reasonLines = [];
+            reasonLines.push('Tiêu đề: ' + title);
+            reasonLines.push('Loại: ' + subtype + ' | Nhóm: Tài chính & chi phí');
+            reasonLines.push('Mục đích: ' + purpose + ' | Phương thức: ' + payMethod + (dueDate ? ' | Hạn hoàn ứng: ' + fmtDate(dueDate) : ''));
+            reasonLines.push('Tổng số tiền: ' + fmtMoney(grandTotal) + ' VNĐ');
+            reasonLines.push('Chi tiết các mục:');
+            items.forEach(function (it, i) {
+                var l = ' - Mục ' + (i + 1) + ': ' + it.title + ' (SL: ' + it.qty + ', Đơn giá: ' + fmtMoney(it.price) + ' đ, Thành tiền: ' + fmtMoney(it.subtotal) + ' đ)';
+                if (it.note) l += ' [Ghi chú: ' + it.note + ']';
+                reasonLines.push(l);
+            });
+            reason = reasonLines.join('\n');
+        } else if (tpl === 'LEAVE') {
+            var sDate = $('#dynStartDate').val();
+            var eDate = $('#dynEndDate').val();
+            var leaveSubtype = $('#dynLeaveSubtype').val();
+            var sess = $('#dynSession').val();
+            var ho = ($('#dynHandover').val() || '').trim();
+            var loc = ($('#dynLocation').val() || '').trim();
+            var r = ($('#dynReason').val() || '').trim();
+
+            if (!sDate || !eDate) {
+                alert('Vui lòng chọn từ ngày và đến ngày.');
+                return;
+            }
+            if (moment(eDate).isBefore(moment(sDate))) {
+                alert('Ngày kết thúc không được trước ngày bắt đầu.');
+                return;
+            }
+            if (!r) {
+                alert('Vui lòng nhập lý do đề xuất.');
+                $('#dynReason').focus();
+                return;
+            }
+
+            startDate = sDate;
+            endDate = eDate;
+            sessionCode = sess;
+            handoverTo = ho;
+            var days = calcDays(sDate, eDate);
+
+            reason = 'Tiêu đề: ' + title + '\n' +
+                     'Loại: ' + leaveSubtype + (loc ? ' | Địa điểm: ' + loc : '') + ' | Thời gian: ' + days + ' ngày (' + sess + ')\n' +
+                     'Lý do: ' + r;
+        } else if (tpl === 'ATTENDANCE') {
+            var aDate = $('#dynDate').val();
+            var adjType = $('#dynAdjustType').val();
+            var rTime = $('#dynRuleTime').val();
+            var aTime = $('#dynActualTime').val();
+            var shift = $('#dynShift').val();
+            var r = ($('#dynReason').val() || '').trim();
+
+            if (!aDate) {
+                alert('Vui lòng chọn ngày áp dụng.');
+                return;
+            }
+            if (!r) {
+                alert('Vui lòng nhập lý do giải trình.');
+                $('#dynReason').focus();
+                return;
+            }
+
+            startDate = aDate;
+            endDate = aDate;
+            sessionCode = shift;
+            handoverTo = adjType;
+
+            var diffText = $('#dynAttendDiffCalc').text();
+            reason = 'Tiêu đề: ' + title + '\n' +
+                     'Loại điều chỉnh: ' + adjType + ' | Ca làm: ' + shift + '\n' +
+                     'Giờ quy định: ' + rTime + ' | Giờ thực tế: ' + aTime + ' (' + diffText + ')\n' +
+                     'Giải trình: ' + r;
+        } else if (tpl === 'OVERTIME') {
+            var otDate = $('#dynDate').val();
+            var fromT = $('#dynOtFrom').val();
+            var toT = $('#dynOtTo').val();
+            var rate = $('#dynOtRate').val();
+            var proj = ($('#dynProject').val() || '').trim();
+            var sup = ($('#dynSupervisor').val() || '').trim();
+            var r = ($('#dynReason').val() || '').trim();
+
+            if (!otDate) {
+                alert('Vui lòng chọn ngày làm thêm giờ.');
+                return;
+            }
+            if (!proj) {
+                alert('Vui lòng nhập dự án hoặc mục tiêu công việc OT.');
+                $('#dynProject').focus();
+                return;
+            }
+            if (!r) {
+                alert('Vui lòng nhập chi tiết nội dung công việc OT.');
+                $('#dynReason').focus();
+                return;
+            }
+
+            startDate = otDate;
+            endDate = otDate;
+            var otHoursTxt = $('#dynOtHoursCalc').text();
+            sessionCode = fromT + ' - ' + toT + ' (' + otHoursTxt + ')';
+            handoverTo = sup;
+
+            reason = 'Tiêu đề: ' + title + '\n' +
+                     'Thời gian OT: ' + otDate + ' từ ' + fromT + ' đến ' + toT + ' (' + otHoursTxt + ') | Hệ số: ' + rate + '\n' +
+                     'Dự án/Công việc: ' + proj + (sup ? ' | Người giám sát: ' + sup : '') + '\n' +
+                     'Nội dung thực hiện: ' + r;
+        } else if (tpl === 'SHIFT') {
+            var sDate = $('#dynDate').val();
+            var curS = $('#dynCurShift').val();
+            var newS = $('#dynNewShift').val();
+            var partner = ($('#dynSwapPartner').val() || '').trim();
+            var r = ($('#dynReason').val() || '').trim();
+
+            if (!sDate) {
+                alert('Vui lòng chọn ngày áp dụng.');
+                return;
+            }
+            if (!r) {
+                alert('Vui lòng nhập lý do đề xuất.');
+                $('#dynReason').focus();
+                return;
+            }
+
+            startDate = sDate;
+            endDate = sDate;
+            sessionCode = curS + ' -> ' + newS;
+            handoverTo = partner;
+
+            reason = 'Tiêu đề: ' + title + '\n' +
+                     'Ca hiện tại: ' + curS + ' -> Ca mới: ' + newS + (partner ? ' | Đổi cùng: ' + partner : '') + '\n' +
+                     'Lý do: ' + r;
+        } else if (tpl === 'MEAL') {
+            var sDate = $('#dynStartDate').val();
+            var eDate = $('#dynEndDate').val();
+            var mType = $('#dynMealType').val();
+            var loc = ($('#dynLocation').val() || '').trim();
+            var r = ($('#dynReason').val() || '').trim();
+
+            if (!sDate || !eDate) {
+                alert('Vui lòng chọn khoảng thời gian đăng ký.');
+                return;
+            }
+
+            startDate = sDate;
+            endDate = eDate;
+            sessionCode = mType;
+            handoverTo = loc;
+
+            reason = 'Tiêu đề: ' + title + '\n' +
+                     'Loại suất ăn: ' + mType + (loc ? ' | Địa điểm: ' + loc : '') + '\n' +
+                     'Ghi chú dinh dưỡng: ' + (r || 'Không có');
+        } else if (tpl === 'RECRUITMENT') {
+            var pos = ($('#dynPosition').val() || '').trim();
+            var dept = $('#dynDept').val();
+            var qty = $('#dynHeadcount').val() || 1;
+            var salary = ($('#dynSalary').val() || '').trim();
+            var tDate = $('#dynTargetDate').val();
+            var r = ($('#dynReason').val() || '').trim();
+
+            if (!pos) {
+                alert('Vui lòng nhập vị trí chức danh cần tuyển.');
+                $('#dynPosition').focus();
+                return;
+            }
+            if (!r) {
+                alert('Vui lòng nhập lý do tuyển dụng và mô tả công việc (JD).');
+                $('#dynReason').focus();
+                return;
+            }
+
+            startDate = moment().format('YYYY-MM-DD');
+            endDate = tDate || startDate;
+            sessionCode = 'SL: ' + qty + ' người (' + dept + ')';
+            handoverTo = pos;
+
+            reason = 'Tiêu đề: ' + title + '\n' +
+                     'Vị trí: ' + pos + ' | Phòng ban: ' + dept + ' | Số lượng: ' + qty + ' người\n' +
+                     'Mức lương dự kiến: ' + (salary || 'Thỏa thuận') + (tDate ? ' | Hạn đi làm: ' + fmtDate(tDate) : '') + '\n' +
+                     'Mô tả & Lý do tuyển dụng: ' + r;
+        } else if (tpl === 'RESIGNATION') {
+            var lastDay = $('#dynLastDay').val();
+            var hoDay = $('#dynHandoverDay').val();
+            var ho = ($('#dynHandover').val() || '').trim();
+            var r = ($('#dynReason').val() || '').trim();
+
+            if (!lastDay) {
+                alert('Vui lòng chọn ngày làm việc cuối cùng.');
+                return;
+            }
+            if (!ho) {
+                alert('Vui lòng nhập người nhận bàn giao công việc & tài sản.');
+                $('#dynHandover').focus();
+                return;
+            }
+            if (!r) {
+                alert('Vui lòng nhập lý do xin nghỉ việc.');
+                $('#dynReason').focus();
+                return;
+            }
+
+            startDate = moment().format('YYYY-MM-DD');
+            endDate = lastDay;
+            sessionCode = 'Bàn giao: ' + fmtDate(hoDay);
+            handoverTo = ho;
+
+            reason = 'Tiêu đề: ' + title + '\n' +
+                     'Ngày làm việc cuối: ' + fmtDate(lastDay) + ' | Hoàn tất bàn giao: ' + fmtDate(hoDay) + '\n' +
+                     'Người nhận bàn giao: ' + ho + '\n' +
+                     'Lý do nghỉ việc: ' + r;
+        } else if (tpl === 'APPOINTMENT') {
+            var oldPos = ($('#dynOldPos').val() || '').trim();
+            var newPos = ($('#dynNewPos').val() || '').trim();
+            var effDate = $('#dynEffectiveDate').val();
+            var newSal = ($('#dynNewSalary').val() || '').trim();
+            var r = ($('#dynReason').val() || '').trim();
+
+            if (!newPos) {
+                alert('Vui lòng nhập vị trí/chức vụ mới.');
+                $('#dynNewPos').focus();
+                return;
+            }
+            if (!effDate) {
+                alert('Vui lòng chọn ngày có hiệu lực.');
+                return;
+            }
+            if (!r) {
+                alert('Vui lòng nhập lý do đề xuất bổ nhiệm/điều chuyển.');
+                $('#dynReason').focus();
+                return;
+            }
+
+            startDate = moment().format('YYYY-MM-DD');
+            endDate = effDate;
+            sessionCode = 'Bổ nhiệm: ' + newPos;
+            handoverTo = oldPos;
+
+            reason = 'Tiêu đề: ' + title + '\n' +
+                     'Hiện tại: ' + (oldPos || 'Chưa cập nhật') + ' -> Mới: ' + newPos + '\n' +
+                     'Ngày hiệu lực: ' + fmtDate(effDate) + (newSal ? ' | Mức lương mới: ' + newSal : '') + '\n' +
+                     'Lý do đề xuất: ' + r;
+        } else if (tpl === 'REWARD_DISCIPLINE') {
+            var formType = $('#dynFormType').val();
+            var amt = ($('#dynAmount').val() || '').trim();
+            var effDate = $('#dynEffectiveDate').val();
+            var r = ($('#dynReason').val() || '').trim();
+
+            if (!effDate) {
+                alert('Vui lòng chọn ngày có hiệu lực.');
+                return;
+            }
+            if (!r) {
+                alert('Vui lòng nhập nội dung thành tích hoặc vi phạm.');
+                $('#dynReason').focus();
+                return;
+            }
+
+            startDate = moment().format('YYYY-MM-DD');
+            endDate = effDate;
+            sessionCode = formType;
+            handoverTo = amt ? ('Số tiền: ' + amt) : 'Không có tiền mặt';
+
+            reason = 'Tiêu đề: ' + title + '\n' +
+                     'Hình thức: ' + formType + (amt ? ' | Số tiền: ' + amt : '') + ' | Ngày hiệu lực: ' + fmtDate(effDate) + '\n' +
+                     'Chi tiết: ' + r;
+        }
+
+        var btn = $(this);
+        btn.prop('disabled', true).html('<i class="material-icons" style="font-size:16px;vertical-align:middle;">sync</i> Đang gửi...');
+
+        $.post('@Url.Action("CreateLeave", "Hrm")', {
+            __RequestVerificationToken: token,
+            EmployeeId: empId ? +empId : null,
+            LeaveType: type,
+            StartDate: startDate,
+            EndDate: endDate,
+            SessionCode: sessionCode,
+            HandoverTo: handoverTo,
+            Reason: reason,
+            AttachmentName: file ? file.name : ''
+        }).done(function (res) {
+            var reqCode = (res.Data && res.Data.RequestCode) || '';
+            showToast('Đã tạo đề xuất ' + (reqCode ? '#' + reqCode : '') + ' thành công!', 'success');
+            closeCreateModal();
+            $(document).trigger('tanca:requestCreated', [res]);
+            if (typeof window.onTancaRequestCreated === 'function') {
+                window.onTancaRequestCreated(res);
+            }
+            if (typeof load === 'function') {
+                load();
+            }
+            if (typeof loadData === 'function') {
+                loadData();
+            }
+        }).fail(function (xhr) {
+            var msg = (xhr.responseJSON && xhr.responseJSON.Message) || 'Không thể tạo yêu cầu.';
+            showToast(msg, 'danger');
+            alert(msg);
+        }).always(function () {
+            btn.prop('disabled', false).html('<i class="material-icons" style="font-size:18px;">add_task</i> Tạo mới');
+        });
+    });
+})();
+</script>
