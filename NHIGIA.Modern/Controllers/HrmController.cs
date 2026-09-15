@@ -264,7 +264,7 @@ public sealed class HrmController : BaseController
 
     [HttpPost, ValidateAntiForgeryToken]
     [HrmAuthorize(HrmRoles.Admin, HrmRoles.Hr, HrmRoles.Director, HrmRoles.Manager)]
-    [RequestSizeLimit(6 * 1024 * 1024)]
+    [RequestSizeLimit(12 * 1024 * 1024)]
     public async Task<IActionResult> CreateCommunication(CreateCommunicationRequest request, IFormFile attachment)
     {
         try
@@ -276,21 +276,16 @@ public sealed class HrmController : BaseController
             request.Category = string.IsNullOrWhiteSpace(request.Category) ? "Thông báo" : request.Category.Trim();
             if (attachment != null && attachment.Length > 0)
             {
-                if (attachment.Length > 5 * 1024 * 1024) throw new InvalidOperationException("Ảnh đính kèm không được vượt quá 5 MB.");
+                if (attachment.Length > 10 * 1024 * 1024) throw new InvalidOperationException("Tệp đính kèm không được vượt quá 10 MB.");
                 var extension = Path.GetExtension(attachment.FileName).ToLowerInvariant();
-                var contentType = extension switch
-                {
-                    ".jpg" or ".jpeg" => "image/jpeg",
-                    ".png" => "image/png",
-                    ".gif" => "image/gif",
-                    ".webp" => "image/webp",
-                    _ => throw new InvalidOperationException("Chỉ hỗ trợ ảnh JPG, PNG, GIF hoặc WebP.")
-                };
                 await using var stream = new MemoryStream();
                 await attachment.CopyToAsync(stream);
                 var content = stream.ToArray();
-                if (!IsSupportedImage(content, extension)) throw new InvalidOperationException("Nội dung tệp ảnh không hợp lệ.");
-                request.AttachmentName = Path.GetFileName(attachment.FileName);
+                var contentType = ResolveCommunicationContentType(content, extension);
+                if (contentType == null) throw new InvalidOperationException("Chỉ hỗ trợ JPG, PNG, GIF, WebP, PDF, Word, Excel, CSV hoặc TXT.");
+                var safeName = Path.GetFileName(attachment.FileName);
+                if (string.IsNullOrWhiteSpace(safeName) || safeName.Length > 255) throw new InvalidOperationException("Tên tệp đính kèm không hợp lệ.");
+                request.AttachmentName = safeName;
                 request.AttachmentContentType = contentType;
                 request.AttachmentContent = content;
             }
@@ -304,10 +299,29 @@ public sealed class HrmController : BaseController
     }
 
     [HttpGet]
-    public IActionResult CommunicationAttachment(int id)
+    public IActionResult CommunicationAttachment(int id, bool download = false)
     {
         var attachment = Store.GetCommunicationAttachment(id, CurrentHrmUser);
-        return attachment?.Content == null ? NotFound() : File(attachment.Content, attachment.ContentType ?? "application/octet-stream");
+        if (attachment?.Content == null) return NotFound();
+        var contentType = attachment.ContentType ?? "application/octet-stream";
+        return download
+            ? File(attachment.Content, contentType, attachment.FileName ?? $"attachment-{id}")
+            : File(attachment.Content, contentType);
+    }
+
+    private static string ResolveCommunicationContentType(byte[] content, string extension)
+    {
+        if (content == null || content.Length == 0) return null;
+        if (IsSupportedImage(content, extension))
+            return extension switch { ".jpg" or ".jpeg" => "image/jpeg", ".png" => "image/png", ".gif" => "image/gif", ".webp" => "image/webp", _ => null };
+        if (extension == ".pdf" && content.Length >= 4 && content.Take(4).SequenceEqual("%PDF"u8.ToArray())) return "application/pdf";
+        if (extension == ".doc" && content.Length >= 8 && content.Take(8).SequenceEqual(new byte[] { 0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1 })) return "application/msword";
+        if (extension == ".xls" && content.Length >= 8 && content.Take(8).SequenceEqual(new byte[] { 0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1 })) return "application/vnd.ms-excel";
+        if (extension is ".docx" or ".xlsx" && content.Length >= 4 && content[0] == 0x50 && content[1] == 0x4b && content[2] == 0x03 && content[3] == 0x04)
+            return extension == ".docx" ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document" : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+        if (extension is ".txt" or ".csv" && !content.Take(Math.Min(content.Length, 4096)).Contains((byte)0))
+            return extension == ".csv" ? "text/csv; charset=utf-8" : "text/plain; charset=utf-8";
+        return null;
     }
 
     private static bool IsSupportedImage(byte[] content, string extension)
