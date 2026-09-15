@@ -26,6 +26,47 @@ public sealed class HomeController : BaseController
         return profile == null ? NotFound() : View(profile);
     }
 
+    [HttpPost]
+    public async Task<IActionResult> UploadAvatar(IFormFile avatar)
+    {
+        if (avatar == null || avatar.Length == 0)
+        {
+            return Json(new { success = false, message = "Vui lòng chọn file hình ảnh." });
+        }
+
+        try
+        {
+            var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "avatars");
+            if (!Directory.Exists(uploadsFolder))
+            {
+                Directory.CreateDirectory(uploadsFolder);
+            }
+
+            var ext = Path.GetExtension(avatar.FileName).ToLowerInvariant();
+            var allowed = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp" };
+            if (!allowed.Contains(ext))
+            {
+                return Json(new { success = false, message = "Định dạng file không hỗ trợ. Vui lòng chọn ảnh JPG, PNG hoặc WEBP." });
+            }
+
+            var fileName = $"avatar_{CurrentHrmUser.Id}_{DateTime.UtcNow.Ticks}{ext}";
+            var filePath = Path.Combine(uploadsFolder, fileName);
+            using (var stream = new FileStream(filePath, FileMode.Create))
+            {
+                await avatar.CopyToAsync(stream);
+            }
+
+            var avatarUrl = $"/uploads/avatars/{fileName}";
+            Store.UpdateAvatarUrl(CurrentHrmUser.Id, avatarUrl);
+
+            return Json(new { success = true, avatarUrl });
+        }
+        catch (Exception ex)
+        {
+            return Json(new { success = false, message = "Lỗi khi lưu ảnh: " + ex.Message });
+        }
+    }
+
     [HrmAuthorize(HrmRoles.Admin, HrmRoles.Hr, HrmRoles.Director, HrmRoles.Manager)]
     public IActionResult EmployeeInformation()
     {

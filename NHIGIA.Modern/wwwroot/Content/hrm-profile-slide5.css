@@ -108,23 +108,35 @@
     border-right: 1px solid #f1f5f9;
     padding-right: 20px;
 }
+.s5-avatar-wrapper {
+    position: relative;
+    display: inline-block;
+    margin-bottom: 10px;
+}
 .s5-avatar-box {
-    width: 100px;
-    height: 100px;
+    width: 104px;
+    height: 104px;
     border-radius: 50%;
     border: 3px solid #e0f2fe;
     overflow: hidden;
-    margin-bottom: 12px;
     background: #f8fafc;
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 4px 10px rgba(2, 132, 199, 0.12);
+    box-shadow: 0 4px 14px rgba(2, 132, 199, 0.16);
+    cursor: pointer;
+    position: relative;
+    transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+.s5-avatar-box:hover {
+    transform: scale(1.03);
+    box-shadow: 0 6px 20px rgba(2, 132, 199, 0.28);
 }
 .s5-avatar-img {
     width: 100%;
     height: 100%;
     object-fit: cover;
+    display: block;
 }
 .s5-avatar-placeholder {
     display: flex;
@@ -136,7 +148,105 @@
     color: #ffffff;
 }
 .s5-avatar-placeholder .material-icons {
-    font-size: 54px;
+    font-size: 56px;
+}
+.s5-avatar-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.65);
+    color: #ffffff;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    border-radius: 50%;
+    gap: 3px;
+}
+.s5-avatar-overlay .material-icons {
+    font-size: 24px;
+}
+.s5-avatar-overlay span {
+    font-size: 11px;
+    font-weight: 600;
+}
+.s5-avatar-box:hover .s5-avatar-overlay {
+    opacity: 1;
+}
+.s5-avatar-badge-btn {
+    position: absolute;
+    bottom: 2px;
+    right: 2px;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background-color: #0284c7;
+    color: #ffffff;
+    border: 2px solid #ffffff;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background-color 0.15s ease, transform 0.15s ease;
+}
+.s5-avatar-badge-btn:hover {
+    background-color: #0369a1;
+    transform: scale(1.1);
+}
+.s5-avatar-badge-btn .material-icons {
+    font-size: 17px;
+}
+.s5-upload-text-btn {
+    background: #f0f9ff;
+    border: 1px dashed #7dd3fc;
+    color: #0284c7;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 5px 12px;
+    border-radius: 6px;
+    margin-top: 10px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+.s5-upload-text-btn:hover {
+    background: #e0f2fe;
+    border-color: #0284c7;
+    color: #0369a1;
+}
+.s5-upload-text-btn .material-icons {
+    font-size: 15px;
+}
+.s5-avatar-toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: #065f46;
+    color: #ffffff;
+    padding: 12px 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13.5px;
+    font-weight: 600;
+    z-index: 9999;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: all 0.25s ease-in-out;
+}
+.s5-avatar-toast.show {
+    opacity: 1;
+    transform: translateY(0);
+}
+.s5-avatar-toast .material-icons {
+    font-size: 20px;
+    color: #34d399;
 }
 .s5-user-name {
     margin: 0 0 6px 0;

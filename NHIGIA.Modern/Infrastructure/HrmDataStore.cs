@@ -138,6 +138,18 @@ namespace NHIGIA.Modern.Infrastructure
             transaction.Commit();
         }
 
+        public void UpdateAvatarUrl(int userId, string avatarUrl)
+        {
+            using var connection = OpenConnection();
+            const string sql = @"
+                UPDATE dbo.HrmEmployeeProfile SET AvatarUrl=@AvatarUrl, UpdatedAt=SYSDATETIME() WHERE UserId=@UserId;
+                IF @@ROWCOUNT = 0
+                BEGIN
+                    INSERT INTO dbo.HrmEmployeeProfile (UserId, AvatarUrl, CreatedAt) VALUES (@UserId, @AvatarUrl, SYSDATETIME());
+                END";
+            connection.Execute(sql, new { UserId = userId, AvatarUrl = avatarUrl });
+        }
+
         public void MarkLogin(int userId, string ipAddress)
         {
             using (var connection = OpenConnection())

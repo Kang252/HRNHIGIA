@@ -70,23 +70,30 @@
     <div class="s5-hero-card">
         <!-- Section A: Employee Identity -->
         <div class="s5-hero-col-user">
-            <div class="s5-avatar-box">
-                @if (!string.IsNullOrWhiteSpace(Model?.AvatarUrl))
-                {
-                    <img src="@Model.AvatarUrl" alt="@displayName" class="s5-avatar-img" />
-                }
-                else
-                {
-                    <div class="s5-avatar-placeholder">
+            <div class="s5-avatar-wrapper">
+                <div class="s5-avatar-box" id="avatarBox" title="Nhấn để gắn hình hoặc đổi ảnh đại diện">
+                    <img id="avatarImage" src="@(string.IsNullOrWhiteSpace(Model?.AvatarUrl) ? "" : Model.AvatarUrl)" alt="@displayName" class="s5-avatar-img" style="@(string.IsNullOrWhiteSpace(Model?.AvatarUrl) ? "display:none;" : "")" />
+                    <div id="avatarPlaceholder" class="s5-avatar-placeholder" style="@(string.IsNullOrWhiteSpace(Model?.AvatarUrl) ? "" : "display:none;")">
                         <i class="material-icons">person</i>
                     </div>
-                }
+                    <div class="s5-avatar-overlay">
+                        <i class="material-icons">photo_camera</i>
+                        <span>Đổi ảnh</span>
+                    </div>
+                </div>
+                <button type="button" class="s5-avatar-badge-btn" id="btnTriggerUpload" title="Gắn hình / Đổi ảnh đại diện">
+                    <i class="material-icons">photo_camera</i>
+                </button>
             </div>
+            <input type="file" id="avatarFileInput" accept="image/*" style="display:none;" />
             <h2 class="s5-user-name">@displayName</h2>
             <div class="s5-user-sub">
                 <span class="s5-role-badge">A</span>
                 <span class="s5-user-code">@username - @email</span>
             </div>
+            <button type="button" class="s5-upload-text-btn" onclick="document.getElementById('avatarFileInput').click();">
+                <i class="material-icons">add_a_photo</i> Gắn hình đại diện
+            </button>
         </div>
 
         <!-- Section B: Spider / Radar Chart (Điểm trung bình 5 trục) -->
@@ -1047,6 +1054,86 @@
                 });
             });
         });
+
+        // Avatar upload & preview handling
+        const avatarFileInput = document.getElementById("avatarFileInput");
+        const avatarBox = document.getElementById("avatarBox");
+        const btnTriggerUpload = document.getElementById("btnTriggerUpload");
+        const avatarImage = document.getElementById("avatarImage");
+        const avatarPlaceholder = document.getElementById("avatarPlaceholder");
+
+        function openAvatarPicker() {
+            if (avatarFileInput) avatarFileInput.click();
+        }
+
+        if (avatarBox) avatarBox.addEventListener("click", openAvatarPicker);
+        if (btnTriggerUpload) btnTriggerUpload.addEventListener("click", function(e) {
+            e.stopPropagation();
+            openAvatarPicker();
+        });
+
+        // Load cached avatar if present in localStorage
+        const cachedAvatar = localStorage.getItem("hrm_avatar_@Model.UserId");
+        if (cachedAvatar && avatarImage) {
+            avatarImage.src = cachedAvatar;
+            avatarImage.style.display = "block";
+            if (avatarPlaceholder) avatarPlaceholder.style.display = "none";
+        }
+
+        if (avatarFileInput) {
+            avatarFileInput.addEventListener("change", function () {
+                if (this.files && this.files[0]) {
+                    const file = this.files[0];
+                    if (!file.type.startsWith("image/")) {
+                        alert("Vui lòng chọn file hình ảnh (JPG, PNG, WEBP).");
+                        return;
+                    }
+
+                    // 1. Instant preview via FileReader
+                    const reader = new FileReader();
+                    reader.onload = function (e) {
+                        const dataUrl = e.target.result;
+                        if (avatarImage) {
+                            avatarImage.src = dataUrl;
+                            avatarImage.style.display = "block";
+                        }
+                        if (avatarPlaceholder) {
+                            avatarPlaceholder.style.display = "none";
+                        }
+                        try {
+                            localStorage.setItem("hrm_avatar_@Model.UserId", dataUrl);
+                        } catch (err) {}
+                    };
+                    reader.readAsDataURL(file);
+
+                    // 2. Upload to server
+                    const formData = new FormData();
+                    formData.append("avatar", file);
+
+                    fetch("@Url.Action("UploadAvatar", "Home")", {
+                        method: "POST",
+                        body: formData
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data && data.success) {
+                            if (avatarImage && data.avatarUrl) {
+                                avatarImage.src = data.avatarUrl;
+                            }
+                            const toast = document.createElement("div");
+                            toast.className = "s5-avatar-toast";
+                            toast.innerHTML = '<i class="material-icons">check_circle</i> Đã gắn hình đại diện thành công!';
+                            document.body.appendChild(toast);
+                            setTimeout(() => { toast.classList.add("show"); }, 50);
+                            setTimeout(() => { toast.classList.remove("show"); setTimeout(() => toast.remove(), 300); }, 3000);
+                        }
+                    })
+                    .catch(err => {
+                        console.log("Avatar saved locally:", err);
+                    });
+                }
+            });
+        }
     });
 </script>
 
