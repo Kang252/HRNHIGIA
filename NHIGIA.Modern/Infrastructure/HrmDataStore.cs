@@ -162,7 +162,7 @@ namespace NHIGIA.Modern.Infrastructure
 
         public IList<HrmUserAccountModel> GetVisibleUsers(HrmUserAccountModel actor)
         {
-            const string sql = @"SELECT u.Id, u.Username, p.EmployeeCode, u.DisplayName, u.RoleCode, u.DepartmentId, d.Name DepartmentName,
+            const string sql = @"SELECT u.Id, u.Username, p.EmployeeCode, p.AvatarUrl, u.DisplayName, u.RoleCode, u.DepartmentId, d.Name DepartmentName,
                 u.SupervisorUserId, u.IsActive
                 FROM dbo.HrmUserAccount u LEFT JOIN dbo.HrmDepartment d ON d.Id=u.DepartmentId
                 LEFT JOIN dbo.HrmEmployeeProfile p ON p.UserId=u.Id

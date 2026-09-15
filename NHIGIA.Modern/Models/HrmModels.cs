@@ -49,6 +49,7 @@ namespace NHIGIA.Modern.Models
         public string DepartmentName { get; set; }
         public int? SupervisorUserId { get; set; }
         public bool IsActive { get; set; }
+        public string AvatarUrl { get; set; }
     }
 
     public class EmployeeProfileModel

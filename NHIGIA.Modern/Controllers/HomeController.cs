@@ -47,6 +47,11 @@ public sealed class HomeController : BaseController
     [HttpPost]
     public async Task<IActionResult> UploadAvatar(IFormFile avatar, int? targetUserId = null)
     {
+        if (CurrentHrmUser.RoleCode is not (HrmRoles.Hr or HrmRoles.Director or HrmRoles.Admin))
+        {
+            return Json(new { success = false, message = "Chỉ có Quản lý nhân sự mới có quyền cập nhật ảnh nhân viên." });
+        }
+
         if (avatar == null || avatar.Length == 0)
         {
             return Json(new { success = false, message = "Vui lòng chọn file hình ảnh." });
@@ -54,16 +59,10 @@ public sealed class HomeController : BaseController
 
         try
         {
-            int userIdToUpdate = CurrentHrmUser.Id;
-            if (targetUserId.HasValue && targetUserId.Value != CurrentHrmUser.Id)
+            int userIdToUpdate = targetUserId.HasValue && targetUserId.Value > 0 ? targetUserId.Value : CurrentHrmUser.Id;
+            if (!Store.GetVisibleUsers(CurrentHrmUser).Any(x => x.Id == userIdToUpdate) && userIdToUpdate != CurrentHrmUser.Id)
             {
-                bool canEdit = CurrentHrmUser.RoleCode is HrmRoles.Hr or HrmRoles.Director or HrmRoles.Admin
-                    || Store.GetVisibleUsers(CurrentHrmUser).Any(x => x.Id == targetUserId.Value);
-                if (!canEdit)
-                {
-                    return Json(new { success = false, message = "Bạn không có quyền thay đổi ảnh của nhân viên này." });
-                }
-                userIdToUpdate = targetUserId.Value;
+                return Json(new { success = false, message = "Bạn không có quyền thay đổi ảnh của nhân viên này." });
             }
 
             var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "avatars");
