@@ -79,6 +79,7 @@ try
     var store = app.Services.GetRequiredService<HrmDataStore>();
     store.EnsureSchema(Path.Combine(app.Environment.ContentRootPath, "App_Data", "hrm-mvp.sql"));
     store.EnsureSchema(Path.Combine(app.Environment.ContentRootPath, "App_Data", "demo-functional-data.sql"));
+    store.EnsureSchema(Path.Combine(app.Environment.ContentRootPath, "App_Data", "seed-40-assets.sql"));
 }
 catch (Exception exception)
 {
