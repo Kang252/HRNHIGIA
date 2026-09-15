@@ -521,3 +521,207 @@ BEGIN
     CREATE INDEX IX_HrmNotification_User ON dbo.HrmNotification(UserId, IsRead, CreatedAt DESC);
 END;
 GO
+
+-- Twenty complete demo employee profiles for UI, search, scheduling and HANET mapping tests.
+-- DEMO-prefixed identifiers keep these records separate from operational employee data.
+IF NOT EXISTS (SELECT 1 FROM dbo.HrmDepartment WHERE Code = 'SALES')
+    INSERT dbo.HrmDepartment(Code, Name) VALUES ('SALES', N'Phòng Kinh doanh');
+IF NOT EXISTS (SELECT 1 FROM dbo.HrmDepartment WHERE Code = 'ACC')
+    INSERT dbo.HrmDepartment(Code, Name) VALUES ('ACC', N'Phòng Kế toán');
+IF NOT EXISTS (SELECT 1 FROM dbo.HrmDepartment WHERE Code = 'MKT')
+    INSERT dbo.HrmDepartment(Code, Name) VALUES ('MKT', N'Phòng Marketing');
+IF NOT EXISTS (SELECT 1 FROM dbo.HrmDepartment WHERE Code = 'OPS')
+    INSERT dbo.HrmDepartment(Code, Name) VALUES ('OPS', N'Phòng Vận hành');
+GO
+
+DECLARE @DemoEmployees TABLE
+(
+    Seq INT NOT NULL,
+    Username NVARCHAR(80) NOT NULL,
+    EmployeeCode NVARCHAR(30) NOT NULL,
+    DisplayName NVARCHAR(150) NOT NULL,
+    Gender NVARCHAR(20) NOT NULL,
+    DateOfBirth DATE NOT NULL,
+    PlaceOfBirth NVARCHAR(250) NOT NULL,
+    DepartmentCode NVARCHAR(30) NOT NULL,
+    JobTitle NVARCHAR(150) NOT NULL,
+    MobilePhone NVARCHAR(30) NOT NULL,
+    IdentityNumber NVARCHAR(30) NOT NULL,
+    HireDate DATE NOT NULL,
+    BasicSalary NVARCHAR(50) NOT NULL,
+    EmergencyContactName NVARCHAR(150) NOT NULL
+);
+
+INSERT @DemoEmployees
+    (Seq, Username, EmployeeCode, DisplayName, Gender, DateOfBirth, PlaceOfBirth, DepartmentCode,
+     JobTitle, MobilePhone, IdentityNumber, HireDate, BasicSalary, EmergencyContactName)
+VALUES
+    (1,  'demo01', 'DEMO001', N'Nguyễn Minh Anh',  N'Nữ',  '1995-03-12', N'Hà Nội',         'HR',    N'Chuyên viên tuyển dụng',       '0901000001', '001095000001', '2021-04-05', '15000000', N'Nguyễn Văn Hùng'),
+    (2,  'demo02', 'DEMO002', N'Trần Quốc Bảo',    N'Nam', '1992-07-21', N'Hải Phòng',      'IT',    N'Kỹ sư phần mềm',               '0901000002', '001092000002', '2020-08-10', '22000000', N'Trần Thị Hạnh'),
+    (3,  'demo03', 'DEMO003', N'Lê Thu Hà',        N'Nữ',  '1996-11-08', N'Nam Định',       'ACC',   N'Kế toán viên',                 '0901000003', '001096000003', '2022-02-14', '16000000', N'Lê Văn Thành'),
+    (4,  'demo04', 'DEMO004', N'Phạm Hoàng Long',  N'Nam', '1990-05-19', N'Thanh Hóa',      'SALES', N'Chuyên viên kinh doanh',       '0901000004', '001090000004', '2019-06-03', '18000000', N'Phạm Thị Lan'),
+    (5,  'demo05', 'DEMO005', N'Võ Ngọc Mai',      N'Nữ',  '1997-01-25', N'Đà Nẵng',        'MKT',   N'Chuyên viên nội dung',          '0901000005', '001097000005', '2023-01-09', '14500000', N'Võ Minh Tuấn'),
+    (6,  'demo06', 'DEMO006', N'Đặng Tuấn Kiệt',   N'Nam', '1993-09-14', N'Bắc Ninh',       'OPS',   N'Điều phối vận hành',            '0901000006', '001093000006', '2020-11-16', '17500000', N'Đặng Thu Hương'),
+    (7,  'demo07', 'DEMO007', N'Bùi Khánh Linh',   N'Nữ',  '1998-04-30', N'Ninh Bình',      'HR',    N'Chuyên viên C&B',               '0901000007', '001098000007', '2023-07-03', '15500000', N'Bùi Văn Quang'),
+    (8,  'demo08', 'DEMO008', N'Hoàng Đức Nam',    N'Nam', '1991-12-02', N'Hà Nội',         'IT',    N'Quản trị hệ thống',             '0901000008', '001091000008', '2018-09-17', '23000000', N'Hoàng Thị Mai'),
+    (9,  'demo09', 'DEMO009', N'Đỗ Thanh Thảo',    N'Nữ',  '1994-06-17', N'Thái Bình',      'ACC',   N'Kế toán tổng hợp',              '0901000009', '001094000009', '2021-03-22', '19000000', N'Đỗ Quốc Trung'),
+    (10, 'demo10', 'DEMO010', N'Hồ Gia Huy',       N'Nam', '1996-08-09', N'TP. Hồ Chí Minh','SALES', N'Chuyên viên phát triển đối tác','0901000010', '001096000010', '2022-05-09', '18500000', N'Hồ Ngọc Yến'),
+    (11, 'demo11', 'DEMO011', N'Ngô Phương Uyên',  N'Nữ',  '1999-02-11', N'Huế',            'MKT',   N'Chuyên viên truyền thông',      '0901000011', '001099000011', '2024-01-08', '14000000', N'Ngô Văn Bình'),
+    (12, 'demo12', 'DEMO012', N'Dương Thành Đạt',  N'Nam', '1992-10-27', N'Quảng Ninh',     'OPS',   N'Chuyên viên mua hàng',          '0901000012', '001092000012', '2020-02-03', '18000000', N'Dương Thị Nga'),
+    (13, 'demo13', 'DEMO013', N'Lý Quỳnh Anh',     N'Nữ',  '1995-07-06', N'Lào Cai',        'HR',    N'Chuyên viên đào tạo',           '0901000013', '001095000013', '2021-10-11', '16000000', N'Lý Mạnh Cường'),
+    (14, 'demo14', 'DEMO014', N'Mai Quốc Khánh',   N'Nam', '1989-03-29', N'Hà Nam',         'IT',    N'Kỹ sư hạ tầng',                '0901000014', '001089000014', '2017-05-15', '25000000', N'Mai Thu Hà'),
+    (15, 'demo15', 'DEMO015', N'Tạ Minh Châu',     N'Nữ',  '1997-12-18', N'Hưng Yên',       'ACC',   N'Chuyên viên thanh toán',        '0901000015', '001097000015', '2022-08-01', '15500000', N'Tạ Văn Nam'),
+    (16, 'demo16', 'DEMO016', N'Trịnh Anh Khoa',   N'Nam', '1994-09-03', N'Nghệ An',        'SALES', N'Chuyên viên chăm sóc khách hàng','0901000016','001094000016', '2021-01-18', '17000000', N'Trịnh Thị Hoa'),
+    (17, 'demo17', 'DEMO017', N'Cao Mỹ Linh',      N'Nữ',  '1998-05-22', N'Hải Dương',      'MKT',   N'Chuyên viên thiết kế',          '0901000017', '001098000017', '2023-03-13', '16500000', N'Cao Đức Thắng'),
+    (18, 'demo18', 'DEMO018', N'Huỳnh Nhật Minh',  N'Nam', '1993-01-16', N'Quảng Nam',      'OPS',   N'Chuyên viên quản lý kho',       '0901000018', '001093000018', '2019-12-02', '17500000', N'Huỳnh Ngọc Anh'),
+    (19, 'demo19', 'DEMO019', N'Phan Bảo Ngọc',    N'Nữ',  '1996-04-07', N'Cần Thơ',        'SALES', N'Chuyên viên bán hàng',          '0901000019', '001096000019', '2022-06-20', '17500000', N'Phan Văn Đức'),
+    (20, 'demo20', 'DEMO020', N'Vũ Tiến Dũng',     N'Nam', '1991-08-31', N'Phú Thọ',        'IT',    N'Kỹ sư kiểm thử phần mềm',       '0901000020', '001091000020', '2019-04-08', '21000000', N'Vũ Thị Hồng');
+
+INSERT dbo.HrmUserAccount
+    (Username, PasswordHash, PasswordSalt, DisplayName, RoleCode, DepartmentId, SupervisorUserId, IsActive)
+SELECT e.Username,
+       'hLuLygwPf9f5WzML0MqEg/KswxrX3KlHypL5SHQXMV8=',
+       '1YksFXARmslLCwyDjUWWVw==',
+       e.DisplayName,
+       'EMPLOYEE',
+       d.Id,
+       CASE e.DepartmentCode
+           WHEN 'IT' THEN (SELECT Id FROM dbo.HrmUserAccount WHERE Username = 'huongtm')
+           WHEN 'HR' THEN (SELECT Id FROM dbo.HrmUserAccount WHERE Username = 'hradmin')
+           ELSE (SELECT Id FROM dbo.HrmUserAccount WHERE Username = 'thedt')
+       END,
+       1
+FROM @DemoEmployees e
+INNER JOIN dbo.HrmDepartment d ON d.Code = e.DepartmentCode
+WHERE NOT EXISTS (SELECT 1 FROM dbo.HrmUserAccount u WHERE u.Username = e.Username);
+
+UPDATE u
+SET DisplayName = e.DisplayName,
+    RoleCode = 'EMPLOYEE',
+    DepartmentId = d.Id,
+    SupervisorUserId = CASE e.DepartmentCode
+        WHEN 'IT' THEN (SELECT Id FROM dbo.HrmUserAccount WHERE Username = 'huongtm')
+        WHEN 'HR' THEN (SELECT Id FROM dbo.HrmUserAccount WHERE Username = 'hradmin')
+        ELSE (SELECT Id FROM dbo.HrmUserAccount WHERE Username = 'thedt')
+    END,
+    IsActive = 1
+FROM dbo.HrmUserAccount u
+INNER JOIN @DemoEmployees e ON e.Username = u.Username
+INNER JOIN dbo.HrmDepartment d ON d.Code = e.DepartmentCode;
+
+MERGE dbo.HrmEmployeeProfile AS target
+USING
+(
+    SELECT u.Id AS UserId, e.*
+    FROM @DemoEmployees e
+    INNER JOIN dbo.HrmUserAccount u ON u.Username = e.Username
+) AS source
+ON target.UserId = source.UserId
+WHEN MATCHED THEN UPDATE SET
+    EmployeeCode = source.EmployeeCode,
+    AvatarUrl = '/images/nhigia-logo.png',
+    Gender = source.Gender,
+    DateOfBirth = source.DateOfBirth,
+    PlaceOfBirth = source.PlaceOfBirth,
+    Nationality = N'Việt Nam',
+    Ethnicity = N'Kinh',
+    Religion = N'Không',
+    MaritalStatus = CASE WHEN source.Seq % 3 = 0 THEN N'Đã kết hôn' ELSE N'Độc thân' END,
+    MobilePhone = source.MobilePhone,
+    OfficePhone = CONCAT('0247300', RIGHT('0000' + CONVERT(VARCHAR(4), source.Seq), 4)),
+    HomePhone = CONCAT('0243800', RIGHT('0000' + CONVERT(VARCHAR(4), source.Seq), 4)),
+    PersonalEmail = CONCAT(source.Username, '@gmail.com'),
+    CompanyEmail = CONCAT(source.Username, '@nhigia.vn'),
+    PermanentAddress = CONCAT(N'Số ', source.Seq + 10, N', đường Nguyễn Trãi, ', source.PlaceOfBirth),
+    CurrentAddress = CONCAT(N'Căn hộ ', source.Seq, N', Hà Nội'),
+    IdentityNumber = source.IdentityNumber,
+    IdentityIssuedDate = DATEADD(YEAR, -3, source.HireDate),
+    IdentityIssuedPlace = N'Cục Cảnh sát QLHC về TTXH',
+    IdentityExpiryDate = DATEADD(YEAR, 10, DATEADD(YEAR, -3, source.HireDate)),
+    PassportNumber = CONCAT('DEMO', RIGHT('000000' + CONVERT(VARCHAR(6), source.Seq), 6)),
+    PassportIssuedDate = source.HireDate,
+    PassportIssuedPlace = N'Cục Quản lý xuất nhập cảnh',
+    PassportExpiryDate = DATEADD(YEAR, 10, source.HireDate),
+    PersonalTaxCode = CONCAT('010900', RIGHT('0000' + CONVERT(VARCHAR(4), source.Seq), 4)),
+    JobTitle = source.JobTitle,
+    EmploymentStatus = N'Đang làm việc',
+    WorkLocation = N'Văn phòng Nhị Gia - Hà Nội',
+    TimekeepingCode = source.EmployeeCode,
+    HireDate = source.HireDate,
+    ProbationDate = source.HireDate,
+    OfficialDate = DATEADD(MONTH, 2, source.HireDate),
+    ContractType = N'Hợp đồng lao động xác định thời hạn',
+    ContractNumber = CONCAT('HDLD/DEMO/', RIGHT('00' + CONVERT(VARCHAR(2), source.Seq), 2)),
+    ContractStartDate = DATEADD(MONTH, 2, source.HireDate),
+    ContractEndDate = DATEADD(YEAR, 3, DATEADD(MONTH, 2, source.HireDate)),
+    AnnualLeaveDays = 12,
+    EducationLevel = N'Đại học',
+    Degree = N'Cử nhân',
+    SchoolName = CASE WHEN source.Seq % 2 = 0 THEN N'Đại học Bách khoa Hà Nội' ELSE N'Đại học Kinh tế Quốc dân' END,
+    Faculty = CASE WHEN source.DepartmentCode = 'IT' THEN N'Công nghệ thông tin' ELSE N'Quản trị kinh doanh' END,
+    Major = source.JobTitle,
+    GraduationYear = CONVERT(NVARCHAR(4), YEAR(source.HireDate) - 1),
+    GraduationClassification = CASE WHEN source.Seq % 4 = 0 THEN N'Giỏi' ELSE N'Khá' END,
+    BasicSalary = source.BasicSalary,
+    BankAccountNumber = CONCAT('1903600', RIGHT('000000' + CONVERT(VARCHAR(6), source.Seq), 6)),
+    BankName = N'Ngân hàng TMCP Kỹ thương Việt Nam',
+    BankBranch = N'Chi nhánh Hà Nội',
+    SocialInsuranceNumber = CONCAT('BHXHDEMO', RIGHT('0000' + CONVERT(VARCHAR(4), source.Seq), 4)),
+    SocialInsuranceStartDate = DATEADD(MONTH, 2, source.HireDate),
+    HealthInsuranceNumber = CONCAT('DN40101DEMO', RIGHT('0000' + CONVERT(VARCHAR(4), source.Seq), 4)),
+    HealthInsuranceExpiryDate = '2027-12-31',
+    RegisteredHealthFacility = N'Bệnh viện Đa khoa Hà Đông',
+    EmergencyContactName = source.EmergencyContactName,
+    EmergencyContactRelationship = CASE WHEN source.Gender = N'Nam' THEN N'Mẹ' ELSE N'Bố' END,
+    EmergencyContactPhone = CONCAT('091200', RIGHT('0000' + CONVERT(VARCHAR(4), source.Seq), 4)),
+    EmergencyContactEmail = CONCAT('lienhe.', source.Username, '@gmail.com'),
+    EmergencyContactAddress = CONCAT(N'Số ', source.Seq + 10, N', đường Nguyễn Trãi, ', source.PlaceOfBirth),
+    Notes = N'Dữ liệu nhân viên thử nghiệm đầy đủ; mã DEMO dùng để nhận diện và lọc dữ liệu.',
+    UpdatedAt = SYSDATETIME()
+WHEN NOT MATCHED THEN INSERT
+    (UserId, EmployeeCode, AvatarUrl, Gender, DateOfBirth, PlaceOfBirth, Nationality, Ethnicity, Religion,
+     MaritalStatus, MobilePhone, OfficePhone, HomePhone, PersonalEmail, CompanyEmail, PermanentAddress,
+     CurrentAddress, IdentityNumber, IdentityIssuedDate, IdentityIssuedPlace, IdentityExpiryDate,
+     PassportNumber, PassportIssuedDate, PassportIssuedPlace, PassportExpiryDate, PersonalTaxCode,
+     JobTitle, EmploymentStatus, WorkLocation, TimekeepingCode, HireDate, ProbationDate, OfficialDate,
+     ContractType, ContractNumber, ContractStartDate, ContractEndDate, AnnualLeaveDays, EducationLevel,
+     Degree, SchoolName, Faculty, Major, GraduationYear, GraduationClassification, BasicSalary,
+     BankAccountNumber, BankName, BankBranch, SocialInsuranceNumber, SocialInsuranceStartDate,
+     HealthInsuranceNumber, HealthInsuranceExpiryDate, RegisteredHealthFacility, EmergencyContactName,
+     EmergencyContactRelationship, EmergencyContactPhone, EmergencyContactEmail, EmergencyContactAddress, Notes)
+VALUES
+    (source.UserId, source.EmployeeCode, '/images/nhigia-logo.png', source.Gender, source.DateOfBirth,
+     source.PlaceOfBirth, N'Việt Nam', N'Kinh', N'Không',
+     CASE WHEN source.Seq % 3 = 0 THEN N'Đã kết hôn' ELSE N'Độc thân' END,
+     source.MobilePhone,
+     CONCAT('0247300', RIGHT('0000' + CONVERT(VARCHAR(4), source.Seq), 4)),
+     CONCAT('0243800', RIGHT('0000' + CONVERT(VARCHAR(4), source.Seq), 4)),
+     CONCAT(source.Username, '@gmail.com'), CONCAT(source.Username, '@nhigia.vn'),
+     CONCAT(N'Số ', source.Seq + 10, N', đường Nguyễn Trãi, ', source.PlaceOfBirth),
+     CONCAT(N'Căn hộ ', source.Seq, N', Hà Nội'), source.IdentityNumber,
+     DATEADD(YEAR, -3, source.HireDate), N'Cục Cảnh sát QLHC về TTXH',
+     DATEADD(YEAR, 10, DATEADD(YEAR, -3, source.HireDate)),
+     CONCAT('DEMO', RIGHT('000000' + CONVERT(VARCHAR(6), source.Seq), 6)), source.HireDate,
+     N'Cục Quản lý xuất nhập cảnh', DATEADD(YEAR, 10, source.HireDate),
+     CONCAT('010900', RIGHT('0000' + CONVERT(VARCHAR(4), source.Seq), 4)), source.JobTitle,
+     N'Đang làm việc', N'Văn phòng Nhị Gia - Hà Nội', source.EmployeeCode, source.HireDate,
+     source.HireDate, DATEADD(MONTH, 2, source.HireDate), N'Hợp đồng lao động xác định thời hạn',
+     CONCAT('HDLD/DEMO/', RIGHT('00' + CONVERT(VARCHAR(2), source.Seq), 2)),
+     DATEADD(MONTH, 2, source.HireDate), DATEADD(YEAR, 3, DATEADD(MONTH, 2, source.HireDate)), 12,
+     N'Đại học', N'Cử nhân',
+     CASE WHEN source.Seq % 2 = 0 THEN N'Đại học Bách khoa Hà Nội' ELSE N'Đại học Kinh tế Quốc dân' END,
+     CASE WHEN source.DepartmentCode = 'IT' THEN N'Công nghệ thông tin' ELSE N'Quản trị kinh doanh' END,
+     source.JobTitle, CONVERT(NVARCHAR(4), YEAR(source.HireDate) - 1),
+     CASE WHEN source.Seq % 4 = 0 THEN N'Giỏi' ELSE N'Khá' END, source.BasicSalary,
+     CONCAT('1903600', RIGHT('000000' + CONVERT(VARCHAR(6), source.Seq), 6)),
+     N'Ngân hàng TMCP Kỹ thương Việt Nam', N'Chi nhánh Hà Nội',
+     CONCAT('BHXHDEMO', RIGHT('0000' + CONVERT(VARCHAR(4), source.Seq), 4)),
+     DATEADD(MONTH, 2, source.HireDate),
+     CONCAT('DN40101DEMO', RIGHT('0000' + CONVERT(VARCHAR(4), source.Seq), 4)), '2027-12-31',
+     N'Bệnh viện Đa khoa Hà Đông', source.EmergencyContactName,
+     CASE WHEN source.Gender = N'Nam' THEN N'Mẹ' ELSE N'Bố' END,
+     CONCAT('091200', RIGHT('0000' + CONVERT(VARCHAR(4), source.Seq), 4)),
+     CONCAT('lienhe.', source.Username, '@gmail.com'),
+     CONCAT(N'Số ', source.Seq + 10, N', đường Nguyễn Trãi, ', source.PlaceOfBirth),
+     N'Dữ liệu nhân viên thử nghiệm đầy đủ; mã DEMO dùng để nhận diện và lọc dữ liệu.');
+GO
