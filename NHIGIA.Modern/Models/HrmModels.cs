@@ -164,6 +164,7 @@ namespace NHIGIA.Modern.Models
 
     public class SaveScheduleRequest
     {
+        public int Id { get; set; }
         public int UserId { get; set; }
         public int? ShiftTemplateId { get; set; }
         public string ShiftName { get; set; }

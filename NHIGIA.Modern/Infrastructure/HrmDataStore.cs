@@ -180,6 +180,38 @@ namespace NHIGIA.Modern.Infrastructure
 
         public int SaveSchedule(SaveScheduleRequest request, HrmUserAccountModel actor, string ipAddress)
         {
+            if (request.Id > 0)
+            {
+                const string updateSql = @"UPDATE s SET UserId=@UserId, ShiftTemplateId=@ShiftTemplateId, ShiftName=@ShiftName,
+                    StartTime=@StartTime, EndTime=@EndTime, BreakMinutes=@BreakMinutes, GraceMinutes=@GraceMinutes,
+                    EffectiveFrom=@EffectiveFrom, EffectiveTo=@EffectiveTo, UpdatedAt=SYSDATETIME()
+                    FROM dbo.HrmEmployeeSchedule s
+                    INNER JOIN dbo.HrmUserAccount u ON u.Id=s.UserId
+                    WHERE s.Id=@Id AND (@CanSeeAll=1 OR (@IsManager=1 AND u.DepartmentId=@DepartmentId));";
+                var canSeeAll = actor.RoleCode == HrmRoles.Admin || actor.RoleCode == HrmRoles.Hr || actor.RoleCode == HrmRoles.Director;
+                using (var connection = OpenConnection())
+                {
+                    var changed = connection.Execute(updateSql, new
+                    {
+                        request.Id,
+                        request.UserId,
+                        request.ShiftTemplateId,
+                        request.ShiftName,
+                        request.StartTime,
+                        request.EndTime,
+                        request.BreakMinutes,
+                        request.GraceMinutes,
+                        request.EffectiveFrom,
+                        request.EffectiveTo,
+                        CanSeeAll = canSeeAll,
+                        IsManager = actor.RoleCode == HrmRoles.Manager,
+                        DepartmentId = actor.DepartmentId
+                    });
+                    if (changed > 0) AddAudit(connection, actor.Id, "UPDATE", "HrmEmployeeSchedule", request.Id.ToString(), "Cập nhật lịch làm việc", ipAddress);
+                    return changed > 0 ? request.Id : 0;
+                }
+            }
+
             const string sql = @"INSERT dbo.HrmEmployeeSchedule(UserId, ShiftTemplateId, ShiftName, StartTime, EndTime, BreakMinutes, GraceMinutes, EffectiveFrom, EffectiveTo, StatusCode, CreatedByUserId)
                 VALUES(@UserId, @ShiftTemplateId, @ShiftName, @StartTime, @EndTime, @BreakMinutes, @GraceMinutes, @EffectiveFrom, @EffectiveTo, 'ACTIVE', @ActorId);
                 SELECT CAST(SCOPE_IDENTITY() AS INT);";

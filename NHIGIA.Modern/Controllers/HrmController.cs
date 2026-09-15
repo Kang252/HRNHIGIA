@@ -56,8 +56,13 @@ public sealed class HrmController : BaseController
         if (!TimeSpan.TryParse(request.StartTime, out _) || !TimeSpan.TryParse(request.EndTime, out _)) throw new InvalidOperationException("Giờ bắt đầu hoặc kết thúc không hợp lệ.");
         if (request.EffectiveFrom == default) throw new InvalidOperationException("Vui lòng chọn ngày áp dụng.");
         if (request.EffectiveTo.HasValue && request.EffectiveTo.Value.Date < request.EffectiveFrom.Date) throw new InvalidOperationException("Ngày kết thúc phải sau ngày bắt đầu.");
+        if (request.BreakMinutes < 0 || request.BreakMinutes > 480) throw new InvalidOperationException("Thời gian nghỉ phải từ 0 đến 480 phút.");
+        if (request.GraceMinutes < 0 || request.GraceMinutes > 120) throw new InvalidOperationException("Thời gian cho phép đi muộn phải từ 0 đến 120 phút.");
         request.ShiftName = string.IsNullOrWhiteSpace(request.ShiftName) ? "Ca cá nhân" : request.ShiftName.Trim();
-        return new { Id = Store.SaveSchedule(request, CurrentHrmUser, ClientIp) };
+        if (request.ShiftName.Length > 100) throw new InvalidOperationException("Tên ca không được vượt quá 100 ký tự.");
+        var id = Store.SaveSchedule(request, CurrentHrmUser, ClientIp);
+        if (id <= 0) throw new InvalidOperationException("Không tìm thấy lịch hoặc bạn không có quyền sửa.");
+        return new { Id = id };
     });
 
     [HttpPost, ValidateAntiForgeryToken]
