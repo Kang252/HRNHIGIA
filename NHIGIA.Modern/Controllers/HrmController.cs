@@ -143,6 +143,51 @@ public sealed class HrmController : BaseController
         return new { Count = count };
     });
 
+    [HttpPost, ValidateAntiForgeryToken]
+    [HrmAuthorize(HrmRoles.Admin, HrmRoles.Hr, HrmRoles.Director, HrmRoles.Manager)]
+    public IActionResult BulkApproveLeave(BulkApprovalRequest request) => Execute(() =>
+    {
+        var ids = request?.GetResolvedIds();
+        if (ids == null || !ids.Any()) throw new InvalidOperationException("Vui lòng chọn ít nhất một yêu cầu.");
+        request.Ids = ids;
+        var count = Store.BulkApproveLeave(request, CurrentHrmUser, ClientIp);
+        return new { Count = count, request.Approve };
+    });
+
+    [HttpPost, ValidateAntiForgeryToken]
+    [HrmAuthorize(HrmRoles.Admin, HrmRoles.Hr, HrmRoles.Director, HrmRoles.Manager)]
+    public IActionResult DeleteLeave(int id) => Execute(() =>
+    {
+        if (id <= 0) throw new InvalidOperationException("Yêu cầu không hợp lệ.");
+        if (!Store.DeleteLeave(id, CurrentHrmUser, ClientIp)) throw new InvalidOperationException("Không thể xóa yêu cầu này.");
+        return new { Id = id };
+    });
+
+    [HttpPost, ValidateAntiForgeryToken]
+    [HrmAuthorize(HrmRoles.Admin, HrmRoles.Hr, HrmRoles.Director, HrmRoles.Manager)]
+    public IActionResult BulkDeleteLeave(BulkApprovalRequest request) => Execute(() =>
+    {
+        var ids = request?.GetResolvedIds();
+        if (ids == null || !ids.Any()) throw new InvalidOperationException("Vui lòng chọn ít nhất một yêu cầu.");
+        var count = 0;
+        foreach (var id in ids)
+        {
+            if (Store.DeleteLeave(id, CurrentHrmUser, ClientIp)) count++;
+        }
+        return new { Count = count };
+    });
+
+    [HttpGet]
+    public IActionResult Departments() => Execute(() => Store.GetDepartments());
+
+    [HttpPost, ValidateAntiForgeryToken]
+    [HrmAuthorize(HrmRoles.Admin, HrmRoles.Hr, HrmRoles.Director, HrmRoles.Manager)]
+    public IActionResult SeedSampleRequests() => Execute(() =>
+    {
+        Store.EnsureSampleLeaveRequests();
+        return new { Message = "Đã nạp 5 yêu cầu mẫu thành công." };
+    });
+
     [HttpGet]
     [HrmAuthorize(HrmRoles.Admin, HrmRoles.Hr, HrmRoles.Director, HrmRoles.Manager)]
     public IActionResult ApprovalInbox() => Execute(() =>

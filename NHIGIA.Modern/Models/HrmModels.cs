@@ -194,7 +194,14 @@ namespace NHIGIA.Modern.Models
         public int UserId { get; set; }
         public string Username { get; set; }
         public string DisplayName { get; set; }
+        public string RoleCode { get; set; }
+        public int? DepartmentId { get; set; }
         public string DepartmentName { get; set; }
+        public string EmployeeCode { get; set; }
+        public string JobTitle { get; set; }
+        public string AvatarUrl { get; set; }
+        public string MobilePhone { get; set; }
+        public string CompanyEmail { get; set; }
         public string LeaveType { get; set; }
         public DateTime StartDate { get; set; }
         public DateTime EndDate { get; set; }
@@ -206,11 +213,17 @@ namespace NHIGIA.Modern.Models
         public string StatusCode { get; set; }
         public string ManagerNote { get; set; }
         public string HrNote { get; set; }
+        public int? ApprovedByManagerId { get; set; }
+        public int? ApprovedByHrId { get; set; }
+        public string ManagerName { get; set; }
+        public string HrName { get; set; }
         public DateTime CreatedAt { get; set; }
+        public DateTime? UpdatedAt { get; set; }
     }
 
     public class CreateLeaveRequest
     {
+        public int? EmployeeId { get; set; }
         public string LeaveType { get; set; }
         public DateTime StartDate { get; set; }
         public DateTime EndDate { get; set; }
@@ -227,6 +240,25 @@ namespace NHIGIA.Modern.Models
         public int Id { get; set; }
         public bool Approve { get; set; }
         public string Note { get; set; }
+    }
+
+    public class BulkApprovalRequest
+    {
+        public List<int> Ids { get; set; } = new();
+
+        [Microsoft.AspNetCore.Mvc.FromForm(Name = "Ids[]")]
+        public List<int> IdsBracket { get; set; } = new();
+
+        public bool Approve { get; set; }
+        public string Note { get; set; }
+
+        public List<int> GetResolvedIds()
+        {
+            var list = new List<int>();
+            if (Ids != null && Ids.Count > 0) list.AddRange(Ids);
+            if (IdsBracket != null && IdsBracket.Count > 0) list.AddRange(IdsBracket);
+            return list.Distinct().ToList();
+        }
     }
 
     public class ApprovalInboxRequest
