@@ -27,7 +27,7 @@ public sealed class HomeController : BaseController
     }
 
     [HttpPost]
-    public async Task<IActionResult> UploadAvatar(IFormFile avatar)
+    public async Task<IActionResult> UploadAvatar(IFormFile avatar, int? targetUserId = null)
     {
         if (avatar == null || avatar.Length == 0)
         {
@@ -36,6 +36,18 @@ public sealed class HomeController : BaseController
 
         try
         {
+            int userIdToUpdate = CurrentHrmUser.Id;
+            if (targetUserId.HasValue && targetUserId.Value != CurrentHrmUser.Id)
+            {
+                bool canEdit = CurrentHrmUser.RoleCode is HrmRoles.Hr or HrmRoles.Director or HrmRoles.Admin
+                    || Store.GetVisibleUsers(CurrentHrmUser).Any(x => x.Id == targetUserId.Value);
+                if (!canEdit)
+                {
+                    return Json(new { success = false, message = "Bạn không có quyền thay đổi ảnh của nhân viên này." });
+                }
+                userIdToUpdate = targetUserId.Value;
+            }
+
             var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "avatars");
             if (!Directory.Exists(uploadsFolder))
             {
@@ -49,7 +61,7 @@ public sealed class HomeController : BaseController
                 return Json(new { success = false, message = "Định dạng file không hỗ trợ. Vui lòng chọn ảnh JPG, PNG hoặc WEBP." });
             }
 
-            var fileName = $"avatar_{CurrentHrmUser.Id}_{DateTime.UtcNow.Ticks}{ext}";
+            var fileName = $"avatar_{userIdToUpdate}_{DateTime.UtcNow.Ticks}{ext}";
             var filePath = Path.Combine(uploadsFolder, fileName);
             using (var stream = new FileStream(filePath, FileMode.Create))
             {
@@ -57,7 +69,7 @@ public sealed class HomeController : BaseController
             }
 
             var avatarUrl = $"/uploads/avatars/{fileName}";
-            Store.UpdateAvatarUrl(CurrentHrmUser.Id, avatarUrl);
+            Store.UpdateAvatarUrl(userIdToUpdate, avatarUrl);
 
             return Json(new { success = true, avatarUrl });
         }
@@ -68,7 +80,7 @@ public sealed class HomeController : BaseController
     }
 
     [HttpPost]
-    public IActionResult SaveAvatarUrl(string avatarUrl)
+    public IActionResult SaveAvatarUrl(string avatarUrl, int? targetUserId = null)
     {
         if (string.IsNullOrWhiteSpace(avatarUrl))
         {
@@ -77,7 +89,19 @@ public sealed class HomeController : BaseController
 
         try
         {
-            Store.UpdateAvatarUrl(CurrentHrmUser.Id, avatarUrl.Trim());
+            int userIdToUpdate = CurrentHrmUser.Id;
+            if (targetUserId.HasValue && targetUserId.Value != CurrentHrmUser.Id)
+            {
+                bool canEdit = CurrentHrmUser.RoleCode is HrmRoles.Hr or HrmRoles.Director or HrmRoles.Admin
+                    || Store.GetVisibleUsers(CurrentHrmUser).Any(x => x.Id == targetUserId.Value);
+                if (!canEdit)
+                {
+                    return Json(new { success = false, message = "Bạn không có quyền cập nhật ảnh của nhân viên này." });
+                }
+                userIdToUpdate = targetUserId.Value;
+            }
+
+            Store.UpdateAvatarUrl(userIdToUpdate, avatarUrl.Trim());
             return Json(new { success = true, avatarUrl = avatarUrl.Trim() });
         }
         catch (Exception ex)
@@ -87,11 +111,23 @@ public sealed class HomeController : BaseController
     }
 
     [HttpPost]
-    public IActionResult RemoveAvatar()
+    public IActionResult RemoveAvatar(int? targetUserId = null)
     {
         try
         {
-            Store.UpdateAvatarUrl(CurrentHrmUser.Id, "");
+            int userIdToUpdate = CurrentHrmUser.Id;
+            if (targetUserId.HasValue && targetUserId.Value != CurrentHrmUser.Id)
+            {
+                bool canEdit = CurrentHrmUser.RoleCode is HrmRoles.Hr or HrmRoles.Director or HrmRoles.Admin
+                    || Store.GetVisibleUsers(CurrentHrmUser).Any(x => x.Id == targetUserId.Value);
+                if (!canEdit)
+                {
+                    return Json(new { success = false, message = "Bạn không có quyền xóa ảnh của nhân viên này." });
+                }
+                userIdToUpdate = targetUserId.Value;
+            }
+
+            Store.UpdateAvatarUrl(userIdToUpdate, "");
             return Json(new { success = true });
         }
         catch (Exception ex)
@@ -121,7 +157,7 @@ public sealed class HomeController : BaseController
 
     [HttpPost, ValidateAntiForgeryToken]
     [HrmAuthorize(HrmRoles.Hr, HrmRoles.Director)]
-    public IActionResult EditEmployeeProfile(EmployeeProfileModel profile)
+    public async Task<IActionResult> EditEmployeeProfile(EmployeeProfileModel profile, IFormFile avatarFile = null)
     {
         if (!Store.GetVisibleUsers(CurrentHrmUser).Any(x => x.Id == profile.UserId)) return Forbid();
         if (string.IsNullOrWhiteSpace(profile.DisplayName)) ModelState.AddModelError(nameof(profile.DisplayName), "Vui lòng nhập họ và tên.");
@@ -149,6 +185,24 @@ public sealed class HomeController : BaseController
 
         try
         {
+            if (avatarFile != null && avatarFile.Length > 0)
+            {
+                var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "avatars");
+                if (!Directory.Exists(uploadsFolder)) Directory.CreateDirectory(uploadsFolder);
+                var ext = Path.GetExtension(avatarFile.FileName).ToLowerInvariant();
+                var allowed = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp" };
+                if (allowed.Contains(ext))
+                {
+                    var fileName = $"avatar_{profile.UserId}_{DateTime.UtcNow.Ticks}{ext}";
+                    var filePath = Path.Combine(uploadsFolder, fileName);
+                    using (var stream = new FileStream(filePath, FileMode.Create))
+                    {
+                        await avatarFile.CopyToAsync(stream);
+                    }
+                    profile.AvatarUrl = $"/uploads/avatars/{fileName}";
+                }
+            }
+
             profile.DisplayName = profile.DisplayName.Trim();
             profile.EmployeeCode = profile.EmployeeCode.Trim();
             Store.UpdateEmployeeProfile(profile, CurrentHrmUser, HttpContext.Connection.RemoteIpAddress?.ToString());

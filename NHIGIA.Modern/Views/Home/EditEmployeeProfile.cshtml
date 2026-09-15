@@ -12,10 +12,42 @@
         <a class="hrm-btn" asp-action="EmployeeInformation"><i class="material-icons">arrow_back</i> Danh sách nhân sự</a>
     </div>
 
-    <form method="post" asp-action="EditEmployeeProfile">
+    <form method="post" asp-action="EditEmployeeProfile" enctype="multipart/form-data">
         <input asp-for="UserId" type="hidden" />
+        <input asp-for="AvatarUrl" type="hidden" id="editAvatarUrl" />
         @if (TempData["ProfileSuccess"] is string success) { <div class="alert alert-success" role="status"><i class="material-icons">check_circle</i> @success</div> }
         <div asp-validation-summary="All" class="alert alert-danger"></div>
+
+        <section class="hrm-card edit-section avatar-edit-section">
+            <div class="hrm-card-header">
+                <h2 class="hrm-card-title"><i class="material-icons" style="vertical-align:middle;font-size:20px;color:#1a73e8;margin-right:6px;">account_circle</i>Ảnh đại diện</h2>
+            </div>
+            <div class="avatar-edit-container">
+                <div class="avatar-preview-wrap" id="avatarDropZone">
+                    <img id="editAvatarPreview" 
+                         src="@(!string.IsNullOrWhiteSpace(Model.AvatarUrl) ? Model.AvatarUrl : $"https://ui-avatars.com/api/?name={Uri.EscapeDataString(Model.DisplayName ?? "User")}&background=1a73e8&color=fff&size=200&bold=true")" 
+                         alt="Avatar preview" 
+                         class="avatar-preview-img" />
+                    <button type="button" class="avatar-camera-btn" onclick="document.getElementById('editAvatarFileInput').click()" title="Chọn ảnh mới">
+                        <i class="material-icons">photo_camera</i>
+                    </button>
+                </div>
+                <div class="avatar-edit-info">
+                    <div class="avatar-info-title">Ảnh hồ sơ nhân sự</div>
+                    <div class="avatar-info-desc">Hỗ trợ các định dạng: JPG, PNG, WEBP, GIF (kích thước tối đa 5MB). Khi chọn ảnh, hệ thống sẽ tự động cập nhật và hiển thị ngay trên hồ sơ của nhân viên. Có thể kéo thả ảnh vào khung avatar.</div>
+                    <div class="avatar-btn-row">
+                        <input type="file" id="editAvatarFileInput" name="avatarFile" accept="image/jpeg,image/png,image/webp,image/gif" style="display:none;" />
+                        <button type="button" class="hrm-btn hrm-btn-primary" onclick="document.getElementById('editAvatarFileInput').click()">
+                            <i class="material-icons">cloud_upload</i> Chọn ảnh từ máy tính
+                        </button>
+                        <button type="button" class="hrm-btn" id="btnRemoveAvatar" style="@(string.IsNullOrWhiteSpace(Model.AvatarUrl) ? "display:none;" : "")" onclick="handleRemoveAvatar()">
+                            <i class="material-icons">delete_outline</i> Xóa ảnh
+                        </button>
+                    </div>
+                    <div id="avatarUploadFeedback" class="avatar-upload-feedback" style="display:none;"></div>
+                </div>
+            </div>
+        </section>
 
         <section class="hrm-card edit-section">
             <div class="hrm-card-header"><h2 class="hrm-card-title">Thông tin chung</h2></div>
@@ -125,5 +157,243 @@
 </div>
 
 <style>
-    .edit-section{padding:20px;margin-bottom:18px}.profile-edit-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px 18px}.profile-edit-grid label{font-weight:600;color:#26364d}.profile-edit-grid .form-control{margin-top:7px;font-weight:400}.profile-edit-grid .wide{grid-column:span 2}.profile-edit-actions{position:sticky;bottom:0;display:flex;justify-content:flex-end;gap:10px;padding:14px 0;background:rgba(247,249,252,.96);z-index:5}@@media(max-width:900px){.profile-edit-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@@media(max-width:600px){.profile-edit-grid{grid-template-columns:1fr}.profile-edit-grid .wide{grid-column:auto}.edit-section{padding:15px}}
+    .edit-section{padding:20px;margin-bottom:18px}
+    .profile-edit-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px 18px}
+    .profile-edit-grid label{font-weight:600;color:#26364d}
+    .profile-edit-grid .form-control{margin-top:7px;font-weight:400}
+    .profile-edit-grid .wide{grid-column:span 2}
+    .profile-edit-actions{position:sticky;bottom:0;display:flex;justify-content:flex-end;gap:10px;padding:14px 0;background:rgba(247,249,252,.96);z-index:5}
+
+    /* Avatar Edit Block */
+    .avatar-edit-section {
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+    }
+    .avatar-edit-container {
+        display: flex;
+        align-items: center;
+        gap: 28px;
+        padding: 8px 0;
+        flex-wrap: wrap;
+    }
+    .avatar-preview-wrap {
+        position: relative;
+        width: 120px;
+        height: 120px;
+        border-radius: 50%;
+        box-shadow: 0 4px 14px rgba(0,0,0,0.12);
+        border: 3px solid #fff;
+        outline: 2px solid #cbd5e1;
+        background: #f8fafc;
+        flex-shrink: 0;
+        cursor: pointer;
+        transition: outline-color 0.2s, transform 0.2s;
+    }
+    .avatar-preview-wrap:hover {
+        outline-color: #1a73e8;
+        transform: scale(1.02);
+    }
+    .avatar-preview-wrap.dragover {
+        outline: 3px dashed #1a73e8;
+        background: #e8f0fe;
+    }
+    .avatar-preview-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        border-radius: 50%;
+        display: block;
+    }
+    .avatar-camera-btn {
+        position: absolute;
+        bottom: 2px;
+        right: 2px;
+        width: 36px;
+        height: 36px;
+        background: #1a73e8;
+        color: #fff;
+        border: 2px solid #fff;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+        transition: background 0.2s, transform 0.2s;
+    }
+    .avatar-camera-btn:hover {
+        background: #1557b0;
+        transform: scale(1.1);
+    }
+    .avatar-camera-btn i {
+        font-size: 18px;
+    }
+    .avatar-edit-info {
+        flex: 1;
+        min-width: 280px;
+    }
+    .avatar-info-title {
+        font-size: 16px;
+        font-weight: 700;
+        color: #1e293b;
+        margin-bottom: 5px;
+    }
+    .avatar-info-desc {
+        font-size: 13px;
+        color: #64748b;
+        line-height: 1.5;
+        margin-bottom: 14px;
+        max-width: 600px;
+    }
+    .avatar-btn-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+    }
+    .avatar-upload-feedback {
+        margin-top: 12px;
+        font-size: 13px;
+        padding: 6px 14px;
+        border-radius: 6px;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .avatar-upload-feedback.success {
+        background: #e6f4ea;
+        color: #137333;
+    }
+    .avatar-upload-feedback.error {
+        background: #fce8e6;
+        color: #c5221f;
+    }
+    .avatar-upload-feedback.loading {
+        background: #e8f0fe;
+        color: #1a73e8;
+    }
+
+    @@media(max-width:900px){.profile-edit-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+    @@media(max-width:600px){.profile-edit-grid{grid-template-columns:1fr}.profile-edit-grid .wide{grid-column:auto}.edit-section{padding:15px}.avatar-edit-container{flex-direction:column;align-items:flex-start;gap:16px}}
 </style>
+
+<script>
+    (function () {
+        const fileInput = document.getElementById('editAvatarFileInput');
+        const previewImg = document.getElementById('editAvatarPreview');
+        const dropZone = document.getElementById('avatarDropZone');
+        const hiddenUrl = document.getElementById('editAvatarUrl');
+        const removeBtn = document.getElementById('btnRemoveAvatar');
+        const feedback = document.getElementById('avatarUploadFeedback');
+        const targetUserId = @Model.UserId;
+        const defaultPlaceholder = "https://ui-avatars.com/api/?name=" + encodeURIComponent("@(Model.DisplayName ?? "User")") + "&background=1a73e8&color=fff&size=200&bold=true";
+
+        function showFeedback(htmlMsg, type) {
+            feedback.style.display = 'inline-flex';
+            feedback.className = 'avatar-upload-feedback ' + type;
+            feedback.innerHTML = htmlMsg;
+        }
+
+        function uploadFile(file) {
+            if (!file) return;
+            if (file.size > 5 * 1024 * 1024) {
+                showFeedback('<i class="material-icons" style="font-size:16px;">error</i> Dung lượng ảnh không được vượt quá 5MB.', 'error');
+                return;
+            }
+
+            // Local instant preview
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                previewImg.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+
+            showFeedback('<i class="material-icons" style="font-size:16px;">sync</i> Đang tải ảnh lên...', 'loading');
+            const formData = new FormData();
+            formData.append('avatar', file);
+            formData.append('targetUserId', targetUserId);
+
+            fetch('@Url.Action("UploadAvatar", "Home")', {
+                method: 'POST',
+                body: formData
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    hiddenUrl.value = data.avatarUrl;
+                    previewImg.src = data.avatarUrl;
+                    if (removeBtn) removeBtn.style.display = 'inline-flex';
+                    showFeedback('<i class="material-icons" style="font-size:16px;">check_circle</i> Đã lưu ảnh đại diện thành công!', 'success');
+                    setTimeout(() => { feedback.style.display = 'none'; }, 4000);
+                } else {
+                    showFeedback('<i class="material-icons" style="font-size:16px;">error</i> ' + (data.message || 'Lỗi tải ảnh'), 'error');
+                }
+            })
+            .catch(err => {
+                showFeedback('<i class="material-icons" style="font-size:16px;">error</i> Lỗi kết nối: ' + err.message, 'error');
+            });
+        }
+
+        if (fileInput) {
+            fileInput.addEventListener('change', function () {
+                if (this.files && this.files[0]) {
+                    uploadFile(this.files[0]);
+                }
+            });
+        }
+
+        // Drag & drop on avatar preview
+        if (dropZone) {
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropZone.addEventListener(eventName, e => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    dropZone.classList.add('dragover');
+                });
+            });
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropZone.addEventListener(eventName, e => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    dropZone.classList.remove('dragover');
+                });
+            });
+            dropZone.addEventListener('drop', e => {
+                const dt = e.dataTransfer;
+                if (dt && dt.files && dt.files[0]) {
+                    uploadFile(dt.files[0]);
+                }
+            });
+        }
+
+        window.handleRemoveAvatar = function () {
+            if (!confirm('Bạn có chắc chắn muốn xóa ảnh đại diện của nhân viên này?')) return;
+            showFeedback('<i class="material-icons" style="font-size:16px;">sync</i> Đang xóa ảnh...', 'loading');
+
+            const formData = new FormData();
+            formData.append('targetUserId', targetUserId);
+
+            fetch('@Url.Action("RemoveAvatar", "Home")', {
+                method: 'POST',
+                body: formData
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    hiddenUrl.value = '';
+                    previewImg.src = defaultPlaceholder;
+                    if (fileInput) fileInput.value = '';
+                    if (removeBtn) removeBtn.style.display = 'none';
+                    showFeedback('<i class="material-icons" style="font-size:16px;">check_circle</i> Đã xóa ảnh đại diện.', 'success');
+                    setTimeout(() => { feedback.style.display = 'none'; }, 3000);
+                } else {
+                    showFeedback('<i class="material-icons" style="font-size:16px;">error</i> ' + (data.message || 'Lỗi khi xóa ảnh'), 'error');
+                }
+            })
+            .catch(err => {
+                showFeedback('<i class="material-icons" style="font-size:16px;">error</i> Lỗi kết nối: ' + err.message, 'error');
+            });
+        };
+    })();
+</script>

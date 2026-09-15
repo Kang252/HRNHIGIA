@@ -96,6 +96,7 @@ namespace NHIGIA.Modern.Infrastructure
         public void UpdateEmployeeProfile(EmployeeProfileModel profile, HrmUserAccountModel actor, string ipAddress)
         {
             const string profileSql = @"UPDATE dbo.HrmEmployeeProfile SET
+                    AvatarUrl=@AvatarUrl,
                     EmployeeCode=@EmployeeCode, Gender=@Gender, DateOfBirth=@DateOfBirth, PlaceOfBirth=@PlaceOfBirth,
                     Nationality=@Nationality, Ethnicity=@Ethnicity, Religion=@Religion, MaritalStatus=@MaritalStatus,
                     MobilePhone=@MobilePhone, OfficePhone=@OfficePhone, HomePhone=@HomePhone,
@@ -127,9 +128,9 @@ namespace NHIGIA.Modern.Infrastructure
                 profile, transaction);
             if (connection.Execute(profileSql, profile, transaction) == 0)
             {
-                connection.Execute(@"INSERT dbo.HrmEmployeeProfile(UserId,EmployeeCode,JobTitle,EmploymentStatus,
+                connection.Execute(@"INSERT dbo.HrmEmployeeProfile(UserId,EmployeeCode,AvatarUrl,JobTitle,EmploymentStatus,
                         CompanyEmail,TimekeepingCode,AnnualLeaveDays) VALUES
-                        (@UserId,@EmployeeCode,@JobTitle,@EmploymentStatus,@CompanyEmail,@TimekeepingCode,@AnnualLeaveDays)",
+                        (@UserId,@EmployeeCode,@AvatarUrl,@JobTitle,@EmploymentStatus,@CompanyEmail,@TimekeepingCode,@AnnualLeaveDays)",
                     profile, transaction);
                 connection.Execute(profileSql, profile, transaction);
             }
