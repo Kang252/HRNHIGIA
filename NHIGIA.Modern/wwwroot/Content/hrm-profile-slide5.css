@@ -1,0 +1,740 @@
+/* ==========================================================================
+   NHI GIA HRM - SLIDE 5: EMPLOYEE PROFILE (THÔNG TIN NHÂN VIÊN) STYLES
+   ========================================================================== */
+
+.s5-profile-wrapper {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    color: #1e293b;
+    padding: 18px 24px 60px;
+    background-color: #f8fafc;
+    min-height: calc(100vh - 70px);
+}
+
+/* 0. Top Bar (Breadcrumbs + Actions) */
+.s5-top-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+.s5-breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: #64748b;
+}
+.s5-breadcrumb a {
+    color: #0284c7;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+.s5-breadcrumb a:hover {
+    text-decoration: underline;
+}
+.s5-breadcrumb .material-icons {
+    font-size: 16px;
+}
+.s5-breadcrumb .active {
+    color: #334155;
+    font-weight: 600;
+}
+.s5-action-group {
+    display: flex;
+    gap: 10px;
+}
+.s5-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.15s ease-in-out;
+}
+.s5-btn .material-icons {
+    font-size: 18px;
+}
+.s5-btn-primary {
+    background-color: #0284c7;
+    color: #ffffff;
+    border: 1px solid #0284c7;
+}
+.s5-btn-primary:hover {
+    background-color: #0369a1;
+    color: #ffffff;
+}
+.s5-btn-outline {
+    background-color: #ffffff;
+    color: #475569;
+    border: 1px solid #cbd5e1;
+}
+.s5-btn-outline:hover {
+    background-color: #f1f5f9;
+    color: #0f172a;
+}
+.s5-btn-sm {
+    padding: 5px 12px;
+    font-size: 12px;
+}
+
+/* 1. Top Card: Profile Summary */
+.s5-hero-card {
+    background: #ffffff;
+    border-radius: 14px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05), 0 2px 6px -1px rgba(0, 0, 0, 0.02);
+    display: grid;
+    grid-template-columns: 260px 270px minmax(0, 1fr);
+    gap: 20px;
+    padding: 24px;
+    align-items: center;
+    margin-bottom: 24px;
+}
+
+/* User Identity Section */
+.s5-hero-col-user {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    border-right: 1px solid #f1f5f9;
+    padding-right: 20px;
+}
+.s5-avatar-box {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    border: 3px solid #e0f2fe;
+    overflow: hidden;
+    margin-bottom: 12px;
+    background: #f8fafc;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 10px rgba(2, 132, 199, 0.12);
+}
+.s5-avatar-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.s5-avatar-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, #38bdf8 0%, #0284c7 100%);
+    color: #ffffff;
+}
+.s5-avatar-placeholder .material-icons {
+    font-size: 54px;
+}
+.s5-user-name {
+    margin: 0 0 6px 0;
+    font-size: 20px;
+    font-weight: 700;
+    color: #0f172a;
+    line-height: 1.2;
+}
+.s5-user-sub {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: #64748b;
+}
+.s5-role-badge {
+    background: #e0f2fe;
+    color: #0369a1;
+    font-weight: 700;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+}
+.s5-user-code {
+    word-break: break-all;
+}
+
+/* Radar Chart Section */
+.s5-hero-col-radar {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border-right: 1px solid #f1f5f9;
+    padding-right: 20px;
+}
+.s5-radar-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+.s5-radar-svg {
+    width: 230px;
+    height: 195px;
+    overflow: visible;
+}
+.s5-radar-lbl {
+    font-size: 11px;
+    font-weight: 600;
+    fill: #475569;
+}
+.s5-radar-legend {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 4px;
+    font-size: 12px;
+    color: #475569;
+    font-weight: 500;
+}
+.s5-legend-box {
+    width: 12px;
+    height: 12px;
+    background-color: #6366f1;
+    border-radius: 2px;
+    display: inline-block;
+}
+
+/* Detailed Metadata Section */
+.s5-hero-col-meta {
+    padding-left: 5px;
+}
+.s5-meta-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px 24px;
+}
+.s5-meta-subcol {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.s5-meta-item {
+    display: flex;
+    align-items: baseline;
+    font-size: 13px;
+    line-height: 1.45;
+    gap: 6px;
+}
+.s5-meta-key {
+    color: #64748b;
+    white-space: nowrap;
+    font-weight: 500;
+}
+.s5-meta-val {
+    color: #0f172a;
+    font-weight: 600;
+    word-break: break-word;
+}
+.s5-highlight-salary {
+    color: #0284c7;
+    font-size: 14px;
+}
+
+/* 2. Workspace Layout (16-Tab Sidebar + Main Content) */
+.s5-workspace-layout {
+    display: grid;
+    grid-template-columns: 240px minmax(0, 1fr);
+    gap: 24px;
+    align-items: start;
+}
+
+/* Sidebar Tabs Navigation */
+.s5-nav-sidebar {
+    background: #ffffff;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.02);
+    overflow: hidden;
+    position: sticky;
+    top: 80px;
+}
+.s5-tab-list {
+    list-style: none;
+    padding: 8px 0;
+    margin: 0;
+}
+.s5-tab-item {
+    margin: 0;
+}
+.s5-tab-btn {
+    width: 100%;
+    text-align: left;
+    background: transparent;
+    border: none;
+    padding: 10px 18px;
+    font-size: 13px;
+    color: #475569;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    transition: all 0.15s ease-in-out;
+    border-left: 3px solid transparent;
+}
+.s5-tab-btn .material-icons {
+    font-size: 18px;
+    color: #94a3b8;
+    transition: color 0.15s ease-in-out;
+}
+.s5-tab-item:hover .s5-tab-btn {
+    background-color: #f8fafc;
+    color: #0f172a;
+}
+.s5-tab-item:hover .s5-tab-btn .material-icons {
+    color: #0284c7;
+}
+.s5-tab-item.active .s5-tab-btn {
+    background-color: #eff6ff;
+    color: #0284c7;
+    font-weight: 600;
+    border-left: 3px solid #0284c7;
+}
+.s5-tab-item.active .s5-tab-btn .material-icons {
+    color: #0284c7;
+}
+
+/* Main Tab Content Area */
+.s5-tab-content-area {
+    min-width: 0;
+}
+.s5-tab-pane {
+    display: none;
+    animation: fadeIn 0.2s ease-in-out;
+}
+.s5-tab-pane.active {
+    display: block;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* 3. Cards & Tables Styling inside Tabs */
+.s5-card {
+    background: #ffffff;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+    margin-bottom: 20px;
+    overflow: hidden;
+}
+.s5-card-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid #f1f5f9;
+}
+.s5-card-header-flex {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+.s5-card-title {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+/* 3-Column Personal Details Grid */
+.s5-info-grid-3 {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 20px;
+    padding: 20px;
+}
+.s5-info-col {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+.s5-field-row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.s5-field-label {
+    font-size: 12px;
+    color: #64748b;
+    font-weight: 500;
+}
+.s5-field-value {
+    font-size: 13.5px;
+    color: #1e293b;
+    font-weight: 600;
+}
+
+/* Table Search Input */
+.s5-table-search {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+.s5-table-search .material-icons {
+    position: absolute;
+    right: 10px;
+    color: #94a3b8;
+    font-size: 18px;
+    pointer-events: none;
+}
+.s5-search-input {
+    padding: 7px 32px 7px 12px;
+    font-size: 12px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    outline: none;
+    width: 200px;
+    transition: border-color 0.15s ease-in-out;
+}
+.s5-search-input:focus {
+    border-color: #0284c7;
+    box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.12);
+}
+
+/* Modern Data Table */
+.s5-table-responsive {
+    overflow-x: auto;
+}
+.s5-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    text-align: left;
+}
+.s5-table th {
+    background-color: #f8fafc;
+    color: #475569;
+    font-weight: 600;
+    padding: 12px 16px;
+    border-bottom: 1px solid #e2e8f0;
+    white-space: nowrap;
+}
+.s5-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid #f1f5f9;
+    color: #334155;
+    vertical-align: middle;
+}
+.s5-table tbody tr:hover {
+    background-color: #f8fafc;
+}
+.s5-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* Table Specific Badges & Components */
+.s5-badge-tag {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 11.5px;
+    background-color: #f1f5f9;
+    color: #475569;
+    font-weight: 500;
+}
+.s5-contract-name {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    color: #0f172a;
+}
+.s5-contract-name .material-icons {
+    color: #0284c7;
+    font-size: 18px;
+}
+.s5-link-url {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: #0284c7;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 12.5px;
+}
+.s5-link-url:hover {
+    text-decoration: underline;
+}
+.s5-link-url .material-icons {
+    font-size: 14px;
+}
+.s5-status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 11.5px;
+    font-weight: 600;
+}
+.s5-pill-success {
+    background-color: #dcfce7;
+    color: #166534;
+}
+.s5-pill-success .material-icons {
+    font-size: 14px;
+}
+.s5-pill-muted {
+    background-color: #f1f5f9;
+    color: #64748b;
+}
+.s5-pill-muted .material-icons {
+    font-size: 14px;
+}
+.s5-icon-action {
+    background: transparent;
+    border: none;
+    color: #94a3b8;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+}
+.s5-icon-action:hover {
+    background-color: #f1f5f9;
+    color: #334155;
+}
+
+/* Bank List */
+.s5-bank-name {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 500;
+}
+.s5-bank-name .material-icons {
+    color: #64748b;
+    font-size: 18px;
+}
+.s5-bank-check-box {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+    border: 1.5px solid #cbd5e1;
+}
+.s5-bank-check-box.active {
+    background-color: #16a34a;
+    border-color: #16a34a;
+    color: #ffffff;
+}
+.s5-bank-check-box.active .material-icons {
+    font-size: 15px;
+}
+
+/* Timeline & Other Tab Components */
+.s5-timeline {
+    padding: 20px;
+    position: relative;
+}
+.s5-timeline-item {
+    position: relative;
+    padding-left: 28px;
+    padding-bottom: 24px;
+}
+.s5-timeline-item:last-child {
+    padding-bottom: 0;
+}
+.s5-timeline-item::before {
+    content: "";
+    position: absolute;
+    left: 7px;
+    top: 14px;
+    bottom: 0;
+    width: 2px;
+    background-color: #e2e8f0;
+}
+.s5-timeline-item:last-child::before {
+    display: none;
+}
+.s5-timeline-dot {
+    position: absolute;
+    left: 0;
+    top: 4px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background-color: #0284c7;
+    border: 3px solid #e0f2fe;
+}
+.s5-timeline-time {
+    font-size: 12px;
+    color: #0284c7;
+    font-weight: 600;
+}
+.s5-timeline-content h4 {
+    margin: 4px 0 6px 0;
+    font-size: 14px;
+    color: #0f172a;
+    font-weight: 700;
+}
+.s5-timeline-content p {
+    margin: 0;
+    font-size: 13px;
+    color: #64748b;
+    line-height: 1.5;
+}
+
+/* Empty State */
+.s5-empty-state {
+    padding: 40px 20px;
+    text-align: center;
+}
+.s5-empty-state .material-icons {
+    font-size: 48px;
+    color: #94a3b8;
+    margin-bottom: 12px;
+}
+.s5-empty-state h4 {
+    margin: 0 0 8px 0;
+    font-size: 15px;
+    color: #334155;
+}
+.s5-empty-state p {
+    margin: 0;
+    font-size: 13px;
+    color: #64748b;
+}
+
+/* Evaluation stats */
+.s5-eval-stat-card {
+    background-color: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 16px;
+    text-align: center;
+}
+.s5-eval-num {
+    display: block;
+    font-size: 24px;
+    font-weight: 800;
+    color: #0284c7;
+    margin-bottom: 4px;
+}
+.s5-eval-txt {
+    font-size: 12px;
+    color: #64748b;
+    font-weight: 500;
+}
+
+/* Checklist */
+.s5-checklist {
+    padding: 16px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.s5-check-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 13px;
+    color: #334155;
+}
+.s5-check-row input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: #0284c7;
+}
+
+/* Probation summary */
+.s5-probation-summary {
+    padding: 20px;
+}
+.s5-probation-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 8px;
+    background-color: #ecfdf5;
+    color: #059669;
+    font-weight: 700;
+    font-size: 13px;
+    margin-bottom: 14px;
+}
+.s5-probation-badge .material-icons {
+    font-size: 18px;
+}
+.s5-probation-summary p {
+    font-size: 13.5px;
+    line-height: 1.6;
+    color: #334155;
+    margin-bottom: 10px;
+}
+
+/* Responsive Styles */
+@media (max-width: 1200px) {
+    .s5-hero-card {
+        grid-template-columns: 240px 240px minmax(0, 1fr);
+        gap: 16px;
+        padding: 18px;
+    }
+    .s5-info-grid-3 {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 992px) {
+    .s5-hero-card {
+        grid-template-columns: 1fr;
+    }
+    .s5-hero-col-user, .s5-hero-col-radar {
+        border-right: none;
+        border-bottom: 1px solid #f1f5f9;
+        padding-right: 0;
+        padding-bottom: 18px;
+    }
+    .s5-workspace-layout {
+        grid-template-columns: 1fr;
+    }
+    .s5-nav-sidebar {
+        position: static;
+        overflow-x: auto;
+    }
+    .s5-tab-list {
+        display: flex;
+        flex-wrap: nowrap;
+        padding: 6px;
+    }
+    .s5-tab-btn {
+        white-space: nowrap;
+        border-left: none;
+        border-bottom: 3px solid transparent;
+        padding: 8px 14px;
+    }
+    .s5-tab-item.active .s5-tab-btn {
+        border-left: none;
+        border-bottom: 3px solid #0284c7;
+    }
+}
+
+@media (max-width: 640px) {
+    .s5-profile-wrapper {
+        padding: 12px 14px 40px;
+    }
+    .s5-meta-grid {
+        grid-template-columns: 1fr;
+    }
+    .s5-info-grid-3 {
+        grid-template-columns: 1fr;
+    }
+}
+

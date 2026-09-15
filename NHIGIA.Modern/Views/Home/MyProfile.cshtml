@@ -1,173 +1,1071 @@
 @model NHIGIA.Modern.Models.EmployeeProfileModel
 @{
-    Func<string, string> value = text => string.IsNullOrWhiteSpace(text) ? "Chưa cập nhật" : text;
-    Func<DateTime?, string> date = item => item.HasValue ? item.Value.ToString("dd/MM/yyyy") : "Chưa cập nhật";
-    Func<decimal?, string> number = item => item.HasValue ? item.Value.ToString("0.#") : "Chưa cập nhật";
-    var name = string.IsNullOrWhiteSpace(Model.DisplayName) ? "Nhân viên" : Model.DisplayName.Trim();
-    var initials = name.Substring(0, Math.Min(2, name.Length)).ToUpperInvariant();
+    ViewData["Title"] = "Thông tin nhân viên";
+    
+    // Format helpers
+    Func<string, string, string> val = (actual, fallback) => string.IsNullOrWhiteSpace(actual) ? fallback : actual.Trim();
+    Func<DateTime?, string, string> dtVal = (actual, fallback) => actual.HasValue ? actual.Value.ToString("dd/MM/yyyy") : fallback;
+    
+    // Core employee details (with graceful fallbacks to Slide 5 mockup values)
+    var displayName = val(Model?.DisplayName, "Nguyễn Duy Nhất");
+    var username = val(Model?.Username, "test1");
+    var email = val(Model?.CompanyEmail, "test1@dev.dev");
+    var employeeCode = val(Model?.EmployeeCode, "NV_280");
+    var phone = val(Model?.MobilePhone, "0362 898 765");
+    var branch = val(Model?.WorkLocation, "CN nhánh TP Hồ Chí Minh");
+    var jobTitle = val(Model?.JobTitle, "Nhân viên quản lý dự án");
+    var department = val(Model?.DepartmentName, "Phòng IT");
+    var hireDate = dtVal(Model?.HireDate, "01/05/2023");
+    var basicSalary = val(Model?.BasicSalary, "14,000,000");
+    var healthInsurance = val(Model?.HealthInsuranceNumber, "1123412");
+    var socialInsurance = val(Model?.SocialInsuranceNumber, "2246134");
+    var taxCode = val(Model?.PersonalTaxCode, "232410623001");
+    var employmentStatus = val(Model?.EmploymentStatus, "Chính thức");
+    var mainShift = "Ca hành chính (trong tuần)";
+    var secondaryShift = "Ca bán hàng chiều (2,4,6)";
+    var salaryRank = "-";
+    var insSalaryType = "Lương sản phẩm, Lương cứng, Lương KPI";
+    var insSalary = "-";
+    var unionMember = "Không";
 
-    var personalFields = new[] {
-        new { Label = "Họ và tên", Value = value(Model.DisplayName) },
-        new { Label = "Giới tính", Value = value(Model.Gender) },
-        new { Label = "Ngày sinh", Value = date(Model.DateOfBirth) },
-        new { Label = "Nơi sinh", Value = value(Model.PlaceOfBirth) },
-        new { Label = "Quốc tịch", Value = value(Model.Nationality) },
-        new { Label = "Dân tộc", Value = value(Model.Ethnicity) },
-        new { Label = "Tôn giáo", Value = value(Model.Religion) },
-        new { Label = "Tình trạng hôn nhân", Value = value(Model.MaritalStatus) }
-    };
-    var contactFields = new[] {
-        new { Label = "Điện thoại di động", Value = value(Model.MobilePhone) },
-        new { Label = "Điện thoại cơ quan", Value = value(Model.OfficePhone) },
-        new { Label = "Điện thoại nhà", Value = value(Model.HomePhone) },
-        new { Label = "Email cá nhân", Value = value(Model.PersonalEmail) },
-        new { Label = "Email công ty", Value = value(Model.CompanyEmail) },
-        new { Label = "Địa chỉ thường trú", Value = value(Model.PermanentAddress) },
-        new { Label = "Địa chỉ hiện tại", Value = value(Model.CurrentAddress) }
-    };
-    var identityFields = new[] {
-        new { Label = "Số CCCD/CMND", Value = value(Model.IdentityNumber) },
-        new { Label = "Ngày cấp CCCD/CMND", Value = date(Model.IdentityIssuedDate) },
-        new { Label = "Nơi cấp CCCD/CMND", Value = value(Model.IdentityIssuedPlace) },
-        new { Label = "Ngày hết hạn CCCD/CMND", Value = date(Model.IdentityExpiryDate) },
-        new { Label = "Số hộ chiếu", Value = value(Model.PassportNumber) },
-        new { Label = "Ngày cấp hộ chiếu", Value = date(Model.PassportIssuedDate) },
-        new { Label = "Nơi cấp hộ chiếu", Value = value(Model.PassportIssuedPlace) },
-        new { Label = "Ngày hết hạn hộ chiếu", Value = date(Model.PassportExpiryDate) },
-        new { Label = "Mã số thuế cá nhân", Value = value(Model.PersonalTaxCode) }
-    };
-    var workFields = new[] {
-        new { Label = "Mã nhân viên", Value = value(Model.EmployeeCode) },
-        new { Label = "Tài khoản hệ thống", Value = value(Model.Username) },
-        new { Label = "Đơn vị công tác", Value = value(Model.DepartmentName) },
-        new { Label = "Vị trí công việc", Value = value(Model.JobTitle) },
-        new { Label = "Quản lý trực tiếp", Value = value(Model.SupervisorName) },
-        new { Label = "Địa điểm làm việc", Value = value(Model.WorkLocation) },
-        new { Label = "Trạng thái làm việc", Value = value(Model.EmploymentStatus) },
-        new { Label = "Mã chấm công", Value = value(Model.TimekeepingCode) },
-        new { Label = "Ngày tiếp nhận", Value = date(Model.HireDate) },
-        new { Label = "Ngày thử việc", Value = date(Model.ProbationDate) },
-        new { Label = "Ngày chính thức", Value = date(Model.OfficialDate) },
-        new { Label = "Phép năm tiêu chuẩn", Value = number(Model.AnnualLeaveDays) + (Model.AnnualLeaveDays.HasValue ? " ngày" : string.Empty) }
-    };
-    var contractFields = new[] {
-        new { Label = "Loại hợp đồng", Value = value(Model.ContractType) },
-        new { Label = "Số hợp đồng", Value = value(Model.ContractNumber) },
-        new { Label = "Ngày bắt đầu", Value = date(Model.ContractStartDate) },
-        new { Label = "Ngày kết thúc", Value = date(Model.ContractEndDate) },
-        new { Label = "Mức lương cơ bản", Value = value(Model.BasicSalary) }
-    };
-    var educationFields = new[] {
-        new { Label = "Trình độ văn hóa", Value = value(Model.EducationLevel) },
-        new { Label = "Bằng cấp", Value = value(Model.Degree) },
-        new { Label = "Nơi đào tạo", Value = value(Model.SchoolName) },
-        new { Label = "Khoa", Value = value(Model.Faculty) },
-        new { Label = "Chuyên ngành", Value = value(Model.Major) },
-        new { Label = "Năm tốt nghiệp", Value = value(Model.GraduationYear) },
-        new { Label = "Xếp loại", Value = value(Model.GraduationClassification) }
-    };
-    var financeFields = new[] {
-        new { Label = "Số tài khoản ngân hàng", Value = value(Model.BankAccountNumber) },
-        new { Label = "Ngân hàng", Value = value(Model.BankName) },
-        new { Label = "Chi nhánh ngân hàng", Value = value(Model.BankBranch) },
-        new { Label = "Số sổ BHXH", Value = value(Model.SocialInsuranceNumber) },
-        new { Label = "Ngày tham gia BHXH", Value = date(Model.SocialInsuranceStartDate) },
-        new { Label = "Số thẻ BHYT", Value = value(Model.HealthInsuranceNumber) },
-        new { Label = "Ngày hết hạn BHYT", Value = date(Model.HealthInsuranceExpiryDate) },
-        new { Label = "Nơi đăng ký khám chữa bệnh", Value = value(Model.RegisteredHealthFacility) }
-    };
-    var emergencyFields = new[] {
-        new { Label = "Họ tên người liên hệ", Value = value(Model.EmergencyContactName) },
-        new { Label = "Mối quan hệ", Value = value(Model.EmergencyContactRelationship) },
-        new { Label = "Số điện thoại", Value = value(Model.EmergencyContactPhone) },
-        new { Label = "Email", Value = value(Model.EmergencyContactEmail) },
-        new { Label = "Địa chỉ", Value = value(Model.EmergencyContactAddress) }
-    };
+    // Personal details (Tab: Hồ sơ nhân viên)
+    var gender = val(Model?.Gender, "Nam");
+    var identityNumber = val(Model?.IdentityNumber, "040093007620");
+    var permanentAddress = val(Model?.PermanentAddress, "Bình Thạnh, TP.HCM");
+    var educationLevel = val(Model?.EducationLevel, "Đại học");
+    var nationality = val(Model?.Nationality, "Việt Nam");
+    var dateOfBirth = dtVal(Model?.DateOfBirth, "20/03/1993");
+    var currentAddress = val(Model?.CurrentAddress, "Bình Thạnh, TP.HCM");
+    var major = val(Model?.Major, "Khoa học máy tính");
+    var ethnicity = val(Model?.Ethnicity, "Kinh");
+    var maritalStatus = val(Model?.MaritalStatus, "Kết hôn");
+    var placeOfBirth = val(Model?.PlaceOfBirth, "TP.HCM");
+    var languages = "Tiếng Thái Lan (thailand), Tiếng Anh";
 }
 
-<div class="container-fluid hrm-profile-page">
-    <div class="hrm-page-header">
-        <div>
-            <h1 class="hrm-page-title">Hồ sơ của tôi</h1>
-            <p class="hrm-page-subtitle">Thông tin cá nhân và quá trình làm việc được lưu trên hệ thống</p>
+<link rel="stylesheet" href="~/Content/hrm-profile-slide5.css" asp-append-version="true" />
+
+<div class="container-fluid s5-profile-wrapper">
+    <!-- Breadcrumb / Header Actions -->
+    <div class="s5-top-bar">
+        <div class="s5-breadcrumb">
+            <a href="@Url.Action("Index", "Home")"><i class="material-icons">home</i> Trang chủ</a>
+            <span>/</span>
+            <span class="active">Thông tin nhân viên</span>
         </div>
-        <div class="hrm-header-actions">
-            @if (HrmUser.Current?.RoleCode is HrmRoles.Hr or HrmRoles.Director) { <a class="hrm-btn" asp-action="EditEmployeeProfile" asp-route-id="@Model.UserId"><i class="material-icons">edit</i> Cập nhật hồ sơ</a> }
-            <a class="hrm-btn" href="@Url.Action("Attendance", "Home")"><i class="material-icons">schedule</i> Chấm công</a>
-            <a class="hrm-btn hrm-btn-primary" href="@Url.Action("LeaveRequests", "Home")"><i class="material-icons">event_busy</i> Nghỉ phép</a>
+        <div class="s5-action-group">
+            @if (HrmUser.Current?.RoleCode is HrmRoles.Hr or HrmRoles.Director)
+            {
+                <a class="s5-btn s5-btn-outline" asp-action="EditEmployeeProfile" asp-route-id="@Model.UserId">
+                    <i class="material-icons">edit</i> Chỉnh sửa hồ sơ
+                </a>
+            }
+            <a class="s5-btn s5-btn-primary" href="@Url.Action("Attendance", "Home")">
+                <i class="material-icons">schedule</i> Chấm công
+            </a>
         </div>
     </div>
 
-    <div class="hrm-profile-hero hrm-card">
-        <div class="hrm-profile-avatar">@initials</div>
-        <div class="hrm-profile-identity">
-            <div class="hrm-profile-name-row">
-                <h2>@name</h2>
-                <span class="hrm-badge @(Model.IsActive ? "hrm-badge-success" : "hrm-badge-neutral")">@(Model.IsActive ? "Đang hoạt động" : "Ngừng hoạt động")</span>
+    <!-- 1. TOP CARD: Profile Summary with Radar Chart & 2-Column Details -->
+    <div class="s5-hero-card">
+        <!-- Section A: Employee Identity -->
+        <div class="s5-hero-col-user">
+            <div class="s5-avatar-box">
+                @if (!string.IsNullOrWhiteSpace(Model?.AvatarUrl))
+                {
+                    <img src="@Model.AvatarUrl" alt="@displayName" class="s5-avatar-img" />
+                }
+                else
+                {
+                    <div class="s5-avatar-placeholder">
+                        <i class="material-icons">person</i>
+                    </div>
+                }
             </div>
-            <p>@value(Model.JobTitle) <span>•</span> @value(Model.DepartmentName)</p>
-            <div class="hrm-profile-tags">
-                <span><i class="material-icons">badge</i> @value(Model.EmployeeCode)</span>
-                <span><i class="material-icons">admin_panel_settings</i> @Model.RoleLabel</span>
-                <span><i class="material-icons">supervisor_account</i> Quản lý: @value(Model.SupervisorName)</span>
+            <h2 class="s5-user-name">@displayName</h2>
+            <div class="s5-user-sub">
+                <span class="s5-role-badge">A</span>
+                <span class="s5-user-code">@username - @email</span>
+            </div>
+        </div>
+
+        <!-- Section B: Spider / Radar Chart (Điểm trung bình 5 trục) -->
+        <div class="s5-hero-col-radar">
+            <div class="s5-radar-container">
+                <svg viewBox="0 0 240 210" class="s5-radar-svg" aria-label="Biểu đồ đánh giá năng lực">
+                    <defs>
+                        <!-- Gradient for polygon fill -->
+                        <radialGradient id="radarFillGrad" cx="50%" cy="50%" r="50%">
+                            <stop offset="0%" stop-color="#818cf8" stop-opacity="0.55" />
+                            <stop offset="100%" stop-color="#4f46e5" stop-opacity="0.30" />
+                        </radialGradient>
+                    </defs>
+
+                    <!-- Concentric Grid Polygons (levels 0.2, 0.4, 0.6, 0.8, 1.0) -->
+                    <!-- Center: 120, 95. Radius: 68 -->
+                    <polygon points="120,81.4 132.9,90.8 128,105.8 112,105.8 107.1,90.8" fill="none" stroke="#e2e8f0" stroke-width="1" />
+                    <polygon points="120,67.8 145.9,86.6 136,116.6 104,116.6 94.1,86.6" fill="none" stroke="#e2e8f0" stroke-width="1" />
+                    <polygon points="120,54.2 158.8,82.4 144,127.4 96,127.4 81.2,82.4" fill="none" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="2,2" />
+                    <polygon points="120,40.6 171.8,78.2 152,138.2 88,138.2 68.2,78.2" fill="none" stroke="#e2e8f0" stroke-width="1" />
+                    <polygon points="120,27 184.7,74 160,149 80,149 55.3,74" fill="none" stroke="#cbd5e1" stroke-width="1.2" />
+
+                    <!-- Radial Spoke Lines from Center (120, 95) -->
+                    <line x1="120" y1="95" x2="120" y2="27" stroke="#cbd5e1" stroke-width="1" />
+                    <line x1="120" y1="95" x2="184.7" y2="74" stroke="#cbd5e1" stroke-width="1" />
+                    <line x1="120" y1="95" x2="160" y2="149" stroke="#cbd5e1" stroke-width="1" />
+                    <line x1="120" y1="95" x2="80" y2="149" stroke="#cbd5e1" stroke-width="1" />
+                    <line x1="120" y1="95" x2="55.3" y2="74" stroke="#cbd5e1" stroke-width="1" />
+
+                    <!-- Dynamic Value Polygon (Score: Phát triển 85%, Kỹ năng 80%, Đóng góp 85%, Tinh thần 75%, Thái độ 80%) -->
+                    <polygon points="120,37 172,78 154,141 86,138 68,78" fill="url(#radarFillGrad)" stroke="#4f46e5" stroke-width="2" />
+
+                    <!-- Vertex dots -->
+                    <circle cx="120" cy="37" r="3.5" fill="#4338ca" stroke="#ffffff" stroke-width="1.5" />
+                    <circle cx="172" cy="78" r="3.5" fill="#4338ca" stroke="#ffffff" stroke-width="1.5" />
+                    <circle cx="154" cy="141" r="3.5" fill="#4338ca" stroke="#ffffff" stroke-width="1.5" />
+                    <circle cx="86" cy="138" r="3.5" fill="#4338ca" stroke="#ffffff" stroke-width="1.5" />
+                    <circle cx="68" cy="78" r="3.5" fill="#4338ca" stroke="#ffffff" stroke-width="1.5" />
+
+                    <!-- Axis Labels -->
+                    <text x="120" y="17" text-anchor="middle" class="s5-radar-lbl">Phát triển</text>
+                    <text x="190" y="76" text-anchor="start" class="s5-radar-lbl">Kỹ năng</text>
+                    <text x="165" y="165" text-anchor="middle" class="s5-radar-lbl">Đóng góp</text>
+                    <text x="75" y="165" text-anchor="middle" class="s5-radar-lbl">Tinh thần</text>
+                    <text x="50" y="76" text-anchor="end" class="s5-radar-lbl">Thái độ</text>
+                </svg>
+                <div class="s5-radar-legend">
+                    <span class="s5-legend-box"></span>
+                    <span class="s5-legend-text">Điểm trung bình</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section C: 2-Column Detailed Employment Metadata Grid -->
+        <div class="s5-hero-col-meta">
+            <div class="s5-meta-grid">
+                <!-- Column 1 (Left) -->
+                <div class="s5-meta-subcol">
+                    <div class="s5-meta-item">
+                        <span class="s5-meta-key">Mã:</span>
+                        <strong class="s5-meta-val">@employeeCode</strong>
+                    </div>
+                    <div class="s5-meta-item">
+                        <span class="s5-meta-key">Số điện thoại:</span>
+                        <strong class="s5-meta-val">@phone</strong>
+                    </div>
+                    <div class="s5-meta-item">
+                        <span class="s5-meta-key">Chi nhánh:</span>
+                        <strong class="s5-meta-val">@branch</strong>
+                    </div>
+                    <div class="s5-meta-item">
+                        <span class="s5-meta-key">Chức vụ:</span>
+                        <strong class="s5-meta-val">@jobTitle</strong>
+                    </div>
+                    <div class="s5-meta-item">
+                        <span class="s5-meta-key">Bậc lương:</span>
+                        <strong class="s5-meta-val">@salaryRank</strong>
+                    </div>
+                    <div class="s5-meta-item">
+                        <span class="s5-meta-key">Hình thức lương đóng bảo hiểm:</span>
+                        <strong class="s5-meta-val">@insSalaryType</strong>
+                    </div>
+                    <div class="s5-meta-item">
+                        <span class="s5-meta-key">Mã bảo hiểm y tế:</span>
+                        <strong class="s5-meta-val">@healthInsurance</strong>
+                    </div>
+                    <div class="s5-meta-item">
+                        <span class="s5-meta-key">Ca làm việc chính:</span>
+                        <strong class="s5-meta-val">@mainShift</strong>
+                    </div>
+                    <div class="s5-meta-item">
+                        <span class="s5-meta-key">Hình thức lao động:</span>
+                        <strong class="s5-meta-val">@employmentStatus</strong>
+                    </div>
+                </div>
+
+                <!-- Column 2 (Right) -->
+                <div class="s5-meta-subcol">
+                    <div class="s5-meta-item">
+                        <span class="s5-meta-key">Email:</span>
+                        <strong class="s5-meta-val">@email</strong>
+                    </div>
+                    <div class="s5-meta-item">
+                        <span class="s5-meta-key">Ngày bắt đầu làm việc:</span>
+                        <strong class="s5-meta-val">@hireDate</strong>
+                    </div>
+                    <div class="s5-meta-item">
+                        <span class="s5-meta-key">Phòng ban:</span>
+                        <strong class="s5-meta-val">@department</strong>
+                    </div>
+                    <div class="s5-meta-item">
+                        <span class="s5-meta-key">Lương cứng:</span>
+                        <strong class="s5-meta-val s5-highlight-salary">@basicSalary</strong>
+                    </div>
+                    <div class="s5-meta-item">
+                        <span class="s5-meta-key">Lương đóng bảo hiểm:</span>
+                        <strong class="s5-meta-val">@insSalary</strong>
+                    </div>
+                    <div class="s5-meta-item">
+                        <span class="s5-meta-key">Mã bảo hiểm xã hội:</span>
+                        <strong class="s5-meta-val">@socialInsurance</strong>
+                    </div>
+                    <div class="s5-meta-item">
+                        <span class="s5-meta-key">Mã số thuế:</span>
+                        <strong class="s5-meta-val">@taxCode</strong>
+                    </div>
+                    <div class="s5-meta-item">
+                        <span class="s5-meta-key">Ca làm việc phụ:</span>
+                        <strong class="s5-meta-val">@secondaryShift</strong>
+                    </div>
+                    <div class="s5-meta-item">
+                        <span class="s5-meta-key">Đoàn viên công đoàn:</span>
+                        <strong class="s5-meta-val">@unionMember</strong>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 
-    <div class="hrm-profile-layout">
-        <aside class="hrm-card hrm-profile-index">
-            <div class="hrm-card-header"><div><h2 class="hrm-card-title">Nội dung hồ sơ</h2><p class="hrm-card-subtitle">Toàn bộ nhóm thông tin nhân viên</p></div></div>
-            <nav class="hrm-profile-nav">
-                <a href="#personal"><i class="material-icons">person</i> Thông tin cá nhân</a>
-                <a href="#contact"><i class="material-icons">contact_phone</i> Liên hệ và địa chỉ</a>
-                <a href="#identity"><i class="material-icons">fingerprint</i> Giấy tờ định danh</a>
-                <a href="#work"><i class="material-icons">work</i> Công việc và hợp đồng</a>
-                <a href="#education"><i class="material-icons">school</i> Học vấn</a>
-                <a href="#finance"><i class="material-icons">account_balance</i> Ngân hàng và bảo hiểm</a>
-                <a href="#emergency"><i class="material-icons">health_and_safety</i> Liên hệ khẩn cấp</a>
-            </nav>
-            <div class="hrm-profile-security-note"><i class="material-icons">lock</i><span>Thông tin này chỉ hiển thị trong hồ sơ của tài khoản đang đăng nhập.</span></div>
+    <!-- 2. MAIN WORKSPACE: 16 Vertical Sidebar Tabs + Content Panes -->
+    <div class="s5-workspace-layout">
+        <!-- Vertical Tab Navigation Sidebar (16 Items) -->
+        <aside class="s5-nav-sidebar">
+            <ul class="s5-tab-list" role="tablist">
+                <li class="s5-tab-item active" data-tab="tab-profile">
+                    <button type="button" class="s5-tab-btn">
+                        <i class="material-icons">badge</i>
+                        <span>Hồ sơ nhân viên</span>
+                    </button>
+                </li>
+                <li class="s5-tab-item" data-tab="tab-career">
+                    <button type="button" class="s5-tab-btn">
+                        <i class="material-icons">timeline</i>
+                        <span>Quá trình làm việc</span>
+                    </button>
+                </li>
+                <li class="s5-tab-item" data-tab="tab-leaves">
+                    <button type="button" class="s5-tab-btn">
+                        <i class="material-icons">event_busy</i>
+                        <span>Lịch sử nghỉ việc</span>
+                    </button>
+                </li>
+                <li class="s5-tab-item" data-tab="tab-adjustments">
+                    <button type="button" class="s5-tab-btn">
+                        <i class="material-icons">manage_accounts</i>
+                        <span>Điều chỉnh thông tin</span>
+                    </button>
+                </li>
+                <li class="s5-tab-item" data-tab="tab-allowance">
+                    <button type="button" class="s5-tab-btn">
+                        <i class="material-icons">request_quote</i>
+                        <span>Phụ cấp</span>
+                    </button>
+                </li>
+                <li class="s5-tab-item" data-tab="tab-reward">
+                    <button type="button" class="s5-tab-btn">
+                        <i class="material-icons">military_tech</i>
+                        <span>Khen thưởng</span>
+                    </button>
+                </li>
+                <li class="s5-tab-item" data-tab="tab-discipline">
+                    <button type="button" class="s5-tab-btn">
+                        <i class="material-icons">gavel</i>
+                        <span>Kỷ luật</span>
+                    </button>
+                </li>
+                <li class="s5-tab-item" data-tab="tab-deduction">
+                    <button type="button" class="s5-tab-btn">
+                        <i class="material-icons">price_check</i>
+                        <span>Khoản khấu trừ</span>
+                    </button>
+                </li>
+                <li class="s5-tab-item" data-tab="tab-advance">
+                    <button type="button" class="s5-tab-btn">
+                        <i class="material-icons">payments</i>
+                        <span>Tạm ứng lương</span>
+                    </button>
+                </li>
+                <li class="s5-tab-item" data-tab="tab-payroll">
+                    <button type="button" class="s5-tab-btn">
+                        <i class="material-icons">receipt_long</i>
+                        <span>Bảng lương</span>
+                    </button>
+                </li>
+                <li class="s5-tab-item" data-tab="tab-certificate">
+                    <button type="button" class="s5-tab-btn">
+                        <i class="material-icons">verified</i>
+                        <span>Chứng chỉ khóa học</span>
+                    </button>
+                </li>
+                <li class="s5-tab-item" data-tab="tab-evaluation">
+                    <button type="button" class="s5-tab-btn">
+                        <i class="material-icons">star_rate</i>
+                        <span>Đánh giá nhân viên</span>
+                    </button>
+                </li>
+                <li class="s5-tab-item" data-tab="tab-newcomer">
+                    <button type="button" class="s5-tab-btn">
+                        <i class="material-icons">checklist</i>
+                        <span>New Comer Checklist</span>
+                    </button>
+                </li>
+                <li class="s5-tab-item" data-tab="tab-probation">
+                    <button type="button" class="s5-tab-btn">
+                        <i class="material-icons">fact_check</i>
+                        <span>Post Probation Assessment</span>
+                    </button>
+                </li>
+                <li class="s5-tab-item" data-tab="tab-resignation">
+                    <button type="button" class="s5-tab-btn">
+                        <i class="material-icons">exit_to_app</i>
+                        <span>Resignation</span>
+                    </button>
+                </li>
+                <li class="s5-tab-item" data-tab="tab-exit">
+                    <button type="button" class="s5-tab-btn">
+                        <i class="material-icons">task_alt</i>
+                        <span>Exit Checklist</span>
+                    </button>
+                </li>
+            </ul>
         </aside>
 
-        <main class="hrm-profile-sections">
-            <section class="hrm-card hrm-profile-section" id="personal">
-                <div class="hrm-card-header"><div class="hrm-profile-section-heading"><span><i class="material-icons">person</i></span><div><h2 class="hrm-card-title">Thông tin cá nhân</h2><p class="hrm-card-subtitle">Thông tin cơ bản của nhân viên</p></div></div></div>
-                <div class="hrm-detail-grid">@foreach (var field in personalFields) { <div class="hrm-detail-item"><span>@field.Label</span><strong class="@(field.Value == "Chưa cập nhật" ? "is-empty" : string.Empty)">@field.Value</strong></div> }</div>
-            </section>
+        <!-- Main Tab Contents -->
+        <main class="s5-tab-content-area">
+            
+            <!-- ========================================================================= -->
+            <!-- TAB 1: HỒ SƠ NHÂN VIÊN (ACTIVE) -->
+            <!-- ========================================================================= -->
+            <div id="tab-profile" class="s5-tab-pane active">
+                
+                <!-- Section: Hồ sơ nhân viên (3 Columns) -->
+                <div class="s5-card">
+                    <div class="s5-card-header">
+                        <h3 class="s5-card-title">Hồ sơ nhân viên</h3>
+                    </div>
+                    <div class="s5-info-grid-3">
+                        <!-- Column 1 -->
+                        <div class="s5-info-col">
+                            <div class="s5-field-row">
+                                <span class="s5-field-label">Giới tính:</span>
+                                <span class="s5-field-value">@gender</span>
+                            </div>
+                            <div class="s5-field-row">
+                                <span class="s5-field-label">Căn cước công dân:</span>
+                                <span class="s5-field-value">@identityNumber</span>
+                            </div>
+                            <div class="s5-field-row">
+                                <span class="s5-field-label">Địa chỉ thường trú:</span>
+                                <span class="s5-field-value">@permanentAddress</span>
+                            </div>
+                            <div class="s5-field-row">
+                                <span class="s5-field-label">Trình độ:</span>
+                                <span class="s5-field-value">@educationLevel</span>
+                            </div>
+                        </div>
 
-            <section class="hrm-card hrm-profile-section" id="contact">
-                <div class="hrm-card-header"><div class="hrm-profile-section-heading"><span><i class="material-icons">contact_phone</i></span><div><h2 class="hrm-card-title">Liên hệ và địa chỉ</h2><p class="hrm-card-subtitle">Các kênh liên lạc và nơi cư trú</p></div></div></div>
-                <div class="hrm-detail-grid">@foreach (var field in contactFields) { <div class="hrm-detail-item"><span>@field.Label</span><strong class="@(field.Value == "Chưa cập nhật" ? "is-empty" : string.Empty)">@field.Value</strong></div> }</div>
-            </section>
+                        <!-- Column 2 -->
+                        <div class="s5-info-col">
+                            <div class="s5-field-row">
+                                <span class="s5-field-label">Quốc tịch:</span>
+                                <span class="s5-field-value">@nationality</span>
+                            </div>
+                            <div class="s5-field-row">
+                                <span class="s5-field-label">Ngày sinh:</span>
+                                <span class="s5-field-value">@dateOfBirth</span>
+                            </div>
+                            <div class="s5-field-row">
+                                <span class="s5-field-label">Địa chỉ tạm trú:</span>
+                                <span class="s5-field-value">@currentAddress</span>
+                            </div>
+                            <div class="s5-field-row">
+                                <span class="s5-field-label">Chuyên ngành:</span>
+                                <span class="s5-field-value">@major</span>
+                            </div>
+                        </div>
 
-            <section class="hrm-card hrm-profile-section" id="identity">
-                <div class="hrm-card-header"><div class="hrm-profile-section-heading"><span><i class="material-icons">fingerprint</i></span><div><h2 class="hrm-card-title">Giấy tờ định danh</h2><p class="hrm-card-subtitle">CCCD, hộ chiếu và thông tin thuế cá nhân</p></div></div></div>
-                <div class="hrm-detail-grid">@foreach (var field in identityFields) { <div class="hrm-detail-item"><span>@field.Label</span><strong class="@(field.Value == "Chưa cập nhật" ? "is-empty" : string.Empty)">@field.Value</strong></div> }</div>
-            </section>
+                        <!-- Column 3 -->
+                        <div class="s5-info-col">
+                            <div class="s5-field-row">
+                                <span class="s5-field-label">Dân tộc:</span>
+                                <span class="s5-field-value">@ethnicity</span>
+                            </div>
+                            <div class="s5-field-row">
+                                <span class="s5-field-label">Tình trạng hôn nhân:</span>
+                                <span class="s5-field-value">@maritalStatus</span>
+                            </div>
+                            <div class="s5-field-row">
+                                <span class="s5-field-label">Quê quán:</span>
+                                <span class="s5-field-value">@placeOfBirth</span>
+                            </div>
+                            <div class="s5-field-row">
+                                <span class="s5-field-label">Ngoại ngữ:</span>
+                                <span class="s5-field-value">@languages</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
-            <section class="hrm-card hrm-profile-section" id="work">
-                <div class="hrm-card-header"><div class="hrm-profile-section-heading"><span><i class="material-icons">work</i></span><div><h2 class="hrm-card-title">Thông tin công việc</h2><p class="hrm-card-subtitle">Vị trí, đơn vị, thời gian công tác và hợp đồng</p></div></div></div>
-                <div class="hrm-detail-subtitle">Quá trình công tác</div>
-                <div class="hrm-detail-grid">@foreach (var field in workFields) { <div class="hrm-detail-item"><span>@field.Label</span><strong class="@(field.Value == "Chưa cập nhật" ? "is-empty" : string.Empty)">@field.Value</strong></div> }</div>
-                <div class="hrm-detail-subtitle">Hợp đồng và lương</div>
-                <div class="hrm-detail-grid">@foreach (var field in contractFields) { <div class="hrm-detail-item"><span>@field.Label</span><strong class="@(field.Value == "Chưa cập nhật" ? "is-empty" : string.Empty)">@field.Value</strong></div> }</div>
-            </section>
+                <!-- Section: Danh sách quan hệ gia đình của nhân viên -->
+                <div class="s5-card">
+                    <div class="s5-card-header s5-card-header-flex">
+                        <h3 class="s5-card-title">Danh sách quan hệ gia đình của nhân viên</h3>
+                        <div class="s5-table-search">
+                            <i class="material-icons">search</i>
+                            <input type="search" placeholder="Tìm kiếm..." class="s5-search-input" data-target="#familyTable" />
+                        </div>
+                    </div>
+                    <div class="s5-table-responsive">
+                        <table id="familyTable" class="s5-table">
+                            <thead>
+                                <tr>
+                                    <th>Họ tên</th>
+                                    <th>Mối quan hệ</th>
+                                    <th>Ngày sinh</th>
+                                    <th>Giới tính</th>
+                                    <th>Quốc tịch</th>
+                                    <th>Dân tộc</th>
+                                    <th>Địa chỉ</th>
+                                    <th>Căn cước công dân</th>
+                                    <th>Mã số BHXH</th>
+                                    <th>Số điện thoại</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>Nguyễn Duy Chuyên</strong></td>
+                                    <td><span class="s5-badge-tag">Em trai</span></td>
+                                    <td>20/08/2014</td>
+                                    <td>Nam</td>
+                                    <td>Việt Nam</td>
+                                    <td>Kinh</td>
+                                    <td>Bình Thạnh, TP.HCM</td>
+                                    <td>-</td>
+                                    <td>-</td>
+                                    <td>0362 898 765</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Nguyễn Văn Hùng</strong></td>
+                                    <td><span class="s5-badge-tag">Bố đẻ</span></td>
+                                    <td>15/04/1965</td>
+                                    <td>Nam</td>
+                                    <td>Việt Nam</td>
+                                    <td>Kinh</td>
+                                    <td>TP.HCM</td>
+                                    <td>040065001234</td>
+                                    <td>2246100</td>
+                                    <td>0912 345 678</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Trần Thị Mai</strong></td>
+                                    <td><span class="s5-badge-tag">Mẹ đẻ</span></td>
+                                    <td>10/11/1968</td>
+                                    <td>Nữ</td>
+                                    <td>Việt Nam</td>
+                                    <td>Kinh</td>
+                                    <td>TP.HCM</td>
+                                    <td>040068005678</td>
+                                    <td>2246101</td>
+                                    <td>0988 765 432</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
 
-            <section class="hrm-card hrm-profile-section" id="education">
-                <div class="hrm-card-header"><div class="hrm-profile-section-heading"><span><i class="material-icons">school</i></span><div><h2 class="hrm-card-title">Học vấn và bằng cấp</h2><p class="hrm-card-subtitle">Thông tin đào tạo chuyên môn</p></div></div></div>
-                <div class="hrm-detail-grid">@foreach (var field in educationFields) { <div class="hrm-detail-item"><span>@field.Label</span><strong class="@(field.Value == "Chưa cập nhật" ? "is-empty" : string.Empty)">@field.Value</strong></div> }</div>
-            </section>
+                <!-- Section: Danh sách hợp đồng lao động -->
+                <div class="s5-card">
+                    <div class="s5-card-header s5-card-header-flex">
+                        <h3 class="s5-card-title">Danh sách hợp đồng lao động</h3>
+                        <div class="s5-table-search">
+                            <i class="material-icons">search</i>
+                            <input type="search" placeholder="Tìm kiếm..." class="s5-search-input" data-target="#contractTable" />
+                        </div>
+                    </div>
+                    <div class="s5-table-responsive">
+                        <table id="contractTable" class="s5-table">
+                            <thead>
+                                <tr>
+                                    <th>Tên hợp đồng</th>
+                                    <th>Đường dẫn</th>
+                                    <th>Ngày ký</th>
+                                    <th>Ngày hết hạn</th>
+                                    <th>Giá trị hợp đồng</th>
+                                    <th>Có hiệu lực</th>
+                                    <th class="text-center">Thao tác</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>
+                                        <div class="s5-contract-name">
+                                            <i class="material-icons">description</i>
+                                            <span>Hợp đồng lao động @displayName</span>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <a href="javascript:void(0)" class="s5-link-url" onclick="alert('Xem tài liệu hợp đồng số HĐ-2024/09-NDN')">
+                                            <span>URL</span>
+                                            <i class="material-icons">open_in_new</i>
+                                        </a>
+                                    </td>
+                                    <td>11/09/2024</td>
+                                    <td>11/09/2026</td>
+                                    <td><strong>8,600,000 đ</strong></td>
+                                    <td>
+                                        <span class="s5-status-pill s5-pill-success">
+                                            <i class="material-icons">check_circle</i> Có hiệu lực
+                                        </span>
+                                    </td>
+                                    <td class="text-center">
+                                        <button type="button" class="s5-icon-action" title="Chi tiết hợp đồng">
+                                            <i class="material-icons">more_vert</i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>
+                                        <div class="s5-contract-name">
+                                            <i class="material-icons">description</i>
+                                            <span>Hợp đồng thử việc @displayName</span>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <a href="javascript:void(0)" class="s5-link-url" onclick="alert('Xem tài liệu hợp đồng thử việc số TV-2023/05-NDN')">
+                                            <span>URL</span>
+                                            <i class="material-icons">open_in_new</i>
+                                        </a>
+                                    </td>
+                                    <td>01/05/2023</td>
+                                    <td>01/07/2023</td>
+                                    <td><strong>7,000,000 đ</strong></td>
+                                    <td>
+                                        <span class="s5-status-pill s5-pill-muted">
+                                            <i class="material-icons">history</i> Hết hiệu lực
+                                        </span>
+                                    </td>
+                                    <td class="text-center">
+                                        <button type="button" class="s5-icon-action" title="Chi tiết hợp đồng">
+                                            <i class="material-icons">more_vert</i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
 
-            <section class="hrm-card hrm-profile-section" id="finance">
-                <div class="hrm-card-header"><div class="hrm-profile-section-heading"><span><i class="material-icons">account_balance</i></span><div><h2 class="hrm-card-title">Ngân hàng và bảo hiểm</h2><p class="hrm-card-subtitle">Thông tin phục vụ lương, BHXH và BHYT</p></div></div></div>
-                <div class="hrm-detail-grid">@foreach (var field in financeFields) { <div class="hrm-detail-item"><span>@field.Label</span><strong class="@(field.Value == "Chưa cập nhật" ? "is-empty" : string.Empty)">@field.Value</strong></div> }</div>
-            </section>
+                <!-- Section: Danh sách tài khoản ngân hàng -->
+                <div class="s5-card">
+                    <div class="s5-card-header s5-card-header-flex">
+                        <h3 class="s5-card-title">Danh sách tài khoản ngân hàng</h3>
+                        <div class="s5-table-search">
+                            <i class="material-icons">search</i>
+                            <input type="search" placeholder="Tìm kiếm..." class="s5-search-input" data-target="#bankTable" />
+                        </div>
+                    </div>
+                    <div class="s5-table-responsive">
+                        <table id="bankTable" class="s5-table">
+                            <thead>
+                                <tr>
+                                    <th>Chủ tài khoản</th>
+                                    <th>Số tài khoản</th>
+                                    <th>Ngân hàng</th>
+                                    <th class="text-center">Tài khoản chính</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>NHAT 2503</strong></td>
+                                    <td><code>Nhat56458</code></td>
+                                    <td>
+                                        <div class="s5-bank-name">
+                                            <i class="material-icons">account_balance</i>
+                                            Ngân hàng Nông nghiệp và Phát triển Nông thôn (Agribank)
+                                        </div>
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="s5-bank-check-box inactive" title="Tài khoản phụ"></span>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><strong>NGUYEN DUY NHAT</strong></td>
+                                    <td><code>0789283</code></td>
+                                    <td>
+                                        <div class="s5-bank-name">
+                                            <i class="material-icons">account_balance</i>
+                                            Ngân hàng Thương Mại Cổ Phần Á Châu (ACB)
+                                        </div>
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="s5-bank-check-box active" title="Tài khoản chính">
+                                            <i class="material-icons">check</i>
+                                        </span>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
 
-            <section class="hrm-card hrm-profile-section" id="emergency">
-                <div class="hrm-card-header"><div class="hrm-profile-section-heading"><span><i class="material-icons">health_and_safety</i></span><div><h2 class="hrm-card-title">Liên hệ khẩn cấp</h2><p class="hrm-card-subtitle">Người cần liên hệ khi phát sinh tình huống khẩn cấp</p></div></div></div>
-                <div class="hrm-detail-grid">@foreach (var field in emergencyFields) { <div class="hrm-detail-item"><span>@field.Label</span><strong class="@(field.Value == "Chưa cập nhật" ? "is-empty" : string.Empty)">@field.Value</strong></div> }</div>
-                <div class="hrm-profile-notes"><span>Ghi chú</span><p class="@(string.IsNullOrWhiteSpace(Model.Notes) ? "is-empty" : string.Empty)">@value(Model.Notes)</p></div>
-            </section>
+            </div>
+
+            <!-- ========================================================================= -->
+            <!-- TAB 2: QUÁ TRÌNH LÀM VIỆC -->
+            <!-- ========================================================================= -->
+            <div id="tab-career" class="s5-tab-pane">
+                <div class="s5-card">
+                    <div class="s5-card-header"><h3 class="s5-card-title">Quá trình làm việc tại Nhị Gia</h3></div>
+                    <div class="s5-timeline">
+                        <div class="s5-timeline-item">
+                            <div class="s5-timeline-dot"></div>
+                            <div class="s5-timeline-content">
+                                <span class="s5-timeline-time">01/01/2024 - Hiện tại</span>
+                                <h4>Nhân viên quản lý dự án • Phòng IT</h4>
+                                <p>Phụ trách điều phối các dự án số hóa hệ thống HRM, cổng thông tin dịch vụ visa và vé máy bay Nhị Gia.</p>
+                            </div>
+                        </div>
+                        <div class="s5-timeline-item">
+                            <div class="s5-timeline-dot"></div>
+                            <div class="s5-timeline-content">
+                                <span class="s5-timeline-time">01/07/2023 - 31/12/2023</span>
+                                <h4>Lập trình viên phần mềm • Phòng IT</h4>
+                                <p>Phát triển và bảo trì các module nghiệp vụ nội bộ, hoàn thành tốt đánh giá thử việc và chuyển chính thức.</p>
+                            </div>
+                        </div>
+                        <div class="s5-timeline-item">
+                            <div class="s5-timeline-dot"></div>
+                            <div class="s5-timeline-content">
+                                <span class="s5-timeline-time">01/05/2023 - 30/06/2023</span>
+                                <h4>Thử việc Lập trình viên</h4>
+                                <p>Gia nhập Công ty TNHH Thương mại và Dịch vụ Nhị Gia, hoàn thành 100% chỉ tiêu tiếp nhận công việc.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ========================================================================= -->
+            <!-- TAB 3: LỊCH SỬ NGHỈ VIỆC / PHÉP -->
+            <!-- ========================================================================= -->
+            <div id="tab-leaves" class="s5-tab-pane">
+                <div class="s5-card">
+                    <div class="s5-card-header s5-card-header-flex">
+                        <h3 class="s5-card-title">Lịch sử nghỉ việc & nghỉ phép</h3>
+                        <a href="@Url.Action("LeaveRequests", "Home")" class="s5-btn s5-btn-sm s5-btn-primary"><i class="material-icons">add</i> Tạo đơn mới</a>
+                    </div>
+                    <div class="s5-table-responsive">
+                        <table class="s5-table">
+                            <thead>
+                                <tr>
+                                    <th>Loại nghỉ</th>
+                                    <th>Từ ngày</th>
+                                    <th>Đến ngày</th>
+                                    <th>Số ngày</th>
+                                    <th>Lý do</th>
+                                    <th>Trạng thái</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><span class="s5-badge-tag">Phép năm</span></td>
+                                    <td>12/08/2026</td>
+                                    <td>13/08/2026</td>
+                                    <td>2.0</td>
+                                    <td>Giải quyết việc gia đình</td>
+                                    <td><span class="s5-status-pill s5-pill-success">Đã duyệt</span></td>
+                                </tr>
+                                <tr>
+                                    <td><span class="s5-badge-tag">Nghỉ ốm</span></td>
+                                    <td>15/05/2026</td>
+                                    <td>15/05/2026</td>
+                                    <td>1.0</td>
+                                    <td>Khám bệnh theo chỉ định</td>
+                                    <td><span class="s5-status-pill s5-pill-success">Đã duyệt</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ========================================================================= -->
+            <!-- TAB 4: ĐIỀU CHỈNH THÔNG TIN -->
+            <!-- ========================================================================= -->
+            <div id="tab-adjustments" class="s5-tab-pane">
+                <div class="s5-card">
+                    <div class="s5-card-header"><h3 class="s5-card-title">Yêu cầu điều chỉnh thông tin nhân sự</h3></div>
+                    <div class="s5-empty-state">
+                        <i class="material-icons">history_toggle_off</i>
+                        <h4>Không có yêu cầu điều chỉnh nào đang chờ</h4>
+                        <p>Thông tin nhân sự cá nhân của bạn hiện đã được đồng bộ chuẩn xác với phòng Nhân sự.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ========================================================================= -->
+            <!-- TAB 5: PHỤ CẤP -->
+            <!-- ========================================================================= -->
+            <div id="tab-allowance" class="s5-tab-pane">
+                <div class="s5-card">
+                    <div class="s5-card-header"><h3 class="s5-card-title">Danh sách chế độ phụ cấp được hưởng</h3></div>
+                    <div class="s5-table-responsive">
+                        <table class="s5-table">
+                            <thead>
+                                <tr>
+                                    <th>Khoản phụ cấp</th>
+                                    <th>Mức hưởng</th>
+                                    <th>Hình thức chi trả</th>
+                                    <th>Ngày bắt đầu</th>
+                                    <th>Trạng thái</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>Phụ cấp ăn trưa</strong></td>
+                                    <td>730,000 đ/tháng</td>
+                                    <td>Cùng kỳ lương</td>
+                                    <td>01/07/2023</td>
+                                    <td><span class="s5-status-pill s5-pill-success">Đang áp dụng</span></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Phụ cấp điện thoại & liên lạc</strong></td>
+                                    <td>500,000 đ/tháng</td>
+                                    <td>Cùng kỳ lương</td>
+                                    <td>01/01/2024</td>
+                                    <td><span class="s5-status-pill s5-pill-success">Đang áp dụng</span></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Phụ cấp trách nhiệm dự án</strong></td>
+                                    <td>1,500,000 đ/tháng</td>
+                                    <td>Theo giai đoạn dự án</td>
+                                    <td>01/03/2024</td>
+                                    <td><span class="s5-status-pill s5-pill-success">Đang áp dụng</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ========================================================================= -->
+            <!-- TAB 6: KHEN THƯỞNG -->
+            <!-- ========================================================================= -->
+            <div id="tab-reward" class="s5-tab-pane">
+                <div class="s5-card">
+                    <div class="s5-card-header"><h3 class="s5-card-title">Thành tích & Khen thưởng</h3></div>
+                    <div class="s5-table-responsive">
+                        <table class="s5-table">
+                            <thead>
+                                <tr>
+                                    <th>Hình thức khen thưởng</th>
+                                    <th>Ngày quyết định</th>
+                                    <th>Nội dung khen thưởng</th>
+                                    <th>Giá trị</th>
+                                    <th>Cấp khen thưởng</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong class="text-primary">Nhân viên xuất sắc Quý 2/2026</strong></td>
+                                    <td>30/06/2026</td>
+                                    <td>Hoàn thành xuất sắc tiến độ dự án nâng cấp hệ thống HRM Nhị Gia</td>
+                                    <td>2,000,000 đ</td>
+                                    <td>Ban Giám Đốc Nhị Gia</td>
+                                </tr>
+                                <tr>
+                                    <td><strong class="text-primary">Khen thưởng sáng kiến cải tiến</strong></td>
+                                    <td>15/12/2025</td>
+                                    <td>Tự động hóa luồng phê duyệt đơn từ, tiết kiệm 40% thời gian xử lý</td>
+                                    <td>1,000,000 đ</td>
+                                    <td>Khối Công Nghệ</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ========================================================================= -->
+            <!-- TAB 7: KỶ LUẬT -->
+            <!-- ========================================================================= -->
+            <div id="tab-discipline" class="s5-tab-pane">
+                <div class="s5-card">
+                    <div class="s5-card-header"><h3 class="s5-card-title">Ghi nhận Kỷ luật</h3></div>
+                    <div class="s5-empty-state">
+                        <i class="material-icons text-success">verified_user</i>
+                        <h4>Không có biên bản hoặc vi phạm kỷ luật</h4>
+                        <p>Nhân viên luôn chấp hành tốt nội quy lao động và quy chế văn hóa công ty Nhị Gia.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ========================================================================= -->
+            <!-- TAB 8: KHOẢN KHẤU TRỪ -->
+            <!-- ========================================================================= -->
+            <div id="tab-deduction" class="s5-tab-pane">
+                <div class="s5-card">
+                    <div class="s5-card-header"><h3 class="s5-card-title">Các khoản khấu trừ định kỳ</h3></div>
+                    <div class="s5-table-responsive">
+                        <table class="s5-table">
+                            <thead>
+                                <tr>
+                                    <th>Tên khoản khấu trừ</th>
+                                    <th>Tỷ lệ / Số tiền</th>
+                                    <th>Hình thức</th>
+                                    <th>Ghi chú</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Bảo hiểm xã hội (8%)</td>
+                                    <td>8.0%</td>
+                                    <td>Trừ vào lương hàng tháng</td>
+                                    <td>Theo quy định Luật BHXH</td>
+                                </tr>
+                                <tr>
+                                    <td>Bảo hiểm y tế (1.5%)</td>
+                                    <td>1.5%</td>
+                                    <td>Trừ vào lương hàng tháng</td>
+                                    <td>Theo quy định Luật BHYT</td>
+                                </tr>
+                                <tr>
+                                    <td>Bảo hiểm thất nghiệp (1%)</td>
+                                    <td>1.0%</td>
+                                    <td>Trừ vào lương hàng tháng</td>
+                                    <td>Theo quy định Luật Việc làm</td>
+                                </tr>
+                                <tr>
+                                    <td>Thuế TNCN tạm tính</td>
+                                    <td>Theo biểu lũy tiến</td>
+                                    <td>Hàng tháng</td>
+                                    <td>Đã đăng ký 0 người phụ thuộc</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ========================================================================= -->
+            <!-- TAB 9: TẠM ỨNG LƯƠNG -->
+            <!-- ========================================================================= -->
+            <div id="tab-advance" class="s5-tab-pane">
+                <div class="s5-card">
+                    <div class="s5-card-header"><h3 class="s5-card-title">Lịch sử tạm ứng lương</h3></div>
+                    <div class="s5-empty-state">
+                        <i class="material-icons">account_balance_wallet</i>
+                        <h4>Chưa có yêu cầu tạm ứng lương nào phát sinh</h4>
+                        <p>Bạn có thể liên hệ bộ phận Kế toán - Nhân sự khi có nhu cầu tạm ứng theo quy chế nội bộ.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ========================================================================= -->
+            <!-- TAB 10: BẢNG LƯƠNG -->
+            <!-- ========================================================================= -->
+            <div id="tab-payroll" class="s5-tab-pane">
+                <div class="s5-card">
+                    <div class="s5-card-header s5-card-header-flex">
+                        <h3 class="s5-card-title">Bảng lương chi tiết các kỳ</h3>
+                        <a href="@Url.Action("Index", "Work", new { kind = "payroll" })" class="s5-btn s5-btn-sm s5-btn-outline">
+                            <i class="material-icons">open_in_new</i> Xem module Bảng lương
+                        </a>
+                    </div>
+                    <div class="s5-table-responsive">
+                        <table class="s5-table">
+                            <thead>
+                                <tr>
+                                    <th>Kỳ lương</th>
+                                    <th>Lương cơ bản</th>
+                                    <th>Phụ cấp</th>
+                                    <th>Khấu trừ BHXH & Thuế</th>
+                                    <th>Thực nhận (VND)</th>
+                                    <th>Trạng thái</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>Tháng 08/2026</strong></td>
+                                    <td>14,000,000 đ</td>
+                                    <td>2,730,000 đ</td>
+                                    <td>-1,470,000 đ</td>
+                                    <td><strong class="text-success">15,260,000 đ</strong></td>
+                                    <td><span class="s5-status-pill s5-pill-success">Đã chi trả</span></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Tháng 07/2026</strong></td>
+                                    <td>14,000,000 đ</td>
+                                    <td>2,730,000 đ</td>
+                                    <td>-1,470,000 đ</td>
+                                    <td><strong class="text-success">15,260,000 đ</strong></td>
+                                    <td><span class="s5-status-pill s5-pill-success">Đã chi trả</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ========================================================================= -->
+            <!-- TAB 11: CHỨNG CHỈ KHÓA HỌC -->
+            <!-- ========================================================================= -->
+            <div id="tab-certificate" class="s5-tab-pane">
+                <div class="s5-card">
+                    <div class="s5-card-header"><h3 class="s5-card-title">Chứng chỉ & Đào tạo chuyên môn</h3></div>
+                    <div class="s5-table-responsive">
+                        <table class="s5-table">
+                            <thead>
+                                <tr>
+                                    <th>Tên chứng chỉ</th>
+                                    <th>Tổ chức cấp</th>
+                                    <th>Ngày cấp</th>
+                                    <th>Thời hạn</th>
+                                    <th>Xếp loại / Điểm</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>Certified ScrumMaster (CSM)</strong></td>
+                                    <td>Scrum Alliance</td>
+                                    <td>10/04/2024</td>
+                                    <td>10/04/2026</td>
+                                    <td>Đạt chuẩn Quốc tế</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Chứng chỉ Ngoại ngữ Tiếng Anh B2</strong></td>
+                                    <td>Đại học Quốc gia TP.HCM</td>
+                                    <td>22/10/2022</td>
+                                    <td>Vô thời hạn</td>
+                                    <td>Khá giỏi</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ========================================================================= -->
+            <!-- TAB 12: ĐÁNH GIÁ NHÂN VIÊN -->
+            <!-- ========================================================================= -->
+            <div id="tab-evaluation" class="s5-tab-pane">
+                <div class="s5-card">
+                    <div class="s5-card-header"><h3 class="s5-card-title">Kết quả Đánh giá KPI & Năng lực định kỳ</h3></div>
+                    <div class="s5-info-grid-3">
+                        <div class="s5-eval-stat-card">
+                            <span class="s5-eval-num">8.5 / 10</span>
+                            <span class="s5-eval-txt">Điểm đánh giá Quý gần nhất</span>
+                        </div>
+                        <div class="s5-eval-stat-card">
+                            <span class="s5-eval-num">Loại A</span>
+                            <span class="s5-eval-txt">Xếp loại hoàn thành công việc</span>
+                        </div>
+                        <div class="s5-eval-stat-card">
+                            <span class="s5-eval-num">100%</span>
+                            <span class="s5-eval-txt">Mục tiêu KPI đạt cam kết</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ========================================================================= -->
+            <!-- TAB 13: NEW COMER CHECKLIST -->
+            <!-- ========================================================================= -->
+            <div id="tab-newcomer" class="s5-tab-pane">
+                <div class="s5-card">
+                    <div class="s5-card-header"><h3 class="s5-card-title">New Comer Checklist (Tiếp nhận nhân sự mới)</h3></div>
+                    <div class="s5-checklist">
+                        <label class="s5-check-row done"><input type="checkbox" checked disabled /> <span>Tạo tài khoản email, hệ thống HRM Nhị Gia và cấp tài khoản công việc</span></label>
+                        <label class="s5-check-row done"><input type="checkbox" checked disabled /> <span>Bàn giao máy tính xách tay và trang thiết bị làm việc</span></label>
+                        <label class="s5-check-row done"><input type="checkbox" checked disabled /> <span>Giới thiệu văn hóa công ty, quy chế nội bộ và phòng ban phụ trách</span></label>
+                        <label class="s5-check-row done"><input type="checkbox" checked disabled /> <span>Hoàn tất hồ sơ nhân sự và ký kết thỏa thuận bảo mật NDA</span></label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ========================================================================= -->
+            <!-- TAB 14: POST PROBATION ASSESSMENT -->
+            <!-- ========================================================================= -->
+            <div id="tab-probation" class="s5-tab-pane">
+                <div class="s5-card">
+                    <div class="s5-card-header"><h3 class="s5-card-title">Post Probation Assessment (Đánh giá sau thử việc)</h3></div>
+                    <div class="s5-probation-summary">
+                        <div class="s5-probation-badge"><i class="material-icons">verified</i> ĐÃ HOÀN THÀNH THỬ VIỆC</div>
+                        <p><strong>Kết luận của Trưởng bộ phận:</strong> Nhân viên đáp ứng đầy đủ yêu cầu chuyên môn, có tinh thần cầu tiến, thích nghi nhanh với văn hóa doanh nghiệp Nhị Gia. Đề xuất ký Hợp đồng lao động chính thức.</p>
+                        <span class="text-muted">Ngày đánh giá: 25/06/2023 • Người phê duyệt: Huỳnh Văn Quản (Trưởng Khối IT)</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ========================================================================= -->
+            <!-- TAB 15: RESIGNATION -->
+            <!-- ========================================================================= -->
+            <div id="tab-resignation" class="s5-tab-pane">
+                <div class="s5-card">
+                    <div class="s5-card-header"><h3 class="s5-card-title">Đơn xin thôi việc (Resignation)</h3></div>
+                    <div class="s5-empty-state">
+                        <i class="material-icons text-muted">thumb_up</i>
+                        <h4>Không có đơn xin thôi việc</h4>
+                        <p>Nhân sự đang hoạt động chính thức và gắn bó tại Nhị Gia.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ========================================================================= -->
+            <!-- TAB 16: EXIT CHECKLIST -->
+            <!-- ========================================================================= -->
+            <div id="tab-exit" class="s5-tab-pane">
+                <div class="s5-card">
+                    <div class="s5-card-header"><h3 class="s5-card-title">Exit Checklist (Bàn giao nghỉ việc)</h3></div>
+                    <div class="s5-empty-state">
+                        <i class="material-icons text-muted">assignment_turned_in</i>
+                        <h4>Quy trình Exit Checklist chưa kích hoạt</h4>
+                        <p>Chỉ áp dụng khi có thủ tục chấm dứt hợp đồng lao động đã được phê duyệt.</p>
+                    </div>
+                </div>
+            </div>
+
         </main>
     </div>
 </div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        // Tab switching interaction
+        const tabItems = document.querySelectorAll(".s5-tab-item");
+        const tabPanes = document.querySelectorAll(".s5-tab-pane");
+
+        tabItems.forEach(item => {
+            item.addEventListener("click", function () {
+                const targetTabId = this.getAttribute("data-tab");
+                if (!targetTabId) return;
+
+                tabItems.forEach(t => t.classList.remove("active"));
+                tabPanes.forEach(p => p.classList.remove("active"));
+
+                this.classList.add("active");
+                const targetPane = document.getElementById(targetTabId);
+                if (targetPane) {
+                    targetPane.classList.add("active");
+                }
+            });
+        });
+
+        // Search inputs inside data tables
+        const searchInputs = document.querySelectorAll(".s5-search-input");
+        searchInputs.forEach(input => {
+            input.addEventListener("input", function () {
+                const targetTable = document.querySelector(this.getAttribute("data-target"));
+                if (!targetTable) return;
+                const filter = this.value.toLowerCase().trim();
+                const rows = targetTable.querySelectorAll("tbody tr");
+
+                rows.forEach(row => {
+                    const text = row.textContent.toLowerCase();
+                    row.style.display = text.includes(filter) ? "" : "none";
+                });
+            });
+        });
+    });
+</script>
+
