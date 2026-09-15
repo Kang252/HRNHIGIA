@@ -142,7 +142,7 @@
         <div class="hrm-card">
             <div class="hrm-card-header"><div><h2 class="hrm-card-title">Truy cập nhanh</h2><p class="hrm-card-subtitle">Các nghiệp vụ thường dùng</p></div></div>
             <div class="hrm-card-body">
-                <div class="hrm-grid hrm-grid-3">
+                <div class="hrm-grid hrm-grid-3 hrm-quick-grid">
                     @if (dashboardIsEmployee)
                     {
                         <a class="hrm-btn" href="@Url.Action("MyProfile", "Home")"><i class="material-icons">badge</i> Hồ sơ của tôi</a>
@@ -180,7 +180,7 @@
                     }
                     else if (dashboardIsAdmin)
                     {
-                        <a class="hrm-btn" href="@Url.Action("EmployeeInformation", "Home")"><i class="material-icons">manage_accounts</i> Tài khoản nhân sự</a>
+                        <a class="hrm-btn" href="@Url.Action("EmployeeInformation", "Home")"><i class="material-icons">groups</i> Tài khoản nhân sự</a>
                         <a class="hrm-btn" href="@Url.Action("Reports", "Home")"><i class="material-icons">analytics</i> Báo cáo</a>
                         <a class="hrm-btn" href="@Url.Action("Index", "Work", new { kind = "assets" })"><i class="material-icons">devices</i> Tài sản</a>
                         <a class="hrm-btn" href="@Url.Action("Index", "Work", new { kind = "helpdesk" })"><i class="material-icons">support_agent</i> Helpdesk IT</a>
