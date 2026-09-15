@@ -70,6 +70,8 @@ WHERE NOT EXISTS (SELECT 1 FROM dbo.HrmAttendanceEvent e WHERE e.EventKey = a.Ev
 GO
 
 -- Leave requests for all approval states.
+DECLARE @ManagerId INT = (SELECT TOP (1) Id FROM dbo.HrmUserAccount WHERE Username = 'huongtm');
+DECLARE @HrId INT = (SELECT TOP (1) Id FROM dbo.HrmUserAccount WHERE Username = 'hradmin');
 DECLARE @DemoLeave TABLE
 (
     Username NVARCHAR(80), LeaveType NVARCHAR(80), StartDate DATE, EndDate DATE,
