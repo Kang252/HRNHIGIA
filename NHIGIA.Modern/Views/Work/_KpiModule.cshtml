@@ -72,7 +72,7 @@
 
                 @if (Model.CanManage)
                 {
-                    <button type="button" class="hrm-btn hrm-btn-primary kpi-create-btn" data-toggle="modal" data-target="#modalCreateKpi" onclick="openCreateKpiModal()">
+                    <button type="button" id="btnOpenCreateKpi" class="hrm-btn hrm-btn-primary kpi-create-btn" data-toggle="modal" data-target="#modalCreateKpi">
                         <i class="material-icons">add</i> Tạo KPI mới
                     </button>
                 }
@@ -1399,17 +1399,39 @@
     </style>
 
 <script>
-    function openCreateKpiModal() {
-        if (window.jQuery && typeof $('#modalCreateKpi').modal === 'function') {
-            $('#modalCreateKpi').modal('show');
-        } else {
-            var m = document.getElementById('modalCreateKpi');
-            if (m) {
-                m.classList.add('in');
-                m.style.display = 'block';
-                document.body.classList.add('modal-open');
+    function showModalSafe(modalId) {
+        var $el = window.jQuery ? window.jQuery('#' + modalId) : null;
+        if ($el && $el.length && typeof $el.modal === 'function') {
+            $el.modal('show');
+            return;
+        }
+        var m = document.getElementById(modalId);
+        if (m) {
+            m.classList.add('in');
+            m.style.display = 'block';
+            document.body.classList.add('modal-open');
+            if (!document.getElementById('manual-backdrop')) {
+                var bd = document.createElement('div');
+                bd.className = 'modal-backdrop fade in';
+                bd.id = 'manual-backdrop';
+                bd.onclick = closeAllManualModals;
+                document.body.appendChild(bd);
             }
         }
+    }
+
+    function closeAllManualModals() {
+        document.querySelectorAll('.modal').forEach(function (m) {
+            m.classList.remove('in');
+            m.style.display = 'none';
+        });
+        document.body.classList.remove('modal-open');
+        var bd = document.getElementById('manual-backdrop');
+        if (bd) bd.remove();
+    }
+
+    function openCreateKpiModal() {
+        showModalSafe('modalCreateKpi');
     }
 
     function toggleCreateKpiType(type) {
@@ -1440,6 +1462,24 @@
     }
 
     $(document).ready(function() {
+        // Nút mở modal tạo KPI
+        $(document).on('click', '#btnOpenCreateKpi, .kpi-create-btn', function (e) {
+            if (!window.jQuery || typeof $('#modalCreateKpi').modal !== 'function') {
+                e.preventDefault();
+                showModalSafe('modalCreateKpi');
+            }
+        });
+
+        // Nút đóng modal
+        $(document).on('click', '[data-dismiss="modal"]', function () {
+            var $m = $(this).closest('.modal');
+            if ($m.length && typeof $m.modal === 'function') {
+                $m.modal('hide');
+            } else {
+                closeAllManualModals();
+            }
+        });
+
         // Gửi chứng minh kết quả
         $(document).on('click', '.btn-trigger-proof', function() {
             var btn = $(this);
@@ -1450,7 +1490,7 @@
             $('#proofKpiTarget').text(target + ' ' + cat);
             $('#proofActual').val(btn.attr('data-actual') || btn.data('actual') || '');
             $('#proofNote').val(btn.attr('data-proof') || btn.data('proof') || '');
-            $('#modalSubmitProof').modal('show');
+            showModalSafe('modalSubmitProof');
         });
 
         // Duyệt & Đánh giá kết quả (YES/NO)
@@ -1466,7 +1506,7 @@
             var proof = btn.attr('data-proof') || btn.data('proof');
             $('#evalProofNote').text(proof && proof.trim() ? proof : 'Chưa có ghi chú minh chứng');
             $('#evalReviewNote').val(btn.attr('data-review') || btn.data('review') || '');
-            $('#modalEvaluateProof').modal('show');
+            showModalSafe('modalEvaluateProof');
         });
 
         // Chỉnh sửa KPI
@@ -1491,7 +1531,7 @@
             $('#editKpiQuarter').val(btn.attr('data-quarter') || btn.data('quarter') || 'Quý 1-2025');
             $('#editKpiDescription').val(btn.attr('data-desc') || btn.data('desc') || '');
             $('#editKpiStatus').val(btn.attr('data-status') || btn.data('status') || 'WAITING_RESULT');
-            $('#modalEditKpi').modal('show');
+            showModalSafe('modalEditKpi');
         });
     });
 </script>

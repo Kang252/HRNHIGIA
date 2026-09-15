@@ -71,9 +71,16 @@
         <!-- Section A: Employee Identity -->
         <div class="s5-hero-col-user">
             <div class="s5-avatar-box">
-                <div id="avatarPlaceholder" class="s5-avatar-placeholder">
-                    <span class="s5-avatar-initials">@((Model?.DisplayName ?? displayName ?? "QU").Trim().Substring(0, Math.Min(2, (Model?.DisplayName ?? displayName ?? "QU").Trim().Length)).ToUpperInvariant())</span>
-                </div>
+                @if (!string.IsNullOrWhiteSpace(Model?.AvatarUrl))
+                {
+                    <img id="avatarImage" src="@Model.AvatarUrl" alt="@displayName" class="s5-avatar-img" />
+                }
+                else
+                {
+                    <div id="avatarPlaceholder" class="s5-avatar-placeholder">
+                        <span class="s5-avatar-initials">@((Model?.DisplayName ?? displayName).Trim().Substring(0, Math.Min(2, (Model?.DisplayName ?? displayName).Trim().Length)).ToUpperInvariant())</span>
+                    </div>
+                }
             </div>
             <h2 class="s5-user-name">@displayName</h2>
             <div class="s5-user-sub">
@@ -292,13 +299,13 @@
                 </li>
                 <li class="s5-tab-item" data-tab="tab-newcomer">
                     <button type="button" class="s5-tab-btn">
-                        <i class="material-icons">format_list_bulleted</i>
+                        <i class="material-icons">checklist</i>
                         <span>New Comer Checklist</span>
                     </button>
                 </li>
                 <li class="s5-tab-item" data-tab="tab-probation">
                     <button type="button" class="s5-tab-btn">
-                        <i class="material-icons">assignment_turned_in</i>
+                        <i class="material-icons">fact_check</i>
                         <span>Post Probation Assessment</span>
                     </button>
                 </li>
@@ -310,7 +317,7 @@
                 </li>
                 <li class="s5-tab-item" data-tab="tab-exit">
                     <button type="button" class="s5-tab-btn">
-                        <i class="material-icons">assignment_turned_in</i>
+                        <i class="material-icons">task_alt</i>
                         <span>Exit Checklist</span>
                     </button>
                 </li>
@@ -934,6 +941,11 @@
                             <span class="s5-eval-num">100%</span>
                             <span class="s5-eval-txt">Mục tiêu KPI đạt cam kết</span>
                         </div>
+                    </div>
+                    <div style="margin-top:16px; padding-top:14px; border-top:1px solid #f1f5f9; display:flex; justify-content:flex-end;">
+                        <a href="@Url.Action("Index", "Work", new { kind = "kpi" })" class="hrm-btn hrm-btn-primary" style="display:inline-flex; align-items:center; gap:6px; font-weight:600;">
+                            <i class="material-icons">track_changes</i> Quản lý & Xem chi tiết KPI
+                        </a>
                     </div>
                 </div>
             </div>

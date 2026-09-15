@@ -163,6 +163,7 @@
                     else if (dashboardIsHr)
                     {
                         <a class="hrm-btn" href="@Url.Action("EmployeeInformation", "Home")"><i class="material-icons">groups</i> Quản lý nhân sự</a>
+                        <a class="hrm-btn" href="@Url.Action("Index", "Work", new { kind = "kpi" })"><i class="material-icons">track_changes</i> Quản lý KPI</a>
                         <a class="hrm-btn" href="@Url.Action("Approvals", "Home")"><i class="material-icons">fact_check</i> Duyệt nghỉ phép</a>
                         <a class="hrm-btn" href="@Url.Action("Index", "Work", new { kind = "payroll" })"><i class="material-icons">payments</i> Tính lương</a>
                         <a class="hrm-btn" href="@Url.Action("Index", "Work", new { kind = "recruitment" })"><i class="material-icons">person_search</i> Tuyển dụng</a>
@@ -172,15 +173,16 @@
                     else if (dashboardIsDirector)
                     {
                         <a class="hrm-btn" href="@Url.Action("Reports", "Home")"><i class="material-icons">analytics</i> Báo cáo điều hành</a>
+                        <a class="hrm-btn" href="@Url.Action("Index", "Work", new { kind = "kpi" })"><i class="material-icons">track_changes</i> KPI toàn công ty</a>
                         <a class="hrm-btn" href="@Url.Action("Index", "Work", new { kind = "payroll" })"><i class="material-icons">approval</i> Duyệt bảng lương</a>
                         <a class="hrm-btn" href="@Url.Action("Approvals", "Home")"><i class="material-icons">fact_check</i> Phê duyệt</a>
-                        <a class="hrm-btn" href="@Url.Action("Index", "Work", new { kind = "kpi" })"><i class="material-icons">track_changes</i> KPI toàn công ty</a>
                         <a class="hrm-btn" href="@Url.Action("Index", "Work", new { kind = "recruitment" })"><i class="material-icons">person_search</i> Tuyển dụng</a>
                         <a class="hrm-btn" href="@Url.Action("Index", "Work", new { kind = "transfer" })"><i class="material-icons">swap_horiz</i> Điều chuyển</a>
                     }
                     else if (dashboardIsAdmin)
                     {
                         <a class="hrm-btn" href="@Url.Action("EmployeeInformation", "Home")"><i class="material-icons">groups</i> Tài khoản nhân sự</a>
+                        <a class="hrm-btn" href="@Url.Action("Index", "Work", new { kind = "kpi" })"><i class="material-icons">track_changes</i> Quản lý KPI</a>
                         <a class="hrm-btn" href="@Url.Action("Reports", "Home")"><i class="material-icons">analytics</i> Báo cáo</a>
                         <a class="hrm-btn" href="@Url.Action("Index", "Work", new { kind = "assets" })"><i class="material-icons">devices</i> Tài sản</a>
                         <a class="hrm-btn" href="@Url.Action("Index", "Work", new { kind = "helpdesk" })"><i class="material-icons">support_agent</i> Helpdesk IT</a>
