@@ -14,6 +14,24 @@ public sealed class HomeController : BaseController
         : base(store, userAccessor) => _configuration = configuration;
 
     public IActionResult Index() { ViewBag.Title = "Trang chủ"; return View(); }
+    public IActionResult CompanyInformation(string section = "introduction")
+    {
+        section = section?.Trim().ToLowerInvariant() switch
+        {
+            "rules" => "rules",
+            "brand" => "brand",
+            _ => "introduction"
+        };
+
+        ViewBag.CompanySection = section;
+        ViewBag.Title = section switch
+        {
+            "rules" => "Nội quy công ty",
+            "brand" => "Logo mẫu",
+            _ => "Giới thiệu công ty"
+        };
+        return View();
+    }
     public IActionResult Attendance() { ViewBag.Title = "Chấm công"; return View(); }
     public IActionResult WorkSchedules() { ViewBag.Title = "Lịch làm việc"; return View(); }
     public IActionResult LeaveRequests() { ViewBag.Title = "Yêu cầu nghỉ phép"; return View(); }

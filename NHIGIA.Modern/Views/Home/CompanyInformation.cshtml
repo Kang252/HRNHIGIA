@@ -1,0 +1,66 @@
+@{
+    var section = (ViewBag.CompanySection as string) ?? "introduction";
+    var isIntroduction = section == "introduction";
+    var isRules = section == "rules";
+    var isBrand = section == "brand";
+}
+
+<div class="container-fluid company-info-page">
+    <div class="hrm-page-header company-info-header">
+        <div>
+            <span class="company-info-eyebrow">THÔNG TIN CHUNG</span>
+            <h1 class="hrm-page-title">@ViewBag.Title</h1>
+            <p class="hrm-page-subtitle">Thông tin dùng chung dành cho toàn thể nhân viên Nhị Gia.</p>
+        </div>
+    </div>
+
+    <nav class="company-info-tabs" aria-label="Thông tin công ty">
+        <a class="@(isIntroduction ? "active" : "")" asp-action="CompanyInformation" asp-route-section="introduction"><i class="material-icons">business</i>Giới thiệu công ty</a>
+        <a class="@(isRules ? "active" : "")" asp-action="CompanyInformation" asp-route-section="rules"><i class="material-icons">gavel</i>Nội quy</a>
+        <a class="@(isBrand ? "active" : "")" asp-action="CompanyInformation" asp-route-section="brand"><i class="material-icons">palette</i>Logo mẫu</a>
+    </nav>
+
+    @if (isIntroduction)
+    {
+        <section class="hrm-card company-intro-hero">
+            <div class="company-intro-copy">
+                <span class="company-info-eyebrow">NHỊ GIA</span>
+                <h2>Chung một định hướng, cùng tạo giá trị</h2>
+                <p>Đây là không gian giới thiệu tổng thể về công ty, văn hóa làm việc và những giá trị mà mỗi thành viên cùng xây dựng.</p>
+            </div>
+            <div class="company-logo-stage"><img src="~/images/nhigia-logo.png" asp-append-version="true" alt="Logo Nhị Gia" /></div>
+        </section>
+        <div class="hrm-grid hrm-grid-3 company-value-grid">
+            <article class="hrm-card company-info-card"><span class="company-info-icon"><i class="material-icons">groups</i></span><h3>Con người</h3><p>Tôn trọng, phối hợp và chủ động hỗ trợ đồng nghiệp trong công việc hằng ngày.</p></article>
+            <article class="hrm-card company-info-card"><span class="company-info-icon green"><i class="material-icons">verified</i></span><h3>Trách nhiệm</h3><p>Thực hiện đúng cam kết, bảo đảm chất lượng và chịu trách nhiệm với kết quả.</p></article>
+            <article class="hrm-card company-info-card"><span class="company-info-icon orange"><i class="material-icons">trending_up</i></span><h3>Phát triển</h3><p>Không ngừng học hỏi, cải tiến quy trình và tạo ra giá trị bền vững.</p></article>
+        </div>
+    }
+    else if (isRules)
+    {
+        <section class="hrm-card company-rules-card">
+            <div class="hrm-card-header"><div><h2 class="hrm-card-title">Nội quy làm việc</h2><p class="hrm-card-subtitle">Các nguyên tắc cơ bản áp dụng trong môi trường làm việc</p></div><span class="company-rules-badge">Áp dụng toàn công ty</span></div>
+            <div class="company-rules-list">
+                <article><span>01</span><div><h3>Thời gian làm việc</h3><p>Tuân thủ lịch và ca làm việc được phân công; chấm công đầy đủ khi bắt đầu và kết thúc ngày làm việc.</p></div></article>
+                <article><span>02</span><div><h3>Nghỉ phép và vắng mặt</h3><p>Tạo yêu cầu trên hệ thống và thông báo cho người quản lý theo đúng thời hạn quy định.</p></div></article>
+                <article><span>03</span><div><h3>Bảo mật thông tin</h3><p>Bảo vệ dữ liệu công ty, thông tin khách hàng và tài khoản được cấp trong suốt quá trình làm việc.</p></div></article>
+                <article><span>04</span><div><h3>Sử dụng tài sản</h3><p>Sử dụng tài sản đúng mục đích, bảo quản cẩn thận và báo ngay khi phát sinh mất mát hoặc hư hỏng.</p></div></article>
+                <article><span>05</span><div><h3>Ứng xử nội bộ</h3><p>Giao tiếp lịch sự, tôn trọng khác biệt và phối hợp giải quyết công việc trên tinh thần xây dựng.</p></div></article>
+                <article><span>06</span><div><h3>An toàn và tuân thủ</h3><p>Thực hiện các hướng dẫn an toàn, quy trình nghiệp vụ và quy định pháp luật có liên quan.</p></div></article>
+            </div>
+        </section>
+    }
+    else
+    {
+        <section class="hrm-card company-brand-card">
+            <div class="company-brand-preview"><span>LOGO CHÍNH THỨC</span><img src="~/images/nhigia-logo.png" asp-append-version="true" alt="Logo chính thức Nhị Gia" /></div>
+            <div class="company-brand-content">
+                <span class="company-info-eyebrow">NHẬN DIỆN THƯƠNG HIỆU</span>
+                <h2>Logo Nhị Gia</h2>
+                <p>Sử dụng tệp logo này cho tài liệu nội bộ, biểu mẫu và các ấn phẩm được công ty phê duyệt. Giữ nguyên tỷ lệ, màu sắc và khoảng trống quanh logo.</p>
+                <div class="company-brand-notes"><span><i class="material-icons">check_circle</i>Giữ nguyên tỷ lệ ảnh</span><span><i class="material-icons">check_circle</i>Dùng nền rõ, tương phản</span><span><i class="material-icons">check_circle</i>Không tự ý đổi màu</span></div>
+                <a class="hrm-btn hrm-btn-primary" href="~/images/nhigia-logo.png" download="logo-nhi-gia.png"><i class="material-icons">download</i>Tải logo PNG</a>
+            </div>
+        </section>
+    }
+</div>

@@ -64,8 +64,12 @@
             </div>
             <div class="menu">
                 <ul class="list">
-                    <li class="header hrm-menu-section" data-menu-section="people"><button class="hrm-menu-section-toggle" type="button" aria-expanded="true"><span>NGHIỆP VỤ NHÂN SỰ</span><i class="material-icons" aria-hidden="true">expand_more</i></button></li>
+                    <li class="header hrm-menu-section" data-menu-section="general"><button class="hrm-menu-section-toggle" type="button" aria-expanded="true"><span>THÔNG TIN CHUNG</span><i class="material-icons" aria-hidden="true">expand_more</i></button></li>
                     <li class="@(action == "Index" && string.IsNullOrEmpty(workKind) ? "active" : "")"><a asp-controller="Home" asp-action="Index"><i class="material-icons">dashboard</i><span>Tổng quan</span></a></li>
+                    <li class="@(action == "CompanyInformation" && ViewContext.HttpContext.Request.Query["section"] != "rules" && ViewContext.HttpContext.Request.Query["section"] != "brand" ? "active" : "")"><a asp-controller="Home" asp-action="CompanyInformation" asp-route-section="introduction"><i class="material-icons">business</i><span>Giới thiệu công ty</span></a></li>
+                    <li class="@(action == "CompanyInformation" && ViewContext.HttpContext.Request.Query["section"] == "rules" ? "active" : "")"><a asp-controller="Home" asp-action="CompanyInformation" asp-route-section="rules"><i class="material-icons">gavel</i><span>Nội quy</span></a></li>
+                    <li class="@(action == "CompanyInformation" && ViewContext.HttpContext.Request.Query["section"] == "brand" ? "active" : "")"><a asp-controller="Home" asp-action="CompanyInformation" asp-route-section="brand"><i class="material-icons">palette</i><span>Logo mẫu</span></a></li>
+                    <li class="header hrm-menu-section" data-menu-section="people"><button class="hrm-menu-section-toggle" type="button" aria-expanded="true"><span>NGHIỆP VỤ NHÂN SỰ</span><i class="material-icons" aria-hidden="true">expand_more</i></button></li>
                     <li class="@(action == "MyProfile" ? "active" : "")"><a asp-controller="Home" asp-action="MyProfile"><i class="material-icons">badge</i><span>Hồ sơ của tôi</span></a></li>
                     @if (canManage)
                     {
