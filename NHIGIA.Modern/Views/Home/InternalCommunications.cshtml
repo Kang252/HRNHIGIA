@@ -1,131 +1,42 @@
 @using NHIGIA.Modern.Models
-@{ var communicationUser = HrmUser.Current; var canPublish = communicationUser != null && HrmRoles.CanManagePeople(communicationUser.RoleCode); var companyWide = communicationUser != null && HrmRoles.CanPublishCompanyWide(communicationUser.RoleCode); }
-<div class="container-fluid">
-    <div class="hrm-page-header">
-        <div>
-            <h1 class="hrm-page-title">Truyền thông nội bộ</h1>
-            <p class="hrm-page-subtitle">Thông báo công ty, chính sách nhân sự và hoạt động dành cho nhân viên</p>
-        </div>
-        <div class="hrm-header-actions">
-            @if (canPublish) { <button class="hrm-btn hrm-btn-primary" type="button" data-toggle="modal" data-target="#communicationModal"><i class="material-icons">announcement</i> Đăng thông báo</button> }
-        </div>
-    </div>
-
-    <div class="hrm-content-grid hrm-communication-grid">
-        <div class="hrm-card">
-            <div class="hrm-toolbar">
-                <div class="hrm-field hrm-field-grow"><label>TÌM KIẾM</label><input id="communicationSearch" class="hrm-control" type="search" placeholder="Tìm theo tiêu đề hoặc nội dung..." /></div>
-                <div class="hrm-field"><label>CHUYÊN MỤC</label><select id="communicationCategoryFilter" class="hrm-control"><option value="">Tất cả chuyên mục</option><option>Thông báo công ty</option><option>Nhân sự</option><option>Hoạt động nội bộ</option><option>Đào tạo</option><option>Khác</option></select></div>
-                <button id="communicationFilter" class="hrm-btn hrm-btn-primary" type="button"><i class="material-icons">search</i> Lọc</button>
-            </div>
-            <div id="communicationFeed" class="hrm-feed">
-                <div id="communicationEmpty" class="hrm-empty"><i class="material-icons">forum</i><strong>Chưa có bài đăng nội bộ</strong><br /><span>Thông báo mới sẽ xuất hiện tại đây theo phạm vi của từng nhân viên.</span></div>
-            </div>
-        </div>
-
-        <div class="hrm-stack">
-            <div class="hrm-card">
-                <div class="hrm-card-header"><div><h2 class="hrm-card-title">Chuyên mục</h2><p class="hrm-card-subtitle">Nội dung được phân loại rõ ràng</p></div></div>
-                <div class="hrm-card-body"><ul class="hrm-side-list"><li><i class="material-icons">business</i><span>Thông báo công ty</span><strong>0</strong></li><li><i class="material-icons">people</i><span>Nhân sự</span><strong>0</strong></li><li><i class="material-icons">celebration</i><span>Hoạt động nội bộ</span><strong>0</strong></li><li><i class="material-icons">school</i><span>Đào tạo</span><strong>0</strong></li></ul></div>
-            </div>
-            <div class="hrm-card">
-                <div class="hrm-card-header"><div><h2 class="hrm-card-title">Quyền xuất bản</h2><p class="hrm-card-subtitle">Sẽ áp dụng sau khi hoàn thiện phân quyền</p></div></div>
-                <div class="hrm-card-body"><ul class="hrm-metric-list"><li><span>Nhân viên</span><strong>Xem theo phạm vi</strong></li><li><span>Trưởng phòng</span><strong>Đăng trong phòng</strong></li><li><span>HR / Giám đốc</span><strong>Đăng toàn công ty</strong></li></ul></div>
-            </div>
-        </div>
-    </div>
+@{ var u=HrmUser.Current; var role=u?.RoleCode??""; var moderate=role==HrmRoles.Admin||role==HrmRoles.Hr||role==HrmRoles.Director; var company=u!=null&&HrmRoles.CanPublishCompanyWide(role); var managers=company||role==HrmRoles.Manager; }
+<div class="container-fluid wall">
+ <div class="hrm-page-header"><div><h1 class="hrm-page-title">Truyền thông nội bộ</h1><p class="hrm-page-subtitle">Chia sẻ và kết nối trong Nhị Gia</p></div><button id="newPost" class="hrm-btn hrm-btn-primary"><i class="material-icons">edit</i>Tạo bài viết</button></div>
+ <div id="notice" class="notice" hidden></div>
+ <div class="wall-grid">
+  <aside><div class="hrm-card wall-user"><b>@u?.DisplayName</b><small>@u?.DepartmentName</small></div><nav class="hrm-card wall-tabs"><button class="active" data-tab="feed"><i class="material-icons">dynamic_feed</i>Bảng tin</button><button data-tab="mine"><i class="material-icons">article</i>Bài của tôi</button><button data-tab="pending"><i class="material-icons">hourglass_top</i>@(moderate?"Chờ duyệt":"Đang chờ duyệt") <b id="pendingCount">0</b></button></nav></aside>
+  <main>
+   <section id="composer" class="hrm-card composer" hidden><header><b>Tạo bài viết</b><button id="closePost"><i class="material-icons">close</i></button></header>
+    <form id="postForm" enctype="multipart/form-data">@Html.AntiForgeryToken()
+     <div class="form-grid"><label>Chuyên mục<select id="cat" class="hrm-control"><option>Thông báo công ty</option><option>Nhân sự</option><option>Hoạt động nội bộ</option><option>Đào tạo</option><option>Chia sẻ</option><option>Khác</option></select></label><label>Phạm vi<select id="scope" class="hrm-control">@if(company){<option value="ALL">Toàn công ty</option>}<option value="DEPARTMENT">Phòng ban của tôi</option>@if(managers){<option value="MANAGER">Nhóm quản lý</option>}</select></label></div>
+     <input id="title" class="post-title" maxlength="200" required placeholder="Tiêu đề bài viết"><textarea id="body" maxlength="5000" required placeholder="Bạn muốn chia sẻ điều gì?"></textarea>
+     <div id="fileInfo" class="file-info" hidden><i class="material-icons">attach_file</i><span></span><button type="button">Bỏ tệp</button></div><img id="preview" class="preview" hidden>
+     <footer><label class="attach"><i class="material-icons">image</i>Ảnh / tệp<input id="attachment" name="attachment" type="file" accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,image/*"></label>@if(moderate){<label><input id="pinned" type="checkbox"> Ghim bài</label>}<button class="hrm-btn hrm-btn-primary" type="submit"><i class="material-icons">send</i>@(moderate?"Đăng bài":"Gửi duyệt")</button></footer>
+    </form>
+   </section>
+   <div class="hrm-card mobile-search"><input class="search hrm-control" placeholder="Tìm bài viết..."></div>
+   <div id="feed" class="feed"><div class="hrm-card hrm-empty">Đang tải bảng tin…</div></div>
+  </main>
+  <aside class="right"><div class="hrm-card filters"><h2>Tìm trên bảng tin</h2><input class="search hrm-control" placeholder="Tiêu đề hoặc nội dung..."><h3>Chuyên mục</h3><div id="categories"><button class="active" data-category="">Tất cả</button><button data-category="Thông báo công ty">Thông báo</button><button data-category="Nhân sự">Nhân sự</button><button data-category="Hoạt động nội bộ">Hoạt động</button><button data-category="Đào tạo">Đào tạo</button><button data-category="Chia sẻ">Chia sẻ</button></div></div></aside>
+ </div>
 </div>
-
-<div class="modal fade" id="communicationModal" tabindex="-1" role="dialog" aria-labelledby="communicationModalTitle">
-    <div class="modal-dialog" role="document">
-        <div class="modal-content hrm-modal-content">
-            <div class="modal-header"><button type="button" class="close" data-dismiss="modal">&times;</button><h4 id="communicationModalTitle" class="modal-title">Đăng thông báo nội bộ</h4></div>
-            <div class="modal-body">
-                <form id="communicationForm">@Html.AntiForgeryToken()
-                    <div class="row"><div class="col-sm-6"><div class="form-group"><label>Chuyên mục</label><select id="communicationCategory" class="hrm-control"><option>Thông báo công ty</option><option>Nhân sự</option><option>Hoạt động nội bộ</option><option>Đào tạo</option><option>Khác</option></select></div></div><div class="col-sm-6"><div class="form-group"><label>Phạm vi nhận</label><select id="communicationScope" class="hrm-control">@if (companyWide) { <option value="ALL">Toàn công ty</option> }<option value="DEPARTMENT">Phòng ban của tôi</option><option value="MANAGER">Chỉ cấp quản lý</option></select></div></div></div>
-                    <div class="form-group hrm-form-row"><label>Tiêu đề</label><input id="communicationTitle" class="hrm-control" required maxlength="150" placeholder="Nhập tiêu đề thông báo..." /></div>
-                    <div class="form-group hrm-form-row"><label>Nội dung</label><textarea id="communicationBody" class="hrm-control hrm-textarea hrm-textarea-large" required maxlength="3000" placeholder="Nhập nội dung cần truyền thông..."></textarea></div>
-                    <div class="form-group hrm-form-row"><label>Tệp hoặc ảnh đính kèm</label><input id="communicationAttachment" name="attachment" class="hrm-control hrm-file-control" type="file" accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,image/jpeg,image/png,image/gif,image/webp,application/pdf" /><small class="help-block">JPG, PNG, GIF, WebP, PDF, Word, Excel, CSV hoặc TXT; tối đa 10 MB.</small><div id="communicationFileInfo" class="communication-file-info" hidden><i class="material-icons">attach_file</i><span></span><button type="button" aria-label="Bỏ tệp đính kèm">close</button></div><img id="communicationImagePreview" class="communication-image-preview" alt="Xem trước ảnh đính kèm" hidden /></div>
-                    <label class="hrm-check"><input id="communicationPinned" type="checkbox" /> <span>Ghim bài đăng ở đầu bảng tin</span></label>
-                </form>
-            </div>
-            <div class="modal-footer"><button type="button" class="hrm-btn" data-dismiss="modal">Hủy</button><button type="submit" form="communicationForm" class="hrm-btn hrm-btn-primary">Đăng bài</button></div>
-        </div>
-    </div>
-</div>
-
-<script>
-    (function () {
-        return; // Luồng dữ liệu tạm cũ đã được thay bằng API thật ở dưới.
-        $('.internal_communications').addClass('active');
-        var form = document.getElementById('communicationForm');
-        var feed = document.getElementById('communicationFeed');
-        form.addEventListener('submit', function (event) {
-            event.preventDefault();
-            var empty = document.getElementById('communicationEmpty');
-            if (empty) empty.parentNode.removeChild(empty);
-            var category = document.getElementById('communicationCategory').value;
-            var scope = document.getElementById('communicationScope').value;
-            var title = document.getElementById('communicationTitle').value;
-            var body = document.getElementById('communicationBody').value;
-            var pinned = document.getElementById('communicationPinned').checked;
-            var article = document.createElement('article');
-            article.className = 'hrm-feed-item';
-            article.setAttribute('data-category', category);
-            article.setAttribute('data-search', (title + ' ' + body).toLocaleLowerCase());
-            article.innerHTML = '<div class="hrm-feed-head"><span class="hrm-avatar">HR</span><div class="hrm-feed-heading"><div><strong class="hrm-feed-author">Quản trị nhân sự</strong><span class="hrm-feed-time"> · Vừa xong</span></div><div class="hrm-feed-meta"><span class="hrm-badge hrm-badge-blue"></span><span class="hrm-feed-scope"></span></div></div></div><h2 class="hrm-feed-title"></h2><p class="hrm-feed-copy"></p><div class="hrm-feed-footer"><span><i class="material-icons">visibility</i> Bản xem trước trên giao diện</span></div>';
-            article.querySelector('.hrm-badge').textContent = category;
-            article.querySelector('.hrm-feed-scope').textContent = scope;
-            article.querySelector('.hrm-feed-title').textContent = title;
-            article.querySelector('.hrm-feed-copy').textContent = body;
-            if (pinned) {
-                var pin = document.createElement('span');
-                pin.className = 'hrm-badge hrm-badge-warning';
-                pin.textContent = 'Đã ghim';
-                article.querySelector('.hrm-feed-meta').appendChild(pin);
-            }
-            feed.insertBefore(article, feed.firstChild);
-            $('#communicationModal').modal('hide');
-            form.reset();
-        });
-        document.getElementById('communicationFilter').addEventListener('click', function () {
-            var keyword = document.getElementById('communicationSearch').value.toLocaleLowerCase().trim();
-            var category = document.getElementById('communicationCategoryFilter').value;
-            var articles = document.querySelectorAll('.hrm-feed-item');
-            for (var i = 0; i < articles.length; i++) {
-                var matches = (!keyword || articles[i].getAttribute('data-search').indexOf(keyword) >= 0) && (!category || articles[i].getAttribute('data-category') === category);
-                articles[i].style.display = matches ? '' : 'none';
-            }
-        });
-    })();
-</script>
 <script>
 (function(){
-    $('.internal_communications').addClass('active');
-    function esc(v){return $('<div>').text(v==null?'':v).html();}
-    function scope(v){return v==='ALL'?'Toàn công ty':v==='MANAGER'?'Cấp quản lý':'Phòng ban';}
-    function attachmentMarkup(x){
-        if(!x.AttachmentName)return '';
-        var url='@Url.Action("CommunicationAttachment","Hrm")?id='+x.Id;
-        var image=x.AttachmentContentType&&x.AttachmentContentType.indexOf('image/')===0
-            ?'<a class="hrm-feed-image-link" href="'+url+'" target="_blank" rel="noopener"><img class="hrm-feed-image" src="'+url+'" alt="'+esc(x.AttachmentName||x.Title)+'" loading="lazy" /></a>':'';
-        return image+'<div class="communication-attachment"><i class="material-icons">attach_file</i><span><strong>'+esc(x.AttachmentName)+'</strong><small>'+esc(x.AttachmentContentType||'Tệp đính kèm')+'</small></span><a class="hrm-btn" href="'+url+'&download=true"><i class="material-icons">download</i> Tải xuống</a></div>';
-    }
-    function load(){
-        var query={keyword:$('#communicationSearch').val(),category:$('#communicationCategoryFilter').val()};
-        $.get('@Url.Action("Communications","Hrm")',query).done(function(r){
-            var items=r.Data||[];
-            if(!items.length){$('#communicationFeed').html('<div class="hrm-empty"><i class="material-icons">forum</i><strong>Chưa có bài đăng nội bộ</strong></div>');return;}
-            $('#communicationFeed').html(items.map(function(x){return '<article class="hrm-feed-item"><div class="hrm-feed-head"><span class="hrm-avatar">TT</span><div class="hrm-feed-heading"><div><strong class="hrm-feed-author">'+esc(x.AuthorName)+'</strong><span class="hrm-feed-time"> · '+moment(x.PublishedAt).format('DD/MM/YYYY HH:mm')+'</span></div><div class="hrm-feed-meta"><span class="hrm-badge hrm-badge-blue">'+esc(x.Category)+'</span><span class="hrm-feed-scope">'+scope(x.ScopeCode)+'</span>'+(x.IsPinned?'<span class="hrm-badge hrm-badge-warning">Đã ghim</span>':'')+'</div></div></div><h2 class="hrm-feed-title">'+esc(x.Title)+'</h2><p class="hrm-feed-copy">'+esc(x.Body)+'</p>'+attachmentMarkup(x)+'</article>';}).join(''));
-        }).fail(function(){$('#communicationFeed').html('<div class="alert alert-danger">Không thể tải bảng tin. Vui lòng thử lại.</div>');});
-    }
-    function resetAttachment(){var input=document.getElementById('communicationAttachment'),preview=document.getElementById('communicationImagePreview'),info=document.getElementById('communicationFileInfo');if(preview.src)URL.revokeObjectURL(preview.src);input.value='';preview.hidden=true;preview.removeAttribute('src');info.hidden=true;info.querySelector('span').textContent='';}
-    $('#communicationAttachment').on('change',function(){var file=this.files[0],preview=document.getElementById('communicationImagePreview'),info=document.getElementById('communicationFileInfo');if(preview.src)URL.revokeObjectURL(preview.src);preview.hidden=true;preview.removeAttribute('src');if(!file){info.hidden=true;return;}if(file.size>10*1024*1024){alert('Tệp đính kèm không được vượt quá 10 MB.');resetAttachment();return;}info.querySelector('span').textContent=file.name+' · '+(file.size<1024?file.size+' B':file.size<1048576?(file.size/1024).toFixed(1)+' KB':(file.size/1048576).toFixed(1)+' MB');info.hidden=false;if(file.type.indexOf('image/')===0){preview.src=URL.createObjectURL(file);preview.hidden=false;}});
-    $('#communicationFileInfo button').on('click',resetAttachment);
-    $('#communicationForm').on('submit',function(e){e.preventDefault();var button=$('[type="submit"][form="communicationForm"]'),data=new FormData(this);data.append('Category',$('#communicationCategory').val());data.append('ScopeCode',$('#communicationScope').val());data.append('Title',$('#communicationTitle').val());data.append('Body',$('#communicationBody').val());data.append('IsPinned',$('#communicationPinned').is(':checked'));button.prop('disabled',true).text('Đang đăng…');$.ajax({url:'@Url.Action("CreateCommunication","Hrm")',method:'POST',data:data,processData:false,contentType:false}).done(function(){$('#communicationModal').modal('hide');$('#communicationForm')[0].reset();resetAttachment();load();}).fail(function(x){alert((x.responseJSON&&x.responseJSON.Message)||'Không thể đăng thông báo.');}).always(function(){button.prop('disabled',false).text('Đăng bài');});});
-    $('#communicationFilter').off('click').on('click',load);load();
+ var mod=@moderate.ToString().ToLowerInvariant(),tab='feed',category='',timer,token=$('#postForm input[name="__RequestVerificationToken"]').val();
+ function e(v){return $('<div>').text(v==null?'':v).html()} function ini(v){return e((v||'NV').trim().split(/\s+/).slice(-2).map(x=>x[0]).join('').toUpperCase())} function sc(v){return v==='ALL'?'Toàn công ty':v==='MANAGER'?'Nhóm quản lý':'Phòng ban'} function sl(v){return v==='PENDING'?'Chờ duyệt':v==='REJECTED'?'Đã từ chối':'Đã đăng'}
+ function note(v,bad){$('#notice').toggleClass('bad',!!bad).text(v).prop('hidden',false);setTimeout(()=>$('#notice').prop('hidden',true),4000)}
+ function file(x){if(!x.AttachmentName)return'';var url='@Url.Action("CommunicationAttachment","Hrm")?id='+x.Id,img=(x.AttachmentContentType||'').startsWith('image/')?'<a href="'+url+'" target="_blank"><img class="post-image" src="'+url+'" loading="lazy"></a>':'';return img+'<a class="post-file" href="'+url+'&download=true"><i class="material-icons">description</i><span>'+e(x.AttachmentName)+'</span><i class="material-icons">download</i></a>'}
+ function comments(x){return '<div class="comments">'+(x.Comments||[]).map(c=>'<div class="comment"><span class="avatar">'+ini(c.AuthorName)+'</span><div><b>'+e(c.AuthorName)+'</b><p>'+e(c.Body)+'</p><small>'+moment(c.CreatedAt).fromNow()+'</small></div></div>').join('')+'</div><form class="comment-form" data-id="'+x.Id+'"><input maxlength="1500" required placeholder="Viết bình luận..."><button><i class="material-icons">send</i></button></form>'}
+ function card(x){var published=x.StatusCode==='PUBLISHED',actions=mod&&x.StatusCode==='PENDING'?'<div class="review"><button class="approve hrm-btn" data-id="'+x.Id+'">Duyệt đăng</button><button class="reject hrm-btn" data-id="'+x.Id+'">Từ chối</button></div>':'';return '<article class="hrm-card post"><header><span class="avatar">'+ini(x.AuthorName)+'</span><div><b>'+e(x.AuthorName)+'</b><small>'+moment(x.SubmittedAt||x.PublishedAt).format('DD/MM/YYYY HH:mm')+' · '+sc(x.ScopeCode)+'</small></div><em class="'+(x.StatusCode||'').toLowerCase()+'">'+sl(x.StatusCode)+'</em></header><label>'+e(x.Category)+'</label><h2>'+e(x.Title)+'</h2><p>'+e(x.Body).replace(/\n/g,'<br>')+'</p>'+file(x)+(x.ReviewNote?'<div class="reason"><b>Lý do:</b> '+e(x.ReviewNote)+'</div>':'')+actions+(published?'<div class="counts"><span><b class="likes">'+(x.LikeCount||0)+'</b> lượt thích</span><span><b>'+(x.CommentCount||0)+'</b> bình luận</span></div><div class="interact"><button class="like '+(x.LikedByCurrentUser?'active':'')+'" data-id="'+x.Id+'"><i class="material-icons">thumb_up</i>Thích</button><button class="focus-comment"><i class="material-icons">chat_bubble_outline</i>Bình luận</button></div>'+comments(x):'')+'</article>'}
+ function load(){var status=tab==='feed'?'PUBLISHED':tab==='pending'?'PENDING':'';$('#feed').html('<div class="hrm-card hrm-empty">Đang tải…</div>');$.get('@Url.Action("Communications","Hrm")',{keyword:$('.search').first().val()||'',category:category,status:status}).done(r=>{var a=r.Data||[];if(tab==='mine')a=a.filter(x=>x.IsMine);if(tab==='pending')$('#pendingCount').text(a.length);$('#feed').html(a.length?a.map(card).join(''):'<div class="hrm-card hrm-empty"><i class="material-icons">dynamic_feed</i><strong>Chưa có bài viết phù hợp</strong></div>')}).fail(x=>$('#feed').html('<div class="hrm-card alert alert-danger">'+e(x.responseJSON?.Message||'Không thể tải bảng tin.')+'</div>'))}
+ function send(url,data){data.__RequestVerificationToken=token;return $.post(url,data)}
+ $('#newPost').click(()=>{$('#composer').prop('hidden',false);$('#title').focus()});$('#closePost').click(()=>$('#composer').prop('hidden',true));$('.wall-tabs button').click(function(){$('.wall-tabs button').removeClass('active');$(this).addClass('active');tab=$(this).data('tab');load()});$('#categories button').click(function(){$('#categories button').removeClass('active');$(this).addClass('active');category=$(this).data('category');load()});$('.search').on('input',function(){$('.search').val(this.value);clearTimeout(timer);timer=setTimeout(load,350)});
+ function resetFile(){var p=document.getElementById('preview');if(p.src)URL.revokeObjectURL(p.src);$('#attachment').val('');p.hidden=true;p.removeAttribute('src');$('#fileInfo').prop('hidden',true)} $('#attachment').change(function(){var f=this.files[0],p=document.getElementById('preview');if(!f)return resetFile();if(f.size>10485760){note('Tệp vượt quá 10 MB.',true);return resetFile()}$('#fileInfo').prop('hidden',false).find('span').text(f.name);if(f.type.startsWith('image/')){p.src=URL.createObjectURL(f);p.hidden=false}});$('#fileInfo button').click(resetFile);
+ $('#postForm').submit(function(ev){ev.preventDefault();var d=new FormData(this),btn=$(this).find('[type=submit]');d.append('Category',$('#cat').val());d.append('ScopeCode',$('#scope').val());d.append('Title',$('#title').val());d.append('Body',$('#body').val());d.append('IsPinned',$('#pinned').is(':checked'));btn.prop('disabled',true);$.ajax({url:'@Url.Action("CreateCommunication","Hrm")',method:'POST',data:d,processData:false,contentType:false}).done(r=>{var pending=r.Data?.StatusCode==='PENDING';note(pending?'Đã gửi bài và đang chờ duyệt.':'Đã đăng bài viết.');this.reset();resetFile();$('#composer').prop('hidden',true);tab=pending?'mine':'feed';$('.wall-tabs button[data-tab="'+tab+'"]').trigger('click')}).fail(x=>note(x.responseJSON?.Message||'Không thể gửi bài.',true)).always(()=>btn.prop('disabled',false))});
+ $('#feed').on('click','.like',function(){var b=$(this);send('@Url.Action("ToggleCommunicationReaction","Hrm")',{Id:b.data('id')}).done(r=>{b.toggleClass('active',r.Data.Liked);b.closest('.post').find('.likes').text(r.Data.Count)})}).on('click','.focus-comment',function(){$(this).closest('.post').find('.comment-form input').focus()}).on('click','.approve',function(){send('@Url.Action("ModerateCommunication","Hrm")',{Id:$(this).data('id'),Approve:true}).done(()=>{note('Đã duyệt bài.');load()})}).on('click','.reject',function(){var id=$(this).data('id'),n=prompt('Lý do từ chối:');if(n!==null)send('@Url.Action("ModerateCommunication","Hrm")',{Id:id,Approve:false,Note:n}).done(()=>{note('Đã từ chối bài.');load()})}).on('submit','.comment-form',function(ev){ev.preventDefault();var f=$(this),i=f.find('input');send('@Url.Action("AddCommunicationComment","Hrm")',{Id:f.data('id'),Body:i.val()}).done(()=>{i.val('');load()}).fail(x=>note(x.responseJSON?.Message||'Không thể bình luận.',true))});
+ $.get('@Url.Action("Communications","Hrm")',{status:'PENDING'}).done(r=>$('#pendingCount').text((r.Data||[]).length));load();
 })();
 </script>
 <style>
-    .communication-image-preview{display:block;max-width:100%;max-height:220px;margin-top:10px;border-radius:10px;object-fit:contain;background:#f3f6fa}.communication-image-preview[hidden],.communication-file-info[hidden]{display:none}.communication-file-info,.communication-attachment{display:flex;align-items:center;gap:10px;margin-top:10px;padding:10px 12px;border:1px solid #dce5f0;border-radius:10px;background:#f7faff}.communication-file-info>span,.communication-attachment>span{min-width:0;flex:1;overflow-wrap:anywhere}.communication-file-info>button{border:0;background:transparent;color:#64748b}.communication-attachment small{display:block;color:#718096;margin-top:2px}.communication-attachment .hrm-btn{white-space:nowrap}.hrm-feed-image{display:block;width:100%;max-height:520px;margin-top:16px;border-radius:12px;object-fit:contain;background:#f3f6fa;border:1px solid #e5eaf1}.hrm-feed-image-link{display:block}
+.wall{max-width:1500px}.wall-grid{display:grid;grid-template-columns:210px minmax(430px,720px) minmax(230px,300px);gap:16px;justify-content:center;align-items:start}.wall-grid>aside{position:sticky;top:74px}.wall-user{padding:20px;text-align:center}.wall-user b,.wall-user small{display:block}.wall-user small{color:#718096;margin-top:4px}.wall-tabs{padding:8px;margin-top:12px}.wall-tabs button{display:flex;width:100%;align-items:center;gap:9px;padding:11px;border:0;border-radius:9px;background:none;color:#475467;text-align:left}.wall-tabs button.active,.wall-tabs button:hover{color:#1769e0;background:#eaf2ff}.wall-tabs i{font-size:20px}.wall-tabs b{margin-left:auto}.wall-grid main,.feed{display:grid;gap:14px}.composer{padding:18px}.composer[hidden],.file-info[hidden],.preview[hidden],.notice[hidden]{display:none}.composer header{display:flex;justify-content:space-between}.composer header button,.file-info button{border:0;background:none}.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}.form-grid label{font-size:12px;font-weight:700}.post-title,.composer textarea{width:100%;border:0;border-bottom:1px solid #e2e8f0;outline:0}.post-title{padding:16px 2px 10px;font-size:18px;font-weight:700}.composer textarea{min-height:110px;padding:12px 2px;resize:vertical}.composer footer{display:flex;align-items:center;gap:12px;margin-top:12px}.composer footer>.hrm-btn{margin-left:auto}.attach{display:flex;gap:6px;align-items:center;color:#16824f;cursor:pointer}.attach input{display:none}.file-info,.post-file{display:flex;gap:9px;align-items:center;padding:10px;border:1px solid #dce5f0;border-radius:9px;background:#f7faff}.file-info span,.post-file span{flex:1}.preview,.post-image{display:block;width:100%;max-height:540px;margin-top:12px;border-radius:12px;object-fit:contain;background:#f3f6fa}.post{padding:18px}.post header{display:flex;gap:10px;align-items:center}.avatar{display:inline-grid;width:40px;height:40px;flex:0 0 40px;place-items:center;border-radius:50%;background:#438ced;color:#fff;font-size:11px;font-weight:700}.post header>div{flex:1}.post header b,.post header small{display:block}.post header small{color:#718096}.post header em{padding:5px 9px;border-radius:14px;background:#eaf8ef;color:#16824f;font-size:11px;font-style:normal}.post header em.pending{background:#fff5df;color:#946200}.post header em.rejected{background:#ffebec;color:#b4232a}.post>label{display:inline-block;margin-top:13px;color:#1769e0;font-size:12px}.post h2{margin:6px 0 8px;font-size:19px}.post>p{line-height:1.6;overflow-wrap:anywhere}.post-file{margin-top:10px;text-decoration:none}.counts{display:flex;justify-content:space-between;margin-top:12px;padding:9px 0;border-bottom:1px solid #edf0f4;color:#667085;font-size:12px}.interact{display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid #edf0f4}.interact button{padding:10px;border:0;background:none;color:#667085}.interact button.active,.interact button:hover{color:#1769e0;background:#f5f8fd}.interact i{font-size:18px;vertical-align:middle;margin-right:6px}.comments{display:grid;gap:9px;margin-top:12px}.comment{display:flex;gap:8px}.comment .avatar{width:30px;height:30px;flex-basis:30px}.comment>div{padding:8px 11px;border-radius:5px 14px 14px;background:#f1f4f8}.comment p{margin:2px 0}.comment small{color:#8491a3}.comment-form{display:flex;gap:8px;margin-top:10px}.comment-form input{flex:1;min-width:0;padding:9px 13px;border:1px solid #dde4ed;border-radius:20px}.comment-form button{width:36px;border:0;border-radius:50%;background:#1769e0;color:#fff}.review{display:flex;gap:8px;margin-top:12px;padding:11px;background:#fff8e8;border-radius:9px}.review .approve{background:#159455;color:#fff}.reason{padding:10px;background:#fff0f0;color:#963737}.filters{padding:16px}.filters h2{font-size:15px}.filters h3{font-size:12px;color:#667085;text-transform:uppercase}.filters input{margin-bottom:16px}.filters button{padding:7px 10px;margin:3px;border:1px solid #e0e6ee;border-radius:15px;background:#fff}.filters button.active{color:#1769e0;background:#eaf2ff}.notice{position:fixed;z-index:1100;right:20px;top:70px;padding:12px 16px;border-radius:8px;background:#159455;color:#fff}.notice.bad{background:#c83b45}.mobile-search{display:none;padding:10px}@@media(max-width:1180px){.wall-grid{grid-template-columns:190px minmax(430px,1fr)}.wall-grid>.right{display:none}}@@media(max-width:900px){.wall-grid{grid-template-columns:1fr}.wall-grid>aside{position:static}.wall-user{display:none}.wall-tabs{display:grid;grid-template-columns:repeat(3,1fr)}.wall-tabs button{justify-content:center}.wall-tabs i{display:none}.mobile-search{display:block}}@@media(max-width:600px){.form-grid{grid-template-columns:1fr}.composer footer{flex-wrap:wrap}.composer footer>.hrm-btn{width:100%;margin:0}.post{padding:14px}}
 </style>

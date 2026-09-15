@@ -210,6 +210,59 @@ IF COL_LENGTH('dbo.HrmCommunication', 'AttachmentContent') IS NULL
     ALTER TABLE dbo.HrmCommunication ADD AttachmentContent VARBINARY(MAX) NULL;
 GO
 
+IF COL_LENGTH('dbo.HrmCommunication', 'StatusCode') IS NULL
+BEGIN
+    ALTER TABLE dbo.HrmCommunication ADD StatusCode NVARCHAR(20) NULL;
+    UPDATE dbo.HrmCommunication SET StatusCode=CASE WHEN IsPublished=1 THEN 'PUBLISHED' ELSE 'PENDING' END WHERE StatusCode IS NULL;
+END;
+GO
+IF COL_LENGTH('dbo.HrmCommunication', 'SubmittedAt') IS NULL
+    ALTER TABLE dbo.HrmCommunication ADD SubmittedAt DATETIME2 NULL;
+GO
+IF COL_LENGTH('dbo.HrmCommunication', 'ApprovedByUserId') IS NULL
+    ALTER TABLE dbo.HrmCommunication ADD ApprovedByUserId INT NULL;
+GO
+IF COL_LENGTH('dbo.HrmCommunication', 'ReviewedAt') IS NULL
+    ALTER TABLE dbo.HrmCommunication ADD ReviewedAt DATETIME2 NULL;
+GO
+IF COL_LENGTH('dbo.HrmCommunication', 'ReviewNote') IS NULL
+    ALTER TABLE dbo.HrmCommunication ADD ReviewNote NVARCHAR(1000) NULL;
+GO
+UPDATE dbo.HrmCommunication SET StatusCode=CASE WHEN IsPublished=1 THEN 'PUBLISHED' ELSE 'PENDING' END WHERE StatusCode IS NULL;
+UPDATE dbo.HrmCommunication SET SubmittedAt=PublishedAt WHERE SubmittedAt IS NULL;
+GO
+
+IF OBJECT_ID('dbo.HrmCommunicationReaction', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.HrmCommunicationReaction (
+        Id INT IDENTITY(1,1) NOT NULL CONSTRAINT PK_HrmCommunicationReaction PRIMARY KEY,
+        CommunicationId INT NOT NULL,
+        UserId INT NOT NULL,
+        ReactionCode NVARCHAR(20) NOT NULL CONSTRAINT DF_HrmCommunicationReaction_Code DEFAULT ('LIKE'),
+        CreatedAt DATETIME2 NOT NULL CONSTRAINT DF_HrmCommunicationReaction_Created DEFAULT (SYSDATETIME()),
+        CONSTRAINT FK_HrmCommunicationReaction_Post FOREIGN KEY (CommunicationId) REFERENCES dbo.HrmCommunication(Id),
+        CONSTRAINT FK_HrmCommunicationReaction_User FOREIGN KEY (UserId) REFERENCES dbo.HrmUserAccount(Id),
+        CONSTRAINT UQ_HrmCommunicationReaction_PostUser UNIQUE (CommunicationId, UserId)
+    );
+END;
+GO
+
+IF OBJECT_ID('dbo.HrmCommunicationComment', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.HrmCommunicationComment (
+        Id INT IDENTITY(1,1) NOT NULL CONSTRAINT PK_HrmCommunicationComment PRIMARY KEY,
+        CommunicationId INT NOT NULL,
+        AuthorUserId INT NOT NULL,
+        Body NVARCHAR(1500) NOT NULL,
+        IsDeleted BIT NOT NULL CONSTRAINT DF_HrmCommunicationComment_Deleted DEFAULT (0),
+        CreatedAt DATETIME2 NOT NULL CONSTRAINT DF_HrmCommunicationComment_Created DEFAULT (SYSDATETIME()),
+        CONSTRAINT FK_HrmCommunicationComment_Post FOREIGN KEY (CommunicationId) REFERENCES dbo.HrmCommunication(Id),
+        CONSTRAINT FK_HrmCommunicationComment_Author FOREIGN KEY (AuthorUserId) REFERENCES dbo.HrmUserAccount(Id)
+    );
+    CREATE INDEX IX_HrmCommunicationComment_Post ON dbo.HrmCommunicationComment(CommunicationId, CreatedAt);
+END;
+GO
+
 IF OBJECT_ID('dbo.HrmHanetSettings', 'U') IS NULL
 BEGIN
     CREATE TABLE dbo.HrmHanetSettings (

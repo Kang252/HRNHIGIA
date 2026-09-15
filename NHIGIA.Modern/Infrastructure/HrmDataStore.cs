@@ -442,37 +442,114 @@ namespace NHIGIA.Modern.Infrastructure
             return ids.Count;
         }
 
-        public IList<CommunicationModel> GetCommunications(HrmUserAccountModel actor, string keyword, string category, int take = 100)
+        public IList<CommunicationModel> GetCommunications(HrmUserAccountModel actor, string keyword, string category, string status = "", int take = 100)
         {
             const string sql = @"SELECT TOP (@Take) c.Id, c.AuthorUserId, u.DisplayName AuthorName, c.Category, c.ScopeCode,
-                c.DepartmentId, c.Title, c.Body, c.AttachmentName, c.AttachmentContentType, c.IsPinned, c.PublishedAt
+                c.DepartmentId, c.Title, c.Body, c.AttachmentName, c.AttachmentContentType, c.IsPinned,
+                COALESCE(c.StatusCode, CASE WHEN c.IsPublished=1 THEN 'PUBLISHED' ELSE 'PENDING' END) StatusCode,
+                c.ApprovedByUserId, approver.DisplayName ApprovedByName, c.ReviewNote,
+                COALESCE(c.SubmittedAt,c.PublishedAt) SubmittedAt, c.PublishedAt,
+                (SELECT COUNT(1) FROM dbo.HrmCommunicationReaction r WHERE r.CommunicationId=c.Id) LikeCount,
+                (SELECT COUNT(1) FROM dbo.HrmCommunicationComment m WHERE m.CommunicationId=c.Id AND m.IsDeleted=0) CommentCount,
+                CAST(CASE WHEN EXISTS(SELECT 1 FROM dbo.HrmCommunicationReaction r WHERE r.CommunicationId=c.Id AND r.UserId=@ActorId) THEN 1 ELSE 0 END AS BIT) LikedByCurrentUser,
+                CAST(CASE WHEN c.AuthorUserId=@ActorId THEN 1 ELSE 0 END AS BIT) IsMine
                 FROM dbo.HrmCommunication c INNER JOIN dbo.HrmUserAccount u ON u.Id=c.AuthorUserId
-                WHERE c.IsPublished=1
-                  AND (c.ScopeCode='ALL' OR (c.ScopeCode='DEPARTMENT' AND c.DepartmentId=@DepartmentId)
-                    OR (c.ScopeCode='MANAGER' AND @IsManager=1) OR c.AuthorUserId=@ActorId)
+                LEFT JOIN dbo.HrmUserAccount approver ON approver.Id=c.ApprovedByUserId
+                WHERE (
+                    (c.IsPublished=1 AND (c.ScopeCode='ALL' OR (c.ScopeCode='DEPARTMENT' AND c.DepartmentId=@DepartmentId)
+                        OR (c.ScopeCode='MANAGER' AND @IsManager=1)))
+                    OR c.AuthorUserId=@ActorId
+                    OR (@CanModerate=1 AND COALESCE(c.StatusCode,CASE WHEN c.IsPublished=1 THEN 'PUBLISHED' ELSE 'PENDING' END)='PENDING')
+                  )
+                  AND (@Status='' OR COALESCE(c.StatusCode,CASE WHEN c.IsPublished=1 THEN 'PUBLISHED' ELSE 'PENDING' END)=@Status)
                   AND (@Keyword='' OR c.Title LIKE '%' + @Keyword + '%' OR c.Body LIKE '%' + @Keyword + '%')
                   AND (@Category='' OR c.Category=@Category)
-                ORDER BY c.IsPinned DESC, c.PublishedAt DESC";
+                ORDER BY CASE WHEN COALESCE(c.StatusCode,'PUBLISHED')='PENDING' THEN 0 ELSE 1 END,
+                    c.IsPinned DESC, COALESCE(c.SubmittedAt,c.PublishedAt) DESC";
             var isManager = actor.RoleCode == HrmRoles.Manager || actor.RoleCode == HrmRoles.Hr || actor.RoleCode == HrmRoles.Director || actor.RoleCode == HrmRoles.Admin;
-            using (var connection = OpenConnection()) return connection.Query<CommunicationModel>(sql, new { Take = take, actor.DepartmentId, IsManager = isManager, ActorId = actor.Id, Keyword = keyword ?? string.Empty, Category = category ?? string.Empty }).ToList();
+            var canModerate = actor.RoleCode is HrmRoles.Admin or HrmRoles.Hr or HrmRoles.Director;
+            using var connection = OpenConnection();
+            var posts = connection.Query<CommunicationModel>(sql, new { Take = take, actor.DepartmentId, IsManager = isManager, CanModerate = canModerate, ActorId = actor.Id, Keyword = keyword ?? string.Empty, Category = category ?? string.Empty, Status = (status ?? string.Empty).ToUpperInvariant() }).ToList();
+            var ids = posts.Where(x => x.StatusCode == "PUBLISHED").Select(x => x.Id).ToArray();
+            if (ids.Length > 0)
+            {
+                const string commentSql = @"SELECT m.Id, m.CommunicationId, m.AuthorUserId, u.DisplayName AuthorName, m.Body, m.CreatedAt,
+                    CAST(CASE WHEN m.AuthorUserId=@ActorId THEN 1 ELSE 0 END AS BIT) IsMine
+                    FROM dbo.HrmCommunicationComment m INNER JOIN dbo.HrmUserAccount u ON u.Id=m.AuthorUserId
+                    WHERE m.IsDeleted=0 AND m.CommunicationId IN @Ids ORDER BY m.CreatedAt";
+                var comments = connection.Query<CommunicationCommentModel>(commentSql, new { Ids = ids, ActorId = actor.Id }).ToLookup(x => x.CommunicationId);
+                foreach (var post in posts) post.Comments = comments[post.Id].ToList();
+            }
+            return posts;
         }
 
         public CommunicationModel CreateCommunication(CreateCommunicationRequest request, HrmUserAccountModel actor, string ipAddress)
         {
             var scope = (request.ScopeCode ?? "DEPARTMENT").ToUpperInvariant();
             var departmentId = scope == "DEPARTMENT" ? actor.DepartmentId : null;
-            const string sql = @"INSERT dbo.HrmCommunication(AuthorUserId, Category, ScopeCode, DepartmentId, Title, Body, AttachmentName, AttachmentContentType, AttachmentContent, IsPinned)
-                VALUES(@AuthorUserId, @Category, @ScopeCode, @DepartmentId, @Title, @Body, @AttachmentName, @AttachmentContentType, @AttachmentContent, @IsPinned);
+            var publishImmediately = actor.RoleCode is HrmRoles.Admin or HrmRoles.Hr or HrmRoles.Director;
+            const string sql = @"INSERT dbo.HrmCommunication(AuthorUserId, Category, ScopeCode, DepartmentId, Title, Body, AttachmentName, AttachmentContentType, AttachmentContent, IsPinned, IsPublished, StatusCode, SubmittedAt, ApprovedByUserId, ReviewedAt)
+                VALUES(@AuthorUserId, @Category, @ScopeCode, @DepartmentId, @Title, @Body, @AttachmentName, @AttachmentContentType, @AttachmentContent, @IsPinned, @IsPublished, @StatusCode, SYSDATETIME(), @ApprovedByUserId, @ReviewedAt);
                 DECLARE @Id INT=CAST(SCOPE_IDENTITY() AS INT);
                 SELECT c.Id, c.AuthorUserId, u.DisplayName AuthorName, c.Category, c.ScopeCode, c.DepartmentId,
-                    c.Title, c.Body, c.AttachmentName, c.AttachmentContentType, c.IsPinned, c.PublishedAt
+                    c.Title, c.Body, c.AttachmentName, c.AttachmentContentType, c.IsPinned, c.StatusCode,
+                    c.SubmittedAt, c.PublishedAt, CAST(1 AS BIT) IsMine
                 FROM dbo.HrmCommunication c INNER JOIN dbo.HrmUserAccount u ON u.Id=c.AuthorUserId WHERE c.Id=@Id;";
             using (var connection = OpenConnection())
             {
-                var result = connection.QuerySingle<CommunicationModel>(sql, new { AuthorUserId = actor.Id, request.Category, ScopeCode = scope, DepartmentId = departmentId, request.Title, request.Body, request.AttachmentName, request.AttachmentContentType, request.AttachmentContent, request.IsPinned });
-                AddAudit(connection, actor.Id, "PUBLISH", "HrmCommunication", result.Id.ToString(), result.Title, ipAddress);
+                var result = connection.QuerySingle<CommunicationModel>(sql, new { AuthorUserId = actor.Id, request.Category, ScopeCode = scope, DepartmentId = departmentId, request.Title, request.Body, request.AttachmentName, request.AttachmentContentType, request.AttachmentContent, IsPinned = publishImmediately && request.IsPinned, IsPublished = publishImmediately, StatusCode = publishImmediately ? "PUBLISHED" : "PENDING", ApprovedByUserId = publishImmediately ? actor.Id : (int?)null, ReviewedAt = publishImmediately ? DateTime.Now : (DateTime?)null });
+                AddAudit(connection, actor.Id, publishImmediately ? "PUBLISH" : "SUBMIT", "HrmCommunication", result.Id.ToString(), result.Title, ipAddress);
                 return result;
             }
+        }
+
+        public bool ModerateCommunication(ModerateCommunicationRequest request, HrmUserAccountModel actor, string ipAddress)
+        {
+            if (actor.RoleCode is not (HrmRoles.Admin or HrmRoles.Hr or HrmRoles.Director)) return false;
+            const string sql = @"UPDATE dbo.HrmCommunication SET StatusCode=@StatusCode, IsPublished=@IsPublished,
+                    ApprovedByUserId=@ActorId, ReviewedAt=SYSDATETIME(), ReviewNote=@Note,
+                    PublishedAt=CASE WHEN @IsPublished=1 THEN SYSDATETIME() ELSE PublishedAt END
+                WHERE Id=@Id AND COALESCE(StatusCode,CASE WHEN IsPublished=1 THEN 'PUBLISHED' ELSE 'PENDING' END)='PENDING';";
+            using var connection = OpenConnection();
+            var changed = connection.Execute(sql, new { request.Id, StatusCode = request.Approve ? "PUBLISHED" : "REJECTED", IsPublished = request.Approve, ActorId = actor.Id, Note = string.IsNullOrWhiteSpace(request.Note) ? null : request.Note.Trim() }) == 1;
+            if (changed) AddAudit(connection, actor.Id, request.Approve ? "APPROVE" : "REJECT", "HrmCommunication", request.Id.ToString(), request.Note, ipAddress);
+            return changed;
+        }
+
+        public object ToggleCommunicationReaction(int id, HrmUserAccountModel actor, string ipAddress)
+        {
+            using var connection = OpenConnection();
+            using var transaction = connection.BeginTransaction();
+            const string visibleSql = @"SELECT COUNT(1) FROM dbo.HrmCommunication c WHERE c.Id=@Id AND c.IsPublished=1
+                AND (c.ScopeCode='ALL' OR (c.ScopeCode='DEPARTMENT' AND c.DepartmentId=@DepartmentId)
+                    OR (c.ScopeCode='MANAGER' AND @IsManager=1) OR c.AuthorUserId=@ActorId)";
+            var isManager = actor.RoleCode is HrmRoles.Manager or HrmRoles.Hr or HrmRoles.Director or HrmRoles.Admin;
+            if (connection.ExecuteScalar<int>(visibleSql, new { Id = id, actor.DepartmentId, IsManager = isManager, ActorId = actor.Id }, transaction) == 0) throw new InvalidOperationException("Bài đăng không tồn tại hoặc chưa được xuất bản.");
+            var liked = connection.ExecuteScalar<int>("SELECT COUNT(1) FROM dbo.HrmCommunicationReaction WHERE CommunicationId=@Id AND UserId=@UserId", new { Id = id, UserId = actor.Id }, transaction) > 0;
+            if (liked) connection.Execute("DELETE dbo.HrmCommunicationReaction WHERE CommunicationId=@Id AND UserId=@UserId", new { Id = id, UserId = actor.Id }, transaction);
+            else connection.Execute("INSERT dbo.HrmCommunicationReaction(CommunicationId,UserId) VALUES(@Id,@UserId)", new { Id = id, UserId = actor.Id }, transaction);
+            var count = connection.ExecuteScalar<int>("SELECT COUNT(1) FROM dbo.HrmCommunicationReaction WHERE CommunicationId=@Id", new { Id = id }, transaction);
+            transaction.Commit();
+            return new { Liked = !liked, Count = count };
+        }
+
+        public CommunicationCommentModel AddCommunicationComment(int id, string body, HrmUserAccountModel actor, string ipAddress)
+        {
+            const string sql = @"IF EXISTS(SELECT 1 FROM dbo.HrmCommunication c WHERE c.Id=@CommunicationId AND c.IsPublished=1
+                    AND (c.ScopeCode='ALL' OR (c.ScopeCode='DEPARTMENT' AND c.DepartmentId=@DepartmentId)
+                        OR (c.ScopeCode='MANAGER' AND @IsManager=1) OR c.AuthorUserId=@AuthorUserId))
+                BEGIN
+                    INSERT dbo.HrmCommunicationComment(CommunicationId,AuthorUserId,Body) VALUES(@CommunicationId,@AuthorUserId,@Body);
+                    DECLARE @Id INT=CAST(SCOPE_IDENTITY() AS INT);
+                    SELECT m.Id,m.CommunicationId,m.AuthorUserId,u.DisplayName AuthorName,m.Body,m.CreatedAt,CAST(1 AS BIT) IsMine
+                    FROM dbo.HrmCommunicationComment m INNER JOIN dbo.HrmUserAccount u ON u.Id=m.AuthorUserId WHERE m.Id=@Id;
+                END";
+            var isManager = actor.RoleCode is HrmRoles.Manager or HrmRoles.Hr or HrmRoles.Director or HrmRoles.Admin;
+            using var connection = OpenConnection();
+            var comment = connection.QuerySingleOrDefault<CommunicationCommentModel>(sql, new { CommunicationId = id, AuthorUserId = actor.Id, Body = body.Trim(), actor.DepartmentId, IsManager = isManager });
+            if (comment == null) throw new InvalidOperationException("Bài đăng không tồn tại hoặc chưa được xuất bản.");
+            AddAudit(connection, actor.Id, "COMMENT", "HrmCommunication", id.ToString(), body, ipAddress);
+            return comment;
         }
 
         public CommunicationAttachmentModel GetCommunicationAttachment(int id, HrmUserAccountModel actor)
@@ -480,13 +557,15 @@ namespace NHIGIA.Modern.Infrastructure
             const string sql = @"SELECT c.AttachmentName FileName, c.AttachmentContentType ContentType,
                     c.AttachmentContent Content
                 FROM dbo.HrmCommunication c
-                WHERE c.Id=@Id AND c.IsPublished=1 AND c.AttachmentContent IS NOT NULL
-                  AND (c.ScopeCode='ALL' OR (c.ScopeCode='DEPARTMENT' AND c.DepartmentId=@DepartmentId)
-                    OR (c.ScopeCode='MANAGER' AND @IsManager=1) OR c.AuthorUserId=@ActorId)";
+                WHERE c.Id=@Id AND c.AttachmentContent IS NOT NULL
+                  AND (c.AuthorUserId=@ActorId OR @CanModerate=1 OR (c.IsPublished=1 AND
+                    (c.ScopeCode='ALL' OR (c.ScopeCode='DEPARTMENT' AND c.DepartmentId=@DepartmentId)
+                     OR (c.ScopeCode='MANAGER' AND @IsManager=1))))";
             var isManager = actor.RoleCode is HrmRoles.Manager or HrmRoles.Hr or HrmRoles.Director or HrmRoles.Admin;
+            var canModerate = actor.RoleCode is HrmRoles.Admin or HrmRoles.Hr or HrmRoles.Director;
             using var connection = OpenConnection();
             return connection.QuerySingleOrDefault<CommunicationAttachmentModel>(sql,
-                new { Id = id, actor.DepartmentId, IsManager = isManager, ActorId = actor.Id });
+                new { Id = id, actor.DepartmentId, IsManager = isManager, CanModerate = canModerate, ActorId = actor.Id });
         }
 
         private class AttendanceProjection : AttendanceRecordModel
@@ -544,7 +623,7 @@ namespace NHIGIA.Modern.Infrastructure
         {
             var today = DateTime.Today;
             var attendance = GetAttendance(actor, today, today);
-            var communications = GetCommunications(actor, string.Empty, string.Empty, 3);
+            var communications = GetCommunications(actor, string.Empty, string.Empty, "PUBLISHED", 3);
             const string employeeSql = @"SELECT COUNT(1) FROM dbo.HrmUserAccount u WHERE u.IsActive=1 AND u.RoleCode<>'ADMIN'
                 AND (@CanSeeAll=1 OR u.Id=@ActorId OR (@IsManager=1 AND u.DepartmentId=@DepartmentId))";
             const string pendingSql = @"SELECT COUNT(1) FROM dbo.HrmLeaveRequest r INNER JOIN dbo.HrmUserAccount u ON u.Id=r.UserId

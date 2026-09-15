@@ -284,7 +284,17 @@ namespace NHIGIA.Modern.Models
         public string AttachmentName { get; set; }
         public string AttachmentContentType { get; set; }
         public bool IsPinned { get; set; }
+        public string StatusCode { get; set; }
+        public int? ApprovedByUserId { get; set; }
+        public string ApprovedByName { get; set; }
+        public string ReviewNote { get; set; }
+        public DateTime SubmittedAt { get; set; }
         public DateTime PublishedAt { get; set; }
+        public int LikeCount { get; set; }
+        public int CommentCount { get; set; }
+        public bool LikedByCurrentUser { get; set; }
+        public bool IsMine { get; set; }
+        public List<CommunicationCommentModel> Comments { get; set; } = new();
     }
 
     public class CreateCommunicationRequest
@@ -304,6 +314,30 @@ namespace NHIGIA.Modern.Models
         public string FileName { get; set; }
         public string ContentType { get; set; }
         public byte[] Content { get; set; }
+    }
+
+    public class CommunicationCommentModel
+    {
+        public int Id { get; set; }
+        public int CommunicationId { get; set; }
+        public int AuthorUserId { get; set; }
+        public string AuthorName { get; set; }
+        public string Body { get; set; }
+        public DateTime CreatedAt { get; set; }
+        public bool IsMine { get; set; }
+    }
+
+    public class ModerateCommunicationRequest
+    {
+        public int Id { get; set; }
+        public bool Approve { get; set; }
+        public string Note { get; set; }
+    }
+
+    public class CommunicationInteractionRequest
+    {
+        public int Id { get; set; }
+        public string Body { get; set; }
     }
 
     public class AttendanceRecordModel

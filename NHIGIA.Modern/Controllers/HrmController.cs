@@ -264,11 +264,10 @@ public sealed class HrmController : BaseController
     };
 
     [HttpGet]
-    public IActionResult Communications(string keyword = "", string category = "") =>
-        Execute(() => Store.GetCommunications(CurrentHrmUser, keyword, category));
+    public IActionResult Communications(string keyword = "", string category = "", string status = "") =>
+        Execute(() => Store.GetCommunications(CurrentHrmUser, keyword, category, status));
 
     [HttpPost, ValidateAntiForgeryToken]
-    [HrmAuthorize(HrmRoles.Admin, HrmRoles.Hr, HrmRoles.Director, HrmRoles.Manager)]
     [RequestSizeLimit(12 * 1024 * 1024)]
     public async Task<IActionResult> CreateCommunication(CreateCommunicationRequest request, IFormFile attachment)
     {
@@ -277,7 +276,10 @@ public sealed class HrmController : BaseController
             if (request == null || string.IsNullOrWhiteSpace(request.Title) || string.IsNullOrWhiteSpace(request.Body)) throw new InvalidOperationException("Vui lòng nhập tiêu đề và nội dung.");
             request.ScopeCode = (request.ScopeCode ?? "DEPARTMENT").ToUpperInvariant();
             if (!new[] { "ALL", "DEPARTMENT", "MANAGER" }.Contains(request.ScopeCode)) throw new InvalidOperationException("Phạm vi đăng tin không hợp lệ.");
-            if (request.ScopeCode == "ALL" && !HrmRoles.CanPublishCompanyWide(CurrentHrmUser.RoleCode)) throw new InvalidOperationException("Trưởng phòng chỉ được đăng trong phòng ban hoặc nhóm quản lý.");
+            var canPublishCompanyWide = HrmRoles.CanPublishCompanyWide(CurrentHrmUser.RoleCode);
+            var isManager = CurrentHrmUser.RoleCode == HrmRoles.Manager;
+            if (request.ScopeCode == "ALL" && !canPublishCompanyWide) throw new InvalidOperationException("Bạn chỉ được gửi bài trong phạm vi phòng ban.");
+            if (request.ScopeCode == "MANAGER" && !isManager && !canPublishCompanyWide) throw new InvalidOperationException("Bạn không có quyền gửi bài cho nhóm quản lý.");
             request.Category = string.IsNullOrWhiteSpace(request.Category) ? "Thông báo" : request.Category.Trim();
             if (attachment != null && attachment.Length > 0)
             {
@@ -302,6 +304,32 @@ public sealed class HrmController : BaseController
             return BadRequest(ApiResponse.Fail(exception.Message));
         }
     }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    [HrmAuthorize(HrmRoles.Admin, HrmRoles.Hr, HrmRoles.Director)]
+    public IActionResult ModerateCommunication(ModerateCommunicationRequest request) => Execute(() =>
+    {
+        if (request == null || request.Id <= 0) throw new InvalidOperationException("Bài đăng không hợp lệ.");
+        if (!Store.ModerateCommunication(request, CurrentHrmUser, ClientIp)) throw new InvalidOperationException("Bài đăng đã được xử lý hoặc không tồn tại.");
+        return new { request.Id, StatusCode = request.Approve ? "PUBLISHED" : "REJECTED" };
+    });
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public IActionResult ToggleCommunicationReaction(CommunicationInteractionRequest request) => Execute(() =>
+    {
+        if (request == null || request.Id <= 0) throw new InvalidOperationException("Bài đăng không hợp lệ.");
+        return Store.ToggleCommunicationReaction(request.Id, CurrentHrmUser, ClientIp);
+    });
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public IActionResult AddCommunicationComment(CommunicationInteractionRequest request) => Execute(() =>
+    {
+        if (request == null || request.Id <= 0) throw new InvalidOperationException("Bài đăng không hợp lệ.");
+        var body = (request.Body ?? string.Empty).Trim();
+        if (body.Length == 0) throw new InvalidOperationException("Vui lòng nhập nội dung bình luận.");
+        if (body.Length > 1500) throw new InvalidOperationException("Bình luận không được vượt quá 1.500 ký tự.");
+        return Store.AddCommunicationComment(request.Id, body, CurrentHrmUser, ClientIp);
+    });
 
     [HttpGet]
     public IActionResult CommunicationAttachment(int id, bool download = false)
