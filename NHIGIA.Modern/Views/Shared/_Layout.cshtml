@@ -194,8 +194,8 @@
 
             sidebar.querySelectorAll('.hrm-menu-section').forEach(function (section) {
                 var key = section.getAttribute('data-menu-section');
-                var containsActive = sectionItems(section).some(function (item) { return item.classList.contains('active'); });
-                var expanded = containsActive || sectionState[key] !== false;
+                var hasSavedState = Object.prototype.hasOwnProperty.call(sectionState, key);
+                var expanded = hasSavedState ? sectionState[key] !== false : true;
                 setSection(section, expanded, false);
                 section.querySelector('.hrm-menu-section-toggle').addEventListener('click', function () {
                     setSection(section, this.getAttribute('aria-expanded') !== 'true', true);
