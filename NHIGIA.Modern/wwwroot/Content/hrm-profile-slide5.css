@@ -370,8 +370,9 @@
     box-sizing: border-box !important;
     margin: 0 !important;
     float: none !important;
+    min-height: 42px;
 }
-.s5-tab-btn .material-icons {
+.s5-tab-btn > .material-icons {
     font-size: 18px !important;
     color: #94a3b8;
     transition: color 0.15s ease-in-out;
@@ -382,34 +383,17 @@
     text-align: center !important;
     margin: 0 !important;
     float: none !important;
+    overflow: hidden !important;
+    white-space: nowrap !important;
 }
-.s5-tab-btn span {
+.s5-tab-btn > span {
     text-align: left !important;
     margin: 0 !important;
     flex: 1 1 auto !important;
-    display: inline-block !important;
+    display: block !important;
     float: none !important;
-}
-.s5-tab-item[data-tab="tab-deduction"] .s5-tab-btn,
-.s5-tab-item[data-tab="tab-exit"] .s5-tab-btn {
-    display: flex !important;
-    flex-direction: row !important;
-    align-items: center !important;
-    justify-content: flex-start !important;
-    text-align: left !important;
-    padding-left: 18px !important;
-    margin-left: 0 !important;
-    gap: 12px !important;
-}
-.s5-tab-item[data-tab="tab-deduction"] .s5-tab-btn .material-icons {
-    order: 1 !important;
-    margin: 0 !important;
-    flex: 0 0 18px !important;
-}
-.s5-tab-item[data-tab="tab-deduction"] .s5-tab-btn span {
-    order: 2 !important;
-    text-align: left !important;
-    margin: 0 !important;
+    min-width: 0;
+    line-height: 20px;
 }
 .s5-tab-item:hover .s5-tab-btn {
     background-color: #f8fafc !important;
