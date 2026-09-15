@@ -899,32 +899,6 @@
 /* ==========================================================================
    AVATAR CREATOR MODAL & TOOLBAR STYLES
    ========================================================================== */
-.s5-avatar-creator-bar {
-    margin-top: 10px;
-}
-.s5-btn-avatar-creator {
-    background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
-    color: #ffffff;
-    border: none;
-    padding: 7px 14px;
-    border-radius: 8px;
-    font-size: 12.5px;
-    font-weight: 600;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    cursor: pointer;
-    box-shadow: 0 2px 8px rgba(2, 132, 199, 0.25);
-    transition: all 0.15s ease-in-out;
-}
-.s5-btn-avatar-creator:hover {
-    background: linear-gradient(135deg, #0369a1 0%, #075985 100%);
-    box-shadow: 0 4px 12px rgba(2, 132, 199, 0.35);
-    transform: translateY(-1px);
-}
-.s5-btn-avatar-creator .material-icons {
-    font-size: 16px;
-}
 
 /* Modal Styles */
 .s5-avatar-modal .s5-modal-content {
