@@ -896,3 +896,232 @@
     }
 }
 
+/* ==========================================================================
+   AVATAR CREATOR MODAL & TOOLBAR STYLES
+   ========================================================================== */
+.s5-avatar-creator-bar {
+    margin-top: 10px;
+}
+.s5-btn-avatar-creator {
+    background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+    color: #ffffff;
+    border: none;
+    padding: 7px 14px;
+    border-radius: 8px;
+    font-size: 12.5px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(2, 132, 199, 0.25);
+    transition: all 0.15s ease-in-out;
+}
+.s5-btn-avatar-creator:hover {
+    background: linear-gradient(135deg, #0369a1 0%, #075985 100%);
+    box-shadow: 0 4px 12px rgba(2, 132, 199, 0.35);
+    transform: translateY(-1px);
+}
+.s5-btn-avatar-creator .material-icons {
+    font-size: 16px;
+}
+
+/* Modal Styles */
+.s5-avatar-modal .s5-modal-content {
+    border-radius: 14px;
+    border: none;
+    box-shadow: 0 20px 40px rgba(15, 23, 42, 0.2);
+    overflow: hidden;
+}
+.s5-avatar-modal .s5-modal-header {
+    background: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+    padding: 18px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.s5-modal-title-group {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.s5-modal-title-group .material-icons {
+    font-size: 32px;
+    color: #0284c7;
+}
+.s5-modal-title-group h4 {
+    margin: 0 0 4px 0;
+    font-size: 17px;
+    font-weight: 700;
+    color: #0f172a;
+}
+.s5-modal-sub {
+    margin: 0;
+    font-size: 12.5px;
+    color: #64748b;
+}
+
+/* Modal Live Preview */
+.s5-modal-preview-box {
+    background: #f1f5f9;
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    margin-bottom: 20px;
+    border: 1px solid #e2e8f0;
+}
+.s5-modal-preview-avatar {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    border: 3px solid #0284c7;
+    overflow: hidden;
+    background: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    box-shadow: 0 4px 10px rgba(2, 132, 199, 0.15);
+}
+.s5-modal-preview-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.s5-modal-preview-info strong {
+    display: block;
+    font-size: 14px;
+    color: #0f172a;
+    margin-bottom: 3px;
+}
+.s5-modal-preview-info small {
+    color: #64748b;
+    font-size: 12px;
+}
+
+/* Modal Nav Tabs */
+.s5-modal-tab-nav {
+    display: flex;
+    gap: 8px;
+    border-bottom: 2px solid #e2e8f0;
+    margin-bottom: 18px;
+}
+.s5-modal-tab-btn {
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    padding: 8px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #64748b;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: -2px;
+    transition: all 0.15s ease;
+}
+.s5-modal-tab-btn .material-icons {
+    font-size: 17px;
+}
+.s5-modal-tab-btn:hover {
+    color: #0284c7;
+}
+.s5-modal-tab-btn.active {
+    color: #0284c7;
+    border-bottom-color: #0284c7;
+}
+
+/* Tab panes inside modal */
+.s5-modal-tab-pane {
+    display: none;
+}
+.s5-modal-tab-pane.active {
+    display: block;
+    animation: fadeIn 0.15s ease;
+}
+
+/* Dropzone */
+.s5-dropzone {
+    border: 2px dashed #cbd5e1;
+    border-radius: 12px;
+    padding: 28px 20px;
+    text-align: center;
+    background: #fafbfd;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+.s5-dropzone:hover, .s5-dropzone.highlight {
+    border-color: #0284c7;
+    background: #f0f9ff;
+}
+.s5-dropzone-icon {
+    font-size: 42px;
+    color: #0284c7;
+    margin-bottom: 8px;
+}
+.s5-dropzone h4 {
+    margin: 0 0 4px 0;
+    font-size: 15px;
+    font-weight: 700;
+    color: #1e293b;
+}
+.s5-dropzone p {
+    margin: 0 0 14px 0;
+    font-size: 13px;
+    color: #64748b;
+}
+
+/* Preset grid */
+.s5-preset-hint {
+    font-size: 12.5px;
+    color: #64748b;
+    margin-bottom: 12px;
+}
+.s5-preset-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+}
+.s5-preset-item {
+    border: 1.5px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 12px 8px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    background: #ffffff;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+.s5-preset-item:hover, .s5-preset-item.selected {
+    border-color: #0284c7;
+    background: #eff6ff;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(2, 132, 199, 0.15);
+}
+.s5-preset-circle {
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.s5-preset-item span {
+    font-size: 12px;
+    font-weight: 600;
+    color: #334155;
+}
+
+.s5-modal-footer {
+    padding: 14px 24px;
+    background: #f8fafc;
+    border-top: 1px solid #e2e8f0;
+}
+

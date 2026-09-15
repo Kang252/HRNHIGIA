@@ -71,18 +71,18 @@
         <!-- Section A: Employee Identity -->
         <div class="s5-hero-col-user">
             <div class="s5-avatar-wrapper">
-                <div class="s5-avatar-box" id="avatarBox" title="Nhấn để gắn hình hoặc đổi ảnh đại diện">
+                <div class="s5-avatar-box" id="avatarBox" title="Bấm để gắn hình hoặc tạo avatar">
                     <img id="avatarImage" src="@(string.IsNullOrWhiteSpace(Model?.AvatarUrl) ? "" : Model.AvatarUrl)" alt="@displayName" class="s5-avatar-img" style="@(string.IsNullOrWhiteSpace(Model?.AvatarUrl) ? "display:none;" : "")" />
                     <div id="avatarPlaceholder" class="s5-avatar-placeholder" style="@(string.IsNullOrWhiteSpace(Model?.AvatarUrl) ? "" : "display:none;")">
                         <i class="material-icons">person</i>
                     </div>
                     <div class="s5-avatar-overlay">
                         <i class="material-icons">photo_camera</i>
-                        <span>Đổi ảnh</span>
+                        <span>Tạo Avatar</span>
                     </div>
                 </div>
-                <button type="button" class="s5-avatar-badge-btn" id="btnTriggerUpload" title="Gắn hình / Đổi ảnh đại diện">
-                    <i class="material-icons">photo_camera</i>
+                <button type="button" class="s5-avatar-badge-btn" id="btnTriggerUpload" title="Tạo & Gắn ảnh đại diện">
+                    <i class="material-icons">add_a_photo</i>
                 </button>
             </div>
             <input type="file" id="avatarFileInput" accept="image/*" style="display:none;" />
@@ -91,9 +91,12 @@
                 <span class="s5-role-badge">A</span>
                 <span class="s5-user-code">@username - @email</span>
             </div>
-            <button type="button" class="s5-upload-text-btn" onclick="document.getElementById('avatarFileInput').click();">
-                <i class="material-icons">add_a_photo</i> Gắn hình đại diện
-            </button>
+            <div class="s5-avatar-creator-bar">
+                <button type="button" class="s5-btn-avatar-creator" id="btnOpenAvatarModal">
+                    <i class="material-icons">add_photo_alternate</i>
+                    <span>Tạo / Gắn ảnh avatar</span>
+                </button>
+            </div>
         </div>
 
         <!-- Section B: Spider / Radar Chart (Điểm trung bình 5 trục) -->
@@ -1015,6 +1018,113 @@
 
         </main>
     </div>
+
+    <!-- ========================================================================= -->
+    <!-- MODAL: TẠO & GẮN ẢNH ĐẠI DIỆN (AVATAR CREATOR) -->
+    <!-- ========================================================================= -->
+    <div class="modal fade s5-avatar-modal" id="modalAvatarCreator" tabindex="-1" role="dialog" aria-labelledby="modalAvatarTitle">
+        <div class="modal-dialog modal-md" role="document">
+            <div class="modal-content s5-modal-content">
+                <div class="modal-header s5-modal-header">
+                    <button type="button" class="close" id="btnCloseAvatarModalX" aria-label="Đóng"><span aria-hidden="true">&times;</span></button>
+                    <div class="s5-modal-title-group">
+                        <i class="material-icons text-primary">account_circle</i>
+                        <div>
+                            <h4 class="modal-title" id="modalAvatarTitle">Tạo & Gắn ảnh đại diện</h4>
+                            <p class="s5-modal-sub">Tải ảnh từ máy tính, dán liên kết URL hoặc chọn mẫu avatar chuyên nghiệp</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-body s5-modal-body">
+                    <!-- Live Preview area -->
+                    <div class="s5-modal-preview-box">
+                        <div class="s5-modal-preview-avatar">
+                            <img id="modalPreviewImg" src="@(string.IsNullOrWhiteSpace(Model?.AvatarUrl) ? "" : Model.AvatarUrl)" alt="Preview" style="@(string.IsNullOrWhiteSpace(Model?.AvatarUrl) ? "display:none;" : "")" />
+                            <div id="modalPreviewPlaceholder" class="s5-avatar-placeholder" style="@(string.IsNullOrWhiteSpace(Model?.AvatarUrl) ? "" : "display:none;")">
+                                <i class="material-icons">person</i>
+                            </div>
+                        </div>
+                        <div class="s5-modal-preview-info">
+                            <strong>Xem trước ảnh đại diện</strong>
+                            <small id="previewStatusText">Ảnh đại diện trên hồ sơ cá nhân Nhị Gia</small>
+                        </div>
+                    </div>
+
+                    <!-- Inner Modal Tabs -->
+                    <div class="s5-modal-tab-nav">
+                        <button type="button" class="s5-modal-tab-btn active" data-target="#tabUploadFile"><i class="material-icons">cloud_upload</i> Tải ảnh từ máy</button>
+                        <button type="button" class="s5-modal-tab-btn" data-target="#tabPresetAvatar"><i class="material-icons">face</i> Mẫu có sẵn</button>
+                        <button type="button" class="s5-modal-tab-btn" data-target="#tabUrlAvatar"><i class="material-icons">link</i> Dán link URL</button>
+                    </div>
+
+                    <div class="s5-modal-tab-content">
+                        <!-- Tab 1: Upload File -->
+                        <div class="s5-modal-tab-pane active" id="tabUploadFile">
+                            <div class="s5-dropzone" id="avatarDropZone">
+                                <i class="material-icons s5-dropzone-icon">add_photo_alternate</i>
+                                <h4>Kéo thả file ảnh vào đây</h4>
+                                <p>Hoặc bấm vào nút bên dưới để chọn ảnh từ thiết bị</p>
+                                <button type="button" class="s5-btn s5-btn-primary" onclick="document.getElementById('modalRealFileInput').click();">
+                                    <i class="material-icons">folder_open</i> Chọn ảnh từ máy tính
+                                </button>
+                                <input type="file" id="modalRealFileInput" accept="image/*" style="display:none;" />
+                                <small class="text-muted" style="display:block; margin-top:10px;">Hỗ trợ: JPG, PNG, WEBP, GIF (Dung lượng &lt; 5MB)</small>
+                            </div>
+                        </div>
+
+                        <!-- Tab 2: Presets -->
+                        <div class="s5-modal-tab-pane" id="tabPresetAvatar">
+                            <p class="s5-preset-hint">Bấm vào bất kỳ ảnh mẫu công sở nào dưới đây để chọn:</p>
+                            <div class="s5-preset-grid">
+                                <div class="s5-preset-item" data-preset="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='50' fill='%230284c7'/><circle cx='50' cy='38' r='18' fill='%23ffffff'/><path d='M22 84 C26 64 36 58 50 58 C64 58 74 64 78 84 Z' fill='%23ffffff'/></svg>">
+                                    <div class="s5-preset-circle" style="background:#0284c7;"><i class="material-icons" style="color:#ffffff;font-size:26px;">person</i></div>
+                                    <span>Nam Công Sở</span>
+                                </div>
+                                <div class="s5-preset-item" data-preset="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='50' fill='%234f46e5'/><circle cx='50' cy='38' r='18' fill='%23ffffff'/><path d='M20 84 C24 62 36 58 50 58 C64 58 76 62 80 84 Z' fill='%23ffffff'/></svg>">
+                                    <div class="s5-preset-circle" style="background:#4f46e5;"><i class="material-icons" style="color:#ffffff;font-size:26px;">engineering</i></div>
+                                    <span>IT / Kỹ thuật</span>
+                                </div>
+                                <div class="s5-preset-item" data-preset="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='50' fill='%230d9488'/><circle cx='50' cy='38' r='18' fill='%23ffffff'/><path d='M22 84 C25 64 36 58 50 58 C64 58 75 64 78 84 Z' fill='%23ffffff'/></svg>">
+                                    <div class="s5-preset-circle" style="background:#0d9488;"><i class="material-icons" style="color:#ffffff;font-size:26px;">support_agent</i></div>
+                                    <span>Nữ Tư Vấn</span>
+                                </div>
+                                <div class="s5-preset-item" data-preset="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='50' fill='%23e11d48'/><circle cx='50' cy='38' r='18' fill='%23ffffff'/><path d='M22 84 C25 64 36 58 50 58 C64 58 75 64 78 84 Z' fill='%23ffffff'/></svg>">
+                                    <div class="s5-preset-circle" style="background:#e11d48;"><i class="material-icons" style="color:#ffffff;font-size:26px;">psychology</i></div>
+                                    <span>Nhân Sự HR</span>
+                                </div>
+                                <div class="s5-preset-item" data-preset="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='50' fill='%23d97706'/><circle cx='50' cy='38' r='18' fill='%23ffffff'/><path d='M20 84 C24 62 36 58 50 58 C64 58 76 62 80 84 Z' fill='%23ffffff'/></svg>">
+                                    <div class="s5-preset-circle" style="background:#d97706;"><i class="material-icons" style="color:#ffffff;font-size:26px;">military_tech</i></div>
+                                    <span>Quản lý</span>
+                                </div>
+                                <div class="s5-preset-item" data-preset="/images/nhigia-logo.png">
+                                    <div class="s5-preset-circle" style="background:#ffffff; border:1.5px solid #cbd5e1;"><img src="/images/nhigia-logo.png" style="width:30px;height:30px;object-fit:contain;" alt="Nhị Gia" /></div>
+                                    <span>Logo Nhị Gia</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Tab 3: URL Link -->
+                        <div class="s5-modal-tab-pane" id="tabUrlAvatar">
+                            <div class="form-group" style="margin-top:15px;">
+                                <label style="font-weight:600; color:#334155; margin-bottom:6px;">Dán đường link hình ảnh (URL):</label>
+                                <div class="input-group">
+                                    <input type="url" id="inputAvatarUrl" class="form-control" placeholder="https://example.com/hinh-anh.jpg" />
+                                    <span class="input-group-btn">
+                                        <button class="btn btn-default" type="button" id="btnApplyUrlPreview">Xem thử</button>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer s5-modal-footer">
+                    <button type="button" class="btn btn-danger pull-left" id="btnResetAvatar"><i class="material-icons" style="font-size:16px;vertical-align:middle;">delete_outline</i> Xóa ảnh</button>
+                    <button type="button" class="btn btn-default" id="btnCloseAvatarModal">Đóng</button>
+                    <button type="button" class="btn btn-primary" id="btnSaveAvatarModal"><i class="material-icons" style="font-size:16px;vertical-align:middle;">save</i> Áp dụng & Lưu ảnh</button>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <script>
@@ -1055,22 +1165,26 @@
             });
         });
 
-        // Avatar upload & preview handling
-        const avatarFileInput = document.getElementById("avatarFileInput");
+        // Elements
         const avatarBox = document.getElementById("avatarBox");
         const btnTriggerUpload = document.getElementById("btnTriggerUpload");
+        const btnOpenAvatarModal = document.getElementById("btnOpenAvatarModal");
+        const modal = document.getElementById("modalAvatarCreator");
         const avatarImage = document.getElementById("avatarImage");
         const avatarPlaceholder = document.getElementById("avatarPlaceholder");
+        const modalPreviewImg = document.getElementById("modalPreviewImg");
+        const modalPreviewPlaceholder = document.getElementById("modalPreviewPlaceholder");
+        const modalRealFileInput = document.getElementById("modalRealFileInput");
+        const inputAvatarUrl = document.getElementById("inputAvatarUrl");
+        const btnApplyUrlPreview = document.getElementById("btnApplyUrlPreview");
+        const btnSaveAvatarModal = document.getElementById("btnSaveAvatarModal");
+        const btnResetAvatar = document.getElementById("btnResetAvatar");
+        const btnCloseAvatarModal = document.getElementById("btnCloseAvatarModal");
+        const btnCloseAvatarModalX = document.getElementById("btnCloseAvatarModalX");
+        const dropZone = document.getElementById("avatarDropZone");
 
-        function openAvatarPicker() {
-            if (avatarFileInput) avatarFileInput.click();
-        }
-
-        if (avatarBox) avatarBox.addEventListener("click", openAvatarPicker);
-        if (btnTriggerUpload) btnTriggerUpload.addEventListener("click", function(e) {
-            e.stopPropagation();
-            openAvatarPicker();
-        });
+        let pendingAvatarData = null;
+        let pendingAvatarFile = null;
 
         // Load cached avatar if present in localStorage
         const cachedAvatar = localStorage.getItem("hrm_avatar_@Model.UserId");
@@ -1080,35 +1194,150 @@
             if (avatarPlaceholder) avatarPlaceholder.style.display = "none";
         }
 
-        if (avatarFileInput) {
-            avatarFileInput.addEventListener("change", function () {
+        // Open Modal Handler
+        function openModal() {
+            if (window.jQuery && typeof jQuery.fn.modal === 'function') {
+                jQuery(modal).modal('show');
+            } else if (modal) {
+                modal.classList.add("show");
+                modal.style.display = "block";
+                document.body.classList.add("modal-open");
+            }
+            // Sync preview
+            const currentSrc = avatarImage && avatarImage.style.display !== "none" ? avatarImage.src : "";
+            if (currentSrc) {
+                modalPreviewImg.src = currentSrc;
+                modalPreviewImg.style.display = "block";
+                modalPreviewPlaceholder.style.display = "none";
+            }
+        }
+
+        // Close Modal Handler
+        function closeModal() {
+            if (window.jQuery && typeof jQuery.fn.modal === 'function') {
+                jQuery(modal).modal('hide');
+            } else if (modal) {
+                modal.classList.remove("show");
+                modal.style.display = "none";
+                document.body.classList.remove("modal-open");
+            }
+        }
+
+        if (avatarBox) avatarBox.addEventListener("click", openModal);
+        if (btnTriggerUpload) btnTriggerUpload.addEventListener("click", openModal);
+        if (btnOpenAvatarModal) btnOpenAvatarModal.addEventListener("click", openModal);
+        if (btnCloseAvatarModal) btnCloseAvatarModal.addEventListener("click", closeModal);
+        if (btnCloseAvatarModalX) btnCloseAvatarModalX.addEventListener("click", closeModal);
+
+        // Modal inner tabs
+        const modalTabBtns = document.querySelectorAll(".s5-modal-tab-btn");
+        const modalTabPanes = document.querySelectorAll(".s5-modal-tab-pane");
+        modalTabBtns.forEach(btn => {
+            btn.addEventListener("click", function () {
+                modalTabBtns.forEach(b => b.classList.remove("active"));
+                modalTabPanes.forEach(p => p.classList.remove("active"));
+                this.classList.add("active");
+                const target = document.querySelector(this.getAttribute("data-target"));
+                if (target) target.classList.add("active");
+            });
+        });
+
+        // Set modal preview
+        function setModalPreview(src) {
+            modalPreviewImg.src = src;
+            modalPreviewImg.style.display = "block";
+            modalPreviewPlaceholder.style.display = "none";
+            document.getElementById("previewStatusText").innerText = "Đã chọn ảnh mới. Bấm 'Áp dụng & Lưu ảnh' để hoàn tất.";
+        }
+
+        // File Selection in modal
+        if (modalRealFileInput) {
+            modalRealFileInput.addEventListener("change", function () {
                 if (this.files && this.files[0]) {
-                    const file = this.files[0];
-                    if (!file.type.startsWith("image/")) {
-                        alert("Vui lòng chọn file hình ảnh (JPG, PNG, WEBP).");
-                        return;
-                    }
+                    handleFile(this.files[0]);
+                }
+            });
+        }
 
-                    // 1. Instant preview via FileReader
-                    const reader = new FileReader();
-                    reader.onload = function (e) {
-                        const dataUrl = e.target.result;
-                        if (avatarImage) {
-                            avatarImage.src = dataUrl;
-                            avatarImage.style.display = "block";
-                        }
-                        if (avatarPlaceholder) {
-                            avatarPlaceholder.style.display = "none";
-                        }
-                        try {
-                            localStorage.setItem("hrm_avatar_@Model.UserId", dataUrl);
-                        } catch (err) {}
-                    };
-                    reader.readAsDataURL(file);
+        function handleFile(file) {
+            if (!file.type.startsWith("image/")) {
+                alert("Vui lòng chọn file hình ảnh (JPG, PNG, WEBP, GIF).");
+                return;
+            }
+            pendingAvatarFile = file;
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                pendingAvatarData = e.target.result;
+                setModalPreview(pendingAvatarData);
+            };
+            reader.readAsDataURL(file);
+        }
 
-                    // 2. Upload to server
+        // Drag & Drop
+        if (dropZone) {
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropZone.addEventListener(eventName, e => { e.preventDefault(); dropZone.classList.add('highlight'); }, false);
+            });
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropZone.addEventListener(eventName, e => { e.preventDefault(); dropZone.classList.remove('highlight'); }, false);
+            });
+            dropZone.addEventListener('drop', e => {
+                const dt = e.dataTransfer;
+                if (dt && dt.files && dt.files[0]) {
+                    handleFile(dt.files[0]);
+                }
+            }, false);
+        }
+
+        // Preset Avatars Selection
+        const presetItems = document.querySelectorAll(".s5-preset-item");
+        presetItems.forEach(item => {
+            item.addEventListener("click", function () {
+                presetItems.forEach(i => i.classList.remove("selected"));
+                this.classList.add("selected");
+                const src = this.getAttribute("data-preset");
+                pendingAvatarData = src;
+                pendingAvatarFile = null;
+                setModalPreview(src);
+            });
+        });
+
+        // URL Preview
+        if (btnApplyUrlPreview && inputAvatarUrl) {
+            btnApplyUrlPreview.addEventListener("click", function () {
+                const url = inputAvatarUrl.value.trim();
+                if (!url) {
+                    alert("Vui lòng nhập đường dẫn hình ảnh.");
+                    return;
+                }
+                pendingAvatarData = url;
+                pendingAvatarFile = null;
+                setModalPreview(url);
+            });
+        }
+
+        // Show Toast Function
+        function showToast(msg) {
+            const toast = document.createElement("div");
+            toast.className = "s5-avatar-toast";
+            toast.innerHTML = '<i class="material-icons">check_circle</i> ' + msg;
+            document.body.appendChild(toast);
+            setTimeout(() => { toast.classList.add("show"); }, 50);
+            setTimeout(() => { toast.classList.remove("show"); setTimeout(() => toast.remove(), 300); }, 3000);
+        }
+
+        // Save Avatar Handler
+        if (btnSaveAvatarModal) {
+            btnSaveAvatarModal.addEventListener("click", function () {
+                if (!pendingAvatarData && !pendingAvatarFile) {
+                    alert("Vui lòng chọn hoặc tải một hình ảnh làm avatar.");
+                    return;
+                }
+
+                // 1. If uploaded a file
+                if (pendingAvatarFile) {
                     const formData = new FormData();
-                    formData.append("avatar", file);
+                    formData.append("avatar", pendingAvatarFile);
 
                     fetch("@Url.Action("UploadAvatar", "Home")", {
                         method: "POST",
@@ -1117,19 +1346,67 @@
                     .then(res => res.json())
                     .then(data => {
                         if (data && data.success) {
-                            if (avatarImage && data.avatarUrl) {
-                                avatarImage.src = data.avatarUrl;
-                            }
-                            const toast = document.createElement("div");
-                            toast.className = "s5-avatar-toast";
-                            toast.innerHTML = '<i class="material-icons">check_circle</i> Đã gắn hình đại diện thành công!';
-                            document.body.appendChild(toast);
-                            setTimeout(() => { toast.classList.add("show"); }, 50);
-                            setTimeout(() => { toast.classList.remove("show"); setTimeout(() => toast.remove(), 300); }, 3000);
+                            avatarImage.src = data.avatarUrl || pendingAvatarData;
+                            avatarImage.style.display = "block";
+                            avatarPlaceholder.style.display = "none";
+                            try { localStorage.setItem("hrm_avatar_@Model.UserId", data.avatarUrl || pendingAvatarData); } catch (e) {}
+                            showToast("Đã lưu ảnh đại diện thành công!");
+                            closeModal();
+                        } else {
+                            alert(data.message || "Lỗi khi lưu ảnh.");
                         }
                     })
                     .catch(err => {
-                        console.log("Avatar saved locally:", err);
+                        avatarImage.src = pendingAvatarData;
+                        avatarImage.style.display = "block";
+                        avatarPlaceholder.style.display = "none";
+                        try { localStorage.setItem("hrm_avatar_@Model.UserId", pendingAvatarData); } catch (e) {}
+                        showToast("Đã cập nhật ảnh đại diện!");
+                        closeModal();
+                    });
+                }
+                // 2. If selected preset or URL
+                else if (pendingAvatarData) {
+                    const formData = new FormData();
+                    formData.append("avatarUrl", pendingAvatarData);
+
+                    fetch("@Url.Action("SaveAvatarUrl", "Home")", {
+                        method: "POST",
+                        body: formData
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                        avatarImage.src = pendingAvatarData;
+                        avatarImage.style.display = "block";
+                        avatarPlaceholder.style.display = "none";
+                        try { localStorage.setItem("hrm_avatar_@Model.UserId", pendingAvatarData); } catch (e) {}
+                        showToast("Đã cập nhật avatar thành công!");
+                        closeModal();
+                    })
+                    .catch(err => {
+                        avatarImage.src = pendingAvatarData;
+                        avatarImage.style.display = "block";
+                        avatarPlaceholder.style.display = "none";
+                        try { localStorage.setItem("hrm_avatar_@Model.UserId", pendingAvatarData); } catch (e) {}
+                        showToast("Đã cập nhật avatar thành công!");
+                        closeModal();
+                    });
+                }
+            });
+        }
+
+        // Reset / Remove Avatar
+        if (btnResetAvatar) {
+            btnResetAvatar.addEventListener("click", function () {
+                if (confirm("Bạn có chắc chắn muốn xóa ảnh đại diện và dùng ảnh mặc định?")) {
+                    fetch("@Url.Action("RemoveAvatar", "Home")", { method: "POST" })
+                    .finally(() => {
+                        avatarImage.src = "";
+                        avatarImage.style.display = "none";
+                        avatarPlaceholder.style.display = "flex";
+                        try { localStorage.removeItem("hrm_avatar_@Model.UserId"); } catch (e) {}
+                        showToast("Đã xóa ảnh đại diện!");
+                        closeModal();
                     });
                 }
             });

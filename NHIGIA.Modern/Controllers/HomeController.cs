@@ -67,6 +67,39 @@ public sealed class HomeController : BaseController
         }
     }
 
+    [HttpPost]
+    public IActionResult SaveAvatarUrl(string avatarUrl)
+    {
+        if (string.IsNullOrWhiteSpace(avatarUrl))
+        {
+            return Json(new { success = false, message = "Vui lòng nhập hoặc chọn ảnh hợp lệ." });
+        }
+
+        try
+        {
+            Store.UpdateAvatarUrl(CurrentHrmUser.Id, avatarUrl.Trim());
+            return Json(new { success = true, avatarUrl = avatarUrl.Trim() });
+        }
+        catch (Exception ex)
+        {
+            return Json(new { success = false, message = "Lỗi khi cập nhật avatar: " + ex.Message });
+        }
+    }
+
+    [HttpPost]
+    public IActionResult RemoveAvatar()
+    {
+        try
+        {
+            Store.UpdateAvatarUrl(CurrentHrmUser.Id, "");
+            return Json(new { success = true });
+        }
+        catch (Exception ex)
+        {
+            return Json(new { success = false, message = "Lỗi khi xóa ảnh: " + ex.Message });
+        }
+    }
+
     [HrmAuthorize(HrmRoles.Admin, HrmRoles.Hr, HrmRoles.Director, HrmRoles.Manager)]
     public IActionResult EmployeeInformation()
     {
