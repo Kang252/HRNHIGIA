@@ -65,7 +65,9 @@ namespace NHIGIA.Modern.Infrastructure
         {
             const string sql = @"SELECT u.Id UserId, u.Username, u.DisplayName, u.RoleCode, u.DepartmentId,
                 d.Name DepartmentName, u.SupervisorUserId, supervisor.DisplayName SupervisorName, u.IsActive,
-                p.EmployeeCode, p.AvatarUrl, p.Gender, p.DateOfBirth, p.PlaceOfBirth, p.Nationality,
+                p.EmployeeCode,
+                CASE WHEN p.AvatarContent IS NOT NULL THEN CONCAT('/Home/Avatar/', p.UserId, '?v=', DATEDIFF_BIG(MILLISECOND, '19700101', COALESCE(p.UpdatedAt, p.CreatedAt))) ELSE p.AvatarUrl END AvatarUrl,
+                p.Gender, p.DateOfBirth, p.PlaceOfBirth, p.Nationality,
                 p.Ethnicity, p.Religion, p.MaritalStatus, p.MobilePhone, p.OfficePhone, p.HomePhone,
                 p.PersonalEmail, p.CompanyEmail, p.PermanentAddress, p.CurrentAddress,
                 p.IdentityNumber, p.IdentityIssuedDate, p.IdentityIssuedPlace, p.IdentityExpiryDate,
@@ -89,9 +91,30 @@ namespace NHIGIA.Modern.Infrastructure
 
         public string GetAvatarUrl(int userId)
         {
-            const string sql = "SELECT AvatarUrl FROM dbo.HrmEmployeeProfile WHERE UserId=@UserId";
+            const string sql = @"SELECT CASE WHEN AvatarContent IS NOT NULL
+                THEN CONCAT('/Home/Avatar/', UserId, '?v=', DATEDIFF_BIG(MILLISECOND, '19700101', COALESCE(UpdatedAt, CreatedAt)))
+                ELSE AvatarUrl END FROM dbo.HrmEmployeeProfile WHERE UserId=@UserId";
             using var connection = OpenConnection();
             return connection.QuerySingleOrDefault<string>(sql, new { UserId = userId });
+        }
+
+        public CommunicationAttachmentModel GetAvatarContent(int userId, HrmUserAccountModel actor)
+        {
+            const string sql = @"SELECT p.AvatarContent Content, p.AvatarContentType ContentType
+                FROM dbo.HrmEmployeeProfile p
+                INNER JOIN dbo.HrmUserAccount u ON u.Id=p.UserId
+                WHERE p.UserId=@UserId AND p.AvatarContent IS NOT NULL
+                  AND (@CanSeeAll=1 OR u.Id=@ActorId OR (@IsManager=1 AND u.DepartmentId=@DepartmentId))";
+            var canSeeAll = actor.RoleCode is HrmRoles.Admin or HrmRoles.Hr or HrmRoles.Director;
+            using var connection = OpenConnection();
+            return connection.QuerySingleOrDefault<CommunicationAttachmentModel>(sql, new
+            {
+                UserId = userId,
+                CanSeeAll = canSeeAll,
+                IsManager = actor.RoleCode == HrmRoles.Manager,
+                ActorId = actor.Id,
+                actor.DepartmentId
+            });
         }
 
         public IList<WorkDepartment> GetDepartments()
@@ -150,12 +173,24 @@ namespace NHIGIA.Modern.Infrastructure
         {
             using var connection = OpenConnection();
             const string sql = @"
-                UPDATE dbo.HrmEmployeeProfile SET AvatarUrl=@AvatarUrl, UpdatedAt=SYSDATETIME() WHERE UserId=@UserId;
+                UPDATE dbo.HrmEmployeeProfile SET AvatarUrl=@AvatarUrl, AvatarContent=NULL, AvatarContentType=NULL, UpdatedAt=SYSDATETIME() WHERE UserId=@UserId;
                 IF @@ROWCOUNT = 0
                 BEGIN
                     INSERT INTO dbo.HrmEmployeeProfile (UserId, AvatarUrl, CreatedAt) VALUES (@UserId, @AvatarUrl, SYSDATETIME());
                 END";
             connection.Execute(sql, new { UserId = userId, AvatarUrl = avatarUrl });
+        }
+
+        public string UpdateAvatarContent(int userId, byte[] content, string contentType)
+        {
+            using var connection = OpenConnection();
+            const string sql = @"
+                UPDATE dbo.HrmEmployeeProfile SET AvatarContent=@Content, AvatarContentType=@ContentType,
+                    AvatarUrl=NULL, UpdatedAt=SYSDATETIME() WHERE UserId=@UserId;
+                IF @@ROWCOUNT = 0
+                    THROW 50001, 'Hồ sơ nhân viên chưa tồn tại.', 1;";
+            connection.Execute(sql, new { UserId = userId, Content = content, ContentType = contentType });
+            return $"/Home/Avatar/{userId}?v={DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}";
         }
 
         public void MarkLogin(int userId, string ipAddress)
@@ -169,7 +204,9 @@ namespace NHIGIA.Modern.Infrastructure
 
         public IList<HrmUserAccountModel> GetVisibleUsers(HrmUserAccountModel actor)
         {
-            const string sql = @"SELECT u.Id, u.Username, p.EmployeeCode, p.AvatarUrl, u.DisplayName, u.RoleCode, u.DepartmentId, d.Name DepartmentName,
+            const string sql = @"SELECT u.Id, u.Username, p.EmployeeCode,
+                CASE WHEN p.AvatarContent IS NOT NULL THEN CONCAT('/Home/Avatar/', p.UserId, '?v=', DATEDIFF_BIG(MILLISECOND, '19700101', COALESCE(p.UpdatedAt, p.CreatedAt))) ELSE p.AvatarUrl END AvatarUrl,
+                u.DisplayName, u.RoleCode, u.DepartmentId, d.Name DepartmentName,
                 u.SupervisorUserId, u.IsActive
                 FROM dbo.HrmUserAccount u LEFT JOIN dbo.HrmDepartment d ON d.Id=u.DepartmentId
                 LEFT JOIN dbo.HrmEmployeeProfile p ON p.UserId=u.Id
@@ -259,7 +296,9 @@ namespace NHIGIA.Modern.Infrastructure
         public IList<LeaveRequestModel> GetLeaveRequests(HrmUserAccountModel actor)
         {
             const string sql = @"SELECT r.Id, r.RequestCode, r.UserId, u.Username, u.DisplayName, u.RoleCode, u.DepartmentId, d.Name DepartmentName,
-                p.EmployeeCode, p.JobTitle, p.AvatarUrl, p.MobilePhone, p.CompanyEmail,
+                p.EmployeeCode, p.JobTitle,
+                CASE WHEN p.AvatarContent IS NOT NULL THEN CONCAT('/Home/Avatar/', p.UserId, '?v=', DATEDIFF_BIG(MILLISECOND, '19700101', COALESCE(p.UpdatedAt, p.CreatedAt))) ELSE p.AvatarUrl END AvatarUrl,
+                p.MobilePhone, p.CompanyEmail,
                 r.LeaveType, r.StartDate, r.EndDate, r.SessionCode, r.HandoverTo, r.Reason, r.AttachmentName,
                 CAST(CASE WHEN r.AttachmentContent IS NULL THEN 0 ELSE 1 END AS BIT) HasAttachment,
                 r.StatusCode, r.ManagerNote, r.HrNote, r.ApprovedByManagerId, r.ApprovedByHrId,

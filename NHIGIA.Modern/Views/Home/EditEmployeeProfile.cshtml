@@ -2,6 +2,7 @@
 @{
     var departments = ViewBag.Departments as IList<WorkDepartment> ?? new List<WorkDepartment>();
     var supervisors = ViewBag.Supervisors as IList<HrmUserAccountModel> ?? new List<HrmUserAccountModel>();
+    var avatarPlaceholder = $"https://ui-avatars.com/api/?name={Uri.EscapeDataString(Model.DisplayName ?? "User")}&background=1a73e8&color=fff&size=200&bold=true";
     Func<IEnumerable<string>, string, IEnumerable<string>> options = (items, current) =>
         items.Concat(string.IsNullOrWhiteSpace(current) ? Array.Empty<string>() : new[] { current }).Distinct();
 }
@@ -25,7 +26,8 @@
             <div class="avatar-edit-container">
                 <div class="avatar-preview-wrap" id="avatarDropZone">
                     <img id="editAvatarPreview" 
-                         src="@(!string.IsNullOrWhiteSpace(Model.AvatarUrl) ? Model.AvatarUrl : $"https://ui-avatars.com/api/?name={Uri.EscapeDataString(Model.DisplayName ?? "User")}&background=1a73e8&color=fff&size=200&bold=true")" 
+                         src="@(!string.IsNullOrWhiteSpace(Model.AvatarUrl) ? Model.AvatarUrl : avatarPlaceholder)"
+                         onerror="this.onerror=null;this.src='@avatarPlaceholder';"
                          alt="Avatar preview" 
                          class="avatar-preview-img" />
                     <button type="button" class="avatar-camera-btn" onclick="document.getElementById('editAvatarFileInput').click()" title="Chọn ảnh mới">

@@ -44,6 +44,15 @@ public sealed class HomeController : BaseController
         return profile == null ? NotFound() : View(profile);
     }
 
+    [HttpGet]
+    public IActionResult Avatar(int id)
+    {
+        var avatar = Store.GetAvatarContent(id, CurrentHrmUser);
+        if (avatar?.Content == null || avatar.Content.Length == 0) return NotFound();
+        Response.Headers.CacheControl = "private, max-age=86400";
+        return File(avatar.Content, avatar.ContentType ?? "image/jpeg");
+    }
+
     [HttpPost]
     public async Task<IActionResult> UploadAvatar(IFormFile avatar, int? targetUserId = null)
     {
@@ -56,6 +65,10 @@ public sealed class HomeController : BaseController
         {
             return Json(new { success = false, message = "Vui lòng chọn file hình ảnh." });
         }
+        if (avatar.Length > 5 * 1024 * 1024)
+        {
+            return Json(new { success = false, message = "Dung lượng ảnh không được vượt quá 5MB." });
+        }
 
         try
         {
@@ -65,12 +78,6 @@ public sealed class HomeController : BaseController
                 return Json(new { success = false, message = "Bạn không có quyền thay đổi ảnh của nhân viên này." });
             }
 
-            var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "avatars");
-            if (!Directory.Exists(uploadsFolder))
-            {
-                Directory.CreateDirectory(uploadsFolder);
-            }
-
             var ext = Path.GetExtension(avatar.FileName).ToLowerInvariant();
             var allowed = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp" };
             if (!allowed.Contains(ext))
@@ -78,15 +85,9 @@ public sealed class HomeController : BaseController
                 return Json(new { success = false, message = "Định dạng file không hỗ trợ. Vui lòng chọn ảnh JPG, PNG hoặc WEBP." });
             }
 
-            var fileName = $"avatar_{userIdToUpdate}_{DateTime.UtcNow.Ticks}{ext}";
-            var filePath = Path.Combine(uploadsFolder, fileName);
-            using (var stream = new FileStream(filePath, FileMode.Create))
-            {
-                await avatar.CopyToAsync(stream);
-            }
-
-            var avatarUrl = $"/uploads/avatars/{fileName}";
-            Store.UpdateAvatarUrl(userIdToUpdate, avatarUrl);
+            await using var stream = new MemoryStream();
+            await avatar.CopyToAsync(stream);
+            var avatarUrl = Store.UpdateAvatarContent(userIdToUpdate, stream.ToArray(), GetAvatarContentType(ext));
 
             return Json(new { success = true, avatarUrl });
         }
@@ -202,27 +203,29 @@ public sealed class HomeController : BaseController
 
         try
         {
+            byte[] uploadedAvatarContent = null;
+            string uploadedAvatarContentType = null;
             if (avatarFile != null && avatarFile.Length > 0)
             {
-                var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "avatars");
-                if (!Directory.Exists(uploadsFolder)) Directory.CreateDirectory(uploadsFolder);
+                if (avatarFile.Length > 5 * 1024 * 1024)
+                    throw new InvalidOperationException("Dung lượng ảnh không được vượt quá 5MB.");
                 var ext = Path.GetExtension(avatarFile.FileName).ToLowerInvariant();
                 var allowed = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp" };
                 if (allowed.Contains(ext))
                 {
-                    var fileName = $"avatar_{profile.UserId}_{DateTime.UtcNow.Ticks}{ext}";
-                    var filePath = Path.Combine(uploadsFolder, fileName);
-                    using (var stream = new FileStream(filePath, FileMode.Create))
-                    {
-                        await avatarFile.CopyToAsync(stream);
-                    }
-                    profile.AvatarUrl = $"/uploads/avatars/{fileName}";
+                    await using var stream = new MemoryStream();
+                    await avatarFile.CopyToAsync(stream);
+                    uploadedAvatarContent = stream.ToArray();
+                    uploadedAvatarContentType = GetAvatarContentType(ext);
                 }
+                else throw new InvalidOperationException("Định dạng ảnh không được hỗ trợ.");
             }
 
             profile.DisplayName = profile.DisplayName.Trim();
             profile.EmployeeCode = profile.EmployeeCode.Trim();
             Store.UpdateEmployeeProfile(profile, CurrentHrmUser, HttpContext.Connection.RemoteIpAddress?.ToString());
+            if (uploadedAvatarContent != null)
+                Store.UpdateAvatarContent(profile.UserId, uploadedAvatarContent, uploadedAvatarContentType);
             TempData["ProfileSuccess"] = $"Đã cập nhật hồ sơ {profile.DisplayName}.";
             return RedirectToAction(nameof(EditEmployeeProfile), new { id = profile.UserId });
         }
@@ -243,6 +246,14 @@ public sealed class HomeController : BaseController
         ViewBag.Departments = Store.GetDepartments();
         ViewBag.Supervisors = Store.GetVisibleUsers(CurrentHrmUser).Where(x => x.Id != employeeId).ToList();
     }
+
+    private static string GetAvatarContentType(string extension) => extension switch
+    {
+        ".png" => "image/png",
+        ".gif" => "image/gif",
+        ".webp" => "image/webp",
+        _ => "image/jpeg"
+    };
 
     [HrmAuthorize(HrmRoles.Admin, HrmRoles.Hr, HrmRoles.Director, HrmRoles.Manager)]
     public IActionResult Approvals() { ViewBag.Title = "Phê duyệt nghỉ phép"; return View(); }

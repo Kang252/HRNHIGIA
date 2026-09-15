@@ -42,6 +42,8 @@ BEGIN
         UserId INT NOT NULL CONSTRAINT PK_HrmEmployeeProfile PRIMARY KEY,
         EmployeeCode NVARCHAR(30) NOT NULL CONSTRAINT UQ_HrmEmployeeProfile_EmployeeCode UNIQUE,
         AvatarUrl NVARCHAR(500) NULL,
+        AvatarContent VARBINARY(MAX) NULL,
+        AvatarContentType NVARCHAR(100) NULL,
         Gender NVARCHAR(20) NULL,
         DateOfBirth DATE NULL,
         PlaceOfBirth NVARCHAR(250) NULL,
@@ -104,6 +106,14 @@ BEGIN
         CONSTRAINT FK_HrmEmployeeProfile_User FOREIGN KEY (UserId) REFERENCES dbo.HrmUserAccount(Id)
     );
 END;
+GO
+
+IF COL_LENGTH('dbo.HrmEmployeeProfile', 'AvatarContent') IS NULL
+    ALTER TABLE dbo.HrmEmployeeProfile ADD AvatarContent VARBINARY(MAX) NULL;
+GO
+
+IF COL_LENGTH('dbo.HrmEmployeeProfile', 'AvatarContentType') IS NULL
+    ALTER TABLE dbo.HrmEmployeeProfile ADD AvatarContentType NVARCHAR(100) NULL;
 GO
 
 IF OBJECT_ID('dbo.HrmShiftTemplate', 'U') IS NULL
