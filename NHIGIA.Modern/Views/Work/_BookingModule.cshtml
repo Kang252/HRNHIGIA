@@ -1,0 +1,105 @@
+@model WorkPage
+@{
+    var isMeeting = Model.Kind == "meeting";
+    var isVehicle = Model.Kind == "vehicle";
+    var isTrip = Model.Kind == "business-trip";
+    var currentUser = HrmUser.Current;
+    var statusLabels = new Dictionary<string, string> { ["PENDING"] = "Chờ duyệt", ["APPROVED"] = "Đã duyệt", ["REJECTED"] = "Từ chối", ["CANCELLED"] = "Đã hủy" };
+}
+
+<div class="booking-module @(isVehicle ? "work-layout-vehicle" : "")">
+    @if (Model.CanManage && (isMeeting || isVehicle))
+    {
+        <div class="alert alert-info"><strong>Tự động xác nhận:</strong> tài khoản Ban Giám đốc, HR và Trưởng phòng có thể đặt trực tiếp, không cần chờ duyệt.</div>
+    }
+    <section class="work-panel booking-list-panel">
+        <div class="booking-section-head">
+            <div><h3>Danh sách và phê duyệt</h3><p>@Model.Subtitle</p></div>
+            <span class="hrm-badge">@Model.Items.Count bản ghi</span>
+        </div>
+        <form method="get" asp-action="Index" class="work-search">
+            <input type="hidden" name="kind" value="@Model.Kind" />
+            <input class="form-control" name="q" value="@Model.Query" placeholder="Tìm theo nội dung, nhân viên, địa điểm…" />
+            <button class="hrm-btn" type="submit"><i class="material-icons">search</i> Tìm kiếm</button>
+        </form>
+        @if (!Model.Available) { <p>Chưa tải được dữ liệu. Vui lòng thử lại sau.</p> }
+        else if (Model.Items.Count == 0)
+        {
+            <div class="work-empty"><i class="material-icons">event_available</i><h4>Chưa có bản ghi</h4><p>Tạo yêu cầu đầu tiên bằng biểu mẫu bên dưới.</p></div>
+        }
+        else
+        {
+            <div class="table-responsive"><table class="table table-hover booking-table">
+                <thead><tr><th>Nội dung</th><th>@(isTrip ? "Nhân viên" : "Người tham gia")</th><th>@(isMeeting ? "Phòng và thời gian" : isVehicle ? "Hành trình" : "Địa điểm và thời gian")</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>
+                <tbody>@foreach (var item in Model.Items)
+                {
+                    <tr>
+                        <td><strong>@item.Title</strong><small class="work-muted">@item.RecordCode</small><p class="work-description">@item.Description</p></td>
+                        <td>@(isTrip ? item.EmployeeName ?? "Chưa phân công" : item.ParticipantNames ?? "Chưa chọn")<small class="work-muted">@(isTrip ? item.DepartmentName : $"{item.Target:0} người")</small></td>
+                        <td><strong>@(isMeeting ? item.Location : isVehicle ? $"{item.Location} → {item.Destination}" : item.Destination)</strong><small class="work-muted">@item.StartAt?.ToString(isTrip ? "dd/MM/yyyy" : "dd/MM/yyyy HH:mm") — @item.EndAt?.ToString(isTrip ? "dd/MM/yyyy" : "HH:mm") @(isVehicle ? "· " + item.Category : "")</small></td>
+                        <td><span class="work-status work-status-@item.Status?.ToLowerInvariant()">@statusLabels.GetValueOrDefault(item.Status ?? "", item.Status)</span></td>
+                        <td>
+                            @if (item.Status == "PENDING" && (Model.CanManage || item.CreatedBy == currentUser?.Id || item.EmployeeId == currentUser?.Id))
+                            {
+                                <form method="post" asp-action="BookingAction" class="booking-action-form">
+                                    @Html.AntiForgeryToken()<input type="hidden" name="id" value="@item.Id" /><input type="hidden" name="kind" value="@Model.Kind" />
+                                    @if (Model.CanManage) { <button class="hrm-btn hrm-btn-primary" name="command" value="approve">Duyệt</button><button class="hrm-btn" name="command" value="reject">Từ chối</button><input class="form-control" name="note" placeholder="Lý do từ chối" /> }
+                                    @if (item.CreatedBy == currentUser?.Id || item.EmployeeId == currentUser?.Id) { <button class="hrm-btn" name="command" value="cancel">Hủy</button> }
+                                </form>
+                            }
+                        </td>
+                    </tr>
+                }</tbody>
+            </table></div>
+        }
+    </section>
+
+    @if (Model.CanCreate)
+    {
+        <section class="work-panel booking-create-panel work-layout-editor-primary">
+            <h3>@(isMeeting ? "Đặt phòng họp" : isVehicle ? "Tạo yêu cầu đặt xe" : "Tạo phân công công tác")</h3>
+            <form method="post" asp-action="Create" id="bookingCreateForm">
+                @Html.AntiForgeryToken()<input type="hidden" name="Kind" value="@Model.Kind" />
+                <div class="booking-form-grid">
+                    <div class="form-group booking-span-2"><label for="Title">@(isMeeting ? "Chủ đề cuộc họp" : isVehicle ? "Mục đích chuyến đi" : "Nội dung công tác") *</label><input id="Title" name="Title" class="form-control" required maxlength="200" value="@Model.Draft.Title" /></div>
+                    @if (isMeeting)
+                    {
+                        <div class="form-group"><label for="Location">Phòng họp *</label><select id="Location" name="Location" class="form-control" required><option value="">Chọn phòng</option>@foreach (var room in new[] { "Phòng họp 1 · 8 người", "Phòng họp 2 · 16 người", "Phòng đào tạo · 30 người" }) { <option selected="@(Model.Draft.Location == room)">@room</option> }</select></div>
+                    }
+                    @if (isVehicle)
+                    {
+                        <div class="form-group"><label for="Category">Loại xe *</label><select id="Category" name="Category" class="form-control" required><option value="">Chọn loại xe</option>@foreach (var type in new[] { "Xe 4 chỗ", "Xe 7 chỗ", "Xe 16 chỗ", "Xe tải", "Khác" }) { <option selected="@(Model.Draft.Category == type)">@type</option> }</select></div>
+                        <div class="form-group"><label for="Location">Điểm đón *</label><input id="Location" name="Location" class="form-control" required maxlength="250" value="@Model.Draft.Location" /></div>
+                    }
+                    @if (isVehicle || isTrip) { <div class="form-group"><label for="Destination">@(isVehicle ? "Điểm đến" : "Nơi công tác") *</label><input id="Destination" name="Destination" class="form-control" required maxlength="250" value="@Model.Draft.Destination" /></div> }
+                    @if (isTrip) { <div class="form-group"><label for="Reference">Số quyết định</label><input id="Reference" name="Reference" class="form-control" maxlength="100" value="@Model.Draft.Reference" /></div> }
+                    <div class="form-group"><label for="StartAt">Bắt đầu *</label><input id="StartAt" name="StartAt" type="datetime-local" class="form-control" required value="@Model.Draft.StartAt?.ToString("yyyy-MM-ddTHH:mm")" /></div>
+                    <div class="form-group"><label for="EndAt">Kết thúc *</label><input id="EndAt" name="EndAt" type="datetime-local" class="form-control" required value="@Model.Draft.EndAt?.ToString("yyyy-MM-ddTHH:mm")" /></div>
+                    @if (isMeeting || isVehicle)
+                    {
+                        <div class="form-group"><label for="Target">@(isMeeting ? "Số người tham dự" : "Số người đi") *</label><input id="Target" name="Target" type="number" min="1" max="@(isMeeting ? 30 : 300)" step="1" class="form-control" required value="@Model.Draft.Target" /></div>
+                        <div class="employee-picker booking-span-2">
+                            <div class="booking-picker-head"><strong>@(isVehicle ? "Chọn nhân viên đi xe" : "Chọn nhân viên tham dự")</strong><span id="participantCount">0 / 0 đã chọn</span></div>
+                            <div class="booking-picker-search"><i class="material-icons">search</i><input id="meetingEmployeeSearch" type="search" placeholder="Tìm theo tên hoặc phòng ban…" /></div>
+                            <div id="participantList" class="booking-person-list">@foreach (var person in Model.People) { <label data-search="@($"{person.DisplayName} {person.DepartmentName}".ToLowerInvariant())"><input type="checkbox" name="ParticipantIds" value="@person.Id" checked="@(Model.Draft.ParticipantIds?.Contains(person.Id) == true)" /><span class="hrm-avatar">@person.DisplayName[..Math.Min(2, person.DisplayName.Length)].ToUpperInvariant()</span><span><strong>@person.DisplayName</strong><small>@(person.DepartmentName ?? "Chưa phân phòng")</small></span></label> }</div>
+                            <small class="work-muted">Nhập số người, tìm kiếm và chọn đúng số nhân viên. Người được chọn sẽ nhận thông báo.</small>
+                        </div>
+                    }
+                    @if (isTrip)
+                    {
+                        <div class="form-group booking-span-2"><label for="EmployeeId">Nhân viên *</label><select id="EmployeeId" name="EmployeeId" class="form-control" required><option value="">Chọn nhân viên</option>@foreach (var person in Model.People) { <option value="@person.Id" selected="@(Model.Draft.EmployeeId == person.Id)">@person.DisplayName · @person.DepartmentName</option> }</select></div>
+                    }
+                    <div class="form-group booking-span-2"><label for="Description">Ghi chú</label><textarea id="Description" name="Description" class="form-control" rows="3" maxlength="2000">@Model.Draft.Description</textarea></div>
+                </div>
+                <button class="hrm-btn hrm-btn-primary" type="submit"><i class="material-icons">save</i> Lưu yêu cầu</button>
+            </form>
+        </section>
+    }
+</div>
+
+<style>
+.booking-module{display:grid;gap:18px}.booking-section-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}.booking-section-head h3{margin:0 0 5px}.booking-section-head p{margin:0;color:#6b7890}.booking-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 18px}.booking-span-2{grid-column:1/-1}.booking-person-list{max-height:320px;overflow-y:auto;border:1px solid #d9e2ef;border-radius:0 0 10px 10px}.booking-person-list label{display:flex;align-items:center;gap:10px;padding:10px 14px;margin:0;border-bottom:1px solid #edf1f6;cursor:pointer}.booking-person-list label:last-child{border-bottom:0}.booking-person-list label:has(input:checked){background:#eaf3ff;border-left:4px solid #2376df}.booking-person-list small,.booking-table small{display:block}.booking-picker-head{display:flex;justify-content:space-between;padding:12px 14px;border:1px solid #d9e2ef;border-radius:10px 10px 0 0}.booking-picker-search{display:flex;align-items:center;gap:9px;padding:10px 14px;border-left:1px solid #d9e2ef;border-right:1px solid #d9e2ef}.booking-picker-search input{width:100%;border:0;outline:0}.booking-action-form{display:flex;flex-wrap:wrap;gap:6px}.booking-action-form .form-control{min-width:150px}@@media(max-width:760px){.booking-form-grid{grid-template-columns:1fr}.booking-span-2{grid-column:auto}.booking-section-head{align-items:flex-start}.booking-create-panel,.booking-list-panel{padding:16px}.booking-table{min-width:850px}}
+</style>
+<script>
+(function(){var total=document.getElementById('Target'),list=document.getElementById('participantList'),search=document.getElementById('meetingEmployeeSearch'),count=document.getElementById('participantCount');if(!total||!list||!count)return;var boxes=Array.from(list.querySelectorAll('input[type=checkbox]'));function sync(){var limit=parseInt(total.value||'0',10),selected=boxes.filter(function(x){return x.checked}).length;count.textContent=selected+' / '+limit+' đã chọn';boxes.forEach(function(x){x.disabled=!x.checked&&limit>0&&selected>=limit});}total.addEventListener('input',sync);boxes.forEach(function(x){x.addEventListener('change',sync)});if(search)search.addEventListener('input',function(){var q=this.value.trim().toLowerCase();list.querySelectorAll('label').forEach(function(x){x.hidden=q&&!x.dataset.search.includes(q)})});sync();})();
+</script>

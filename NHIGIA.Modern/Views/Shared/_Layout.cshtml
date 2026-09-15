@@ -41,7 +41,7 @@
                 <a class="navbar-brand" asp-controller="Home" asp-action="Index"><img class="hrm-brand-logo" src="~/images/nhigia-logo.png" asp-append-version="true" alt="Nhị Gia" />HRM NHỊ GIA</a>
             </div>
             <div class="pull-right">
-                <a class="hrm-notification" asp-controller="Home" asp-action="InternalCommunications" title="Thông báo" aria-label="Mở thông báo"><i class="material-icons">notifications_none</i></a>
+                <a class="hrm-notification" asp-controller="Work" asp-action="Notifications" title="Thông báo" aria-label="Mở thông báo"><i class="material-icons">notifications_none</i><span id="hrmNotificationBadge" hidden></span></a>
                 <form class="hrm-logout" asp-controller="Account" asp-action="Logout" method="post">
                     @Html.AntiForgeryToken()
                     <button type="submit"><i class="material-icons" style="font-size:16px;vertical-align:middle">logout</i><span class="hrm-logout-label"> Đăng xuất</span></button>
@@ -82,7 +82,7 @@
                     @if (canConfigure)
                     {
                         <li class="@(action == "Reports" ? "active" : "")"><a asp-controller="Home" asp-action="Reports"><i class="material-icons">analytics</i><span>Báo cáo</span></a></li>
-                        @if (Configuration.GetValue<bool>("Features:HanetIntegrationUiEnabled"))
+                        @if (role == HrmRoles.Admin && Configuration.GetValue<bool>("Features:HanetIntegrationUiEnabled"))
                         {
                             <li class="@(action == "HanetIntegration" ? "active" : "")"><a asp-controller="Home" asp-action="HanetIntegration"><i class="material-icons">sync</i><span>Tích hợp HANET</span></a></li>
                         }
@@ -90,15 +90,25 @@
                     <li class="header">@(isEmployee ? "CÔNG VIỆC CỦA TÔI" : "HIỆU SUẤT & HỖ TRỢ")</li>
                     <li class="@(workKind == "kpi" ? "active" : "")"><a asp-controller="Work" asp-action="Index" asp-route-kind="kpi"><i class="material-icons">track_changes</i><span>@(isEmployee ? "KPI của tôi" : isManager ? "KPI phòng ban" : "KPI")</span></a></li>
                     <li class="@(workKind == "payroll" ? "active" : "")"><a asp-controller="Work" asp-action="Index" asp-route-kind="payroll"><i class="material-icons">payments</i><span>@(isDirector || role == HrmRoles.Admin ? "Duyệt bảng lương" : canConfigure ? "Tính lương" : "Phiếu lương")</span></a></li>
-                    @if (canConfigure || isManager) {
+                    @if (canConfigure) {
                     <li class="@(workKind == "recruitment" ? "active" : "")"><a asp-controller="Work" asp-action="Index" asp-route-kind="recruitment"><i class="material-icons">person_search</i><span>Tuyển dụng</span></a></li>
                     }
-                    <li class="@(workKind == "training" ? "active" : "")"><a asp-controller="Work" asp-action="Index" asp-route-kind="training"><i class="material-icons">school</i><span>@(isEmployee ? "Đào tạo của tôi" : "Quản lý đào tạo")</span></a></li>
+                    <li class="@(workKind == "training" ? "active" : "")"><a asp-controller="Work" asp-action="Index" asp-route-kind="training"><i class="material-icons">school</i><span>@(isEmployee ? "Đào tạo của tôi" : "Đào tạo")</span></a></li>
                     <li class="@(workKind == "overtime" ? "active" : "")"><a asp-controller="Work" asp-action="Index" asp-route-kind="overtime"><i class="material-icons">more_time</i><span>@(isEmployee ? "Đăng ký tăng ca" : "Quản lý tăng ca")</span></a></li>
                     <li class="@(workKind == "resignation" ? "active" : "")"><a asp-controller="Work" asp-action="Index" asp-route-kind="resignation"><i class="material-icons">person_remove</i><span>@(isEmployee ? "Yêu cầu nghỉ việc & thôi việc" : "Quản lý nghỉ việc và thôi việc")</span></a></li>
-                    <li class="@(workKind == "transfer" ? "active" : "")"><a asp-controller="Work" asp-action="Index" asp-route-kind="transfer"><i class="material-icons">swap_horiz</i><span>@(isEmployee ? "Điều chuyển của tôi" : "Điều chuyển nhân sự")</span></a></li>
+                    @if (canConfigure)
+                    {
+                        <li class="@(workKind == "transfer" ? "active" : "")"><a asp-controller="Work" asp-action="Index" asp-route-kind="transfer"><i class="material-icons">swap_horiz</i><span>Điều chuyển nhân sự</span></a></li>
+                    }
                     <li class="@(workKind == "assets" ? "active" : "")"><a asp-controller="Work" asp-action="Index" asp-route-kind="assets"><i class="material-icons">devices</i><span>@(isEmployee ? "Tài sản của tôi" : isManager ? "Tài sản phòng ban" : "Quản lý tài sản")</span></a></li>
                     <li class="@(workKind == "helpdesk" ? "active" : "")"><a asp-controller="Work" asp-action="Index" asp-route-kind="helpdesk"><i class="material-icons">support_agent</i><span>@(isEmployee ? "Yêu cầu Helpdesk IT" : "Helpdesk IT")</span></a></li>
+                    <li class="header">TIỆN ÍCH & ĐIỀU PHỐI</li>
+                    <li class="@(workKind == "meeting" ? "active" : "")"><a asp-controller="Work" asp-action="Index" asp-route-kind="meeting"><i class="material-icons">meeting_room</i><span>Đặt phòng họp</span></a></li>
+                    <li class="@(workKind == "vehicle" ? "active" : "")"><a asp-controller="Work" asp-action="Index" asp-route-kind="vehicle"><i class="material-icons">directions_car</i><span>Đặt xe</span></a></li>
+                    @if (canManage)
+                    {
+                        <li class="@(workKind == "business-trip" ? "active" : "")"><a asp-controller="Work" asp-action="Index" asp-route-kind="business-trip"><i class="material-icons">business_center</i><span>Phân công công tác</span></a></li>
+                    }
                 </ul>
             </div>
             <div class="legal"><div class="copyright">&copy; @DateTime.Now.Year <a asp-controller="Home" asp-action="Index">HRM NHỊ GIA</a></div></div>

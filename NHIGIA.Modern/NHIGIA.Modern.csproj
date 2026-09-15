@@ -15,6 +15,7 @@
 
   <ItemGroup>
     <Content Include="App_Data\hrm-mvp.sql" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="App_Data\demo-functional-data.sql" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

@@ -176,6 +176,12 @@ BEGIN
 END;
 GO
 
+IF COL_LENGTH('dbo.HrmLeaveRequest', 'AttachmentContentType') IS NULL
+    ALTER TABLE dbo.HrmLeaveRequest ADD AttachmentContentType NVARCHAR(100) NULL;
+IF COL_LENGTH('dbo.HrmLeaveRequest', 'AttachmentContent') IS NULL
+    ALTER TABLE dbo.HrmLeaveRequest ADD AttachmentContent VARBINARY(MAX) NULL;
+GO
+
 IF OBJECT_ID('dbo.HrmCommunication', 'U') IS NULL
 BEGIN
     CREATE TABLE dbo.HrmCommunication (
@@ -490,6 +496,36 @@ IF COL_LENGTH('dbo.HrmWorkItem', 'AssetDisposed') IS NULL
     ALTER TABLE dbo.HrmWorkItem ADD AssetDisposed INT NOT NULL CONSTRAINT DF_HrmWorkItem_AssetDisposed DEFAULT (0);
 IF COL_LENGTH('dbo.HrmWorkItem', 'AssetDamaged') IS NULL
     ALTER TABLE dbo.HrmWorkItem ADD AssetDamaged INT NOT NULL CONSTRAINT DF_HrmWorkItem_AssetDamaged DEFAULT (0);
+IF COL_LENGTH('dbo.HrmWorkItem', 'KpiType') IS NULL
+    ALTER TABLE dbo.HrmWorkItem ADD KpiType NVARCHAR(30) NULL;
+IF COL_LENGTH('dbo.HrmWorkItem', 'Quarter') IS NULL
+    ALTER TABLE dbo.HrmWorkItem ADD Quarter NVARCHAR(30) NULL;
+IF COL_LENGTH('dbo.HrmWorkItem', 'ProofNote') IS NULL
+    ALTER TABLE dbo.HrmWorkItem ADD ProofNote NVARCHAR(2000) NULL;
+GO
+
+IF OBJECT_ID('dbo.HrmTrainingEnrollment', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.HrmTrainingEnrollment (
+        Id INT IDENTITY(1,1) NOT NULL CONSTRAINT PK_HrmTrainingEnrollment PRIMARY KEY,
+        TrainingId INT NOT NULL,
+        EmployeeId INT NOT NULL,
+        Status NVARCHAR(30) NOT NULL CONSTRAINT DF_HrmTrainingEnrollment_Status DEFAULT ('STUDYING'),
+        ProgressPercent INT NOT NULL CONSTRAINT DF_HrmTrainingEnrollment_Progress DEFAULT (0),
+        Score DECIMAL(5,2) NULL,
+        EvaluationResult NVARCHAR(100) NULL,
+        EvaluationNote NVARCHAR(1000) NULL,
+        CertificateNumber NVARCHAR(100) NULL,
+        CertificateIssuedAt DATETIME2 NULL,
+        EnrolledAt DATETIME2 NOT NULL CONSTRAINT DF_HrmTrainingEnrollment_EnrolledAt DEFAULT (SYSUTCDATETIME()),
+        UpdatedAt DATETIME2 NULL,
+        CONSTRAINT UQ_HrmTrainingEnrollment_TrainingEmployee UNIQUE (TrainingId, EmployeeId),
+        CONSTRAINT CK_HrmTrainingEnrollment_Progress CHECK (ProgressPercent BETWEEN 0 AND 100),
+        CONSTRAINT FK_HrmTrainingEnrollment_Training FOREIGN KEY (TrainingId) REFERENCES dbo.HrmWorkItem(Id) ON DELETE CASCADE,
+        CONSTRAINT FK_HrmTrainingEnrollment_Employee FOREIGN KEY (EmployeeId) REFERENCES dbo.HrmUserAccount(Id)
+    );
+    CREATE INDEX IX_HrmTrainingEnrollment_Employee ON dbo.HrmTrainingEnrollment(EmployeeId, Status, EnrolledAt DESC);
+END;
 GO
 
 IF OBJECT_ID('dbo.HrmWorkItemParticipant', 'U') IS NULL

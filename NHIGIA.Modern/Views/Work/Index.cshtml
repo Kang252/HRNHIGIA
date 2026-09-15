@@ -47,6 +47,10 @@ else if (Model.Kind == "resignation")
 {
     @await Html.PartialAsync("_ResignationModule", Model)
 }
+else if (Model.Kind is "vehicle" or "meeting" or "business-trip")
+{
+    @await Html.PartialAsync("_BookingModule", Model)
+}
 else
 {
     <!-- Default / Helpdesk IT -->

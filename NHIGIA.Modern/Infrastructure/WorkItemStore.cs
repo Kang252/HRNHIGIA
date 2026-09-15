@@ -18,7 +18,10 @@ public sealed class WorkItemStore
         var canSeeAll = actor.RoleCode == HrmRoles.Admin || actor.RoleCode == HrmRoles.Hr || actor.RoleCode == HrmRoles.Director;
         var isManager = actor.RoleCode == HrmRoles.Manager;
         var canManageDepartment = isManager && page.CanManage;
-        page.Items = db.Query<WorkItem>(@"SELECT w.*, u.DisplayName EmployeeName, d.Name DepartmentName
+        page.Items = db.Query<WorkItem>(@"SELECT w.*, u.DisplayName EmployeeName, d.Name DepartmentName,
+                STUFF((SELECT N', ' + pu.DisplayName FROM dbo.HrmWorkItemParticipant wp
+                 INNER JOIN dbo.HrmUserAccount pu ON pu.Id=wp.UserId WHERE wp.WorkItemId=w.Id
+                 ORDER BY pu.DisplayName FOR XML PATH(''),TYPE).value('.','nvarchar(max)'),1,2,N'') ParticipantNames
             FROM dbo.HrmWorkItem w LEFT JOIN dbo.HrmUserAccount u ON u.Id=w.EmployeeId
             LEFT JOIN dbo.HrmDepartment d ON d.Id=COALESCE(w.DepartmentId, u.DepartmentId)
             WHERE w.Kind=@Kind
@@ -107,7 +110,7 @@ public sealed class WorkItemStore
             }
             page.Sessions = sessions.OrderBy(s => s.DateStr).ThenBy(s => s.TimeStr).ToList();
         }
-        if (page.CanManage || page.Kind == "transfer" || page.Kind == "assets" || page.Kind == "payroll")
+        if (page.CanManage || page.Kind is "transfer" or "assets" or "payroll" or "vehicle" or "meeting" or "business-trip")
         {
             var isRecruitment = page.Kind == "recruitment";
             var isResignation = page.Kind == "resignation";
@@ -116,11 +119,12 @@ public sealed class WorkItemStore
             var isTransfer = page.Kind == "transfer";
             var isAssets = page.Kind == "assets";
             var isPayroll = page.Kind == "payroll";
+            var isBooking = page.Kind is "vehicle" or "meeting" or "business-trip";
             page.People = db.Query<WorkPerson>(@"SELECT u.Id, u.DisplayName, u.RoleCode, d.Name DepartmentName 
                 FROM dbo.HrmUserAccount u
                 LEFT JOIN dbo.HrmDepartment d ON d.Id=u.DepartmentId
-                WHERE u.IsActive=1 AND (u.RoleCode<>'ADMIN' OR @IsOvertime=1 OR @IsTransfer=1 OR @IsAssets=1 OR @IsPayroll=1)
-                  AND (@CanSeeAll=1 OR @IsRecruitment=1 OR @IsResignation=1 OR @IsTraining=1 OR @IsOvertime=1 OR @IsTransfer=1 OR @IsAssets=1 OR @IsPayroll=1 OR u.Id=@UserId OR (@IsManager=1 AND u.DepartmentId=@DepartmentId))
+                WHERE u.IsActive=1 AND (u.RoleCode<>'ADMIN' OR @IsOvertime=1 OR @IsTransfer=1 OR @IsAssets=1 OR @IsPayroll=1 OR @IsBooking=1)
+                  AND (@CanSeeAll=1 OR @IsRecruitment=1 OR @IsResignation=1 OR @IsTraining=1 OR @IsOvertime=1 OR @IsTransfer=1 OR @IsAssets=1 OR @IsPayroll=1 OR @IsBooking=1 OR u.Id=@UserId OR (@IsManager=1 AND u.DepartmentId=@DepartmentId))
                 ORDER BY u.DisplayName", new
             {
                 CanSeeAll = canSeeAll,
@@ -131,6 +135,7 @@ public sealed class WorkItemStore
                 IsTransfer = isTransfer,
                 IsAssets = isAssets,
                 IsPayroll = isPayroll,
+                IsBooking = isBooking,
                 IsManager = canManageDepartment,
                 UserId = actor.Id,
                 actor.DepartmentId
@@ -143,13 +148,26 @@ public sealed class WorkItemStore
             page.Items = page.Items.Where(x => $"{x.Title} {x.Reference} {x.EmployeeName} {x.Category}".Contains(page.Query, StringComparison.OrdinalIgnoreCase)).ToList();
         page.Available = true;
     }
-    public int Create(WorkItem item)
+    public int Create(WorkItem item, IReadOnlyCollection<int> participantIds = null)
     {
         using var db = Open();
-        return db.QuerySingle<int>(@"INSERT dbo.HrmWorkItem
-            (Kind,Title,Description,Category,Reference,WorkLocation,JobLevel,ExperienceRequired,EducationRequired,GenderRequirement,AgeRange,SalaryRange,SkillRequirements,Benefits,RecruitmentProcess,RecruitmentReason,StartDate,ContractType,ProbationPeriod,RecruitmentChannel,ContactName,ContactEmail,ContactPhone,ContactAddress,Keywords,EmployeeId,DepartmentId,DueDate,Target,Actual,Weight,Priority,Status,CreatedBy,KpiType,Quarter,ProofNote)
+        using var transaction = db.BeginTransaction();
+        var id = db.QuerySingle<int>(@"INSERT dbo.HrmWorkItem
+            (Kind,Title,Description,Category,Reference,WorkLocation,JobLevel,ExperienceRequired,EducationRequired,GenderRequirement,AgeRange,SalaryRange,SkillRequirements,Benefits,RecruitmentProcess,RecruitmentReason,StartDate,ContractType,ProbationPeriod,RecruitmentChannel,ContactName,ContactEmail,ContactPhone,ContactAddress,Keywords,EmployeeId,DepartmentId,DueDate,StartAt,EndAt,Location,Destination,Target,Actual,Weight,Priority,Status,CreatedBy,KpiType,Quarter,ProofNote)
             OUTPUT INSERTED.Id VALUES
-            (@Kind,@Title,@Description,@Category,@Reference,@WorkLocation,@JobLevel,@ExperienceRequired,@EducationRequired,@GenderRequirement,@AgeRange,@SalaryRange,@SkillRequirements,@Benefits,@RecruitmentProcess,@RecruitmentReason,@StartDate,@ContractType,@ProbationPeriod,@RecruitmentChannel,@ContactName,@ContactEmail,@ContactPhone,@ContactAddress,@Keywords,@EmployeeId,@DepartmentId,@DueDate,@Target,@Actual,@Weight,@Priority,@Status,@CreatedBy,@KpiType,@Quarter,@ProofNote)", item);
+            (@Kind,@Title,@Description,@Category,@Reference,@WorkLocation,@JobLevel,@ExperienceRequired,@EducationRequired,@GenderRequirement,@AgeRange,@SalaryRange,@SkillRequirements,@Benefits,@RecruitmentProcess,@RecruitmentReason,@StartDate,@ContractType,@ProbationPeriod,@RecruitmentChannel,@ContactName,@ContactEmail,@ContactPhone,@ContactAddress,@Keywords,@EmployeeId,@DepartmentId,@DueDate,@StartAt,@EndAt,@Location,@Destination,@Target,@Actual,@Weight,@Priority,@Status,@CreatedBy,@KpiType,@Quarter,@ProofNote)", item, transaction);
+        if (item.Kind is "meeting" or "vehicle" && participantIds?.Count > 0)
+        {
+            foreach (var userId in participantIds.Distinct())
+                db.Execute("INSERT dbo.HrmWorkItemParticipant(WorkItemId,UserId) VALUES(@WorkItemId,@UserId)", new { WorkItemId = id, UserId = userId }, transaction);
+            var state = item.Status == "APPROVED" ? "Đã được xác nhận." : "Đang chờ phê duyệt.";
+            var title = item.Kind == "meeting" ? $"Lời mời họp: {item.Title}" : $"Thông tin chuyến xe: {item.Title}";
+            var route = item.Kind == "meeting" ? item.Location : $"{item.Location} → {item.Destination}";
+            AddParticipantNotifications(db, transaction, id, item.Kind, title,
+                $"{route} · {item.StartAt:dd/MM/yyyy HH:mm}–{item.EndAt:HH:mm}. {state}");
+        }
+        transaction.Commit();
+        return id;
     }
 
     public bool UpdateKpi(WorkItem item, int actorId, string ipAddress)
