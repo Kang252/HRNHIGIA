@@ -109,7 +109,7 @@
                         }
                     }
                     <li class="header hrm-menu-section" data-menu-section="performance"><button class="hrm-menu-section-toggle" type="button" aria-expanded="true"><span>@(isEmployee ? "CÔNG VIỆC CỦA TÔI" : "HIỆU SUẤT & HỖ TRỢ")</span><i class="material-icons" aria-hidden="true">expand_more</i></button></li>
-                    <li class="@(workKind == "kpi" ? "active" : "")"><a href="@Url.Action("Index", "Work", new { kind = "kpi" })" asp-controller="Work" asp-action="Index" asp-route-kind="kpi"><i class="material-icons">track_changes</i><span>@(isEmployee ? "KPI của tôi" : isManager ? "KPI phòng ban" : "KPI")</span></a></li>
+                    <li class="@(workKind == "kpi" ? "active" : "")"><a asp-controller="Work" asp-action="Index" asp-route-kind="kpi"><i class="material-icons">track_changes</i><span>@(isEmployee ? "KPI của tôi" : isManager ? "KPI phòng ban" : "KPI")</span></a></li>
                     <li class="@(workKind == "payroll" ? "active" : "")"><a asp-controller="Work" asp-action="Index" asp-route-kind="payroll"><i class="material-icons">payments</i><span>@(isDirector || role == HrmRoles.Admin ? "Duyệt bảng lương" : canConfigure ? "Tính lương" : "Phiếu lương")</span></a></li>
                     @if (canConfigure) {
                     <li class="@(workKind == "recruitment" ? "active" : "")"><a asp-controller="Work" asp-action="Index" asp-route-kind="recruitment"><i class="material-icons">person_search</i><span>Tuyển dụng</span></a></li>
