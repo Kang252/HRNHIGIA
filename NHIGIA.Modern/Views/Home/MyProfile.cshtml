@@ -81,9 +81,6 @@
                         <span>Tạo Avatar</span>
                     </div>
                 </div>
-                <button type="button" class="s5-avatar-badge-btn" id="btnTriggerUpload" title="Tạo & Gắn ảnh đại diện">
-                    <i class="material-icons">add_a_photo</i>
-                </button>
             </div>
             <input type="file" id="avatarFileInput" accept="image/*" style="display:none;" />
             <h2 class="s5-user-name">@displayName</h2>
@@ -573,26 +570,22 @@
                                 </tr>
                             </thead>
                             <tbody>
+                                @{
+                                    var accHolder = (Model?.DisplayName ?? displayName).ToUpperInvariant();
+                                    var accNumber = !string.IsNullOrWhiteSpace(Model?.BankAccountNumber) ? Model.BankAccountNumber : ("10" + (Model?.UserId ?? 1).ToString().PadLeft(8, '0'));
+                                    var bankTitle = !string.IsNullOrWhiteSpace(Model?.BankName) ? Model.BankName : "Ngân hàng TMCP Ngoại thương Việt Nam (Vietcombank)";
+                                    if (!string.IsNullOrWhiteSpace(Model?.BankBranch))
+                                    {
+                                        bankTitle += $" - {Model.BankBranch}";
+                                    }
+                                }
                                 <tr>
-                                    <td><strong>NHAT 2503</strong></td>
-                                    <td><code>Nhat56458</code></td>
+                                    <td><strong>@accHolder</strong></td>
+                                    <td><code>@accNumber</code></td>
                                     <td>
                                         <div class="s5-bank-name">
                                             <i class="material-icons">account_balance</i>
-                                            Ngân hàng Nông nghiệp và Phát triển Nông thôn (Agribank)
-                                        </div>
-                                    </td>
-                                    <td class="text-center">
-                                        <span class="s5-bank-check-box inactive" title="Tài khoản phụ"></span>
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td><strong>NGUYEN DUY NHAT</strong></td>
-                                    <td><code>0789283</code></td>
-                                    <td>
-                                        <div class="s5-bank-name">
-                                            <i class="material-icons">account_balance</i>
-                                            Ngân hàng Thương Mại Cổ Phần Á Châu (ACB)
+                                            @bankTitle
                                         </div>
                                     </td>
                                     <td class="text-center">
@@ -1161,7 +1154,6 @@
 
         // Elements
         const avatarBox = document.getElementById("avatarBox");
-        const btnTriggerUpload = document.getElementById("btnTriggerUpload");
         const btnOpenAvatarModal = document.getElementById("btnOpenAvatarModal");
         const modal = document.getElementById("modalAvatarCreator");
         const avatarImage = document.getElementById("avatarImage");
@@ -1218,7 +1210,6 @@
         }
 
         if (avatarBox) avatarBox.addEventListener("click", openModal);
-        if (btnTriggerUpload) btnTriggerUpload.addEventListener("click", openModal);
         if (btnOpenAvatarModal) btnOpenAvatarModal.addEventListener("click", openModal);
         if (btnCloseAvatarModal) btnCloseAvatarModal.addEventListener("click", closeModal);
         if (btnCloseAvatarModalX) btnCloseAvatarModalX.addEventListener("click", closeModal);
