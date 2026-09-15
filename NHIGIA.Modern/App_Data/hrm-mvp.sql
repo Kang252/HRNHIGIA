@@ -211,10 +211,7 @@ IF COL_LENGTH('dbo.HrmCommunication', 'AttachmentContent') IS NULL
 GO
 
 IF COL_LENGTH('dbo.HrmCommunication', 'StatusCode') IS NULL
-BEGIN
     ALTER TABLE dbo.HrmCommunication ADD StatusCode NVARCHAR(20) NULL;
-    UPDATE dbo.HrmCommunication SET StatusCode=CASE WHEN IsPublished=1 THEN 'PUBLISHED' ELSE 'PENDING' END WHERE StatusCode IS NULL;
-END;
 GO
 IF COL_LENGTH('dbo.HrmCommunication', 'SubmittedAt') IS NULL
     ALTER TABLE dbo.HrmCommunication ADD SubmittedAt DATETIME2 NULL;
