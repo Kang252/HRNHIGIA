@@ -320,10 +320,24 @@
 }
 .s5-tab-item[data-tab="tab-deduction"] .s5-tab-btn,
 .s5-tab-item[data-tab="tab-exit"] .s5-tab-btn {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
     justify-content: flex-start !important;
     text-align: left !important;
     padding-left: 18px !important;
     margin-left: 0 !important;
+    gap: 12px !important;
+}
+.s5-tab-item[data-tab="tab-deduction"] .s5-tab-btn .material-icons {
+    order: 1 !important;
+    margin: 0 !important;
+    flex: 0 0 18px !important;
+}
+.s5-tab-item[data-tab="tab-deduction"] .s5-tab-btn span {
+    order: 2 !important;
+    text-align: left !important;
+    margin: 0 !important;
 }
 .s5-tab-item:hover .s5-tab-btn {
     background-color: #f8fafc !important;
