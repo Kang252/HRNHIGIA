@@ -244,8 +244,10 @@
 
             sidebar.querySelectorAll('.hrm-menu-section').forEach(function (section) {
                 var key = section.getAttribute('data-menu-section');
+                var items = sectionItems(section);
+                var hasActive = items.some(function (item) { return item.classList.contains('active'); });
                 var hasSavedState = Object.prototype.hasOwnProperty.call(sectionState, key);
-                var expanded = hasSavedState ? sectionState[key] !== false : true;
+                var expanded = hasActive || (hasSavedState ? sectionState[key] !== false : true);
                 setSection(section, expanded, false);
             });
         })();

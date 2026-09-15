@@ -60,11 +60,11 @@
             <div class="kpi-tabs-and-actions">
                 <!-- Slide 11: Tabs KPI được chỉ định vs KPI từ kế hoạch -->
                 <div class="kpi-pill-tabs">
-                    <a href="@Url.Action("Index", new { kind = "kpi", kpiType = "ASSIGNED", fromQuarter = Model.FromQuarter, toQuarter = Model.ToQuarter, periodType = Model.PeriodType, q = Model.Query })"
+                    <a href="@Url.Action("Index", "Work", new { kind = "kpi", kpiType = "ASSIGNED", fromQuarter = Model.FromQuarter, toQuarter = Model.ToQuarter, periodType = Model.PeriodType, q = Model.Query })"
                        class="kpi-pill-tab @(Model.KpiTypeFilter != "PLAN" ? "is-active" : "")">
                         <i class="material-icons">person</i> KPI được chỉ định
                     </a>
-                    <a href="@Url.Action("Index", new { kind = "kpi", kpiType = "PLAN", fromQuarter = Model.FromQuarter, toQuarter = Model.ToQuarter, periodType = Model.PeriodType, q = Model.Query })"
+                    <a href="@Url.Action("Index", "Work", new { kind = "kpi", kpiType = "PLAN", fromQuarter = Model.FromQuarter, toQuarter = Model.ToQuarter, periodType = Model.PeriodType, q = Model.Query })"
                        class="kpi-pill-tab @(Model.KpiTypeFilter == "PLAN" ? "is-active" : "")">
                         <i class="material-icons">corporate_fare</i> KPI từ kế hoạch
                     </a>
@@ -72,7 +72,7 @@
 
                 @if (Model.CanManage)
                 {
-                    <button type="button" class="hrm-btn hrm-btn-primary kpi-create-btn" onclick="openCreateKpiModal()">
+                    <button type="button" class="hrm-btn hrm-btn-primary kpi-create-btn" data-toggle="modal" data-target="#modalCreateKpi" onclick="openCreateKpiModal()">
                         <i class="material-icons">add</i> Tạo KPI mới
                     </button>
                 }
@@ -1383,11 +1383,33 @@
         .kpi-modal-info-box .info-row span {
             color: #64748b;
         }
-        .kpi-proof-display-
-... [truncated for diff preview]
+        .kpi-proof-display-box {
+            background: #f1f5f9;
+            border-left: 3px solid #2563eb;
+            border-radius: 6px;
+            padding: 10px 14px;
+        }
+        .kpi-proof-text {
+            color: #1e293b;
+            font-size: 13.5px;
+            margin-top: 4px;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+    </style>
+
 <script>
     function openCreateKpiModal() {
-        $('#modalCreateKpi').modal('show');
+        if (window.jQuery && typeof $('#modalCreateKpi').modal === 'function') {
+            $('#modalCreateKpi').modal('show');
+        } else {
+            var m = document.getElementById('modalCreateKpi');
+            if (m) {
+                m.classList.add('in');
+                m.style.display = 'block';
+                document.body.classList.add('modal-open');
+            }
+        }
     }
 
     function toggleCreateKpiType(type) {
@@ -1409,8 +1431,12 @@
     }
 
     function switchKpiTab(type) {
-        $('#kpiTypeInput').val(type);
-        $('#kpiFilterForm').submit();
+        var input = document.getElementById('kpiTypeInput');
+        var form = document.getElementById('kpiFilterForm');
+        if (input && form) {
+            input.value = type;
+            form.submit();
+        }
     }
 
     $(document).ready(function() {
@@ -1462,7 +1488,7 @@
                 $('#editTypeAssigned').prop('checked', true);
                 toggleEditKpiType('ASSIGNED');
             }
-            $('#editKpiQuarter').val(btn.attr('data-quarter') || btn.data('quarter') || 'QuÃ½ 1-2025');
+            $('#editKpiQuarter').val(btn.attr('data-quarter') || btn.data('quarter') || 'Quý 1-2025');
             $('#editKpiDescription').val(btn.attr('data-desc') || btn.data('desc') || '');
             $('#editKpiStatus').val(btn.attr('data-status') || btn.data('status') || 'WAITING_RESULT');
             $('#modalEditKpi').modal('show');
