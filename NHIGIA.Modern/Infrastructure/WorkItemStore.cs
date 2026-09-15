@@ -1024,7 +1024,6 @@ public sealed class WorkItemStore
             // Standard Slide 24 groups & categories
             var standardGroups = new (string Group, string[] Categories)[]
             {
-                ("Thiết bị ghi hình", new[] { "Camera" }),
                 ("Thiết bị văn phòng", new[] { "Máy in", "Laptop", "Máy tính để bàn" }),
                 ("Nhóm A", new[] { "Danh mục A1", "Danh mục A" })
             };
