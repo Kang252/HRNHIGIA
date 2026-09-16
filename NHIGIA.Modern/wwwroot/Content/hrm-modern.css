@@ -2106,3 +2106,346 @@ section.content {
     color: #64748b;
     margin-top: 2px;
 }
+
+/* ==========================================================================
+   Mobile layout baseline
+   Keeps every HRM module inside the viewport while preserving horizontal
+   scrolling for data-heavy tables.
+   ========================================================================== */
+@media (max-width: 767px) {
+    html,
+    body {
+        width: 100%;
+        max-width: 100%;
+        overflow-x: hidden;
+    }
+
+    section.content,
+    section.content > .container-fluid,
+    .work-page,
+    .work-module,
+    .work-panel,
+    .hrm-card,
+    .card {
+        min-width: 0;
+        max-width: 100%;
+    }
+
+    section.content,
+    body.hrm-menu-collapsed section.content {
+        margin: 68px 8px 14px !important;
+    }
+
+    .hrm-page-header {
+        gap: 12px;
+        margin-bottom: 16px;
+    }
+
+    .hrm-page-title {
+        font-size: 21px;
+        overflow-wrap: anywhere;
+    }
+
+    .hrm-page-subtitle {
+        line-height: 1.5;
+    }
+
+    .hrm-header-actions {
+        display: grid;
+        width: 100%;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .hrm-header-actions > .hrm-btn,
+    .hrm-header-actions > form,
+    .hrm-header-actions > form .hrm-btn {
+        width: 100%;
+        min-width: 0;
+    }
+
+    .hrm-grid {
+        gap: 10px;
+    }
+
+    .hrm-stat {
+        min-height: 108px;
+        padding: 15px;
+    }
+
+    .hrm-stat-value {
+        margin-top: 10px;
+        font-size: 24px;
+    }
+
+    .hrm-card-header {
+        align-items: flex-start;
+        padding: 14px;
+    }
+
+    .hrm-card-body,
+    .work-panel,
+    .hrm-feed-item,
+    .composer,
+    .post {
+        padding: 14px !important;
+    }
+
+    .hrm-toolbar,
+    .employee-directory-toolbar {
+        padding: 12px;
+    }
+
+    .hrm-toolbar,
+    .work-search,
+    .res-filter-form,
+    .payroll-table-toolbar,
+    .ot-filter-toolbar,
+    .ot-filter-group,
+    .kpi-filter-toolbar,
+    .kpi-filter-fields,
+    .kpi-tabs-and-actions,
+    .booking-section-head {
+        align-items: stretch !important;
+        flex-direction: column !important;
+    }
+
+    .work-search > *,
+    .res-filter-form > *,
+    .payroll-table-toolbar > *,
+    .ot-filter-group > *,
+    .kpi-filter-fields > *,
+    .kpi-search-group,
+    .kpi-search-wrap,
+    .kpi-create-btn,
+    .booking-section-head > .hrm-btn {
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: none !important;
+    }
+
+    input,
+    select,
+    textarea,
+    .form-control,
+    .hrm-control {
+        max-width: 100%;
+        font-size: 16px;
+    }
+
+    textarea {
+        resize: vertical;
+    }
+
+    .hrm-tabs,
+    .company-info-tabs,
+    .hrm-profile-nav,
+    .payroll-tabs-bar,
+    .kpi-pill-tabs,
+    .asset-tabs {
+        max-width: 100%;
+        overflow-x: auto;
+        overscroll-behavior-x: contain;
+        scrollbar-width: thin;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .hrm-tab,
+    .company-info-tabs a,
+    .hrm-profile-nav a,
+    .payroll-tab-link,
+    .kpi-pill-tab,
+    .asset-tabs button {
+        flex: 0 0 auto;
+        white-space: nowrap;
+    }
+
+    .hrm-table-wrap,
+    .table-responsive,
+    .payroll-table-card,
+    .kpi-table-card,
+    .res-table-card,
+    .ot-rate-table-container {
+        width: 100%;
+        max-width: 100%;
+        overflow-x: auto !important;
+        overscroll-behavior-x: contain;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .hrm-table {
+        min-width: 680px;
+    }
+
+    .hrm-table th,
+    .hrm-table td {
+        padding: 10px 11px;
+    }
+
+    .modal-dialog {
+        width: auto !important;
+        max-width: none !important;
+        margin: 10px !important;
+    }
+
+    .modal-content,
+    .hrm-modal-content,
+    .kpi-modal-content {
+        max-height: calc(100dvh - 20px);
+        overflow-y: auto;
+    }
+
+    .modal-header,
+    .modal-body,
+    .modal-footer {
+        padding-left: 14px;
+        padding-right: 14px;
+    }
+
+    .modal-footer {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .modal-footer .btn,
+    .modal-footer .hrm-btn {
+        min-width: 0;
+        flex: 1 1 130px;
+        margin: 0;
+    }
+
+    .alert,
+    .work-description,
+    .hrm-cell-note,
+    .post-file span,
+    .file-info span {
+        overflow-wrap: anywhere;
+    }
+
+    img,
+    video,
+    canvas,
+    svg {
+        max-width: 100%;
+    }
+
+    .notice {
+        right: 8px !important;
+        left: 8px;
+        top: 64px !important;
+        text-align: center;
+    }
+
+    .hrm-datepicker-overlay {
+        width: min(290px, calc(100vw - 20px));
+    }
+
+    .wall-tabs {
+        display: flex !important;
+        grid-template-columns: none !important;
+        overflow-x: auto;
+    }
+
+    .wall-tabs button {
+        width: auto !important;
+        flex: 0 0 auto;
+        white-space: nowrap;
+    }
+
+    .post header {
+        align-items: flex-start;
+        flex-wrap: wrap;
+    }
+
+    .counts,
+    .composer footer,
+    .review {
+        flex-wrap: wrap;
+    }
+
+    .payroll-hero,
+    .res-hero {
+        align-items: flex-start !important;
+        flex-direction: column !important;
+        gap: 14px;
+        padding: 20px 16px !important;
+    }
+
+    .payroll-hero-controls,
+    .res-btn-create {
+        width: 100%;
+    }
+
+    .payroll-period-select {
+        width: 100% !important;
+    }
+
+    .payroll-workflow-card,
+    .payroll-table-card,
+    .kpi-table-card,
+    .res-toolbar-card,
+    .res-table-card {
+        border-radius: 10px !important;
+    }
+}
+
+@media (max-width: 480px) {
+    .navbar .navbar-brand {
+        max-width: calc(100vw - 188px);
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .hrm-brand-logo {
+        width: 32px !important;
+        height: 32px !important;
+        flex-basis: 32px !important;
+    }
+
+    .hrm-header-actions {
+        grid-template-columns: 1fr;
+    }
+
+    .hrm-card,
+    .card,
+    .work-panel {
+        border-radius: 10px;
+    }
+
+    .hrm-profile-hero {
+        gap: 12px;
+        padding: 16px;
+    }
+
+    .hrm-profile-actions,
+    .profile-edit-actions {
+        display: grid;
+        width: 100%;
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+
+    .hrm-profile-actions .hrm-btn,
+    .profile-edit-actions .hrm-btn {
+        width: 100%;
+    }
+
+    .hrm-login-intro {
+        min-height: 210px;
+        padding: 24px 20px;
+    }
+
+    .hrm-login-intro h1 {
+        margin-top: 24px;
+        font-size: 30px;
+    }
+
+    .hrm-login-panel {
+        padding: 14px;
+    }
+
+    .hrm-login-form-wrap {
+        padding: 24px 18px;
+        border-radius: 14px;
+    }
+}
