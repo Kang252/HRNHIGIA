@@ -8,14 +8,28 @@ public sealed class HrmAssistantService
 {
     private readonly HrmDataStore _hrm;
     private readonly WorkItemStore _work;
+    private readonly GeminiAssistantClient _gemini;
 
-    public HrmAssistantService(HrmDataStore hrm, WorkItemStore work)
+    public HrmAssistantService(HrmDataStore hrm, WorkItemStore work, GeminiAssistantClient gemini)
     {
         _hrm = hrm;
         _work = work;
+        _gemini = gemini;
     }
 
-    public AssistantAnswer Ask(string question, HrmUserAccountModel actor)
+    public async Task<AssistantAnswer> AskAsync(string question, IReadOnlyList<AssistantChatMessage> history, HrmUserAccountModel actor, CancellationToken cancellationToken = default)
+    {
+        var grounded = BuildGroundedAnswer(question, actor);
+        var generated = await _gemini.GenerateAsync(question, history, grounded, actor, cancellationToken);
+        if (!string.IsNullOrWhiteSpace(generated))
+        {
+            grounded.Answer = generated;
+            grounded.UsedGemini = true;
+        }
+        return grounded;
+    }
+
+    private AssistantAnswer BuildGroundedAnswer(string question, HrmUserAccountModel actor)
     {
         var normalized = Normalize(question);
         var suggestions = Suggestions(actor);

@@ -55,6 +55,11 @@ builder.Services.AddSingleton<HrmDataStore>();
 builder.Services.AddScoped<WorkItemStore>();
 builder.Services.AddScoped<HrmUserAccessor>();
 builder.Services.AddScoped<HrmAssistantService>();
+builder.Services.AddHttpClient<GeminiAssistantClient>(client =>
+{
+    client.BaseAddress = new Uri("https://generativelanguage.googleapis.com/");
+    client.Timeout = TimeSpan.FromSeconds(20);
+});
 
 var app = builder.Build();
 

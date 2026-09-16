@@ -1528,6 +1528,9 @@ section.content {
 
 @media(max-width:600px){.hrm-ai{right:12px;bottom:12px}.hrm-ai-panel{position:fixed;inset:68px 8px 8px;width:auto;height:auto;max-height:none;border-radius:16px}.hrm-ai-launcher{height:46px;padding:0 15px}.hrm-ai-launcher span{display:none}}
 
+body .hrm-ai{width:auto!important;max-width:none!important;left:auto!important}body .hrm-ai>.hrm-ai-launcher{display:inline-flex!important;width:auto!important;min-width:132px!important;max-width:168px!important;flex:0 0 auto!important;white-space:nowrap!important}body .hrm-ai.is-open>.hrm-ai-launcher{min-width:50px!important;width:50px!important;padding:0!important;justify-content:center!important}@media(max-width:600px){body .hrm-ai>.hrm-ai-launcher{width:46px!important;min-width:46px!important;max-width:46px!important;padding:0!important;justify-content:center!important}}
+.hrm-ai[data-provider="gemini"] .hrm-ai-privacy:after{content:"Gemini";margin-left:auto;padding:2px 6px;border-radius:8px;background:#e8f3ff;color:#1769e0;font-weight:700}
+
 /* Modals */
 .ot-calc-preview-box {
     background: #f8fafc;

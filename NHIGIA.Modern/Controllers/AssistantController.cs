@@ -21,15 +21,20 @@ public sealed class AssistantController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public IActionResult Ask([FromBody] AssistantQuestionRequest request)
+    public async Task<IActionResult> Ask([FromBody] AssistantQuestionRequest request, CancellationToken cancellationToken)
     {
         var question = request?.Question?.Trim();
         if (string.IsNullOrWhiteSpace(question)) return BadRequest(new { success = false, message = "Vui lòng nhập câu hỏi." });
         if (question.Length > 500) return BadRequest(new { success = false, message = "Câu hỏi không được dài quá 500 ký tự." });
+        var history = (request.History ?? Array.Empty<AssistantChatMessage>())
+            .Where(x => x != null && (x.Role == "user" || x.Role == "assistant") && !string.IsNullOrWhiteSpace(x.Text))
+            .TakeLast(8)
+            .Select(x => new AssistantChatMessage { Role = x.Role, Text = x.Text.Trim()[..Math.Min(500, x.Text.Trim().Length)] })
+            .ToList();
 
         try
         {
-            return Json(new { success = true, data = _assistant.Ask(question, _users.Current) });
+            return Json(new { success = true, data = await _assistant.AskAsync(question, history, _users.Current, cancellationToken) });
         }
         catch (Exception exception)
         {

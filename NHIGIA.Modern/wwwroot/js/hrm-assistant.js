@@ -11,6 +11,7 @@
     var messages = document.getElementById('hrmAiMessages');
     var suggestions = document.getElementById('hrmAiSuggestions');
     var submitButton = form.querySelector('button[type="submit"]');
+    var history = [];
 
     function setOpen(open) {
         root.classList.toggle('is-open', open);
@@ -58,11 +59,14 @@
                 method: 'POST',
                 credentials: 'same-origin',
                 headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': token },
-                body: JSON.stringify({ Question: question })
+                body: JSON.stringify({ Question: question, History: history.slice(-8) })
             });
             var result = await response.json();
             if (!response.ok || !result.success) throw new Error(result.message || 'Không thể nhận câu trả lời.');
             message(result.data.Answer, 'bot', result.data.LinkUrl, result.data.LinkLabel);
+            root.dataset.provider = result.data.UsedGemini ? 'gemini' : 'database';
+            history.push({ Role: 'user', Text: question }, { Role: 'assistant', Text: result.data.Answer });
+            if (history.length > 8) history = history.slice(-8);
             renderSuggestions(result.data.Suggestions);
         } catch (error) {
             message(error.message || 'Không thể kết nối trợ lý lúc này.', 'error');
