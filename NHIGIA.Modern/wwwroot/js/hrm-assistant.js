@@ -14,8 +14,10 @@
     var submitButton = form.querySelector('button[type="submit"]');
     var submitIcon = submitButton.querySelector('.material-icons');
     var history = [];
+    var savedMessages = [];
     var isAsking = false;
     var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var storageKey = 'hrmAiConversation:v2:' + (root.dataset.userId || 'anonymous');
 
     function setOpen(open) {
         root.classList.toggle('is-open', open);
@@ -49,6 +51,35 @@
         window.requestAnimationFrame(function () { row.classList.remove('is-entering'); });
         scrollToLatest(type !== 'user');
         return row;
+    }
+
+    function remember(role, text, linkUrl, linkLabel) {
+        savedMessages.push({ role: role, text: text, linkUrl: linkUrl || '', linkLabel: linkLabel || '' });
+        if (savedMessages.length > 40) savedMessages = savedMessages.slice(-40);
+        history.push({ Role: role, Text: text });
+        if (history.length > 8) history = history.slice(-8);
+        try {
+            window.sessionStorage.setItem(storageKey, JSON.stringify({ messages: savedMessages, history: history }));
+        } catch (_) {
+            // The assistant remains usable when browser storage is disabled.
+        }
+    }
+
+    function restoreConversation() {
+        try {
+            var saved = JSON.parse(window.sessionStorage.getItem(storageKey) || '{}');
+            if (!Array.isArray(saved.messages)) return;
+            savedMessages = saved.messages.slice(-40).filter(function (item) {
+                return item && (item.role === 'user' || item.role === 'assistant') && typeof item.text === 'string';
+            });
+            history = Array.isArray(saved.history) ? saved.history.slice(-8) : [];
+            savedMessages.forEach(function (item) {
+                message(item.text, item.role === 'user' ? 'user' : 'bot', item.linkUrl, item.linkLabel);
+            });
+        } catch (_) {
+            savedMessages = [];
+            history = [];
+        }
     }
 
     function showTyping() {
@@ -101,7 +132,9 @@
     async function ask(question) {
         if (isAsking || !question) return;
 
+        var requestHistory = history.slice(-8);
         message(question, 'user');
+        remember('user', question);
         setLoading(true);
         var typingMessage = showTyping();
         var loadingStartedAt = Date.now();
@@ -112,7 +145,7 @@
                 method: 'POST',
                 credentials: 'same-origin',
                 headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': token },
-                body: JSON.stringify({ Question: question, History: history.slice(-8) })
+                body: JSON.stringify({ Question: question, History: requestHistory })
             });
             var result = await response.json();
             var remainingDelay = Math.max(0, 450 - (Date.now() - loadingStartedAt));
@@ -120,9 +153,8 @@
             typingMessage.remove();
             if (!response.ok || !result.success) throw new Error(result.message || 'Không thể nhận câu trả lời.');
             message(result.data.Answer, 'bot', result.data.LinkUrl, result.data.LinkLabel);
+            remember('assistant', result.data.Answer, result.data.LinkUrl, result.data.LinkLabel);
             root.dataset.provider = result.data.UsedGemini ? 'gemini' : 'database';
-            history.push({ Role: 'user', Text: question }, { Role: 'assistant', Text: result.data.Answer });
-            if (history.length > 8) history = history.slice(-8);
             renderSuggestions(result.data.Suggestions);
         } catch (error) {
             if (typingMessage.isConnected) typingMessage.remove();
@@ -155,4 +187,6 @@
     document.addEventListener('keydown', function (event) {
         if (event.key === 'Escape' && root.classList.contains('is-open')) setOpen(false);
     });
+
+    restoreConversation();
 })();

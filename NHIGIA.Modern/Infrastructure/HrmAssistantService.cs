@@ -114,15 +114,20 @@ public sealed class HrmAssistantService
             return Reply($"Bạn có {leaves + work} yêu cầu đang chờ xử lý, gồm {leaves} đơn nghỉ phép và {work} yêu cầu nghiệp vụ khác.", scope, "/Home/Approvals", "Mở phê duyệt", suggestions);
         }
 
-        return Reply("Tôi chưa nhận diện được câu hỏi này. Hãy hỏi ngắn gọn về chấm công, nghỉ phép, lịch làm việc, KPI, tài sản, Helpdesk, đào tạo, tăng ca, đặt phòng hoặc đặt xe.", scope, suggestions: suggestions);
+        return Reply(
+            "Gemini đang tạm thời không khả dụng. Bạn vẫn có thể hỏi tôi về dữ liệu HRM của mình.",
+            scope,
+            suggestions: suggestions,
+            hasGroundedData: false);
     }
 
-    private static AssistantAnswer Reply(string answer, string scope, string linkUrl = null, string linkLabel = null, IReadOnlyList<string> suggestions = null) => new()
+    private static AssistantAnswer Reply(string answer, string scope, string linkUrl = null, string linkLabel = null, IReadOnlyList<string> suggestions = null, bool hasGroundedData = true) => new()
     {
         Answer = answer,
         Scope = scope,
         LinkUrl = linkUrl,
         LinkLabel = linkLabel,
+        HasGroundedData = hasGroundedData,
         Suggestions = suggestions ?? Array.Empty<string>()
     };
 

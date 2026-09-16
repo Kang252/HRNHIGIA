@@ -73,7 +73,7 @@ try
         if (!cookies.Contains("NHIGIA.Antiforgery.v2=")) throw new Exception("Stable antiforgery cookie was not issued.");
         Console.WriteLine("PASS stable antiforgery cookie");
     }
-    await Check("/", "ADMIN", HttpStatusCode.OK, "Tổng quan hệ thống", "Tài khoản nhân sự", "Helpdesk IT", "images/nhigia-logo.png", "Mở thông báo", "/Work/Notifications", "hrmNotificationBadge", "hrmRowPreview", "Trợ lý Nhị Gia", "/Assistant/Ask", "hrm-assistant.js");
+    await Check("/", "ADMIN", HttpStatusCode.OK, "Tổng quan hệ thống", "Tài khoản nhân sự", "Helpdesk IT", "images/nhigia-logo.png", "Mở thông báo", "/Work/Notifications", "hrmNotificationBadge", "hrmRowPreview", "Trợ lý Nhị Gia", "Trò chuyện tự do", "Chỉ dữ liệu SQL bị giới hạn", "/Assistant/Ask", "hrm-assistant.js");
     await CheckMissing("/", "ADMIN", "Ứng dụng eHRM", "hrm-app-grid", "inventory_2");
     await Check("/", "EMPLOYEE", HttpStatusCode.OK, "Tổng quan của tôi", "KPI của tôi", "Phiếu lương", "Yêu cầu IT");
     await CheckMissing("/", "EMPLOYEE", "Quản lý nhân sự", "Tuyển dụng", "Điều chuyển nhân sự");

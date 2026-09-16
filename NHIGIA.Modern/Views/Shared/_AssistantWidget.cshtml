@@ -1,19 +1,19 @@
 @{
     var assistantUser = HrmUser.Current;
 }
-<div class="hrm-ai" id="hrmAi" data-endpoint="@Url.Action("Ask", "Assistant")">
+<div class="hrm-ai" id="hrmAi" data-endpoint="@Url.Action("Ask", "Assistant")" data-user-id="@assistantUser?.Id">
     <button class="hrm-ai-launcher" id="hrmAiLauncher" type="button" aria-controls="hrmAiPanel" aria-expanded="false" title="Trợ lý Nhị Gia">
         <i class="material-icons" aria-hidden="true">smart_toy</i>
         <span>Trợ lý AI</span>
     </button>
     <section class="hrm-ai-panel" id="hrmAiPanel" aria-label="Trợ lý dữ liệu Nhị Gia" aria-hidden="true">
         <header class="hrm-ai-header">
-            <div class="hrm-ai-brand"><span><i class="material-icons">smart_toy</i></span><div><strong>Trợ lý Nhị Gia</strong><small>Dữ liệu theo quyền @assistantUser?.RoleLabel</small></div></div>
+            <div class="hrm-ai-brand"><span><i class="material-icons">smart_toy</i></span><div><strong>Trợ lý Nhị Gia</strong><small>Trò chuyện tự do · SQL theo quyền @assistantUser?.RoleLabel</small></div></div>
             <button id="hrmAiClose" type="button" aria-label="Đóng trợ lý"><i class="material-icons">close</i></button>
         </header>
-        <div class="hrm-ai-privacy"><i class="material-icons">verified_user</i><span>Tôi chỉ đọc dữ liệu thuộc phạm vi tài khoản của bạn.</span></div>
+        <div class="hrm-ai-privacy"><i class="material-icons">verified_user</i><span>Chỉ dữ liệu SQL bị giới hạn theo quyền tài khoản.</span></div>
         <div class="hrm-ai-messages" id="hrmAiMessages" aria-live="polite">
-            <div class="hrm-ai-message is-bot"><div>Xin chào @assistantUser?.DisplayName! Tôi có thể hỗ trợ tra cứu chấm công, nghỉ phép, lịch làm việc, KPI và các nghiệp vụ HRM.</div></div>
+            <div class="hrm-ai-message is-bot"><div>Xin chào @assistantUser?.DisplayName! Bạn có thể trò chuyện với tôi về mọi chủ đề hoặc tra cứu dữ liệu HRM theo quyền tài khoản.</div></div>
         </div>
         <div class="hrm-ai-suggestions" id="hrmAiSuggestions">
             <button type="button">Chấm công hôm nay</button>
@@ -24,7 +24,7 @@
         <form class="hrm-ai-form" id="hrmAiForm">
             @Html.AntiForgeryToken()
             <label class="sr-only" for="hrmAiQuestion">Nhập câu hỏi</label>
-            <textarea id="hrmAiQuestion" maxlength="500" rows="1" placeholder="Hỏi về dữ liệu HRM..." required></textarea>
+            <textarea id="hrmAiQuestion" maxlength="500" rows="1" placeholder="Nhập câu hỏi bất kỳ..." required></textarea>
             <button type="submit" aria-label="Gửi câu hỏi"><i class="material-icons">send</i></button>
         </form>
     </section>
