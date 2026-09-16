@@ -138,7 +138,9 @@
 
     <section class="content">@RenderBody()</section>
     <div id="hrmRowPreview" class="hrm-row-preview" role="tooltip" aria-hidden="true"></div>
+    <partial name="_AssistantWidget" />
     @await RenderSectionAsync("Scripts", required: false)
+    <script src="~/js/hrm-assistant.js" asp-append-version="true"></script>
     <script>
         window.hrmSetMenuAvatar = function (avatarUrl) {
             var image = document.getElementById('hrmMenuAvatarImage');

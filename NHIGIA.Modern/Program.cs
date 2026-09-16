@@ -54,6 +54,7 @@ builder.Services.AddSingleton<HrmDataStore>();
 
 builder.Services.AddScoped<WorkItemStore>();
 builder.Services.AddScoped<HrmUserAccessor>();
+builder.Services.AddScoped<HrmAssistantService>();
 
 var app = builder.Build();
 

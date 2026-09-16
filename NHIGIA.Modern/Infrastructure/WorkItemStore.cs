@@ -297,6 +297,32 @@ public sealed class WorkItemStore
         return db.ExecuteScalar<int>("SELECT COUNT(1) FROM dbo.HrmNotification WHERE UserId=@UserId AND IsRead=0", new { UserId = userId });
     }
 
+    public AssistantWorkSummary GetAssistantSummary(string kind, HrmUserAccountModel actor)
+    {
+        using var db = Open();
+        var canSeeAll = actor.RoleCode is HrmRoles.Admin or HrmRoles.Hr or HrmRoles.Director;
+        var isManager = actor.RoleCode == HrmRoles.Manager;
+        return db.QuerySingle<AssistantWorkSummary>(@"SELECT @Kind Kind,
+                COUNT(1) TotalCount,
+                COALESCE(SUM(CASE WHEN w.Status IN ('PENDING','PENDING_APPROVAL','WAITING_PROOF','SUBMITTED','OPEN','IN_PROGRESS') THEN 1 ELSE 0 END),0) PendingCount,
+                COALESCE(SUM(CASE WHEN w.Status IN ('APPROVED','PROVEN','PUBLISHED','PAID') THEN 1 ELSE 0 END),0) ApprovedCount,
+                COALESCE(SUM(CASE WHEN w.Status IN ('COMPLETED','CLOSED','RESOLVED','DONE') THEN 1 ELSE 0 END),0) CompletedCount
+            FROM dbo.HrmWorkItem w
+            LEFT JOIN dbo.HrmUserAccount employee ON employee.Id=w.EmployeeId
+            WHERE w.Kind=@Kind AND (
+                @CanSeeAll=1 OR w.EmployeeId=@ActorId OR w.CreatedBy=@ActorId
+                OR EXISTS (SELECT 1 FROM dbo.HrmWorkItemParticipant p WHERE p.WorkItemId=w.Id AND p.UserId=@ActorId)
+                OR (@IsManager=1 AND COALESCE(w.DepartmentId, employee.DepartmentId)=@DepartmentId)
+            )", new
+        {
+            Kind = kind,
+            CanSeeAll = canSeeAll,
+            IsManager = isManager,
+            ActorId = actor.Id,
+            actor.DepartmentId
+        });
+    }
+
     public IReadOnlyList<WorkItem> GetPendingApprovals(HrmUserAccountModel actor)
     {
         using var db = Open();

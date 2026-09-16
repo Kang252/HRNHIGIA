@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.DataProtection;
 
 // Local-only integration check: synthetic authentication tickets never leave loopback.
 var root = Path.GetFullPath(args.Length > 0 ? args[0] : "NHIGIA.Modern");
+var assistantOnly = args.Skip(1).Contains("--assistant-only");
 var keys = Path.Combine(Path.GetTempPath(), "nhigia-smoke-" + Guid.NewGuid());
 Directory.CreateDirectory(keys);
 var start = new ProcessStartInfo("dotnet") { WorkingDirectory = root, UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true, CreateNoWindow = true };
@@ -72,7 +73,7 @@ try
         if (!cookies.Contains("NHIGIA.Antiforgery.v2=")) throw new Exception("Stable antiforgery cookie was not issued.");
         Console.WriteLine("PASS stable antiforgery cookie");
     }
-    await Check("/", "ADMIN", HttpStatusCode.OK, "Tổng quan hệ thống", "Tài khoản nhân sự", "Helpdesk IT", "images/nhigia-logo.png", "Mở thông báo", "/Work/Notifications", "hrmNotificationBadge", "hrmRowPreview");
+    await Check("/", "ADMIN", HttpStatusCode.OK, "Tổng quan hệ thống", "Tài khoản nhân sự", "Helpdesk IT", "images/nhigia-logo.png", "Mở thông báo", "/Work/Notifications", "hrmNotificationBadge", "hrmRowPreview", "Trợ lý Nhị Gia", "/Assistant/Ask", "hrm-assistant.js");
     await CheckMissing("/", "ADMIN", "Ứng dụng eHRM", "hrm-app-grid", "inventory_2");
     await Check("/", "EMPLOYEE", HttpStatusCode.OK, "Tổng quan của tôi", "KPI của tôi", "Phiếu lương", "Yêu cầu IT");
     await CheckMissing("/", "EMPLOYEE", "Quản lý nhân sự", "Tuyển dụng", "Điều chuyển nhân sự");
@@ -80,6 +81,14 @@ try
     await CheckMissing("/", "MANAGER", "Tuyển dụng", "Điều chuyển nhân sự");
     await Check("/", "HR", HttpStatusCode.OK, "Điều hành nhân sự", "Tính lương", "Tuyển dụng", "Điều chuyển");
     await Check("/", "DIRECTOR", HttpStatusCode.OK, "Tổng quan điều hành", "Duyệt bảng lương", "Báo cáo điều hành");
+    using (var assistantPost = new HttpRequestMessage(HttpMethod.Post, "/Assistant/Ask"))
+    {
+        assistantPost.Headers.Add("Cookie", Cookie("EMPLOYEE"));
+        assistantPost.Content = new StringContent("{\"Question\":\"Chấm công hôm nay\"}", System.Text.Encoding.UTF8, "application/json");
+        if ((await client.SendAsync(assistantPost)).StatusCode != HttpStatusCode.BadRequest) throw new Exception("Assistant accepted a request without anti-forgery token.");
+        Console.WriteLine("PASS assistant anti-forgery protection");
+    }
+    if (assistantOnly) return;
     await Check("/Home/HanetIntegration", "ADMIN", HttpStatusCode.OK, "Tích hợp camera HANET", "hanetWebhookUrl", "Nhập hàng loạt bằng file", "HanetMappingTemplate", "ImportHanetMappings");
     await Check("/Hrm/HanetMappingTemplate", "ADMIN", HttpStatusCode.OK, "MaNhanVien,TaiKhoan,PersonID,AliasID,PlaceID");
     await Check("/Home/HanetIntegration", "HR", HttpStatusCode.Redirect);
