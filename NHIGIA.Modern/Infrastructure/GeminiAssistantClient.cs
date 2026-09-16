@@ -23,7 +23,7 @@ public sealed class GeminiAssistantClient
     {
         if (!IsConfigured) return null;
 
-        var model = _configuration["GEMINI_MODEL"] ?? _configuration["Gemini:Model"] ?? "gemini-3.8-flash";
+        var model = ResolveModelId();
         var systemInstruction = """
             Bạn là Trợ lý Nhị Gia. Trả lời bằng tiếng Việt, rõ ràng, hữu ích và thân thiện.
             Người dùng có thể trò chuyện và hỏi kiến thức phổ thông về mọi chủ đề; không giới hạn cuộc hội thoại trong HRM.
@@ -122,6 +122,29 @@ public sealed class GeminiAssistantClient
         }
 
         return null;
+    }
+
+    private string ResolveModelId()
+    {
+        var configured = (_configuration["GEMINI_MODEL"] ?? _configuration["Gemini:Model"] ?? "gemini-3.8-flash").Trim();
+        if (configured.StartsWith("models/", StringComparison.OrdinalIgnoreCase)) configured = configured[7..];
+
+        var normalized = string.Join('-', configured
+            .Split((char[])null, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            .Replace('_', '-')
+            .ToLowerInvariant();
+        while (normalized.Contains("--", StringComparison.Ordinal)) normalized = normalized.Replace("--", "-", StringComparison.Ordinal);
+
+        if (!normalized.StartsWith("gemini-", StringComparison.Ordinal) ||
+            normalized.Any(character => !(char.IsLetterOrDigit(character) || character is '-' or '.')))
+        {
+            _logger.LogWarning("Invalid GEMINI_MODEL value {ConfiguredModel}; using gemini-3.8-flash", configured);
+            return "gemini-3.8-flash";
+        }
+
+        if (!string.Equals(configured, normalized, StringComparison.Ordinal))
+            _logger.LogInformation("Normalized GEMINI_MODEL from {ConfiguredModel} to {ModelId}", configured, normalized);
+        return normalized;
     }
 
     private string ApiKey => _configuration["GEMINI_API_KEY"] ?? _configuration["Gemini:ApiKey"];
