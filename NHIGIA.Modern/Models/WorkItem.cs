@@ -45,7 +45,7 @@ public sealed class WorkItem
     public string EmployeeName { get; set; }
     public string DepartmentName { get; set; }
     public string KpiType { get; set; } = "ASSIGNED";
-    public string Quarter { get; set; } = "Q1-2025";
+    public string Quarter { get; set; } = "Quý 1-2026";
     public string ProofNote { get; set; }
     public bool IsAchieved => Target > 0 && Actual >= Target;
     public decimal CompletionRate => Target > 0 ? Math.Min(200, ((Actual ?? 0) * 100m) / Target.Value) : 0;
@@ -91,8 +91,8 @@ public sealed class WorkPage
     public WorkItem OffboardingDraft { get; set; } = new();
     public string NextOffboardingReference { get; set; }
     public string PeriodType { get; set; } = "QUARTER";
-    public string FromQuarter { get; set; } = "Q1-2025";
-    public string ToQuarter { get; set; } = "Q2-2025";
+    public string FromQuarter { get; set; } = "Quý 1-2026";
+    public string ToQuarter { get; set; } = "Quý 4-2026";
     public string KpiTypeFilter { get; set; } = "ASSIGNED";
     public int TotalAssignedKpiCount { get; set; }
     public int ProvenKpiCount { get; set; }
@@ -102,7 +102,7 @@ public sealed class WorkPage
     public List<WorkPerson> People { get; set; } = new();
     public List<WorkDepartment> Departments { get; set; } = new();
     public string TrainingTab { get; set; } = "ALL";
-    public string TrainingMonth { get; set; } = "2025-01";
+    public string TrainingMonth { get; set; } = "2026-01";
     public int EnrolledCoursesCount { get; set; }
     public int CompletedCoursesCount { get; set; }
     public int CertificatesCount { get; set; }

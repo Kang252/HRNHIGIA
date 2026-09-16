@@ -23,27 +23,88 @@
                         </select>
                     </div>
 
-                    <div class="kpi-filter-group">
-                        <label class="kpi-filter-label">Bắt đầu</label>
-                        <select name="fromQuarter" class="form-control kpi-filter-select" onchange="document.getElementById('kpiFilterForm').submit()">
-                            <option value="Quý 1-2025" selected="@(Model.FromQuarter == "Quý 1-2025")">Quý 1-2025</option>
-                            <option value="Quý 2-2025" selected="@(Model.FromQuarter == "Quý 2-2025")">Quý 2-2025</option>
-                            <option value="Quý 3-2025" selected="@(Model.FromQuarter == "Quý 3-2025")">Quý 3-2025</option>
-                            <option value="Quý 4-2025" selected="@(Model.FromQuarter == "Quý 4-2025")">Quý 4-2025</option>
-                            <option value="Quý 1-2026" selected="@(Model.FromQuarter == "Quý 1-2026")">Quý 1-2026</option>
-                        </select>
-                    </div>
+                    @if (Model.PeriodType == "YEAR")
+                    {
+                        <div class="kpi-filter-group">
+                            <label class="kpi-filter-label">Bắt đầu</label>
+                            <select name="fromQuarter" class="form-control kpi-filter-select" onchange="document.getElementById('kpiFilterForm').submit()">
+                                @for (int y = 2026; y <= 2030; y++)
+                                {
+                                    <option value="@y" selected="@(Model.FromQuarter == y.ToString())">@y</option>
+                                }
+                            </select>
+                        </div>
 
-                    <div class="kpi-filter-group">
-                        <label class="kpi-filter-label">Kết thúc</label>
-                        <select name="toQuarter" class="form-control kpi-filter-select" onchange="document.getElementById('kpiFilterForm').submit()">
-                            <option value="Quý 1-2025" selected="@(Model.ToQuarter == "Quý 1-2025")">Quý 1-2025</option>
-                            <option value="Quý 2-2025" selected="@(Model.ToQuarter == "Quý 2-2025")">Quý 2-2025</option>
-                            <option value="Quý 3-2025" selected="@(Model.ToQuarter == "Quý 3-2025")">Quý 3-2025</option>
-                            <option value="Quý 4-2025" selected="@(Model.ToQuarter == "Quý 4-2025")">Quý 4-2025</option>
-                            <option value="Quý 1-2026" selected="@(Model.ToQuarter == "Quý 1-2026")">Quý 1-2026</option>
-                        </select>
-                    </div>
+                        <div class="kpi-filter-group">
+                            <label class="kpi-filter-label">Kết thúc</label>
+                            <select name="toQuarter" class="form-control kpi-filter-select" onchange="document.getElementById('kpiFilterForm').submit()">
+                                @for (int y = 2026; y <= 2030; y++)
+                                {
+                                    <option value="@y" selected="@(Model.ToQuarter == y.ToString())">@y</option>
+                                }
+                            </select>
+                        </div>
+                    }
+                    else if (Model.PeriodType == "MONTH")
+                    {
+                        <div class="kpi-filter-group">
+                            <label class="kpi-filter-label">Bắt đầu</label>
+                            <select name="fromQuarter" class="form-control kpi-filter-select" onchange="document.getElementById('kpiFilterForm').submit()">
+                                @for (int y = 2026; y <= 2028; y++)
+                                {
+                                    for (int m = 1; m <= 12; m++)
+                                    {
+                                        var mVal = $"Tháng {m:00}-{y}";
+                                        <option value="@mVal" selected="@(Model.FromQuarter == mVal)">@mVal</option>
+                                    }
+                                }
+                            </select>
+                        </div>
+
+                        <div class="kpi-filter-group">
+                            <label class="kpi-filter-label">Kết thúc</label>
+                            <select name="toQuarter" class="form-control kpi-filter-select" onchange="document.getElementById('kpiFilterForm').submit()">
+                                @for (int y = 2026; y <= 2028; y++)
+                                {
+                                    for (int m = 1; m <= 12; m++)
+                                    {
+                                        var mVal = $"Tháng {m:00}-{y}";
+                                        <option value="@mVal" selected="@(Model.ToQuarter == mVal)">@mVal</option>
+                                    }
+                                }
+                            </select>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="kpi-filter-group">
+                            <label class="kpi-filter-label">Bắt đầu</label>
+                            <select name="fromQuarter" class="form-control kpi-filter-select" onchange="document.getElementById('kpiFilterForm').submit()">
+                                @for (int y = 2026; y <= 2028; y++)
+                                {
+                                    for (int q = 1; q <= 4; q++)
+                                    {
+                                        var qVal = $"Quý {q}-{y}";
+                                        <option value="@qVal" selected="@(Model.FromQuarter == qVal)">@qVal</option>
+                                    }
+                                }
+                            </select>
+                        </div>
+
+                        <div class="kpi-filter-group">
+                            <label class="kpi-filter-label">Kết thúc</label>
+                            <select name="toQuarter" class="form-control kpi-filter-select" onchange="document.getElementById('kpiFilterForm').submit()">
+                                @for (int y = 2026; y <= 2028; y++)
+                                {
+                                    for (int q = 1; q <= 4; q++)
+                                    {
+                                        var qVal = $"Quý {q}-{y}";
+                                        <option value="@qVal" selected="@(Model.ToQuarter == qVal)">@qVal</option>
+                                    }
+                                }
+                            </select>
+                        </div>
+                    }
 
                     <div class="kpi-filter-group kpi-search-group">
                         <label class="kpi-filter-label">Tìm kiếm</label>
@@ -347,7 +408,7 @@
                                                                data-employee="@(item.EmployeeId?.ToString() ?? "")"
                                                                data-dept="@(item.DepartmentId?.ToString() ?? "")"
                                                                data-type="@(item.KpiType ?? "ASSIGNED")"
-                                                               data-quarter="@(item.Quarter ?? "Quý 1-2025")"
+                                                               data-quarter="@(item.Quarter ?? "Quý 3-2026")"
                                                                data-desc="@(item.Description ?? "")"
                                                                data-status="@(item.Status ?? "WAITING_RESULT")">
                                                                 <i class="material-icons" style="font-size:16px;">edit</i> Chỉnh sửa KPI
@@ -567,11 +628,14 @@
                                 <div class="form-group">
                                     <label for="createKpiQuarter" style="font-weight:600;">Kỳ áp dụng</label>
                                     <select id="createKpiQuarter" name="Quarter" class="form-control">
-                                        <option value="Quý 1-2025" selected>Quý 1-2025</option>
-                                        <option value="Quý 2-2025">Quý 2-2025</option>
-                                        <option value="Quý 3-2025">Quý 3-2025</option>
-                                        <option value="Quý 4-2025">Quý 4-2025</option>
-                                        <option value="Quý 1-2026">Quý 1-2026</option>
+                                        @for (int y = 2026; y <= 2028; y++)
+                                        {
+                                            for (int q = 1; q <= 4; q++)
+                                            {
+                                                var qVal = $"Quý {q}-{y}";
+                                                <option value="@qVal" selected="@(qVal == "Quý 3-2026")">@qVal</option>
+                                            }
+                                        }
                                     </select>
                                 </div>
                             </div>
@@ -690,11 +754,14 @@
                                 <div class="form-group">
                                     <label for="editKpiQuarter" style="font-weight:600;">Kỳ áp dụng</label>
                                     <select id="editKpiQuarter" name="Quarter" class="form-control">
-                                        <option value="Quý 1-2025">Quý 1-2025</option>
-                                        <option value="Quý 2-2025">Quý 2-2025</option>
-                                        <option value="Quý 3-2025">Quý 3-2025</option>
-                                        <option value="Quý 4-2025">Quý 4-2025</option>
-                                        <option value="Quý 1-2026">Quý 1-2026</option>
+                                        @for (int y = 2026; y <= 2028; y++)
+                                        {
+                                            for (int q = 1; q <= 4; q++)
+                                            {
+                                                var qVal = $"Quý {q}-{y}";
+                                                <option value="@qVal">@qVal</option>
+                                            }
+                                        }
                                     </select>
                                 </div>
                             </div>
@@ -1528,7 +1595,7 @@
                 $('#editTypeAssigned').prop('checked', true);
                 toggleEditKpiType('ASSIGNED');
             }
-            $('#editKpiQuarter').val(btn.attr('data-quarter') || btn.data('quarter') || 'Quý 1-2025');
+            $('#editKpiQuarter').val(btn.attr('data-quarter') || btn.data('quarter') || 'Quý 3-2026');
             $('#editKpiDescription').val(btn.attr('data-desc') || btn.data('desc') || '');
             $('#editKpiStatus').val(btn.attr('data-status') || btn.data('status') || 'WAITING_RESULT');
             showModalSafe('modalEditKpi');

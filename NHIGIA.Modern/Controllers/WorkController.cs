@@ -128,14 +128,27 @@ public sealed class WorkController : Controller
         if (kind == "kpi")
         {
             page.PeriodType = string.IsNullOrWhiteSpace(periodType) ? "QUARTER" : periodType;
-            page.FromQuarter = string.IsNullOrWhiteSpace(fromQuarter) ? "Quý 1-2025" : fromQuarter;
-            page.ToQuarter = string.IsNullOrWhiteSpace(toQuarter) ? "Quý 2-2025" : toQuarter;
+            if (page.PeriodType == "YEAR")
+            {
+                page.FromQuarter = string.IsNullOrWhiteSpace(fromQuarter) || fromQuarter.Contains("2025") ? "2026" : fromQuarter;
+                page.ToQuarter = string.IsNullOrWhiteSpace(toQuarter) || toQuarter.Contains("2025") ? "2026" : toQuarter;
+            }
+            else if (page.PeriodType == "MONTH")
+            {
+                page.FromQuarter = string.IsNullOrWhiteSpace(fromQuarter) || fromQuarter.Contains("2025") ? "Tháng 01-2026" : fromQuarter;
+                page.ToQuarter = string.IsNullOrWhiteSpace(toQuarter) || toQuarter.Contains("2025") ? "Tháng 12-2026" : toQuarter;
+            }
+            else
+            {
+                page.FromQuarter = string.IsNullOrWhiteSpace(fromQuarter) || fromQuarter.Contains("2025") ? "Quý 1-2026" : fromQuarter;
+                page.ToQuarter = string.IsNullOrWhiteSpace(toQuarter) || toQuarter.Contains("2025") ? "Quý 4-2026" : toQuarter;
+            }
             page.KpiTypeFilter = string.IsNullOrWhiteSpace(kpiType) ? "ASSIGNED" : kpiType.ToUpperInvariant();
         }
         else if (kind == "training")
         {
             page.TrainingTab = string.IsNullOrWhiteSpace(trainingTab) ? "ALL" : trainingTab.ToUpperInvariant();
-            page.TrainingMonth = string.IsNullOrWhiteSpace(trainingMonth) ? "2025-01" : trainingMonth;
+            page.TrainingMonth = string.IsNullOrWhiteSpace(trainingMonth) || trainingMonth.Contains("2025") ? "2026-01" : trainingMonth;
         }
         else if (kind == "overtime")
         {
@@ -197,8 +210,8 @@ public sealed class WorkController : Controller
         if (draft.Kind == "kpi")
         {
             draft.KpiType = string.IsNullOrWhiteSpace(draft.KpiType) ? "ASSIGNED" : draft.KpiType;
-            draft.Quarter = string.IsNullOrWhiteSpace(draft.Quarter) ? "Q1-2025" : draft.Quarter;
-            if (!draft.DueDate.HasValue) draft.DueDate = new DateTime(2025, 6, 30);
+            draft.Quarter = string.IsNullOrWhiteSpace(draft.Quarter) || draft.Quarter.Contains("2025") ? "Quý 3-2026" : draft.Quarter;
+            if (!draft.DueDate.HasValue) draft.DueDate = new DateTime(2026, 12, 31);
         }
         else if (draft.Kind == "overtime")
         {
@@ -612,7 +625,7 @@ public sealed class WorkController : Controller
         if (draft.EmployeeId.HasValue && draft.DepartmentId.HasValue)
             ModelState.AddModelError("", "Mỗi tiêu chí KPI chỉ giao cho một nhân viên hoặc một phòng ban.");
         if (!draft.DueDate.HasValue)
-            draft.DueDate = new DateTime(2025, 6, 30);
+            draft.DueDate = new DateTime(2026, 12, 31);
         if (string.IsNullOrWhiteSpace(draft.Reference))
             draft.Reference = $"KPI-{DateTime.Now:yyyyMMdd}-{Random.Shared.Next(100, 999)}";
         if (string.IsNullOrWhiteSpace(draft.Category))
