@@ -37,10 +37,22 @@ public sealed class HomeController : BaseController
     public IActionResult LeaveRequests() { ViewBag.Title = "Yêu cầu nghỉ phép"; return View(); }
     public IActionResult InternalCommunications() { ViewBag.Title = "Truyền thông nội bộ"; return View(); }
 
-    public IActionResult MyProfile()
+    public IActionResult MyProfile(int? id = null)
     {
-        ViewBag.Title = "Hồ sơ của tôi";
-        var profile = Store.GetEmployeeProfile(CurrentHrmUser.Id);
+        int targetId = id.HasValue && id.Value > 0 ? id.Value : CurrentHrmUser.Id;
+        if (targetId != CurrentHrmUser.Id)
+        {
+            bool canView = CurrentHrmUser.RoleCode is HrmRoles.Hr or HrmRoles.Director or HrmRoles.Admin
+                || Store.GetVisibleUsers(CurrentHrmUser).Any(x => x.Id == targetId);
+            if (!canView) return Forbid();
+            ViewBag.Title = "Thông tin nhân viên";
+        }
+        else
+        {
+            ViewBag.Title = "Hồ sơ của tôi";
+        }
+
+        var profile = Store.GetEmployeeProfile(targetId);
         return profile == null ? NotFound() : View(profile);
     }
 

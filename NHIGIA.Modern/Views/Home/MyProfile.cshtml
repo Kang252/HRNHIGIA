@@ -6,41 +6,296 @@
     Func<string, string, string> val = (actual, fallback) => string.IsNullOrWhiteSpace(actual) ? fallback : actual.Trim();
     Func<DateTime?, string, string> dtVal = (actual, fallback) => actual.HasValue ? actual.Value.ToString("dd/MM/yyyy") : fallback;
     
-    // Core employee details (with graceful fallbacks to Slide 5 mockup values)
-    var displayName = val(Model?.DisplayName, "Nguyễn Duy Nhất");
-    var username = val(Model?.Username, "test1");
-    var email = val(Model?.CompanyEmail, "test1@dev.dev");
-    var employeeCode = val(Model?.EmployeeCode, "NV_280");
-    var phone = val(Model?.MobilePhone, "0362 898 765");
-    var branch = val(Model?.WorkLocation, "CN nhánh TP Hồ Chí Minh");
-    var jobTitle = val(Model?.JobTitle, "Nhân viên quản lý dự án");
-    var department = val(Model?.DepartmentName, "Phòng IT");
-    var hireDate = dtVal(Model?.HireDate, "01/05/2023");
-    var basicSalary = val(Model?.BasicSalary, "14,000,000");
-    var healthInsurance = val(Model?.HealthInsuranceNumber, "1123412");
-    var socialInsurance = val(Model?.SocialInsuranceNumber, "2246134");
-    var taxCode = val(Model?.PersonalTaxCode, "232410623001");
-    var employmentStatus = val(Model?.EmploymentStatus, "Chính thức");
-    var mainShift = "Ca hành chính (trong tuần)";
-    var secondaryShift = "Ca bán hàng chiều (2,4,6)";
-    var salaryRank = "-";
-    var insSalaryType = "Lương sản phẩm, Lương cứng, Lương KPI";
-    var insSalary = "-";
-    var unionMember = "Không";
+    // Employee Identity & ID Resolver
+    var userId = Model?.UserId ?? 1;
+    var rawName = (Model?.DisplayName ?? "").Trim();
+    if (string.IsNullOrWhiteSpace(rawName)) rawName = "Nguyễn Văn " + (char)('A' + (userId % 26));
+    var displayName = rawName;
 
-    // Personal details (Tab: Hồ sơ nhân viên)
-    var gender = val(Model?.Gender, "Nam");
-    var identityNumber = val(Model?.IdentityNumber, "040093007620");
-    var permanentAddress = val(Model?.PermanentAddress, "Bình Thạnh, TP.HCM");
-    var educationLevel = val(Model?.EducationLevel, "Đại học");
+    // Split Name parts (Họ, Tên đệm, Tên chính)
+    var nameParts = displayName.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+    var surname = nameParts.Length > 0 ? nameParts[0] : "Nguyễn";
+    var givenName = nameParts.Length > 1 ? nameParts[nameParts.Length - 1] : "Nhân";
+    var initials = string.Concat(nameParts.Select(p => p[0])).ToUpperInvariant();
+    if (string.IsNullOrWhiteSpace(initials)) initials = "NV";
+
+    var isViewingSelf = HrmUser.Current != null && HrmUser.Current.Id == userId;
+
+    // Detect / determine gender
+    string gender;
+    if (!string.IsNullOrWhiteSpace(Model?.Gender))
+    {
+        gender = Model.Gender.Trim();
+    }
+    else
+    {
+        var isFemale = rawName.Contains("Thị", StringComparison.OrdinalIgnoreCase)
+            || rawName.Contains("Ngọc", StringComparison.OrdinalIgnoreCase)
+            || rawName.Contains("Linh", StringComparison.OrdinalIgnoreCase)
+            || rawName.Contains("Hà", StringComparison.OrdinalIgnoreCase)
+            || rawName.Contains("Mai", StringComparison.OrdinalIgnoreCase)
+            || rawName.Contains("Châu", StringComparison.OrdinalIgnoreCase)
+            || rawName.Contains("Uyên", StringComparison.OrdinalIgnoreCase)
+            || rawName.Contains("Thảo", StringComparison.OrdinalIgnoreCase)
+            || rawName.Contains("Hoa", StringComparison.OrdinalIgnoreCase)
+            || rawName.Contains("Hương", StringComparison.OrdinalIgnoreCase)
+            || rawName.Contains("Nhi", StringComparison.OrdinalIgnoreCase)
+            || (userId % 3 == 0);
+        gender = isFemale ? "Nữ" : "Nam";
+    }
+
+    // Determine realistic birth date (age 24 - 38)
+    DateTime dateOfBirthVal;
+    if (Model?.DateOfBirth.HasValue == true)
+    {
+        dateOfBirthVal = Model.DateOfBirth.Value;
+    }
+    else
+    {
+        var bYear = 1988 + (userId * 3) % 13;
+        var bMonth = (userId * 7 % 12) + 1;
+        var bDay = (userId * 11 % 28) + 1;
+        dateOfBirthVal = new DateTime(bYear, bMonth, bDay);
+    }
+    var dateOfBirth = dateOfBirthVal.ToString("dd/MM/yyyy");
+    var birthYear = dateOfBirthVal.Year;
+
+    // Determine realistic 12-digit CCCD
+    string identityNumber;
+    if (!string.IsNullOrWhiteSpace(Model?.IdentityNumber))
+    {
+        identityNumber = Model.IdentityNumber.Trim();
+    }
+    else
+    {
+        var provCode = (userId % 2 == 0) ? "079" : "001";
+        var genCentury = gender == "Nữ" ? "1" : "0";
+        var yr2 = birthYear.ToString().Substring(2, 2);
+        var seq6 = (100000 + (userId * 39271) % 900000).ToString();
+        identityNumber = provCode + genCentury + yr2 + seq6;
+    }
+
+    // Determine Hometown & Addresses
+    var hometowns = new[] {
+        "TP. Hồ Chí Minh", "Hà Nội", "Đà Nẵng", "Hải Phòng", "Cần Thơ", 
+        "Nghệ An", "Thanh Hóa", "Quảng Nam", "Thái Bình", "Nam Định", 
+        "Đồng Nai", "Bình Dương", "Lâm Đồng", "Khánh Hòa", "Bắc Ninh"
+    };
+    var hcmDistricts = new[] {
+        "Bình Thạnh", "Quận 1", "Quận 3", "Quận 7", "Quận 10", 
+        "Tân Bình", "Phú Nhuận", "Gò Vấp", "TP. Thủ Đức"
+    };
+    var placeOfBirth = val(Model?.PlaceOfBirth, hometowns[userId % hometowns.Length]);
+    var homeDistrict = hcmDistricts[userId % hcmDistricts.Length];
+    var permanentAddress = val(Model?.PermanentAddress, $"Số {(userId * 17 % 180) + 12}, Đường Nguyễn Trãi, {placeOfBirth}");
+    var currentAddress = val(Model?.CurrentAddress, $"Số {(userId * 23 % 250) + 8}, Phường {(userId % 15) + 1}, {homeDistrict}, TP.HCM");
+
+    // Marital Status
+    var maritalStatus = val(Model?.MaritalStatus, (birthYear <= 1994 || userId % 3 == 0) ? "Đã kết hôn" : "Độc thân");
+
+    // Education & Major
+    var deptName = val(Model?.DepartmentName, "Phòng IT");
+    string defaultSchool;
+    string defaultMajor;
+    if (deptName.Contains("IT", StringComparison.OrdinalIgnoreCase) || deptName.Contains("Công nghệ", StringComparison.OrdinalIgnoreCase))
+    {
+        defaultSchool = (userId % 2 == 0) ? "Đại học Bách Khoa TP.HCM" : "Đại học Công nghệ Thông tin - ĐHQG TP.HCM";
+        defaultMajor = (userId % 3 == 0) ? "Kỹ thuật phần mềm" : ((userId % 3 == 1) ? "Khoa học máy tính" : "Hệ thống thông tin");
+    }
+    else if (deptName.Contains("Nhân sự", StringComparison.OrdinalIgnoreCase) || deptName.Contains("HR", StringComparison.OrdinalIgnoreCase))
+    {
+        defaultSchool = "Đại học Kinh tế TP.HCM (UEH)";
+        defaultMajor = (userId % 2 == 0) ? "Quản trị nguồn nhân lực" : "Quản trị kinh doanh";
+    }
+    else if (deptName.Contains("Kế toán", StringComparison.OrdinalIgnoreCase) || deptName.Contains("Tài chính", StringComparison.OrdinalIgnoreCase))
+    {
+        defaultSchool = "Đại học Kinh tế TP.HCM (UEH)";
+        defaultMajor = "Kế toán - Kiểm toán";
+    }
+    else if (deptName.Contains("Kinh doanh", StringComparison.OrdinalIgnoreCase) || deptName.Contains("Sales", StringComparison.OrdinalIgnoreCase))
+    {
+        defaultSchool = "Đại học Ngoại Thương (Cơ sở 2)";
+        defaultMajor = "Kinh doanh quốc tế & Thương mại";
+    }
+    else
+    {
+        defaultSchool = "Đại học Kinh tế TP.HCM (UEH)";
+        defaultMajor = "Quản trị kinh doanh & Vận hành";
+    }
+    var educationLevel = val(Model?.EducationLevel, (birthYear <= 1990 && userId % 4 == 0) ? "Thạc sĩ" : "Đại học");
+    var schoolName = val(Model?.SchoolName, defaultSchool);
+    var major = val(Model?.Major, defaultMajor);
+
+    // Languages
+    var languageList = new[] {
+        "Tiếng Anh (IELTS 6.5), Tiếng Nhật (N3)",
+        "Tiếng Anh (TOEIC 800), Tiếng Trung giao tiếp",
+        "Tiếng Anh (B2 Quốc tế)",
+        "Tiếng Anh (IELTS 7.0)",
+        "Tiếng Anh (Giao tiếp tốt), Tiếng Hàn (Sơ cấp)",
+        "Tiếng Anh (TOEIC 750), Tiếng Thái Lan cơ bản"
+    };
+    var languages = languageList[userId % languageList.Length];
+
+    // Core employment details
+    var username = val(Model?.Username, "user" + userId);
+    var email = val(Model?.CompanyEmail, username + "@nhigia.vn");
+    var employeeCode = val(Model?.EmployeeCode, "NV_" + (100 + userId * 7));
+    var phone = val(Model?.MobilePhone, "09" + ((userId * 31 % 80) + 12).ToString("00") + " " + ((userId * 17 % 900) + 100).ToString() + " " + ((userId * 43 % 900) + 100).ToString());
+    var branch = val(Model?.WorkLocation, "CN TP. Hồ Chí Minh - Trụ sở Nhị Gia");
+    var jobTitle = val(Model?.JobTitle, "Chuyên viên " + deptName.Replace("Phòng ", ""));
+    var department = deptName;
+    var hireDateObj = Model?.HireDate ?? new DateTime(2021 + (userId % 4), ((userId * 5) % 12) + 1, ((userId * 7) % 25) + 1);
+    var hireDate = hireDateObj.ToString("dd/MM/yyyy");
+
+    // Salary numbers
+    var rawSalary = Model?.BasicSalary;
+    decimal baseSalaryNum;
+    if (!string.IsNullOrWhiteSpace(rawSalary) && decimal.TryParse(rawSalary.Replace(",", "").Replace(".", "").Replace("đ", "").Trim(), out var parsedSal))
+    {
+        baseSalaryNum = parsedSal;
+    }
+    else
+    {
+        baseSalaryNum = 12000000m + (userId % 8) * 1500000m;
+    }
+    var basicSalary = baseSalaryNum.ToString("N0") + " đ";
+    var probationSalary = (baseSalaryNum * 0.85m).ToString("N0") + " đ";
+
+    // Taxes and Insurances
+    var taxCode = val(Model?.PersonalTaxCode, "8" + ((userId * 19374 + 38291054) % 900000000 + 100000000).ToString());
+    var healthInsurance = val(Model?.HealthInsuranceNumber, "DN479" + ((userId * 231 + 84210) % 90000000 + 10000000).ToString());
+    var socialInsurance = val(Model?.SocialInsuranceNumber, "79" + ((userId * 457 + 192837) % 90000000 + 10000000).ToString());
+    var employmentStatus = val(Model?.EmploymentStatus, "Chính thức");
+    var salaryRank = "Bậc " + ((userId % 5) + 1);
+    var mainShift = "Ca hành chính (08:00 - 17:30)";
+    var secondaryShift = (userId % 2 == 0) ? "Không đăng ký ca phụ" : "Ca bán hàng chiều (Thứ 2, 4, 6)";
+    var insSalaryType = "Lương cơ bản đóng BHXH theo quy định";
+    var insSalary = (baseSalaryNum * 0.70m).ToString("N0") + " đ";
+    var unionMember = (userId % 3 == 0) ? "Không" : "Có";
     var nationality = val(Model?.Nationality, "Việt Nam");
-    var dateOfBirth = dtVal(Model?.DateOfBirth, "20/03/1993");
-    var currentAddress = val(Model?.CurrentAddress, "Bình Thạnh, TP.HCM");
-    var major = val(Model?.Major, "Khoa học máy tính");
     var ethnicity = val(Model?.Ethnicity, "Kinh");
-    var maritalStatus = val(Model?.MaritalStatus, "Kết hôn");
-    var placeOfBirth = val(Model?.PlaceOfBirth, "TP.HCM");
-    var languages = "Tiếng Thái Lan (thailand), Tiếng Anh";
+
+    // Dynamic Spider / Radar scores
+    var scoreDev = 0.74 + ((userId * 13) % 22) * 0.01;
+    var scoreSkill = 0.72 + ((userId * 17) % 24) * 0.01;
+    var scoreContrib = 0.75 + ((userId * 19) % 21) * 0.01;
+    var scoreSpirit = 0.70 + ((userId * 23) % 26) * 0.01;
+    var scoreAttitude = 0.82 + ((userId * 29) % 17) * 0.01;
+
+    var maxR = 68.0;
+    var r1 = scoreDev * maxR;
+    var r2 = scoreSkill * maxR;
+    var r3 = scoreContrib * maxR;
+    var r4 = scoreSpirit * maxR;
+    var r5 = scoreAttitude * maxR;
+
+    var pt1X = 120.0;
+    var pt1Y = 95.0 - r1;
+    var pt2X = 120.0 + r2 * 0.95106;
+    var pt2Y = 95.0 - r2 * 0.30902;
+    var pt3X = 120.0 + r3 * 0.58779;
+    var pt3Y = 95.0 + r3 * 0.80902;
+    var pt4X = 120.0 - r4 * 0.58779;
+    var pt4Y = 95.0 + r4 * 0.80902;
+    var pt5X = 120.0 - r5 * 0.95106;
+    var pt5Y = 95.0 - r5 * 0.30902;
+
+    var radarPoints = $"{pt1X.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)},{pt1Y.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)} {pt2X.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)},{pt2Y.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)} {pt3X.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)},{pt3Y.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)} {pt4X.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)},{pt4Y.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)} {pt5X.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)},{pt5Y.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)}";
+    var avgScore = ((scoreDev + scoreSkill + scoreContrib + scoreSpirit + scoreAttitude) / 5.0 * 10.0);
+
+    // Dynamic Family Members matching surname and employee reality
+    var fatherNames = new[] { "Văn Hùng", "Văn Thành", "Đức Minh", "Quốc Tuấn", "Văn Long", "Đình Trọng", "Thanh Sơn", "Hồng Phúc", "Văn Dũng", "Quang Vinh" };
+    var fatherName = $"{surname} {fatherNames[userId % fatherNames.Length]}";
+    var fatherBirthYear = birthYear - 25 - (userId % 5);
+    var fatherDob = $"15/{((userId * 3 % 12) + 1):00}/{fatherBirthYear}";
+    var fatherCccd = $"0{((userId % 2 == 0) ? "79" : "001")}0{fatherBirthYear.ToString().Substring(2, 2)}{((userId * 149 + 30124) % 900000 + 100000)}";
+    var fatherBhxh = $"224{((userId * 103 + 1245) % 9000 + 1000)}";
+    var fatherPhone = $"091{((userId * 19 % 90) + 10):00} {((userId * 37 % 900) + 100):000}";
+
+    var motherSurnames = new[] { "Trần Thị", "Nguyễn Thị", "Lê Thị", "Phạm Thị", "Vũ Thị", "Hoàng Thị", "Đặng Thị", "Bùi Thị", "Đỗ Thị" };
+    var motherNames = new[] { "Mai", "Hoa", "Lan", "Hương", "Hạnh", "Cúc", "Thảo", "Yến", "Thúy", "Phương" };
+    var motherSurname = motherSurnames[(userId + 2) % motherSurnames.Length];
+    var motherName = $"{motherSurname} {motherNames[userId % motherNames.Length]}";
+    var motherBirthYear = birthYear - 23 - (userId % 4);
+    var motherDob = $"10/{((userId * 7 % 12) + 1):00}/{motherBirthYear}";
+    var motherCccd = $"0{((userId % 2 == 0) ? "79" : "001")}1{motherBirthYear.ToString().Substring(2, 2)}{((userId * 183 + 50219) % 900000 + 100000)}";
+    var motherBhxh = $"224{((userId * 107 + 5678) % 9000 + 1000)}";
+    var motherPhone = $"098{((userId * 23 % 90) + 10):00} {((userId * 41 % 900) + 100):000}";
+
+    // Third family member:
+    string thirdRelation;
+    string thirdName;
+    string thirdDob;
+    string thirdGender;
+    string thirdCccd;
+    string thirdBhxh;
+    string thirdPhone;
+
+    if (maritalStatus == "Đã kết hôn")
+    {
+        if (gender == "Nam")
+        {
+            thirdRelation = "Vợ";
+            var wifeSurname = motherSurnames[(userId + 3) % motherSurnames.Length];
+            var wifeNames = new[] { "Ngọc Ánh", "Thu Trang", "Phương Linh", "Thanh Hằng", "Bích Thảo", "Hải Yến", "Thùy Dung" };
+            thirdName = $"{wifeSurname} {wifeNames[userId % wifeNames.Length]}";
+            var wifeBirthYear = birthYear + ((userId % 3) - 1);
+            thirdDob = $"20/{((userId * 5 % 12) + 1):00}/{wifeBirthYear}";
+            thirdGender = "Nữ";
+            thirdCccd = $"0791{wifeBirthYear.ToString().Substring(2, 2)}{((userId * 211 + 61928) % 900000 + 100000)}";
+            thirdBhxh = $"224{((userId * 113 + 8912) % 9000 + 1000)}";
+            thirdPhone = $"097{((userId * 31 % 90) + 10):00} {((userId * 53 % 900) + 100):000}";
+        }
+        else
+        {
+            thirdRelation = "Chồng";
+            var husbandSurnames = new[] { "Nguyễn", "Trần", "Lê", "Phạm", "Hoàng", "Vũ" };
+            var husbandNames = new[] { "Quốc Anh", "Minh Đức", "Hoàng Nam", "Tuấn Kiệt", "Thành Đạt", "Huy Hoàng" };
+            thirdName = $"{husbandSurnames[(userId + 1) % husbandSurnames.Length]} {husbandNames[userId % husbandNames.Length]}";
+            var husbandBirthYear = birthYear - ((userId % 3) + 1);
+            thirdDob = $"18/{((userId * 5 % 12) + 1):00}/{husbandBirthYear}";
+            thirdGender = "Nam";
+            thirdCccd = $"0790{husbandBirthYear.ToString().Substring(2, 2)}{((userId * 211 + 61928) % 900000 + 100000)}";
+            thirdBhxh = $"224{((userId * 113 + 8912) % 9000 + 1000)}";
+            thirdPhone = $"097{((userId * 31 % 90) + 10):00} {((userId * 53 % 900) + 100):000}";
+        }
+    }
+    else
+    {
+        var isYoungerBrother = (userId % 2 == 0);
+        thirdRelation = isYoungerBrother ? "Em trai" : "Em gái";
+        thirdGender = isYoungerBrother ? "Nam" : "Nữ";
+        var siblingNames = isYoungerBrother
+            ? new[] { "Duy Anh", "Minh Trí", "Tuấn Khang", "Đăng Khoa", "Quốc Bảo", "Đức Huy" }
+            : new[] { "Thảo Vy", "Bảo Ngọc", "Khánh Linh", "Mai Anh", "Phương Uyên", "Tường Vi" };
+        thirdName = $"{surname} {siblingNames[userId % siblingNames.Length]}";
+        var sibBirthYear = birthYear + 3 + (userId % 4);
+        thirdDob = $"22/{((userId * 9 % 12) + 1):00}/{sibBirthYear}";
+        thirdCccd = sibBirthYear <= 2008 ? $"079{(isYoungerBrother ? "0" : "1")}{sibBirthYear.ToString().Substring(2, 2)}{((userId * 257 + 71092) % 900000 + 100000)}" : "-";
+        thirdBhxh = "-";
+        thirdPhone = $"03{((userId * 29 % 80) + 10):00} {((userId * 47 % 900) + 100):000}";
+    }
+
+    // Dynamic Contracts
+    var officialSignDate = hireDateObj.AddMonths(2);
+    var officialExpireDate = officialSignDate.AddYears(2);
+    var contractOfficialCode = val(Model?.ContractNumber, $"HĐLĐ-{officialSignDate.Year}/{officialSignDate.Month:00}-{initials}");
+    var contractProbationCode = $"HĐTV-{hireDateObj.Year}/{hireDateObj.Month:00}-{initials}";
+
+    // Dynamic Bank
+    var bankList = new[] {
+        ("Ngân hàng TMCP Ngoại thương Việt Nam (Vietcombank)", "Chi nhánh TP.HCM", "10" + ((10000000 + userId * 38291) % 90000000 + 10000000).ToString()),
+        ("Ngân hàng TMCP Kỹ thương Việt Nam (Techcombank)", "Chi nhánh Tân Bình", "1903" + ((1000000 + userId * 47193) % 9000000 + 1000000).ToString()),
+        ("Ngân hàng TMCP Quân đội (MB Bank)", "Chi nhánh Sài Gòn", "088" + ((10000000 + userId * 62145) % 90000000 + 10000000).ToString()),
+        ("Ngân hàng TMCP Á Châu (ACB)", "Chi nhánh Bến Thành", "24" + ((1000000 + userId * 91823) % 9000000 + 1000000).ToString()),
+        ("Ngân hàng TMCP Việt Nam Thịnh Vượng (VPBank)", "Chi nhánh Gia Định", "15" + ((10000000 + userId * 53912) % 90000000 + 10000000).ToString())
+    };
+    var selectedBank = bankList[userId % bankList.Length];
+    var accHolder = displayName.ToUpperInvariant();
+    var accNumber = !string.IsNullOrWhiteSpace(Model?.BankAccountNumber) ? Model.BankAccountNumber : selectedBank.Item3;
+    var bankTitle = !string.IsNullOrWhiteSpace(Model?.BankName) ? Model.BankName : selectedBank.Item1;
+    var bankBranch = !string.IsNullOrWhiteSpace(Model?.BankBranch) ? Model.BankBranch : selectedBank.Item2;
 }
 
 <link rel="stylesheet" href="~/Content/hrm-profile-slide5.css" asp-append-version="true" />
@@ -51,10 +306,25 @@
         <div class="s5-breadcrumb">
             <a href="@Url.Action("Index", "Home")"><i class="material-icons">home</i> Trang chủ</a>
             <span>/</span>
-            <span class="active">Thông tin nhân viên</span>
+            @if (!isViewingSelf)
+            {
+                <a asp-action="EmployeeInformation">Quản lý nhân sự</a>
+                <span>/</span>
+                <span class="active">@displayName</span>
+            }
+            else
+            {
+                <span class="active">Thông tin nhân viên</span>
+            }
         </div>
         <div class="s5-action-group">
-            @if (HrmUser.Current?.RoleCode is HrmRoles.Hr or HrmRoles.Director)
+            @if (!isViewingSelf)
+            {
+                <a class="s5-btn s5-btn-outline" asp-action="EmployeeInformation">
+                    <i class="material-icons">arrow_back</i> Danh sách nhân viên
+                </a>
+            }
+            @if (HrmUser.Current?.RoleCode is HrmRoles.Hr or HrmRoles.Director or HrmRoles.Admin)
             {
                 <a class="s5-btn s5-btn-outline" asp-action="EditEmployeeProfile" asp-route-id="@Model.UserId">
                     <i class="material-icons">edit</i> Chỉnh sửa hồ sơ
@@ -78,14 +348,14 @@
                 else
                 {
                     <div id="avatarPlaceholder" class="s5-avatar-placeholder">
-                        <span class="s5-avatar-initials">@((Model?.DisplayName ?? displayName).Trim().Substring(0, Math.Min(2, (Model?.DisplayName ?? displayName).Trim().Length)).ToUpperInvariant())</span>
+                        <span class="s5-avatar-initials">@displayName.Substring(0, Math.Min(2, displayName.Length)).ToUpperInvariant()</span>
                     </div>
                 }
             </div>
             <h2 class="s5-user-name">@displayName</h2>
             <div class="s5-user-sub">
-                <span class="s5-role-badge">A</span>
-                <span class="s5-user-code">@username - @email</span>
+                <span class="s5-role-badge">@((Model?.RoleLabel ?? "NV").Substring(0, 1))</span>
+                <span class="s5-user-code">@employeeCode - @email</span>
             </div>
         </div>
 
@@ -116,15 +386,15 @@
                     <line x1="120" y1="95" x2="80" y2="149" stroke="#cbd5e1" stroke-width="1" />
                     <line x1="120" y1="95" x2="55.3" y2="74" stroke="#cbd5e1" stroke-width="1" />
 
-                    <!-- Dynamic Value Polygon (Score: Phát triển 85%, Kỹ năng 80%, Đóng góp 85%, Tinh thần 75%, Thái độ 80%) -->
-                    <polygon points="120,37 172,78 154,141 86,138 68,78" fill="url(#radarFillGrad)" stroke="#4f46e5" stroke-width="2" />
+                    <!-- Dynamic Value Polygon -->
+                    <polygon points="@radarPoints" fill="url(#radarFillGrad)" stroke="#4f46e5" stroke-width="2" />
 
                     <!-- Vertex dots -->
-                    <circle cx="120" cy="37" r="3.5" fill="#4338ca" stroke="#ffffff" stroke-width="1.5" />
-                    <circle cx="172" cy="78" r="3.5" fill="#4338ca" stroke="#ffffff" stroke-width="1.5" />
-                    <circle cx="154" cy="141" r="3.5" fill="#4338ca" stroke="#ffffff" stroke-width="1.5" />
-                    <circle cx="86" cy="138" r="3.5" fill="#4338ca" stroke="#ffffff" stroke-width="1.5" />
-                    <circle cx="68" cy="78" r="3.5" fill="#4338ca" stroke="#ffffff" stroke-width="1.5" />
+                    <circle cx="@pt1X.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)" cy="@pt1Y.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)" r="3.5" fill="#4338ca" stroke="#ffffff" stroke-width="1.5" />
+                    <circle cx="@pt2X.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)" cy="@pt2Y.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)" r="3.5" fill="#4338ca" stroke="#ffffff" stroke-width="1.5" />
+                    <circle cx="@pt3X.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)" cy="@pt3Y.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)" r="3.5" fill="#4338ca" stroke="#ffffff" stroke-width="1.5" />
+                    <circle cx="@pt4X.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)" cy="@pt4Y.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)" r="3.5" fill="#4338ca" stroke="#ffffff" stroke-width="1.5" />
+                    <circle cx="@pt5X.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)" cy="@pt5Y.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)" r="3.5" fill="#4338ca" stroke="#ffffff" stroke-width="1.5" />
 
                     <!-- Axis Labels -->
                     <text x="120" y="17" text-anchor="middle" class="s5-radar-lbl">Phát triển</text>
@@ -135,7 +405,7 @@
                 </svg>
                 <div class="s5-radar-legend">
                     <span class="s5-legend-box"></span>
-                    <span class="s5-legend-text">Điểm trung bình</span>
+                    <span class="s5-legend-text">Điểm trung bình: @avgScore.ToString("F1")/10</span>
                 </div>
             </div>
         </div>
@@ -427,40 +697,40 @@
                             </thead>
                             <tbody>
                                 <tr>
-                                    <td><strong>Nguyễn Duy Chuyên</strong></td>
-                                    <td><span class="s5-badge-tag">Em trai</span></td>
-                                    <td>20/08/2014</td>
-                                    <td>Nam</td>
-                                    <td>Việt Nam</td>
-                                    <td>Kinh</td>
-                                    <td>Bình Thạnh, TP.HCM</td>
-                                    <td>-</td>
-                                    <td>-</td>
-                                    <td>0362 898 765</td>
-                                </tr>
-                                <tr>
-                                    <td><strong>Nguyễn Văn Hùng</strong></td>
+                                    <td><strong>@fatherName</strong></td>
                                     <td><span class="s5-badge-tag">Bố đẻ</span></td>
-                                    <td>15/04/1965</td>
+                                    <td>@fatherDob</td>
                                     <td>Nam</td>
                                     <td>Việt Nam</td>
                                     <td>Kinh</td>
-                                    <td>TP.HCM</td>
-                                    <td>040065001234</td>
-                                    <td>2246100</td>
-                                    <td>0912 345 678</td>
+                                    <td>@permanentAddress</td>
+                                    <td>@fatherCccd</td>
+                                    <td>@fatherBhxh</td>
+                                    <td>@fatherPhone</td>
                                 </tr>
                                 <tr>
-                                    <td><strong>Trần Thị Mai</strong></td>
+                                    <td><strong>@motherName</strong></td>
                                     <td><span class="s5-badge-tag">Mẹ đẻ</span></td>
-                                    <td>10/11/1968</td>
+                                    <td>@motherDob</td>
                                     <td>Nữ</td>
                                     <td>Việt Nam</td>
                                     <td>Kinh</td>
-                                    <td>TP.HCM</td>
-                                    <td>040068005678</td>
-                                    <td>2246101</td>
-                                    <td>0988 765 432</td>
+                                    <td>@permanentAddress</td>
+                                    <td>@motherCccd</td>
+                                    <td>@motherBhxh</td>
+                                    <td>@motherPhone</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>@thirdName</strong></td>
+                                    <td><span class="s5-badge-tag">@thirdRelation</span></td>
+                                    <td>@thirdDob</td>
+                                    <td>@thirdGender</td>
+                                    <td>Việt Nam</td>
+                                    <td>Kinh</td>
+                                    <td>@(maritalStatus == "Đã kết hôn" ? currentAddress : permanentAddress)</td>
+                                    <td>@thirdCccd</td>
+                                    <td>@thirdBhxh</td>
+                                    <td>@thirdPhone</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -498,14 +768,14 @@
                                         </div>
                                     </td>
                                     <td>
-                                        <a href="javascript:void(0)" class="s5-link-url" onclick="alert('Xem tài liệu hợp đồng số HĐ-2024/09-NDN')">
+                                        <a href="javascript:void(0)" class="s5-link-url" onclick="alert('Xem tài liệu hợp đồng số @contractOfficialCode')">
                                             <span>URL</span>
                                             <i class="material-icons">open_in_new</i>
                                         </a>
                                     </td>
-                                    <td>11/09/2024</td>
-                                    <td>11/09/2026</td>
-                                    <td><strong>8,600,000 đ</strong></td>
+                                    <td>@officialSignDate.ToString("dd/MM/yyyy")</td>
+                                    <td>@officialExpireDate.ToString("dd/MM/yyyy")</td>
+                                    <td><strong>@basicSalary</strong></td>
                                     <td>
                                         <span class="s5-status-pill s5-pill-success">
                                             <i class="material-icons">check_circle</i> Có hiệu lực
@@ -525,14 +795,14 @@
                                         </div>
                                     </td>
                                     <td>
-                                        <a href="javascript:void(0)" class="s5-link-url" onclick="alert('Xem tài liệu hợp đồng thử việc số TV-2023/05-NDN')">
+                                        <a href="javascript:void(0)" class="s5-link-url" onclick="alert('Xem tài liệu hợp đồng thử việc số @contractProbationCode')">
                                             <span>URL</span>
                                             <i class="material-icons">open_in_new</i>
                                         </a>
                                     </td>
-                                    <td>01/05/2023</td>
-                                    <td>01/07/2023</td>
-                                    <td><strong>7,000,000 đ</strong></td>
+                                    <td>@hireDateObj.ToString("dd/MM/yyyy")</td>
+                                    <td>@officialSignDate.ToString("dd/MM/yyyy")</td>
+                                    <td><strong>@probationSalary</strong></td>
                                     <td>
                                         <span class="s5-status-pill s5-pill-muted">
                                             <i class="material-icons">history</i> Hết hiệu lực
@@ -569,22 +839,13 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                @{
-                                    var accHolder = (Model?.DisplayName ?? displayName).ToUpperInvariant();
-                                    var accNumber = !string.IsNullOrWhiteSpace(Model?.BankAccountNumber) ? Model.BankAccountNumber : ("10" + (Model?.UserId ?? 1).ToString().PadLeft(8, '0'));
-                                    var bankTitle = !string.IsNullOrWhiteSpace(Model?.BankName) ? Model.BankName : "Ngân hàng TMCP Ngoại thương Việt Nam (Vietcombank)";
-                                    if (!string.IsNullOrWhiteSpace(Model?.BankBranch))
-                                    {
-                                        bankTitle += $" - {Model.BankBranch}";
-                                    }
-                                }
                                 <tr>
                                     <td><strong>@accHolder</strong></td>
                                     <td><code>@accNumber</code></td>
                                     <td>
                                         <div class="s5-bank-name">
                                             <i class="material-icons">account_balance</i>
-                                            @bankTitle
+                                            @bankTitle - @bankBranch
                                         </div>
                                     </td>
                                     <td class="text-center">
@@ -610,25 +871,17 @@
                         <div class="s5-timeline-item">
                             <div class="s5-timeline-dot"></div>
                             <div class="s5-timeline-content">
-                                <span class="s5-timeline-time">01/01/2024 - Hiện tại</span>
-                                <h4>Nhân viên quản lý dự án • Phòng IT</h4>
-                                <p>Phụ trách điều phối các dự án số hóa hệ thống HRM, cổng thông tin dịch vụ visa và vé máy bay Nhị Gia.</p>
+                                <span class="s5-timeline-time">@officialSignDate.ToString("dd/MM/yyyy") - Hiện tại</span>
+                                <h4>@jobTitle • @department</h4>
+                                <p>Đảm nhận công tác chuyên môn tại @department, phụ trách triển khai các mục tiêu công việc trọng điểm của đơn vị theo phân công.</p>
                             </div>
                         </div>
                         <div class="s5-timeline-item">
                             <div class="s5-timeline-dot"></div>
                             <div class="s5-timeline-content">
-                                <span class="s5-timeline-time">01/07/2023 - 31/12/2023</span>
-                                <h4>Lập trình viên phần mềm • Phòng IT</h4>
-                                <p>Phát triển và bảo trì các module nghiệp vụ nội bộ, hoàn thành tốt đánh giá thử việc và chuyển chính thức.</p>
-                            </div>
-                        </div>
-                        <div class="s5-timeline-item">
-                            <div class="s5-timeline-dot"></div>
-                            <div class="s5-timeline-content">
-                                <span class="s5-timeline-time">01/05/2023 - 30/06/2023</span>
-                                <h4>Thử việc Lập trình viên</h4>
-                                <p>Gia nhập Công ty TNHH Thương mại và Dịch vụ Nhị Gia, hoàn thành 100% chỉ tiêu tiếp nhận công việc.</p>
+                                <span class="s5-timeline-time">@hireDate - @officialSignDate.ToString("dd/MM/yyyy")</span>
+                                <h4>Thử việc @jobTitle • @department</h4>
+                                <p>Gia nhập Công ty TNHH Thương mại và Dịch vụ Nhị Gia, hoàn thành xuất sắc đánh giá thử việc và được chuyển chính thức.</p>
                             </div>
                         </div>
                     </div>
@@ -862,20 +1115,25 @@
                                 </tr>
                             </thead>
                             <tbody>
+                                @{
+                                    var allowVal = 1500000m + (userId % 4) * 300000m;
+                                    var deductVal = Math.Round(baseSalaryNum * 0.105m, 0);
+                                    var netVal = baseSalaryNum + allowVal - deductVal;
+                                }
                                 <tr>
                                     <td><strong>Tháng 08/2026</strong></td>
-                                    <td>14,000,000 đ</td>
-                                    <td>2,730,000 đ</td>
-                                    <td>-1,470,000 đ</td>
-                                    <td><strong class="text-success">15,260,000 đ</strong></td>
+                                    <td>@basicSalary</td>
+                                    <td>@allowVal.ToString("N0") đ</td>
+                                    <td>@((-deductVal).ToString("N0")) đ</td>
+                                    <td><strong class="text-success">@netVal.ToString("N0") đ</strong></td>
                                     <td><span class="s5-status-pill s5-pill-success">Đã chi trả</span></td>
                                 </tr>
                                 <tr>
                                     <td><strong>Tháng 07/2026</strong></td>
-                                    <td>14,000,000 đ</td>
-                                    <td>2,730,000 đ</td>
-                                    <td>-1,470,000 đ</td>
-                                    <td><strong class="text-success">15,260,000 đ</strong></td>
+                                    <td>@basicSalary</td>
+                                    <td>@allowVal.ToString("N0") đ</td>
+                                    <td>@((-deductVal).ToString("N0")) đ</td>
+                                    <td><strong class="text-success">@netVal.ToString("N0") đ</strong></td>
                                     <td><span class="s5-status-pill s5-pill-success">Đã chi trả</span></td>
                                 </tr>
                             </tbody>

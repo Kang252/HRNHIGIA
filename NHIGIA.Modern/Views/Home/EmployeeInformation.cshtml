@@ -34,11 +34,11 @@
         </div>
         <div class="hrm-table-wrap">
             <table class="hrm-table">
-                <thead><tr><th>Nhân viên</th><th>Tài khoản</th><th>Chức vụ</th><th>Phòng ban</th><th>Trạng thái</th>@if (canEditProfile) { <th>Thao tác</th> }</tr></thead>
+                <thead><tr><th>Nhân viên</th><th>Tài khoản</th><th>Chức vụ</th><th>Phòng ban</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>
                 <tbody>
                 @if (Model.Count == 0)
                 {
-                    <tr><td colspan="@(canEditProfile ? 6 : 5)"><div class="hrm-empty"><i class="material-icons">group_off</i><strong>Chưa có nhân viên trong phạm vi quản lý</strong></div></td></tr>
+                    <tr><td colspan="6"><div class="hrm-empty"><i class="material-icons">group_off</i><strong>Chưa có nhân viên trong phạm vi quản lý</strong></div></td></tr>
                 }
                 else
                 {
@@ -76,7 +76,9 @@
                                         </div>
                                     }
                                     <div>
-                                        <strong>@employee.DisplayName</strong>
+                                        <a asp-action="MyProfile" asp-route-id="@employee.Id" style="color:inherit; text-decoration:none; font-weight:700;" class="hrm-emp-name-link" title="Xem chi tiết hồ sơ @employee.DisplayName">
+                                            @employee.DisplayName
+                                        </a>
                                         <small>@employee.DepartmentName</small>
                                     </div>
                                 </div>
@@ -85,7 +87,19 @@
                             <td><span class="hrm-badge hrm-badge-blue">@employee.RoleLabel</span></td>
                             <td>@(employee.DepartmentName ?? "Chưa phân phòng")</td>
                             <td><span class="hrm-badge @(employee.IsActive ? "hrm-badge-success" : "hrm-badge-warning")">@(employee.IsActive ? "Đang hoạt động" : "Tạm khóa")</span></td>
-                            @if (canEditProfile) { <td><a class="hrm-btn" asp-action="EditEmployeeProfile" asp-route-id="@employee.Id"><i class="material-icons">edit</i> Cập nhật</a></td> }
+                            <td>
+                                <div style="display:flex; gap:6px; align-items:center;">
+                                    <a class="hrm-btn hrm-btn-secondary" asp-action="MyProfile" asp-route-id="@employee.Id" title="Xem hồ sơ @employee.DisplayName">
+                                        <i class="material-icons">visibility</i> Xem hồ sơ
+                                    </a>
+                                    @if (canEditProfile)
+                                    {
+                                        <a class="hrm-btn" asp-action="EditEmployeeProfile" asp-route-id="@employee.Id" title="Cập nhật thông tin">
+                                            <i class="material-icons">edit</i> Sửa
+                                        </a>
+                                    }
+                                </div>
+                            </td>
                         </tr>
                     }
                 }
