@@ -29,8 +29,12 @@
     <div class="hrm-card hrm-section-gap">
         <div class="hrm-card-header"><div><h2 class="hrm-card-title">Danh sách nhân viên</h2><p class="hrm-card-subtitle">Thông tin tài khoản, chức vụ và đơn vị công tác</p></div></div>
         <div class="employee-directory-toolbar">
-            <div class="meeting-picker-search"><i class="material-icons">search</i><input id="employeeDirectorySearch" type="search" placeholder="Tìm theo tên, tài khoản, chức vụ hoặc phòng ban..." autocomplete="off" /></div>
-            <span id="employeeDirectoryCount">Hiển thị @Model.Count nhân viên</span>
+            <label class="employee-directory-search" for="employeeDirectorySearch">
+                <i class="material-icons" aria-hidden="true">search</i>
+                <input id="employeeDirectorySearch" type="search" placeholder="Tìm theo tên, tài khoản, chức vụ hoặc phòng ban..." autocomplete="off" aria-label="Tìm kiếm nhân viên" />
+                <button id="employeeDirectoryClear" type="button" title="Xóa nội dung tìm kiếm" aria-label="Xóa nội dung tìm kiếm" hidden><i class="material-icons" aria-hidden="true">close</i></button>
+            </label>
+            <span id="employeeDirectoryCount" class="employee-directory-count"><i class="material-icons" aria-hidden="true">group</i><span>Hiển thị @Model.Count nhân viên</span></span>
         </div>
         <div class="hrm-table-wrap">
             <table class="hrm-table">
@@ -118,11 +122,13 @@
 <script>
     (function () {
         var search = document.getElementById('employeeDirectorySearch');
+        var clear = document.getElementById('employeeDirectoryClear');
         var counter = document.getElementById('employeeDirectoryCount');
+        var counterText = counter ? counter.querySelector('span') : null;
         var empty = document.getElementById('employeeDirectoryEmpty');
         var rows = Array.prototype.slice.call(document.querySelectorAll('.employee-directory-row'));
         if (!search) return;
-        search.addEventListener('input', function () {
+        function filterEmployees() {
             var keyword = search.value.trim().toLocaleLowerCase('vi');
             var visible = 0;
             rows.forEach(function (row) {
@@ -130,9 +136,18 @@
                 row.hidden = !matches;
                 if (matches) visible++;
             });
-            counter.textContent = 'Hiển thị ' + visible + ' nhân viên';
+            if (counterText) counterText.textContent = 'Hiển thị ' + visible + ' nhân viên';
+            if (clear) clear.hidden = !search.value;
             empty.hidden = visible > 0;
-        });
+        }
+        search.addEventListener('input', filterEmployees);
+        if (clear) {
+            clear.addEventListener('click', function () {
+                search.value = '';
+                filterEmployees();
+                search.focus();
+            });
+        }
     })();
 
     @if (canEditProfile)
