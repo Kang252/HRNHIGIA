@@ -2,7 +2,7 @@
 @{
     var current = HrmUser.Current;
     var isManager = current?.RoleCode == HrmRoles.Manager;
-    var canEditProfile = current?.RoleCode is HrmRoles.Hr or HrmRoles.Director;
+    var canEditProfile = current?.RoleCode is HrmRoles.Hr or HrmRoles.Director or HrmRoles.Admin;
     var title = isManager ? "Nhân sự phòng ban" : "Quản lý nhân sự";
 }
 
@@ -49,16 +49,17 @@
                                 <div class="hrm-person">
                                     @if (canEditProfile)
                                     {
-                                        <div class="hrm-avatar-cell can-edit" onclick="triggerQuickAvatarUpload(@employee.Id, '@Html.Raw(employee.DisplayName?.Replace("'", "\\'"))')" title="Quản lý nhân sự: Bấm để gắn / đổi ảnh đại diện cho @employee.DisplayName">
+                                        <div class="hrm-avatar-cell can-edit" onclick="triggerQuickAvatarUpload(@employee.Id, '@Html.Raw(employee.DisplayName?.Replace("'", "\\'"))')" title="Quản lý nhân sự: Bấm vào camera hoặc hình để gắn / đổi ảnh đại diện cho @employee.DisplayName">
                                             @if (!string.IsNullOrWhiteSpace(employee.AvatarUrl))
                                             {
-                                                <img src="@employee.AvatarUrl" alt="@employee.DisplayName" class="hrm-avatar-img" id="avatar-user-@employee.Id" />
+                                                <img src="@employee.AvatarUrl" alt="@employee.DisplayName" class="hrm-avatar-img" id="avatar-user-@employee.Id" onerror="this.style.display='none'; document.getElementById('avatar-fallback-@employee.Id').style.display='inline-flex';" />
+                                                <span class="hrm-avatar" id="avatar-fallback-@employee.Id" style="display:none;">@((employee.DisplayName ?? "NV").Substring(0, Math.Min(2, (employee.DisplayName ?? "NV").Length)).ToUpperInvariant())</span>
                                             }
                                             else
                                             {
                                                 <span class="hrm-avatar" id="avatar-user-@employee.Id">@((employee.DisplayName ?? "NV").Substring(0, Math.Min(2, (employee.DisplayName ?? "NV").Length)).ToUpperInvariant())</span>
                                             }
-                                            <span class="hrm-avatar-quick-camera"><i class="material-icons">photo_camera</i></span>
+                                            <span class="hrm-avatar-quick-camera" title="Đổi hình đại diện"><i class="material-icons">photo_camera</i></span>
                                         </div>
                                     }
                                     else
@@ -151,29 +152,48 @@
             var targetId = currentUploadTargetId;
             var targetName = currentUploadTargetName;
 
+            var cell = document.querySelector(".hrm-avatar-cell[onclick*='triggerQuickAvatarUpload(" + targetId + ",']");
+            var cameraIcon = cell ? cell.querySelector(".hrm-avatar-quick-camera i") : null;
+            if (cameraIcon) {
+                cameraIcon.textContent = "hourglass_empty";
+            }
+
             fetch('@Url.Action("UploadAvatar", "Home")', {
                 method: 'POST',
                 body: formData
             })
             .then(function (res) { return res.json(); })
             .then(function (data) {
+                if (cameraIcon) {
+                    cameraIcon.textContent = "photo_camera";
+                }
                 if (data && data.success) {
                     var el = document.getElementById("avatar-user-" + targetId);
+                    var fallback = document.getElementById("avatar-fallback-" + targetId);
+                    if (fallback) fallback.style.display = "none";
                     if (el) {
                         var timestamp = new Date().getTime();
-                        var newImg = document.createElement("img");
-                        newImg.src = data.avatarUrl + "?t=" + timestamp;
-                        newImg.alt = targetName;
-                        newImg.className = "hrm-avatar-img";
-                        newImg.id = "avatar-user-" + targetId;
-                        el.parentNode.replaceChild(newImg, el);
+                        if (el.tagName.toLowerCase() === "img") {
+                            el.src = data.avatarUrl + (data.avatarUrl.indexOf('?') >= 0 ? '&' : '?') + "t=" + timestamp;
+                            el.style.display = "block";
+                        } else {
+                            var newImg = document.createElement("img");
+                            newImg.src = data.avatarUrl + (data.avatarUrl.indexOf('?') >= 0 ? '&' : '?') + "t=" + timestamp;
+                            newImg.alt = targetName;
+                            newImg.className = "hrm-avatar-img";
+                            newImg.id = "avatar-user-" + targetId;
+                            el.parentNode.replaceChild(newImg, el);
+                        }
                     }
-                    alert("Quản lý nhân sự: Đã cập nhật gắn hình ảnh thành công cho " + targetName + "!");
+                    alert("Đã cập nhật gắn hình ảnh thành công cho " + targetName + "!");
                 } else {
                     alert(data.message || "Không thể cập nhật ảnh.");
                 }
             })
             .catch(function (err) {
+                if (cameraIcon) {
+                    cameraIcon.textContent = "photo_camera";
+                }
                 alert("Lỗi khi tải ảnh: " + err);
             });
         });
@@ -185,46 +205,62 @@
     .hrm-avatar-cell {
         position: relative;
         display: inline-flex;
-        width: 36px;
-        height: 36px;
-        flex: 0 0 36px;
+        width: 38px;
+        height: 38px;
+        flex: 0 0 38px;
         border-radius: 50%;
         margin-right: 12px;
         vertical-align: middle;
     }
     .hrm-avatar-img {
-        width: 36px;
-        height: 36px;
+        width: 38px;
+        height: 38px;
         border-radius: 50%;
         object-fit: cover;
         box-shadow: 0 1px 3px rgba(0,0,0,0.12);
         display: block;
     }
     .hrm-avatar-cell .hrm-avatar {
-        width: 36px;
-        height: 36px;
-        flex: 0 0 36px;
-        font-size: 12px;
+        width: 38px;
+        height: 38px;
+        flex: 0 0 38px;
+        font-size: 13px;
+        font-weight: 700;
+        background: #1769e0;
+        color: #ffffff;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.12);
     }
     .hrm-avatar-cell.can-edit {
         cursor: pointer;
     }
-    .hrm-avatar-cell.can-edit:hover .hrm-avatar-quick-camera {
-        opacity: 1;
-    }
     .hrm-avatar-quick-camera {
         position: absolute;
-        inset: 0;
-        background: rgba(15, 23, 42, 0.65);
-        color: #ffffff;
+        bottom: -2px;
+        right: -3px;
+        width: 17px;
+        height: 17px;
         border-radius: 50%;
+        background: #1769e0;
+        border: 2px solid #ffffff;
+        color: #ffffff;
         display: flex;
         align-items: center;
         justify-content: center;
-        opacity: 0;
-        transition: opacity 0.18s ease;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.25);
+        transition: transform 0.15s ease, background-color 0.15s ease;
+        pointer-events: none;
+        z-index: 2;
+    }
+    .hrm-avatar-cell.can-edit:hover .hrm-avatar-quick-camera {
+        background: #0d55be;
+        transform: scale(1.2);
     }
     .hrm-avatar-quick-camera i {
-        font-size: 18px;
+        font-size: 10px;
+        line-height: 1;
     }
 </style>
