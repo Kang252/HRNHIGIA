@@ -109,7 +109,7 @@
                     <div class="ot-filter-group">
                         <label style="margin:0; font-size:13px; font-weight:600; color:#475569;">Năm:</label>
                         <select onchange="location.href='@Url.Action("Index", "Work", new { kind = "overtime", otTab = "dashboard" })&otYear=' + this.value;">
-                            @for (int y = 2026; y >= 2024; y--)
+                            @for (int y = 2040; y >= 2024; y--)
                             {
                                 <option value="@y" selected="@(y == selYear ? "selected" : null)">@y</option>
                             }

@@ -699,7 +699,7 @@
                             }
                         </select>
                         <select name="trYear" class="tr-select">
-                            @for (int y = 2026; y <= 2030; y++)
+                            @for (int y = 2026; y <= 2040; y++)
                             {
                                 <option value="@y" selected="@(selYear == y)">Năm @y</option>
                             }
@@ -1115,7 +1115,7 @@
                     </div>
 
                     <select name="trYear" class="tr-select" onchange="this.form.submit()">
-                        @for (int y = 2026; y <= 2030; y++)
+                        @for (int y = 2026; y <= 2040; y++)
                         {
                             <option value="@y" selected="@(selYear == y)">Năm @y</option>
                         }

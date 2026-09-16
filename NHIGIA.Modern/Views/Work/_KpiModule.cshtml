@@ -4,6 +4,8 @@
     var canEditKpi = Model.CanManage;
     var isManager = User.IsInRole(HrmRoles.Manager);
     var isEmployee = User.IsInRole(HrmRoles.Employee);
+    var startYear = 2026;
+    var endYear = Math.Max(DateTime.Now.Year + 14, 2040);
 }
 
     <div class="kpi-container">
@@ -28,7 +30,7 @@
                         <div class="kpi-filter-group">
                             <label class="kpi-filter-label">Bắt đầu</label>
                             <select name="fromQuarter" class="form-control kpi-filter-select" onchange="document.getElementById('kpiFilterForm').submit()">
-                                @for (int y = 2026; y <= 2030; y++)
+                                @for (int y = startYear; y <= endYear; y++)
                                 {
                                     <option value="@y" selected="@(Model.FromQuarter == y.ToString())">@y</option>
                                 }
@@ -38,7 +40,7 @@
                         <div class="kpi-filter-group">
                             <label class="kpi-filter-label">Kết thúc</label>
                             <select name="toQuarter" class="form-control kpi-filter-select" onchange="document.getElementById('kpiFilterForm').submit()">
-                                @for (int y = 2026; y <= 2030; y++)
+                                @for (int y = startYear; y <= endYear; y++)
                                 {
                                     <option value="@y" selected="@(Model.ToQuarter == y.ToString())">@y</option>
                                 }
@@ -50,7 +52,7 @@
                         <div class="kpi-filter-group">
                             <label class="kpi-filter-label">Bắt đầu</label>
                             <select name="fromQuarter" class="form-control kpi-filter-select" onchange="document.getElementById('kpiFilterForm').submit()">
-                                @for (int y = 2026; y <= 2028; y++)
+                                @for (int y = startYear; y <= endYear; y++)
                                 {
                                     for (int m = 1; m <= 12; m++)
                                     {
@@ -64,7 +66,7 @@
                         <div class="kpi-filter-group">
                             <label class="kpi-filter-label">Kết thúc</label>
                             <select name="toQuarter" class="form-control kpi-filter-select" onchange="document.getElementById('kpiFilterForm').submit()">
-                                @for (int y = 2026; y <= 2028; y++)
+                                @for (int y = startYear; y <= endYear; y++)
                                 {
                                     for (int m = 1; m <= 12; m++)
                                     {
@@ -80,7 +82,7 @@
                         <div class="kpi-filter-group">
                             <label class="kpi-filter-label">Bắt đầu</label>
                             <select name="fromQuarter" class="form-control kpi-filter-select" onchange="document.getElementById('kpiFilterForm').submit()">
-                                @for (int y = 2026; y <= 2028; y++)
+                                @for (int y = startYear; y <= endYear; y++)
                                 {
                                     for (int q = 1; q <= 4; q++)
                                     {
@@ -94,7 +96,7 @@
                         <div class="kpi-filter-group">
                             <label class="kpi-filter-label">Kết thúc</label>
                             <select name="toQuarter" class="form-control kpi-filter-select" onchange="document.getElementById('kpiFilterForm').submit()">
-                                @for (int y = 2026; y <= 2028; y++)
+                                @for (int y = startYear; y <= endYear; y++)
                                 {
                                     for (int q = 1; q <= 4; q++)
                                     {
@@ -628,7 +630,7 @@
                                 <div class="form-group">
                                     <label for="createKpiQuarter" style="font-weight:600;">Kỳ áp dụng</label>
                                     <select id="createKpiQuarter" name="Quarter" class="form-control">
-                                        @for (int y = 2026; y <= 2028; y++)
+                                        @for (int y = startYear; y <= endYear; y++)
                                         {
                                             for (int q = 1; q <= 4; q++)
                                             {
@@ -754,7 +756,7 @@
                                 <div class="form-group">
                                     <label for="editKpiQuarter" style="font-weight:600;">Kỳ áp dụng</label>
                                     <select id="editKpiQuarter" name="Quarter" class="form-control">
-                                        @for (int y = 2026; y <= 2028; y++)
+                                        @for (int y = startYear; y <= endYear; y++)
                                         {
                                             for (int q = 1; q <= 4; q++)
                                             {

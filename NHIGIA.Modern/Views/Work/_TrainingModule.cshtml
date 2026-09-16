@@ -367,21 +367,30 @@
                         <div class="trn-cal-month-nav">
                             <button type="button" class="trn-cal-month-btn" id="btnPrevMonth" title="Tháng trước"><i class="material-icons" style="font-size:18px;">chevron_left</i></button>
                             <div class="dropdown" style="display:inline-block;">
-                                <span class="trn-cal-month-title dropdown-toggle" id="lblMonthTitle" data-toggle="dropdown" style="cursor:pointer; user-select:none; display:inline-flex; align-items:center; justify-content:center; gap:2px;" title="Bấm để chọn nhanh tháng">
+                                <span class="trn-cal-month-title dropdown-toggle" id="lblMonthTitle" data-toggle="dropdown" style="cursor:pointer; user-select:none; display:inline-flex; align-items:center; justify-content:center; gap:2px;" title="Bấm để chọn nhanh tháng & năm">
                                     <span id="lblMonthTitleText">Tháng 01/2026</span>
                                     <i class="material-icons" style="font-size:15px; color:#64748b;">arrow_drop_down</i>
                                 </span>
-                                <ul class="dropdown-menu dropdown-menu-center" id="menuSelectMonth" style="max-height:280px; overflow-y:auto; min-width:145px; text-align:center; font-size:13px; border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,0.12);">
-                                    @for (int y = 2026; y <= 2028; y++)
-                                    {
-                                        <li class="dropdown-header" style="font-weight:700; color:#0284c7; background:#f8fafc; padding:4px 12px; font-size:12px;">Năm @y</li>
-                                        for (int m = 1; m <= 12; m++)
+                                <div class="dropdown-menu dropdown-menu-center" id="menuSelectMonth" style="min-width:240px; padding:12px; border-radius:10px; box-shadow:0 10px 25px rgba(0,0,0,0.15);">
+                                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; padding-bottom:8px; border-bottom:1px solid #e2e8f0;">
+                                        <span style="font-size:12px; font-weight:700; color:#475569;">CHỌN NĂM:</span>
+                                        <select id="selCalQuickYear" style="border:1px solid #cbd5e1; border-radius:6px; font-weight:700; color:#0284c7; padding:3px 8px; font-size:13px; outline:none; background:#f8fafc; cursor:pointer;">
+                                            @for (int y = 2026; y <= 2040; y++)
+                                            {
+                                                <option value="@y">Năm @y</option>
+                                            }
+                                        </select>
+                                    </div>
+                                    <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:6px;">
+                                        @for (int m = 1; m <= 12; m++)
                                         {
                                             var mStr = m < 10 ? $"0{m}" : $"{m}";
-                                            <li><a href="javascript:void(0)" class="opt-cal-month" data-year="@y" data-month="@m">Tháng @mStr/@y</a></li>
+                                            <button type="button" class="btn btn-default opt-cal-month-btn" data-month="@m" style="padding:6px 2px; font-size:12px; font-weight:600; border-radius:6px; border:1px solid #e2e8f0; background:#fff; color:#1e293b;">
+                                                Tháng @mStr
+                                            </button>
                                         }
-                                    }
-                                </ul>
+                                    </div>
+                                </div>
                             </div>
                             <button type="button" class="trn-cal-month-btn" id="btnNextMonth" title="Tháng sau"><i class="material-icons" style="font-size:18px;">chevron_right</i></button>
                         </div>
@@ -833,6 +842,22 @@
 
         $('#trnCalendarBody').html(html);
 
+        // Sync quick year selector in dropdown
+        if ($('#selCalQuickYear').length) {
+            if (!$('#selCalQuickYear option[value="' + year + '"]').length) {
+                $('#selCalQuickYear').append('<option value="' + year + '">Năm ' + year + '</option>');
+            }
+            $('#selCalQuickYear').val(year);
+        }
+        $('.opt-cal-month-btn').each(function() {
+            var m = parseInt($(this).data('month'), 10);
+            if (m === month) {
+                $(this).css({ 'background': '#16a34a', 'color': '#ffffff', 'border-color': '#15803d', 'font-weight': '700' });
+            } else {
+                $(this).css({ 'background': '#ffffff', 'color': '#1e293b', 'border-color': '#e2e8f0', 'font-weight': '600' });
+            }
+        });
+
         // Update URL query state smoothly without reloading page
         if (window.history && window.history.replaceState) {
             var url = new URL(window.location.href);
@@ -867,16 +892,22 @@
             renderCalendar(curYear, curMonth);
         });
 
-        // Quick Month Selection Dropdown
-        $(document).on('click', '.opt-cal-month', function(e) {
+        // Quick Month Selection: Year change
+        $(document).on('change', '#selCalQuickYear', function() {
+            var y = parseInt($(this).val(), 10) || curYear;
+            curYear = y;
+            renderCalendar(curYear, curMonth);
+        });
+
+        // Quick Month Selection: Month button click
+        $(document).on('click', '.opt-cal-month-btn', function(e) {
             e.preventDefault();
-            var y = parseInt($(this).data('year'), 10);
-            var m = parseInt($(this).data('month'), 10);
-            if (y && m) {
-                curYear = y;
-                curMonth = m;
-                renderCalendar(curYear, curMonth);
-            }
+            var m = parseInt($(this).data('month'), 10) || 1;
+            var y = parseInt($('#selCalQuickYear').val(), 10) || curYear;
+            curYear = y;
+            curMonth = m;
+            renderCalendar(curYear, curMonth);
+            $('#lblMonthTitle').dropdown('toggle');
         });
 
         // Jump to Calendar from Course card
