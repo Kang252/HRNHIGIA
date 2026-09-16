@@ -1763,6 +1763,13 @@ section.content {
     background: rgba(255, 255, 255, .18);
 }
 
+.hrm-ai-brand-icon svg {
+    display: block;
+    width: 24px;
+    height: 24px;
+    fill: #fff;
+}
+
 .hrm-ai-brand strong,
 .hrm-ai-brand small {
     display: block;
