@@ -135,7 +135,7 @@
 
                 @if (Model.CanManage)
                 {
-                    <button type="button" id="btnOpenCreateKpi" class="hrm-btn hrm-btn-primary kpi-create-btn" data-toggle="modal" data-target="#modalCreateKpi">
+                    <button type="button" id="btnOpenCreateKpi" class="hrm-btn hrm-btn-primary kpi-create-btn" onclick="window.openCreateKpiModal()" data-toggle="modal" data-target="#modalCreateKpi">
                         <i class="material-icons">add</i> Tạo KPI mới
                     </button>
                 }
@@ -363,7 +363,7 @@
                                             <!-- 1. Nút Gửi chứng minh (Nhân viên / Quản lý) -->
                                             @if (canSubmitProof)
                                             {
-                                                <button type="button" class="kpi-action-btn btn-proof btn-trigger-proof"
+                                                <button type="button" class="kpi-action-btn btn-proof btn-trigger-proof" onclick="window.openProofModal(this)"
                                                         title="Cập nhật kết quả & gửi chứng minh"
                                                         data-id="@item.Id"
                                                         data-title="@item.Title"
@@ -378,7 +378,7 @@
                                             <!-- 2. Nút Phê duyệt kết quả (Dành cho Quản lý / HR / Giám đốc) -->
                                             @if (canEvaluate)
                                             {
-                                                <button type="button" class="kpi-action-btn btn-evaluate btn-trigger-evaluate"
+                                                <button type="button" class="kpi-action-btn btn-evaluate btn-trigger-evaluate" onclick="window.openEvalModal(this)"
                                                         title="Đánh giá & Phê duyệt chứng minh (YES/NO)"
                                                         data-id="@item.Id"
                                                         data-title="@item.Title"
@@ -400,7 +400,7 @@
                                                     </button>
                                                     <ul class="dropdown-menu dropdown-menu-right kpi-dropdown-menu">
                                                         <li>
-                                                            <a href="javascript:void(0)" class="btn-trigger-edit"
+                                                            <a href="javascript:void(0)" class="btn-trigger-edit" onclick="window.openEditKpiModal(this)"
                                                                data-id="@item.Id"
                                                                data-title="@item.Title"
                                                                data-category="@(item.Category ?? "")"
@@ -1469,28 +1469,35 @@
 
 <script>
     function showModalSafe(modalId) {
+        var m = document.getElementById(modalId);
+        if (!m) return;
         var $el = window.jQuery ? window.jQuery('#' + modalId) : null;
         if ($el && $el.length && typeof $el.modal === 'function') {
-            $el.modal('show');
-            return;
-        }
-        var m = document.getElementById(modalId);
-        if (m) {
-            m.classList.add('in');
-            m.style.display = 'block';
-            document.body.classList.add('modal-open');
-            if (!document.getElementById('manual-backdrop')) {
-                var bd = document.createElement('div');
-                bd.className = 'modal-backdrop fade in';
-                bd.id = 'manual-backdrop';
-                bd.onclick = closeAllManualModals;
-                document.body.appendChild(bd);
+            try {
+                $el.modal('show');
+                return;
+            } catch (e) {
+                console.warn('Bootstrap modal show failed, using manual fallback:', e);
             }
+        }
+        m.classList.add('in');
+        m.style.display = 'block';
+        document.body.classList.add('modal-open');
+        if (!document.getElementById('manual-backdrop')) {
+            var bd = document.createElement('div');
+            bd.className = 'modal-backdrop fade in';
+            bd.id = 'manual-backdrop';
+            bd.onclick = closeAllManualModals;
+            document.body.appendChild(bd);
         }
     }
 
     function closeAllManualModals() {
         document.querySelectorAll('.modal').forEach(function (m) {
+            var $m = window.jQuery ? window.jQuery(m) : null;
+            if ($m && typeof $m.modal === 'function') {
+                try { $m.modal('hide'); } catch(e) {}
+            }
             m.classList.remove('in');
             m.style.display = 'none';
         });
@@ -1499,9 +1506,63 @@
         if (bd) bd.remove();
     }
 
-    function openCreateKpiModal() {
+    window.showModalSafe = showModalSafe;
+    window.closeAllManualModals = closeAllManualModals;
+
+    window.openCreateKpiModal = function() {
         showModalSafe('modalCreateKpi');
-    }
+    };
+
+    window.openProofModal = function(el) {
+        var btn = $(el);
+        $('#proofKpiId').val(btn.attr('data-id') || btn.data('id'));
+        $('#proofKpiTitle').text(btn.attr('data-title') || btn.data('title') || '—');
+        var target = btn.attr('data-target') || btn.data('target') || '0';
+        var cat = btn.attr('data-category') || btn.data('category') || '';
+        $('#proofKpiTarget').text(target + ' ' + cat);
+        $('#proofActual').val(btn.attr('data-actual') || btn.data('actual') || '');
+        $('#proofNote').val(btn.attr('data-proof') || btn.data('proof') || '');
+        showModalSafe('modalSubmitProof');
+    };
+
+    window.openEvalModal = function(el) {
+        var btn = $(el);
+        $('#evalKpiId').val(btn.attr('data-id') || btn.data('id'));
+        $('#evalKpiTitle').text(btn.attr('data-title') || btn.data('title') || '—');
+        var target = btn.attr('data-target') || btn.data('target') || '0';
+        var cat = btn.attr('data-category') || btn.data('category') || '';
+        $('#evalKpiTarget').text(target + ' ' + cat);
+        var actual = btn.attr('data-actual') || btn.data('actual') || '0';
+        $('#evalKpiActual').text(actual + ' ' + cat);
+        var proof = btn.attr('data-proof') || btn.data('proof');
+        $('#evalProofNote').text(proof && proof.trim() ? proof : 'Chưa có ghi chú minh chứng');
+        $('#evalReviewNote').val(btn.attr('data-review') || btn.data('review') || '');
+        showModalSafe('modalEvaluateProof');
+    };
+
+    window.openEditKpiModal = function(el) {
+        var btn = $(el);
+        $('#editKpiId').val(btn.attr('data-id') || btn.data('id'));
+        $('#editKpiTitle').val(btn.attr('data-title') || btn.data('title') || '');
+        $('#editKpiCategory').val(btn.attr('data-category') || btn.data('category') || '');
+        $('#editKpiReference').val(btn.attr('data-reference') || btn.data('reference') || '');
+        $('#editKpiTarget').val(btn.attr('data-target') || btn.data('target') || '');
+        $('#editKpiWeight').val(btn.attr('data-weight') || btn.data('weight') || '10');
+        $('#editKpiEmployeeId').val(btn.attr('data-employee') || btn.data('employee') || '');
+        $('#editKpiDepartmentId').val(btn.attr('data-dept') || btn.data('dept') || '');
+        var kpiType = btn.attr('data-type') || btn.data('type') || 'ASSIGNED';
+        if (kpiType === 'PLAN') {
+            $('#editTypePlan').prop('checked', true);
+            toggleEditKpiType('PLAN');
+        } else {
+            $('#editTypeAssigned').prop('checked', true);
+            toggleEditKpiType('ASSIGNED');
+        }
+        $('#editKpiQuarter').val(btn.attr('data-quarter') || btn.data('quarter') || 'Quý 3-2026');
+        $('#editKpiDescription').val(btn.attr('data-desc') || btn.data('desc') || '');
+        $('#editKpiStatus').val(btn.attr('data-status') || btn.data('status') || 'WAITING_RESULT');
+        showModalSafe('modalEditKpi');
+    };
 
     function toggleCreateKpiType(type) {
         if (type === 'PLAN') {
@@ -1533,74 +1594,36 @@
     $(document).ready(function() {
         // Nút mở modal tạo KPI
         $(document).on('click', '#btnOpenCreateKpi, .kpi-create-btn', function (e) {
-            if (!window.jQuery || typeof $('#modalCreateKpi').modal !== 'function') {
-                e.preventDefault();
-                showModalSafe('modalCreateKpi');
-            }
+            e.preventDefault();
+            window.openCreateKpiModal();
         });
 
         // Nút đóng modal
         $(document).on('click', '[data-dismiss="modal"]', function () {
             var $m = $(this).closest('.modal');
             if ($m.length && typeof $m.modal === 'function') {
-                $m.modal('hide');
+                try { $m.modal('hide'); } catch(e) {}
             } else {
                 closeAllManualModals();
             }
         });
 
         // Gửi chứng minh kết quả
-        $(document).on('click', '.btn-trigger-proof', function() {
-            var btn = $(this);
-            $('#proofKpiId').val(btn.attr('data-id') || btn.data('id'));
-            $('#proofKpiTitle').text(btn.attr('data-title') || btn.data('title') || '—');
-            var target = btn.attr('data-target') || btn.data('target') || '0';
-            var cat = btn.attr('data-category') || btn.data('category') || '';
-            $('#proofKpiTarget').text(target + ' ' + cat);
-            $('#proofActual').val(btn.attr('data-actual') || btn.data('actual') || '');
-            $('#proofNote').val(btn.attr('data-proof') || btn.data('proof') || '');
-            showModalSafe('modalSubmitProof');
+        $(document).on('click', '.btn-trigger-proof', function(e) {
+            e.preventDefault();
+            window.openProofModal(this);
         });
 
         // Duyệt & Đánh giá kết quả (YES/NO)
-        $(document).on('click', '.btn-trigger-evaluate', function() {
-            var btn = $(this);
-            $('#evalKpiId').val(btn.attr('data-id') || btn.data('id'));
-            $('#evalKpiTitle').text(btn.attr('data-title') || btn.data('title') || '—');
-            var target = btn.attr('data-target') || btn.data('target') || '0';
-            var cat = btn.attr('data-category') || btn.data('category') || '';
-            $('#evalKpiTarget').text(target + ' ' + cat);
-            var actual = btn.attr('data-actual') || btn.data('actual') || '0';
-            $('#evalKpiActual').text(actual + ' ' + cat);
-            var proof = btn.attr('data-proof') || btn.data('proof');
-            $('#evalProofNote').text(proof && proof.trim() ? proof : 'Chưa có ghi chú minh chứng');
-            $('#evalReviewNote').val(btn.attr('data-review') || btn.data('review') || '');
-            showModalSafe('modalEvaluateProof');
+        $(document).on('click', '.btn-trigger-evaluate', function(e) {
+            e.preventDefault();
+            window.openEvalModal(this);
         });
 
         // Chỉnh sửa KPI
-        $(document).on('click', '.btn-trigger-edit', function() {
-            var btn = $(this);
-            $('#editKpiId').val(btn.attr('data-id') || btn.data('id'));
-            $('#editKpiTitle').val(btn.attr('data-title') || btn.data('title') || '');
-            $('#editKpiCategory').val(btn.attr('data-category') || btn.data('category') || '');
-            $('#editKpiReference').val(btn.attr('data-reference') || btn.data('reference') || '');
-            $('#editKpiTarget').val(btn.attr('data-target') || btn.data('target') || '');
-            $('#editKpiWeight').val(btn.attr('data-weight') || btn.data('weight') || '10');
-            $('#editKpiEmployeeId').val(btn.attr('data-employee') || btn.data('employee') || '');
-            $('#editKpiDepartmentId').val(btn.attr('data-dept') || btn.data('dept') || '');
-            var kpiType = btn.attr('data-type') || btn.data('type') || 'ASSIGNED';
-            if (kpiType === 'PLAN') {
-                $('#editTypePlan').prop('checked', true);
-                toggleEditKpiType('PLAN');
-            } else {
-                $('#editTypeAssigned').prop('checked', true);
-                toggleEditKpiType('ASSIGNED');
-            }
-            $('#editKpiQuarter').val(btn.attr('data-quarter') || btn.data('quarter') || 'Quý 3-2026');
-            $('#editKpiDescription').val(btn.attr('data-desc') || btn.data('desc') || '');
-            $('#editKpiStatus').val(btn.attr('data-status') || btn.data('status') || 'WAITING_RESULT');
-            showModalSafe('modalEditKpi');
+        $(document).on('click', '.btn-trigger-edit', function(e) {
+            e.preventDefault();
+            window.openEditKpiModal(this);
         });
     });
 </script>

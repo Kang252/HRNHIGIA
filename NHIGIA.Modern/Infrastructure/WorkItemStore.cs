@@ -110,41 +110,100 @@ public sealed class WorkItemStore
                     catch { }
                 }
 
-                // If course has no sessions, or only 1 session but runs across multiple weeks/months, synthesize scheduled sessions
-                if (item.StartDate.HasValue && item.DueDate.HasValue && item.DueDate.Value >= item.StartDate.Value)
-                {
-                    var maxExistingDate = courseSessions.Count > 0
-                        ? courseSessions.Select(s => DateTime.TryParse(s.DateStr, out var d) ? d : DateTime.MinValue).Max()
-                        : DateTime.MinValue;
+                // Synthesize recurring monthly sessions across 2026-2040 so every month on the calendar has active sessions
+                var existingDates = new HashSet<string>(courseSessions.Select(s => s.DateStr));
+                var defaultRoom = item.Category == "Offline" ? "Hội trường đào tạo Lầu 3" : "Google Meet Online";
+                var isOnline = item.Category != "Offline";
+                var instructor = item.ContactName ?? "Giảng viên Nhị Gia";
 
-                    if (courseSessions.Count == 0 || (item.DueDate.Value - maxExistingDate).TotalDays > 14)
+                int recurringIdx = courseSessions.Count + 1;
+                for (int y = 2026; y <= 2040; y++)
+                {
+                    for (int m = 1; m <= 12; m++)
                     {
-                        var startGen = maxExistingDate > DateTime.MinValue ? maxExistingDate.AddDays(7) : item.StartDate.Value;
-                        var endGen = item.DueDate.Value;
-                        var cur = startGen;
-                        int sIdx = courseSessions.Count + 1;
-                        var room = item.Category == "Offline" ? "Hội trường đào tạo Lầu 3" : "Google Meet Online";
-                        while (cur <= endGen && sIdx <= 24)
+                        var daysInMonth = DateTime.DaysInMonth(y, m);
+                        var targetDays = new List<(int day, string time, string sessionSuffix)>();
+
+                        var refUpper = (item.Reference ?? "").ToUpperInvariant();
+                        var titleLower = (item.Title ?? "").ToLowerInvariant();
+
+                        if (refUpper.Contains("001") || titleLower.Contains("an toàn"))
                         {
-                            if (cur.DayOfWeek == DayOfWeek.Tuesday || cur.DayOfWeek == DayOfWeek.Friday)
+                            // 2nd Tuesday & 4th Tuesday
+                            int tCount = 0;
+                            for (int d = 1; d <= daysInMonth; d++)
                             {
+                                if (new DateTime(y, m, d).DayOfWeek == DayOfWeek.Tuesday)
+                                {
+                                    tCount++;
+                                    if (tCount == 2) targetDays.Add((d, "09:00 - 11:00", "Nhận diện rủi ro & Bảo mật số"));
+                                    else if (tCount == 4) targetDays.Add((d, "14:00 - 16:00", "Thực hành phòng chống sự cố"));
+                                }
+                            }
+                        }
+                        else if (refUpper.Contains("002") || titleLower.Contains("quản lý"))
+                        {
+                            // 2nd Friday & 4th Friday
+                            int fCount = 0;
+                            for (int d = 1; d <= daysInMonth; d++)
+                            {
+                                if (new DateTime(y, m, d).DayOfWeek == DayOfWeek.Friday)
+                                {
+                                    fCount++;
+                                    if (fCount == 2) targetDays.Add((d, "08:30 - 16:30", "Quản lý mục tiêu & Hiệu suất"));
+                                    else if (fCount == 4) targetDays.Add((d, "13:30 - 17:00", "Phát triển đội ngũ kế thừa"));
+                                }
+                            }
+                        }
+                        else if (refUpper.Contains("003") || titleLower.Contains("excel"))
+                        {
+                            // 3rd Thursday
+                            int thCount = 0;
+                            for (int d = 1; d <= daysInMonth; d++)
+                            {
+                                if (new DateTime(y, m, d).DayOfWeek == DayOfWeek.Thursday)
+                                {
+                                    thCount++;
+                                    if (thCount == 3) targetDays.Add((d, "08:30 - 17:00", "Excel chuyên sâu & Tự động hóa"));
+                                }
+                            }
+                        }
+                        else
+                        {
+                            // 3rd Wednesday for any other course
+                            int wCount = 0;
+                            for (int d = 1; d <= daysInMonth; d++)
+                            {
+                                if (new DateTime(y, m, d).DayOfWeek == DayOfWeek.Wednesday)
+                                {
+                                    wCount++;
+                                    if (wCount == 3) targetDays.Add((d, "09:00 - 11:30", "Buổi đào tạo chuyên môn"));
+                                }
+                            }
+                        }
+
+                        foreach (var target in targetDays)
+                        {
+                            var dStr = $"{y:D4}-{m:D2}-{target.day:D2}";
+                            if (!existingDates.Contains(dStr))
+                            {
+                                existingDates.Add(dStr);
                                 courseSessions.Add(new TrainingSessionEvent
                                 {
-                                    Id = item.Id * 1000 + sIdx,
+                                    Id = item.Id * 100000 + recurringIdx,
                                     TrainingId = item.Id,
                                     CourseTitle = item.Title,
                                     CourseReference = item.Reference,
-                                    SessionTitle = $"Buổi {sIdx} - {item.Title}",
-                                    DateStr = cur.ToString("yyyy-MM-dd"),
-                                    TimeStr = (sIdx % 2 == 0) ? "14:00 - 16:00" : "09:00 - 11:00",
-                                    Instructor = item.ContactName ?? "Giảng viên Nhị Gia",
-                                    LocationOrUrl = room,
-                                    IsOnline = item.Category != "Offline",
+                                    SessionTitle = $"{item.Title}: {target.sessionSuffix}",
+                                    DateStr = dStr,
+                                    TimeStr = target.time,
+                                    Instructor = instructor,
+                                    LocationOrUrl = defaultRoom,
+                                    IsOnline = isOnline,
                                     Notes = item.Description
                                 });
-                                sIdx++;
+                                recurringIdx++;
                             }
-                            cur = cur.AddDays(1);
                         }
                     }
                 }
