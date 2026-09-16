@@ -1563,6 +1563,13 @@ section.content {
     font-size: 25px;
 }
 
+.hrm-ai-launcher-icon {
+    display: block;
+    width: 25px;
+    height: 25px;
+    fill: currentColor;
+}
+
 .hrm-ai-launcher span {
     display: none;
 }

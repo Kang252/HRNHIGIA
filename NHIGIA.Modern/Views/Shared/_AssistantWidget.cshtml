@@ -3,10 +3,10 @@
 }
 <div class="hrm-ai" id="hrmAi" data-endpoint="@Url.Action("Ask", "Assistant")" data-user-id="@assistantUser?.Id">
     <button class="hrm-ai-launcher" id="hrmAiLauncher" type="button" aria-controls="hrmAiPanel" aria-expanded="false" title="Trợ lý Nhị Gia">
-        <i class="material-icons" aria-hidden="true">smart_toy</i>
+        <svg class="hrm-ai-launcher-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M20 2H4a2 2 0 0 0-2 2v18l4-4h14a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2Zm-2 11H6v-2h12v2Zm0-3H6V8h12v2Zm0-3H6V5h12v2Z" /></svg>
         <span>Trợ lý AI</span>
     </button>
-    <section class="hrm-ai-panel" id="hrmAiPanel" aria-label="Trợ lý dữ liệu Nhị Gia" aria-hidden="true">
+    <section class="hrm-ai-panel" id="hrmAiPanel" aria-label="Trợ lý Nhị Gia" aria-hidden="true">
         <header class="hrm-ai-header">
             <div class="hrm-ai-brand"><span><i class="material-icons">smart_toy</i></span><div><strong>Trợ lý Nhị Gia</strong><small>Trò chuyện tự do · SQL theo quyền @assistantUser?.RoleLabel</small></div></div>
             <button id="hrmAiClose" type="button" aria-label="Đóng trợ lý"><i class="material-icons">close</i></button>

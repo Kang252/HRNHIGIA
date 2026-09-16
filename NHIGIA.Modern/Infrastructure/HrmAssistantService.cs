@@ -35,7 +35,8 @@ public sealed class HrmAssistantService
         var suggestions = Suggestions(actor);
         var scope = ScopeLabel(actor);
 
-        if (ContainsAny(normalized, "xin chao", "chao", "hello", "hi", "tro giup", "ho tro", "lam duoc gi"))
+        if (normalized is "xin chao" or "chao" or "hello" or "hi" ||
+            ContainsAny(normalized, "tro giup", "ho tro toi", "ban lam duoc gi"))
             return Reply($"Xin chào {actor.DisplayName}. Tôi có thể tra cứu dữ liệu HRM theo phạm vi {scope}: chấm công, nghỉ phép, lịch làm việc, KPI, tài sản, Helpdesk, đào tạo, tăng ca, đặt phòng và đặt xe.", scope, suggestions: suggestions);
 
         if (ContainsAny(normalized, "ho so", "thong tin cua toi", "thong tin ca nhan", "phong ban cua toi", "chuc vu"))
