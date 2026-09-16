@@ -68,34 +68,46 @@ public sealed class GeminiAssistantClient
             generationConfig = new { temperature = grounded.HasGroundedData ? 0.15 : 0.55, maxOutputTokens = 500 }
         };
 
-        try
+        for (var attempt = 0; attempt < 3; attempt++)
         {
-            using var request = new HttpRequestMessage(HttpMethod.Post, $"v1beta/models/{Uri.EscapeDataString(model)}:generateContent")
+            try
             {
-                Content = JsonContent.Create(payload)
-            };
-            request.Headers.Add("x-goog-api-key", ApiKey);
-            using var response = await _httpClient.SendAsync(request, cancellationToken);
-            if (!response.IsSuccessStatusCode)
-            {
-                _logger.LogWarning("Gemini returned HTTP {StatusCode} for HRM assistant", (int)response.StatusCode);
-                return null;
+                using var request = new HttpRequestMessage(HttpMethod.Post, $"v1beta/models/{Uri.EscapeDataString(model)}:generateContent")
+                {
+                    Content = JsonContent.Create(payload)
+                };
+                request.Headers.Add("x-goog-api-key", ApiKey);
+                using var response = await _httpClient.SendAsync(request, cancellationToken);
+                if (!response.IsSuccessStatusCode)
+                {
+                    var transient = (int)response.StatusCode == 429 || (int)response.StatusCode >= 500;
+                    _logger.LogWarning("Gemini returned HTTP {StatusCode} for HRM assistant (attempt {Attempt})", (int)response.StatusCode, attempt + 1);
+                    if (transient && attempt < 2)
+                    {
+                        await Task.Delay(400 + attempt * 500, cancellationToken);
+                        continue;
+                    }
+                    return null;
+                }
+                await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+                using var json = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
+                if (!json.RootElement.TryGetProperty("candidates", out var candidates) || candidates.GetArrayLength() == 0) return null;
+                if (!candidates[0].TryGetProperty("content", out var content) || !content.TryGetProperty("parts", out var parts)) return null;
+                var answer = string.Join("\n", parts.EnumerateArray()
+                    .Where(x => x.TryGetProperty("text", out _))
+                    .Select(x => x.GetProperty("text").GetString())
+                    .Where(x => !string.IsNullOrWhiteSpace(x))).Trim();
+                return answer.Length > 2000 ? answer[..2000] : answer;
             }
-            await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
-            using var json = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
-            if (!json.RootElement.TryGetProperty("candidates", out var candidates) || candidates.GetArrayLength() == 0) return null;
-            if (!candidates[0].TryGetProperty("content", out var content) || !content.TryGetProperty("parts", out var parts)) return null;
-            var answer = string.Join("\n", parts.EnumerateArray()
-                .Where(x => x.TryGetProperty("text", out _))
-                .Select(x => x.GetProperty("text").GetString())
-                .Where(x => !string.IsNullOrWhiteSpace(x))).Trim();
-            return answer.Length > 2000 ? answer[..2000] : answer;
+            catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or JsonException)
+            {
+                _logger.LogWarning(exception, "Gemini was unavailable on attempt {Attempt}", attempt + 1);
+                if (attempt >= 2 || cancellationToken.IsCancellationRequested) return null;
+                await Task.Delay(400 + attempt * 500, cancellationToken);
+            }
         }
-        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or JsonException)
-        {
-            _logger.LogWarning(exception, "Gemini was unavailable; returning the database-grounded answer");
-            return null;
-        }
+
+        return null;
     }
 
     private string ApiKey => _configuration["GEMINI_API_KEY"] ?? _configuration["Gemini:ApiKey"];
