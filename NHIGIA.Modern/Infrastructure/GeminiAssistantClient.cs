@@ -91,12 +91,26 @@ public sealed class GeminiAssistantClient
                 }
                 await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
                 using var json = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
-                if (!json.RootElement.TryGetProperty("candidates", out var candidates) || candidates.GetArrayLength() == 0) return null;
-                if (!candidates[0].TryGetProperty("content", out var content) || !content.TryGetProperty("parts", out var parts)) return null;
+                if (!json.RootElement.TryGetProperty("candidates", out var candidates) || candidates.GetArrayLength() == 0 ||
+                    !candidates[0].TryGetProperty("content", out var content) || !content.TryGetProperty("parts", out var parts))
+                {
+                    _logger.LogWarning("Gemini returned no answer content on attempt {Attempt}", attempt + 1);
+                    if (attempt < 2)
+                    {
+                        await Task.Delay(400 + attempt * 500, cancellationToken);
+                        continue;
+                    }
+                    return null;
+                }
                 var answer = string.Join("\n", parts.EnumerateArray()
                     .Where(x => x.TryGetProperty("text", out _))
                     .Select(x => x.GetProperty("text").GetString())
                     .Where(x => !string.IsNullOrWhiteSpace(x))).Trim();
+                if (string.IsNullOrWhiteSpace(answer) && attempt < 2)
+                {
+                    await Task.Delay(400 + attempt * 500, cancellationToken);
+                    continue;
+                }
                 return answer.Length > 2000 ? answer[..2000] : answer;
             }
             catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or JsonException)
