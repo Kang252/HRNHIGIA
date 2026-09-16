@@ -71,6 +71,7 @@ public sealed class WorkItemStore
             var sessions = new List<TrainingSessionEvent>();
             foreach (var item in page.Items.Where(x => x.Kind == "training"))
             {
+                var courseSessions = new List<TrainingSessionEvent>();
                 if (!string.IsNullOrWhiteSpace(item.Keywords))
                 {
                     try
@@ -84,11 +85,12 @@ public sealed class WorkItemStore
                                 var dStr = el.TryGetProperty("date", out var pDate) ? pDate.GetString() : null;
                                 var tStr = el.TryGetProperty("time", out var pTime) ? pTime.GetString() : "09:00 - 11:00";
                                 var title = el.TryGetProperty("title", out var pTitle) ? pTitle.GetString() : $"Buổi {sIdx}";
+                                var room = el.TryGetProperty("room", out var pRoom) ? pRoom.GetString() : (item.Category == "Offline" ? "Hội trường đào tạo Lầu 3" : "Google Meet Online");
                                 if (!string.IsNullOrEmpty(dStr))
                                 {
-                                    sessions.Add(new TrainingSessionEvent
+                                    courseSessions.Add(new TrainingSessionEvent
                                     {
-                                        Id = item.Id * 100 + sIdx,
+                                        Id = item.Id * 1000 + sIdx,
                                         TrainingId = item.Id,
                                         CourseTitle = item.Title,
                                         CourseReference = item.Reference,
@@ -96,7 +98,7 @@ public sealed class WorkItemStore
                                         DateStr = dStr,
                                         TimeStr = tStr,
                                         Instructor = item.ContactName ?? "Giảng viên Nhị Gia",
-                                        LocationOrUrl = item.Category == "Offline" ? "Hội trường đào tạo Lầu 3" : "Google Meet / Microsoft Teams",
+                                        LocationOrUrl = room,
                                         IsOnline = item.Category != "Offline",
                                         Notes = item.Description
                                     });
@@ -107,6 +109,47 @@ public sealed class WorkItemStore
                     }
                     catch { }
                 }
+
+                // If course has no sessions, or only 1 session but runs across multiple weeks/months, synthesize scheduled sessions
+                if (item.StartDate.HasValue && item.DueDate.HasValue && item.DueDate.Value >= item.StartDate.Value)
+                {
+                    var maxExistingDate = courseSessions.Count > 0
+                        ? courseSessions.Select(s => DateTime.TryParse(s.DateStr, out var d) ? d : DateTime.MinValue).Max()
+                        : DateTime.MinValue;
+
+                    if (courseSessions.Count == 0 || (item.DueDate.Value - maxExistingDate).TotalDays > 14)
+                    {
+                        var startGen = maxExistingDate > DateTime.MinValue ? maxExistingDate.AddDays(7) : item.StartDate.Value;
+                        var endGen = item.DueDate.Value;
+                        var cur = startGen;
+                        int sIdx = courseSessions.Count + 1;
+                        var room = item.Category == "Offline" ? "Hội trường đào tạo Lầu 3" : "Google Meet Online";
+                        while (cur <= endGen && sIdx <= 24)
+                        {
+                            if (cur.DayOfWeek == DayOfWeek.Tuesday || cur.DayOfWeek == DayOfWeek.Friday)
+                            {
+                                courseSessions.Add(new TrainingSessionEvent
+                                {
+                                    Id = item.Id * 1000 + sIdx,
+                                    TrainingId = item.Id,
+                                    CourseTitle = item.Title,
+                                    CourseReference = item.Reference,
+                                    SessionTitle = $"Buổi {sIdx} - {item.Title}",
+                                    DateStr = cur.ToString("yyyy-MM-dd"),
+                                    TimeStr = (sIdx % 2 == 0) ? "14:00 - 16:00" : "09:00 - 11:00",
+                                    Instructor = item.ContactName ?? "Giảng viên Nhị Gia",
+                                    LocationOrUrl = room,
+                                    IsOnline = item.Category != "Offline",
+                                    Notes = item.Description
+                                });
+                                sIdx++;
+                            }
+                            cur = cur.AddDays(1);
+                        }
+                    }
+                }
+
+                sessions.AddRange(courseSessions);
             }
             page.Sessions = sessions.OrderBy(s => s.DateStr).ThenBy(s => s.TimeStr).ToList();
         }
@@ -295,32 +338,6 @@ public sealed class WorkItemStore
     {
         using var db = Open();
         return db.ExecuteScalar<int>("SELECT COUNT(1) FROM dbo.HrmNotification WHERE UserId=@UserId AND IsRead=0", new { UserId = userId });
-    }
-
-    public AssistantWorkSummary GetAssistantSummary(string kind, HrmUserAccountModel actor)
-    {
-        using var db = Open();
-        var canSeeAll = actor.RoleCode is HrmRoles.Admin or HrmRoles.Hr or HrmRoles.Director;
-        var isManager = actor.RoleCode == HrmRoles.Manager;
-        return db.QuerySingle<AssistantWorkSummary>(@"SELECT @Kind Kind,
-                COUNT(1) TotalCount,
-                COALESCE(SUM(CASE WHEN w.Status IN ('PENDING','PENDING_APPROVAL','WAITING_PROOF','SUBMITTED','OPEN','IN_PROGRESS') THEN 1 ELSE 0 END),0) PendingCount,
-                COALESCE(SUM(CASE WHEN w.Status IN ('APPROVED','PROVEN','PUBLISHED','PAID') THEN 1 ELSE 0 END),0) ApprovedCount,
-                COALESCE(SUM(CASE WHEN w.Status IN ('COMPLETED','CLOSED','RESOLVED','DONE') THEN 1 ELSE 0 END),0) CompletedCount
-            FROM dbo.HrmWorkItem w
-            LEFT JOIN dbo.HrmUserAccount employee ON employee.Id=w.EmployeeId
-            WHERE w.Kind=@Kind AND (
-                @CanSeeAll=1 OR w.EmployeeId=@ActorId OR w.CreatedBy=@ActorId
-                OR EXISTS (SELECT 1 FROM dbo.HrmWorkItemParticipant p WHERE p.WorkItemId=w.Id AND p.UserId=@ActorId)
-                OR (@IsManager=1 AND COALESCE(w.DepartmentId, employee.DepartmentId)=@DepartmentId)
-            )", new
-        {
-            Kind = kind,
-            CanSeeAll = canSeeAll,
-            IsManager = isManager,
-            ActorId = actor.Id,
-            actor.DepartmentId
-        });
     }
 
     public IReadOnlyList<WorkItem> GetPendingApprovals(HrmUserAccountModel actor)
@@ -2010,5 +2027,31 @@ public sealed class WorkItemStore
         db.Execute(@"INSERT dbo.HrmAuditLog(UserId,ActionCode,EntityType,EntityId,Detail,IpAddress)
             VALUES(@UserId,@Action,'HrmWorkItem',@EntityId,@Detail,@IpAddress)",
             new { UserId = actorId, Action = action, EntityId = id.ToString(), Detail = detail, IpAddress = ipAddress }, transaction);
+    }
+
+    public AssistantWorkSummary GetAssistantSummary(string kind, HrmUserAccountModel actor)
+    {
+        using var db = Open();
+        var canSeeAll = actor.RoleCode is HrmRoles.Admin or HrmRoles.Hr or HrmRoles.Director;
+        var isManager = actor.RoleCode == HrmRoles.Manager;
+        return db.QuerySingle<AssistantWorkSummary>(@"SELECT @Kind Kind,
+                COUNT(1) TotalCount,
+                COALESCE(SUM(CASE WHEN w.Status IN ('PENDING','PENDING_APPROVAL','WAITING_PROOF','SUBMITTED','OPEN','IN_PROGRESS') THEN 1 ELSE 0 END),0) PendingCount,
+                COALESCE(SUM(CASE WHEN w.Status IN ('APPROVED','PROVEN','PUBLISHED','PAID') THEN 1 ELSE 0 END),0) ApprovedCount,
+                COALESCE(SUM(CASE WHEN w.Status IN ('COMPLETED','CLOSED','RESOLVED','DONE') THEN 1 ELSE 0 END),0) CompletedCount
+            FROM dbo.HrmWorkItem w
+            LEFT JOIN dbo.HrmUserAccount employee ON employee.Id=w.EmployeeId
+            WHERE w.Kind=@Kind AND (
+                @CanSeeAll=1 OR w.EmployeeId=@ActorId OR w.CreatedBy=@ActorId
+                OR EXISTS (SELECT 1 FROM dbo.HrmWorkItemParticipant p WHERE p.WorkItemId=w.Id AND p.UserId=@ActorId)
+                OR (@IsManager=1 AND COALESCE(w.DepartmentId, employee.DepartmentId)=@DepartmentId)
+            )", new
+        {
+            Kind = kind,
+            CanSeeAll = canSeeAll,
+            IsManager = isManager,
+            ActorId = actor.Id,
+            actor.DepartmentId
+        });
     }
 }

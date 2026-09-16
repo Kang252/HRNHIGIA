@@ -366,7 +366,23 @@
                         </div>
                         <div class="trn-cal-month-nav">
                             <button type="button" class="trn-cal-month-btn" id="btnPrevMonth" title="Tháng trước"><i class="material-icons" style="font-size:18px;">chevron_left</i></button>
-                            <span class="trn-cal-month-title" id="lblMonthTitle">Tháng 01/2026</span>
+                            <div class="dropdown" style="display:inline-block;">
+                                <span class="trn-cal-month-title dropdown-toggle" id="lblMonthTitle" data-toggle="dropdown" style="cursor:pointer; user-select:none; display:inline-flex; align-items:center; justify-content:center; gap:2px;" title="Bấm để chọn nhanh tháng">
+                                    <span id="lblMonthTitleText">Tháng 01/2026</span>
+                                    <i class="material-icons" style="font-size:15px; color:#64748b;">arrow_drop_down</i>
+                                </span>
+                                <ul class="dropdown-menu dropdown-menu-center" id="menuSelectMonth" style="max-height:280px; overflow-y:auto; min-width:145px; text-align:center; font-size:13px; border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,0.12);">
+                                    @for (int y = 2026; y <= 2028; y++)
+                                    {
+                                        <li class="dropdown-header" style="font-weight:700; color:#0284c7; background:#f8fafc; padding:4px 12px; font-size:12px;">Năm @y</li>
+                                        for (int m = 1; m <= 12; m++)
+                                        {
+                                            var mStr = m < 10 ? $"0{m}" : $"{m}";
+                                            <li><a href="javascript:void(0)" class="opt-cal-month" data-year="@y" data-month="@m">Tháng @mStr/@y</a></li>
+                                        }
+                                    }
+                                </ul>
+                            </div>
                             <button type="button" class="trn-cal-month-btn" id="btnNextMonth" title="Tháng sau"><i class="material-icons" style="font-size:18px;">chevron_right</i></button>
                         </div>
                     </div>
@@ -386,130 +402,10 @@
                                 </tr>
                             </thead>
                             <tbody id="trnCalendarBody">
-                                <!-- Hàng 1 (30/12/2025 -> 05/01/2026) -->
                                 <tr>
-                                    <td class="other-month"><div class="trn-cal-date-num">30</div></td>
-                                    <td class="other-month"><div class="trn-cal-date-num">31</div></td>
-                                    <td>
-                                        <div class="trn-cal-date-num">01</div>
-                                        <div class="trn-cal-chips-wrap">
-                                            <span class="trn-cal-chip btn-cal-chip" data-title="Buổi 1 - Khóa tiếng Anh" data-course="Khóa đào tạo Kỹ năng tiếng Anh kinh doanh" data-time="08:00 - 10:00" data-inst="Emma Watson" data-room="Google Meet Online">[08:00-10:00] Buổi 1 - Khóa tiếng Anh</span>
-                                            <span class="trn-cal-chip btn-cal-chip" data-title="Buổi học 1 - Phát triển phần mềm" data-course="Phát triển ứng dụng web với React/Angular/Vue" data-time="09:00 - 11:00" data-inst="Trần Quốc Bảo" data-room="Google Meet Online">[09:00-11:00] Buổi học 1 - Phát triển phần mềm</span>
-                                        </div>
+                                    <td colspan="7" style="text-align:center; padding:30px; color:#64748b;">
+                                        <i class="material-icons" style="font-size:20px; vertical-align:middle;">calendar_month</i> Đang tải thời gian biểu...
                                     </td>
-                                    <td>
-                                        <div class="trn-cal-date-num">02</div>
-                                        <div class="trn-cal-chips-wrap">
-                                            <span class="trn-cal-chip btn-cal-chip" data-title="Buổi học 1 - Triển khai CI/CD" data-course="Triển khai CI/CD với Jenkins/Docker/Kubernetes" data-time="08:00 - 10:00" data-inst="Hoàng Minh Tuấn" data-room="Google Meet Online">[08:00-10:00] Buổi học 1 - Triển khai CI/CD</span>
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <div class="trn-cal-date-num">03</div>
-                                        <div class="trn-cal-chips-wrap">
-                                            <span class="trn-cal-chip btn-cal-chip" data-title="Buổi 2 - Khóa tiếng Anh" data-course="Khóa đào tạo Kỹ năng tiếng Anh kinh doanh" data-time="09:00 - 12:00" data-inst="Emma Watson" data-room="Google Meet Online">[09:00-12:00] Buổi 2 - Khóa tiếng Anh</span>
-                                        </div>
-                                    </td>
-                                    <td class="trn-cal-active-day">
-                                        <div class="trn-cal-date-num">04</div>
-                                    </td>
-                                    <td>
-                                        <div class="trn-cal-date-num">05</div>
-                                    </td>
-                                </tr>
-
-                                <!-- Hàng 2 (06/01 -> 12/01) -->
-                                <tr>
-                                    <td>
-                                        <div class="trn-cal-date-num">06</div>
-                                        <div class="trn-cal-chips-wrap">
-                                            <span class="trn-cal-chip btn-cal-chip" data-title="Buổi 3 - Khóa tiếng Anh" data-course="Khóa đào tạo Kỹ năng tiếng Anh kinh doanh" data-time="14:00 - 16:00" data-inst="Emma Watson" data-room="Google Meet Online">[14:00-16:00] Buổi 3 - Khóa tiếng Anh</span>
-                                        </div>
-                                    </td>
-                                    <td><div class="trn-cal-date-num">07</div></td>
-                                    <td><div class="trn-cal-date-num">08</div></td>
-                                    <td><div class="trn-cal-date-num">09</div></td>
-                                    <td>
-                                        <div class="trn-cal-date-num">10</div>
-                                        <div class="trn-cal-chips-wrap">
-                                            <span class="trn-cal-chip btn-cal-chip" data-title="Buổi 4 - Khóa tiếng Anh" data-course="Khóa đào tạo Kỹ năng tiếng Anh kinh doanh" data-time="14:00 - 16:00" data-inst="Emma Watson" data-room="Google Meet Online">[14:00-16:00] Buổi 4 - Khóa tiếng Anh</span>
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <div class="trn-cal-date-num">11</div>
-                                        <div class="trn-cal-chips-wrap">
-                                            <span class="trn-cal-chip btn-cal-chip" data-title="Buổi học 1 - Quy trình phát triển Agile/Scrum" data-course="Quy trình phát triển phần mềm Agile/Scrum" data-time="07:00 - 10:00" data-inst="Phạm Hải Đăng" data-room="Google Meet Online">[07:00-10:00] Buổi học 1 - Quy trình Agile</span>
-                                        </div>
-                                    </td>
-                                    <td><div class="trn-cal-date-num">12</div></td>
-                                </tr>
-
-                                <!-- Hàng 3 (13/01 -> 19/01) -->
-                                <tr>
-                                    <td><div class="trn-cal-date-num">13</div></td>
-                                    <td><div class="trn-cal-date-num">14</div></td>
-                                    <td>
-                                        <div class="trn-cal-date-num">15</div>
-                                        <div class="trn-cal-chips-wrap">
-                                            <span class="trn-cal-chip btn-cal-chip" data-title="Buổi 5 - Khóa tiếng Anh" data-course="Khóa đào tạo Kỹ năng tiếng Anh kinh doanh" data-time="10:00 - 12:00" data-inst="Emma Watson" data-room="Google Meet Online">[10:00-12:00] Buổi 5 - Khóa tiếng Anh</span>
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <div class="trn-cal-date-num">16</div>
-                                        <div class="trn-cal-chips-wrap">
-                                            <span class="trn-cal-chip btn-cal-chip" data-title="Buổi học 2 - Quy trình phát triển Agile/Scrum" data-course="Quy trình phát triển phần mềm Agile/Scrum" data-time="09:00 - 12:00" data-inst="Phạm Hải Đăng" data-room="Google Meet Online">[09:00-12:00] Buổi học 2 - Quy trình Agile</span>
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <div class="trn-cal-date-num">17</div>
-                                        <div class="trn-cal-chips-wrap">
-                                            <span class="trn-cal-chip btn-cal-chip" data-title="Buổi 6 - Khóa tiếng Anh" data-course="Khóa đào tạo Kỹ năng tiếng Anh kinh doanh" data-time="14:00 - 16:00" data-inst="Emma Watson" data-room="Google Meet Online">[14:00-16:00] Buổi 6 - Khóa tiếng Anh</span>
-                                        </div>
-                                    </td>
-                                    <td><div class="trn-cal-date-num">18</div></td>
-                                    <td><div class="trn-cal-date-num">19</div></td>
-                                </tr>
-
-                                <!-- Hàng 4 (20/01 -> 26/01) -->
-                                <tr>
-                                    <td><div class="trn-cal-date-num">20</div></td>
-                                    <td><div class="trn-cal-date-num">21</div></td>
-                                    <td>
-                                        <div class="trn-cal-date-num">22</div>
-                                        <div class="trn-cal-chips-wrap">
-                                            <span class="trn-cal-chip btn-cal-chip" data-title="Buổi 7 - Khóa tiếng Anh" data-course="Khóa đào tạo Kỹ năng tiếng Anh kinh doanh" data-time="14:00 - 16:00" data-inst="Emma Watson" data-room="Google Meet Online">[14:00-16:00] Buổi 7 - Khóa tiếng Anh</span>
-                                        </div>
-                                    </td>
-                                    <td><div class="trn-cal-date-num">23</div></td>
-                                    <td>
-                                        <div class="trn-cal-date-num">24</div>
-                                        <div class="trn-cal-chips-wrap">
-                                            <span class="trn-cal-chip btn-cal-chip" data-title="Buổi 8 - Khóa tiếng Anh" data-course="Khóa đào tạo Kỹ năng tiếng Anh kinh doanh" data-time="14:00 - 16:00" data-inst="Emma Watson" data-room="Google Meet Online">[14:00-16:00] Buổi 8 - Khóa tiếng Anh</span>
-                                        </div>
-                                    </td>
-                                    <td><div class="trn-cal-date-num">25</div></td>
-                                    <td><div class="trn-cal-date-num">26</div></td>
-                                </tr>
-
-                                <!-- Hàng 5 (27/01 -> 02/02) -->
-                                <tr>
-                                    <td><div class="trn-cal-date-num">27</div></td>
-                                    <td><div class="trn-cal-date-num">28</div></td>
-                                    <td>
-                                        <div class="trn-cal-date-num">29</div>
-                                        <div class="trn-cal-chips-wrap">
-                                            <span class="trn-cal-chip btn-cal-chip" data-title="Buổi 9 - Khóa tiếng Anh" data-course="Khóa đào tạo Kỹ năng tiếng Anh kinh doanh" data-time="08:00 - 11:00" data-inst="Emma Watson" data-room="Google Meet Online">[08:00-11:00] Buổi 9 - Khóa tiếng Anh</span>
-                                        </div>
-                                    </td>
-                                    <td><div class="trn-cal-date-num">30</div></td>
-                                    <td>
-                                        <div class="trn-cal-date-num">31</div>
-                                        <div class="trn-cal-chips-wrap">
-                                            <span class="trn-cal-chip btn-cal-chip" data-title="Buổi 10 - Khóa tiếng Anh" data-course="Khóa đào tạo Kỹ năng tiếng Anh kinh doanh" data-time="14:00 - 17:00" data-inst="Emma Watson" data-room="Google Meet Online">[14:00-17:00] Buổi 10 - Khóa tiếng Anh</span>
-                                            <span class="trn-cal-chip btn-cal-chip" data-title="Buổi học 1 - Quản lý dự án" data-course="Khóa đào tạo về Quản lý dự án" data-time="07:00 - 10:00" data-inst="Ngô Thành Đạt" data-room="Google Meet Online">[07:00-10:00] Buổi học 1 - Quản lý dự án</span>
-                                        </div>
-                                    </td>
-                                    <td class="other-month"><div class="trn-cal-date-num">01</div></td>
-                                    <td class="other-month"><div class="trn-cal-date-num">02</div></td>
                                 </tr>
                             </tbody>
                         </table>
@@ -822,7 +718,195 @@
         </div>
     </div>
 <script>
+    var allTrainingSessions = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Sessions.Select(s => new {
+        id = s.Id,
+        trainingId = s.TrainingId,
+        course = s.CourseTitle ?? "",
+        title = s.SessionTitle ?? "",
+        date = s.DateStr ?? "",
+        time = s.TimeStr ?? "",
+        inst = s.Instructor ?? "Giảng viên Nhị Gia",
+        room = s.LocationOrUrl ?? "Google Meet Online",
+        isOnline = s.IsOnline
+    })));
+
+    function escapeHtml(text) {
+        if (!text) return '';
+        return String(text)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    var initMonthStr = '@(Model.TrainingMonth ?? "2026-01")';
+    var curParts = initMonthStr.split('-');
+    var curYear = parseInt(curParts[0], 10) || 2026;
+    var curMonth = parseInt(curParts[1], 10) || 1;
+    if (curYear < 2026) { curYear = 2026; curMonth = 1; }
+
+    function renderCalendar(year, month) {
+        var monthStr = month < 10 ? '0' + month : '' + month;
+        var monthText = 'Tháng ' + monthStr + '/' + year;
+        $('#lblMonthTitleText').text(monthText);
+
+        var today = new Date();
+        var todayYear = today.getFullYear();
+        var todayMonth = today.getMonth() + 1;
+        var todayDay = today.getDate();
+
+        var firstDay = new Date(year, month - 1, 1);
+        // Monday-based offset: 0 for Mon, 1 for Tue, ..., 6 for Sun
+        var dayOfWeek = firstDay.getDay();
+        var startOffset = (dayOfWeek === 0 ? 6 : dayOfWeek - 1);
+
+        var daysInPrevMonth = new Date(year, month - 1, 0).getDate();
+        var daysInCurMonth = new Date(year, month, 0).getDate();
+
+        var totalCells = startOffset + daysInCurMonth;
+        var totalRows = Math.ceil(totalCells / 7);
+        if (totalRows < 5) totalRows = 5;
+
+        var html = '';
+        var cellIndex = 0;
+
+        for (var r = 0; r < totalRows; r++) {
+            html += '<tr>';
+            for (var c = 0; c < 7; c++) {
+                if (cellIndex < startOffset) {
+                    // Trailing days of previous month
+                    var prevD = daysInPrevMonth - startOffset + cellIndex + 1;
+                    var prevDStr = prevD < 10 ? '0' + prevD : '' + prevD;
+                    html += '<td class="other-month"><div class="trn-cal-date-num">' + prevDStr + '</div></td>';
+                } else if (cellIndex >= startOffset && cellIndex < startOffset + daysInCurMonth) {
+                    // Days of current month
+                    var curD = cellIndex - startOffset + 1;
+                    var curDStr = curD < 10 ? '0' + curD : '' + curD;
+                    var fullDate = year + '-' + monthStr + '-' + curDStr;
+                    var isToday = (todayYear === year && todayMonth === month && todayDay === curD);
+                    var cellClass = isToday ? 'trn-cal-active-day trn-cal-today' : '';
+
+                    var daySessions = allTrainingSessions.filter(function(s) {
+                        return s.date === fullDate;
+                    });
+
+                    var chipsHtml = '';
+                    if (daySessions.length > 0) {
+                        chipsHtml += '<div class="trn-cal-chips-wrap">';
+                        daySessions.forEach(function(s) {
+                            var timeBadge = s.time ? '[' + s.time.replace(/\s+/g, '') + ']' : '';
+                            var displayTitle = s.title || 'Buổi học';
+                            if (displayTitle.length > 30) displayTitle = displayTitle.substring(0, 28) + '...';
+                            var chipColor = s.isOnline ? '#16a34a' : '#0284c7';
+                            var chipBorder = s.isOnline ? '#15803d' : '#0369a1';
+                            chipsHtml += '<span class="trn-cal-chip btn-cal-chip" ' +
+                                'style="background:' + chipColor + '; border-color:' + chipBorder + ';" ' +
+                                'data-id="' + s.id + '" ' +
+                                'data-title="' + escapeHtml(s.title) + '" ' +
+                                'data-course="' + escapeHtml(s.course) + '" ' +
+                                'data-time="' + escapeHtml(s.time) + '" ' +
+                                'data-date="' + fullDate + '" ' +
+                                'data-inst="' + escapeHtml(s.inst) + '" ' +
+                                'data-room="' + escapeHtml(s.room) + '" ' +
+                                'title="' + escapeHtml(timeBadge + ' ' + s.title + ' - ' + s.course + ' (' + s.inst + ')') + '">' +
+                                timeBadge + ' ' + escapeHtml(displayTitle) +
+                                '</span>';
+                        });
+                        chipsHtml += '</div>';
+                    }
+
+                    html += '<td class="' + cellClass + '">' +
+                        '<div class="trn-cal-date-num">' + curDStr + '</div>' +
+                        chipsHtml +
+                        '</td>';
+                } else {
+                    // Leading days of next month
+                    var nextD = cellIndex - (startOffset + daysInCurMonth) + 1;
+                    var nextDStr = nextD < 10 ? '0' + nextD : '' + nextD;
+                    html += '<td class="other-month"><div class="trn-cal-date-num">' + nextDStr + '</div></td>';
+                }
+                cellIndex++;
+            }
+            html += '</tr>';
+        }
+
+        $('#trnCalendarBody').html(html);
+
+        // Update URL query state smoothly without reloading page
+        if (window.history && window.history.replaceState) {
+            var url = new URL(window.location.href);
+            url.searchParams.set('trainingMonth', year + '-' + monthStr);
+            window.history.replaceState(null, '', url.toString());
+        }
+    }
+
     $(document).ready(function() {
+        // Initial calendar render
+        renderCalendar(curYear, curMonth);
+
+        // Calendar Month Navigation: Previous
+        $('#btnPrevMonth').on('click', function(e) {
+            e.preventDefault();
+            curMonth--;
+            if (curMonth < 1) {
+                curMonth = 12;
+                curYear--;
+            }
+            renderCalendar(curYear, curMonth);
+        });
+
+        // Calendar Month Navigation: Next
+        $('#btnNextMonth').on('click', function(e) {
+            e.preventDefault();
+            curMonth++;
+            if (curMonth > 12) {
+                curMonth = 1;
+                curYear++;
+            }
+            renderCalendar(curYear, curMonth);
+        });
+
+        // Quick Month Selection Dropdown
+        $(document).on('click', '.opt-cal-month', function(e) {
+            e.preventDefault();
+            var y = parseInt($(this).data('year'), 10);
+            var m = parseInt($(this).data('month'), 10);
+            if (y && m) {
+                curYear = y;
+                curMonth = m;
+                renderCalendar(curYear, curMonth);
+            }
+        });
+
+        // Jump to Calendar from Course card
+        $(document).on('click', '.btn-jump-cal', function(e) {
+            e.preventDefault();
+            var y = parseInt($(this).data('year'), 10) || 2026;
+            var m = parseInt($(this).data('month'), 10) || 1;
+            curYear = y;
+            curMonth = m;
+            renderCalendar(curYear, curMonth);
+            var calEl = document.getElementById('trnCalendarSection');
+            if (calEl) {
+                calEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        });
+
+        // Chi tiết buổi học (Session click on chip or list)
+        $(document).on('click', '.trn-session-item, .btn-session-detail, .btn-cal-chip, .trn-cal-chip', function(e) {
+            e.preventDefault();
+            var item = $(this);
+            $('#sesTitle').text(item.attr('data-title') || item.data('title') || 'Buổi học');
+            $('#sesCourse').text(item.attr('data-course') || item.data('course') || '');
+            var d = item.attr('data-date') || item.data('date');
+            var t = item.attr('data-time') || item.data('time') || '';
+            $('#sesTime').text((d ? (d + ' ') : '') + (t ? ('(' + t + ')') : ''));
+            $('#sesInstructor').text(item.attr('data-inst') || item.data('inst') || item.data('instructor') || 'Giảng viên Nhị Gia');
+            $('#sesRoom').text(item.attr('data-room') || item.data('room') || 'Google Meet Online');
+            $('#modalSessionDetail').modal('show');
+        });
+
         // 1. Chi tiết khóa đào tạo
         $(document).on('click', '.btn-open-detail', function() {
             var btn = $(this);
@@ -888,22 +972,6 @@
             $('#certCode').text(btn.data('cert') || 'NG-CERT-2026');
             $('#certDate').text(btn.data('date') || '—');
             $('#modalViewCert').modal('show');
-        });
-
-        // 5. Chi tiết buổi học (Session click)
-        $(document).on('click', '.trn-session-item, .btn-session-detail', function() {
-            var item = $(this);
-            $('#sesTitle').text(item.data('title') || 'Buổi học');
-            $('#sesCourse').text(item.data('course') || '');
-            $('#sesTime').text((item.data('date') || '') + ' (' + (item.data('time') || '') + ')');
-            $('#sesInstructor').text(item.data('instructor') || 'Giảng viên Nhị Gia');
-            $('#sesRoom').text(item.data('room') || 'Phòng đào tạo Lầu 3');
-            $('#modalSessionDetail').modal('show');
-        });
-
-        // 6. Chuyển sang lịch học
-        $(document).on('click', '.btn-jump-cal', function() {
-            window.location.href = '/Work?kind=training&trainingTab=CALENDAR';
         });
     });
 </script>
