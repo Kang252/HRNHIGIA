@@ -116,7 +116,7 @@ public sealed class HrmAssistantService
         }
 
         return Reply(
-            "Gemini đang tạm thời không khả dụng. Bạn vẫn có thể hỏi tôi về dữ liệu HRM của mình.",
+            "Gemini đang tạm thời không khả dụng. Vui lòng thử lại sau ít phút; phạm vi trò chuyện không bị giới hạn, chỉ dữ liệu SQL được lọc theo quyền tài khoản.",
             scope,
             suggestions: suggestions,
             hasGroundedData: false);
