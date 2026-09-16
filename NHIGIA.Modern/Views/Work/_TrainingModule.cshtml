@@ -62,7 +62,7 @@
                 </a>
                 <a href="@Url.Action("Index", new { kind = "training", trainingTab = "CALENDAR" })"
                    class="trn-tab-btn @(currentTab == "CALENDAR" ? "active" : "")">
-                    <i class="material-icons">calendar_month</i> Thời gian biểu học tập
+                    <i class="material-icons">event</i> Thời gian biểu học tập
                 </a>
                 <a href="@Url.Action("Index", new { kind = "training", trainingTab = "CERTIFICATES" })"
                    class="trn-tab-btn @(currentTab == "CERTIFICATES" ? "active" : "")">
@@ -359,50 +359,59 @@
 
                 <!-- CỘT PHẢI: "Quản lý thời gian biểu học tập của bạn" (Slide 17) -->
                 <div class="trn-calendar-card" id="trnCalendarSection">
-                    <div class="trn-cal-header-bar">
+                    <div class="trn-cal-header-bar" style="display:flex; flex-direction:column; gap:10px; margin-bottom:14px;">
+                        <!-- Tiêu đề phân hệ luôn nguyên vẹn, không bị ép dọc chữ -->
                         <div>
-                            <span class="trn-section-tag" style="background:#16a34a;">Quản lý thời gian biểu học tập của bạn</span>
-                            <h3 class="trn-section-title" style="font-size:15.5px;">Lịch trình buổi học trong tháng</h3>
+                            <span class="trn-section-tag" style="background:#16a34a; white-space:nowrap; display:inline-block; margin-bottom:4px; font-size:11.5px; padding:3px 10px; border-radius:4px; color:#fff; font-weight:700;">
+                                Quản lý thời gian biểu học tập của bạn
+                            </span>
+                            <h3 class="trn-section-title" style="font-size:16px; font-weight:700; color:#1e293b; margin:0;">
+                                Lịch trình buổi học trong tháng
+                            </h3>
                         </div>
-                        <div class="trn-cal-month-nav" style="display:flex; align-items:center; gap:6px; flex-wrap:nowrap;">
-                            <button type="button" class="trn-cal-month-btn" id="btnPrevMonth" onclick="window.trnCalChangeMonth(-1)" title="Tháng trước" style="width:32px; height:32px; border-radius:7px; border:1px solid #cbd5e1; background:#fff; display:flex; align-items:center; justify-content:center; cursor:pointer; color:#334155;">
-                                <i class="material-icons" style="font-size:18px; pointer-events:none;">chevron_left</i>
-                            </button>
 
-                            <div style="position:relative; display:inline-block;">
-                                <button type="button" id="lblMonthTitle" onclick="window.toggleTrnMonthPopup(event)" title="Bấm để chọn tháng nhanh" style="display:inline-flex; align-items:center; gap:4px; border:1px solid #cbd5e1; border-radius:7px; background:#fff; padding:4px 10px; font-weight:700; color:#1e293b; font-size:13px; cursor:pointer; height:32px;">
-                                    <i class="material-icons" style="font-size:16px; color:#16a34a; pointer-events:none;">calendar_month</i>
-                                    <span id="lblMonthTitleText">Tháng 01</span>
-                                    <i class="material-icons" style="font-size:16px; color:#64748b; pointer-events:none;">arrow_drop_down</i>
+                        <!-- Thanh điều hướng Tháng & Năm độc lập, đẹp mắt và chống tràn -->
+                        <div class="trn-cal-month-nav" style="display:flex; align-items:center; justify-content:space-between; gap:6px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:7px 10px; flex-wrap:wrap;">
+                            <div style="display:flex; align-items:center; gap:6px; flex-wrap:nowrap;">
+                                <button type="button" class="trn-cal-month-btn" id="btnPrevMonth" onclick="window.trnCalChangeMonth(-1)" title="Tháng trước" style="width:32px; height:32px; min-width:32px; border-radius:7px; border:1px solid #cbd5e1; background:#fff; display:inline-flex; align-items:center; justify-content:center; cursor:pointer; color:#334155; flex-shrink:0;">
+                                    <i class="material-icons" style="font-size:18px; pointer-events:none;">chevron_left</i>
                                 </button>
-                                
-                                <div id="trnMonthPopup" style="display:none; position:absolute; top:calc(100% + 4px); left:50%; transform:translateX(-50%); z-index:1050; width:220px; background:#fff; border:1px solid #cbd5e1; border-radius:10px; padding:10px; box-shadow:0 12px 30px rgba(0,0,0,0.18);">
-                                    <div style="text-align:center; font-size:11px; font-weight:700; color:#64748b; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">Chọn tháng</div>
-                                    <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:6px;">
-                                        @for (int m = 1; m <= 12; m++)
-                                        {
-                                            var mStr = m < 10 ? $"0{m}" : $"{m}";
-                                            <button type="button" class="opt-cal-month-btn" data-month="@m" onclick="window.trnCalSelectMonth(@m)" style="padding:6px 2px; font-size:12px; font-weight:600; border-radius:6px; border:1px solid #e2e8f0; background:#fff; color:#1e293b; cursor:pointer; text-align:center;">
-                                                Tháng @mStr
-                                            </button>
-                                        }
+
+                                <div style="position:relative; display:inline-block; flex-shrink:0;">
+                                    <button type="button" id="lblMonthTitle" onclick="window.toggleTrnMonthPopup(event)" title="Bấm để chọn tháng nhanh" style="display:inline-flex; align-items:center; gap:5px; border:1px solid #cbd5e1; border-radius:7px; background:#fff; padding:4px 10px; font-weight:700; color:#1e293b; font-size:13px; cursor:pointer; height:32px; white-space:nowrap; flex-shrink:0;">
+                                        <i class="material-icons" style="font-size:16px; color:#16a34a; pointer-events:none;">event</i>
+                                        <span id="lblMonthTitleText" style="white-space:nowrap;">Tháng 01</span>
+                                        <i class="material-icons" style="font-size:18px; color:#64748b; pointer-events:none;">arrow_drop_down</i>
+                                    </button>
+                                    
+                                    <div id="trnMonthPopup" style="display:none; position:absolute; top:calc(100% + 4px); left:0; z-index:1050; width:220px; background:#fff; border:1px solid #cbd5e1; border-radius:10px; padding:10px; box-shadow:0 12px 30px rgba(0,0,0,0.18);">
+                                        <div style="text-align:center; font-size:11px; font-weight:700; color:#64748b; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">Chọn tháng</div>
+                                        <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:6px;">
+                                            @for (int m = 1; m <= 12; m++)
+                                            {
+                                                var mStr = m < 10 ? $"0{m}" : $"{m}";
+                                                <button type="button" class="opt-cal-month-btn" data-month="@m" onclick="window.trnCalSelectMonth(@m)" style="padding:6px 2px; font-size:12px; font-weight:600; border-radius:6px; border:1px solid #e2e8f0; background:#fff; color:#1e293b; cursor:pointer; text-align:center; white-space:nowrap;">
+                                                    Tháng @mStr
+                                                </button>
+                                            }
+                                        </div>
                                     </div>
                                 </div>
+
+                                <select id="selCalHeaderYear" onchange="window.trnCalSelectYear(this.value)" style="border:1px solid #cbd5e1; border-radius:7px; font-weight:700; color:#0284c7; padding:2px 8px; font-size:13px; outline:none; background:#fff; cursor:pointer; height:32px; white-space:nowrap; flex-shrink:0;">
+                                    @for (int y = 2026; y <= 2040; y++)
+                                    {
+                                        <option value="@y">Năm @y</option>
+                                    }
+                                </select>
+
+                                <button type="button" class="trn-cal-month-btn" id="btnNextMonth" onclick="window.trnCalChangeMonth(1)" title="Tháng sau" style="width:32px; height:32px; min-width:32px; border-radius:7px; border:1px solid #cbd5e1; background:#fff; display:inline-flex; align-items:center; justify-content:center; cursor:pointer; color:#334155; flex-shrink:0;">
+                                    <i class="material-icons" style="font-size:18px; pointer-events:none;">chevron_right</i>
+                                </button>
                             </div>
 
-                            <select id="selCalHeaderYear" onchange="window.trnCalSelectYear(this.value)" style="border:1px solid #cbd5e1; border-radius:7px; font-weight:700; color:#0284c7; padding:2px 8px; font-size:13px; outline:none; background:#fff; cursor:pointer; height:32px;">
-                                @for (int y = 2026; y <= 2040; y++)
-                                {
-                                    <option value="@y">Năm @y</option>
-                                }
-                            </select>
-
-                            <button type="button" class="trn-cal-month-btn" id="btnNextMonth" onclick="window.trnCalChangeMonth(1)" title="Tháng sau" style="width:32px; height:32px; border-radius:7px; border:1px solid #cbd5e1; background:#fff; display:flex; align-items:center; justify-content:center; cursor:pointer; color:#334155;">
-                                <i class="material-icons" style="font-size:18px; pointer-events:none;">chevron_right</i>
-                            </button>
-
-                            <button type="button" class="trn-cal-month-btn" id="btnTodayMonth" onclick="window.trnCalGoToday()" title="Trở về thời gian biểu hiện tại" style="height:32px; padding:0 9px; width:auto; font-size:11.5px; font-weight:700; color:#16a34a; border-radius:7px; border:1px solid #bbf7d0; background:#f0fdf4; cursor:pointer;">
-                                Hôm nay
+                            <button type="button" class="trn-cal-month-btn" id="btnTodayMonth" onclick="window.trnCalGoToday()" title="Trở về thời gian biểu hiện tại" style="height:32px; padding:0 10px; width:auto; font-size:12px; font-weight:700; color:#16a34a; border-radius:7px; border:1px solid #bbf7d0; background:#f0fdf4; cursor:pointer; white-space:nowrap; display:inline-flex; align-items:center; gap:4px; flex-shrink:0;">
+                                <i class="material-icons" style="font-size:15px; pointer-events:none;">today</i> Hôm nay
                             </button>
                         </div>
                     </div>
@@ -424,7 +433,7 @@
                             <tbody id="trnCalendarBody">
                                 <tr>
                                     <td colspan="7" style="text-align:center; padding:30px; color:#64748b;">
-                                        <i class="material-icons" style="font-size:20px; vertical-align:middle;">calendar_month</i> Đang tải thời gian biểu...
+                                        <i class="material-icons" style="font-size:20px; vertical-align:middle;">event</i> Đang tải thời gian biểu...
                                     </td>
                                 </tr>
                             </tbody>
