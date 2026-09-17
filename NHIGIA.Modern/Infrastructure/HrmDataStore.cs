@@ -311,14 +311,14 @@ namespace NHIGIA.Modern.Infrastructure
                 LEFT JOIN dbo.HrmUserAccount hr ON hr.Id=r.ApprovedByHrId
                 WHERE (@CanSeeAll=1 OR r.UserId=@ActorId OR (@IsManager=1 AND u.DepartmentId=@DepartmentId))
                 ORDER BY r.CreatedAt DESC";
-            var canSeeAll = actor.RoleCode == HrmRoles.Admin || actor.RoleCode == HrmRoles.Hr || actor.RoleCode == HrmRoles.Director || actor.RoleCode == HrmRoles.Manager;
+            var canSeeAll = actor.RoleCode == HrmRoles.Admin || actor.RoleCode == HrmRoles.Hr || actor.RoleCode == HrmRoles.Director;
             using (var connection = OpenConnection()) return connection.Query<LeaveRequestModel>(sql, new { CanSeeAll = canSeeAll, IsManager = actor.RoleCode == HrmRoles.Manager, ActorId = actor.Id, DepartmentId = actor.DepartmentId }).ToList();
         }
 
         public LeaveStatsModel GetLeaveStats(HrmUserAccountModel actor)
         {
             const string sql = @"SELECT
-                CAST(12 AS DECIMAL(10,1)) AnnualAllowance,
+                CAST(COALESCE((SELECT AnnualLeaveDays FROM dbo.HrmEmployeeProfile WHERE UserId=@UserId), 12) AS DECIMAL(10,1)) AnnualAllowance,
                 CAST(COALESCE(SUM(CASE WHEN StatusCode='APPROVED' THEN DATEDIFF(DAY, StartDate, EndDate)+1 ELSE 0 END),0) AS DECIMAL(10,1)) UsedDays,
                 COALESCE(SUM(CASE WHEN StatusCode IN ('PENDING_MANAGER','PENDING_HR') THEN 1 ELSE 0 END),0) PendingCount,
                 COALESCE(SUM(CASE WHEN StatusCode='APPROVED' THEN 1 ELSE 0 END),0) ApprovedCount

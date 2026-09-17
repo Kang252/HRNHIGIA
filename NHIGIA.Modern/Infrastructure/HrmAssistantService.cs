@@ -62,7 +62,7 @@ public sealed class HrmAssistantService
             return Reply($"Hôm nay có {present} nhân viên trong phạm vi của bạn có dữ liệu chấm công; {exceptions} bản ghi cần chú ý vì đi muộn, về sớm hoặc thiếu lượt chấm.", scope, "/Home/Attendance", "Xem bảng chấm công", suggestions);
         }
 
-        if (ContainsAny(normalized, "nghi phep", "phep nam", "con bao nhieu phep", "don nghi"))
+        if (IsLeaveQuestion(normalized))
         {
             var stats = _hrm.GetLeaveStats(actor);
             var requests = _hrm.GetLeaveRequests(actor).Where(x => CanSeeEmployee(actor, x.UserId, x.DepartmentId)).ToList();
@@ -115,6 +115,9 @@ public sealed class HrmAssistantService
             return Reply($"Bạn có {leaves + work} yêu cầu đang chờ xử lý, gồm {leaves} đơn nghỉ phép và {work} yêu cầu nghiệp vụ khác.", scope, "/Home/Approvals", "Mở phê duyệt", suggestions);
         }
 
+        if (LooksLikeInternalDataQuestion(normalized))
+            return BuildScopedDataOverview(actor, scope, suggestions);
+
         return Reply(
             "Gemini đang tạm thời không khả dụng. Vui lòng thử lại sau ít phút; phạm vi trò chuyện không bị giới hạn, chỉ dữ liệu SQL được lọc theo quyền tài khoản.",
             scope,
@@ -143,6 +146,50 @@ public sealed class HrmAssistantService
         actor.RoleCode is HrmRoles.Admin or HrmRoles.Hr or HrmRoles.Director ||
         userId == actor.Id ||
         actor.RoleCode == HrmRoles.Manager && departmentId == actor.DepartmentId;
+
+    private AssistantAnswer BuildScopedDataOverview(HrmUserAccountModel actor, string scope, IReadOnlyList<string> suggestions)
+    {
+        var profile = _hrm.GetEmployeeProfile(actor.Id);
+        var leave = _hrm.GetLeaveStats(actor);
+        var attendance = _hrm.GetAttendance(actor, DateTime.Today, DateTime.Today)
+            .FirstOrDefault(x => x.UserId == actor.Id);
+        var schedule = _hrm.GetSchedules(actor)
+            .FirstOrDefault(x => x.UserId == actor.Id && x.EffectiveFrom.Date <= DateTime.Today &&
+                (!x.EffectiveTo.HasValue || x.EffectiveTo.Value.Date >= DateTime.Today));
+
+        var facts = new List<string>
+        {
+            $"Nhân viên đang hỏi: {actor.DisplayName}; mã {Value(profile?.EmployeeCode)}; phòng ban {Value(profile?.DepartmentName)}; chức danh {Value(profile?.JobTitle)}.",
+            $"Phép năm của chính người hỏi: được cấp {leave.AnnualAllowance:0.#} ngày, đã dùng {leave.UsedDays:0.#} ngày, còn {Math.Max(0, leave.AnnualAllowance - leave.UsedDays):0.#} ngày, đang chờ {leave.PendingCount} đơn.",
+            attendance == null
+                ? "Chấm công hôm nay của chính người hỏi: chưa có dữ liệu."
+                : $"Chấm công hôm nay của chính người hỏi: vào {Time(attendance.CheckIn)}, ra {Time(attendance.CheckOut)}, trạng thái {AttendanceStatus(attendance.StatusCode)}.",
+            schedule == null
+                ? "Ca làm hiện tại của chính người hỏi: chưa được phân ca."
+                : $"Ca làm hiện tại của chính người hỏi: {schedule.ShiftName}, {schedule.StartTime:hh\\:mm}-{schedule.EndTime:hh\\:mm}."
+        };
+
+        if (HrmRoles.CanManagePeople(actor.RoleCode))
+        {
+            var visibleUsers = _hrm.GetVisibleUsers(actor);
+            var visibleLeaves = _hrm.GetLeaveRequests(actor)
+                .Where(x => CanSeeEmployee(actor, x.UserId, x.DepartmentId))
+                .ToList();
+            facts.Add($"Phạm vi quản lý: {visibleUsers.Count(x => x.IsActive)} nhân viên đang hoạt động; " +
+                $"{visibleLeaves.Count(x => x.StatusCode is "PENDING_MANAGER" or "PENDING_HR")} đơn nghỉ phép đang chờ.");
+        }
+
+        return Reply(string.Join(" ", facts), scope, suggestions: suggestions);
+    }
+
+    private static bool IsLeaveQuestion(string text) => ContainsAny(text,
+        "nghi phep", "phep nam", "don nghi", "ngay phep", "phep con lai", "so phep") ||
+        (text.Contains("bao nhieu") && text.Contains("phep"));
+
+    private static bool LooksLikeInternalDataQuestion(string text) => ContainsAny(text,
+        "du lieu nhan su", "thong tin nhan su", "nhan vien", "phong ban", "cong ty", "ho so",
+        "hop dong", "yeu cau", "cham cong", "ca lam", "lich lam", "kpi", "tai san", "helpdesk",
+        "dao tao", "tang ca", "phong hop", "dat xe", "cong tac", "nghi viec", "thoi viec");
 
     private static string ScopeLabel(HrmUserAccountModel actor) => actor.RoleCode switch
     {
