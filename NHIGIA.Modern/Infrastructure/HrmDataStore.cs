@@ -126,7 +126,6 @@ namespace NHIGIA.Modern.Infrastructure
         public void UpdateEmployeeProfile(EmployeeProfileModel profile, HrmUserAccountModel actor, string ipAddress)
         {
             const string profileSql = @"UPDATE dbo.HrmEmployeeProfile SET
-                    AvatarUrl=@AvatarUrl,
                     EmployeeCode=@EmployeeCode, Gender=@Gender, DateOfBirth=@DateOfBirth, PlaceOfBirth=@PlaceOfBirth,
                     Nationality=@Nationality, Ethnicity=@Ethnicity, Religion=@Religion, MaritalStatus=@MaritalStatus,
                     MobilePhone=@MobilePhone, OfficePhone=@OfficePhone, HomePhone=@HomePhone,
