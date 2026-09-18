@@ -48,7 +48,7 @@
                 {
                     @foreach (var employee in Model)
                     {
-                        <tr class="employee-directory-row" data-search="@($"{employee.DisplayName} {employee.Username} {employee.RoleLabel} {employee.DepartmentName}".ToLowerInvariant())">
+                        <tr class="employee-directory-row" data-search="@($"{employee.DisplayName} {employee.Username} {employee.JobTitle} {employee.DepartmentName}".ToLowerInvariant())">
                             <td>
                                 <div class="hrm-person">
                                     @if (canEditProfile)
@@ -88,7 +88,7 @@
                                 </div>
                             </td>
                             <td>@employee.Username</td>
-                            <td><span class="hrm-badge hrm-badge-blue">@employee.RoleLabel</span></td>
+                            <td><span class="hrm-badge hrm-badge-blue">@(string.IsNullOrWhiteSpace(employee.JobTitle) ? employee.RoleLabel : employee.JobTitle)</span></td>
                             <td>@(employee.DepartmentName ?? "Chưa phân phòng")</td>
                             <td><span class="hrm-badge @(employee.IsActive ? "hrm-badge-success" : "hrm-badge-warning")">@(employee.IsActive ? "Đang hoạt động" : "Tạm khóa")</span></td>
                             <td>

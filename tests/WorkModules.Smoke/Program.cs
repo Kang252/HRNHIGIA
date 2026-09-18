@@ -66,7 +66,7 @@ try
     }
     if (communicationsOnly)
     {
-        await Check("/Home/InternalCommunications", "ADMIN", HttpStatusCode.OK, "Ảnh / tệp", "id=\"preview\"", ".webp", "FormData", "AuthorAvatarUrl", "wall-avatar", "Ảnh đại diện");
+        await Check("/Home/InternalCommunications", "ADMIN", HttpStatusCode.OK, "Ảnh / tệp", "id=\"preview\"", ".webp", "FormData", "AuthorAvatarUrl", "AuthorJobTitle", "wall-avatar", "Ảnh đại diện");
         return;
     }
     await Check("/Work?kind=kpi", null, HttpStatusCode.Redirect);
@@ -119,7 +119,7 @@ try
     foreach (var kind in new[] { "kpi", "payroll", "recruitment", "training", "overtime", "resignation", "transfer", "helpdesk", "vehicle", "meeting", "business-trip" })
         await Check("/Work?kind=" + kind, "ADMIN", HttpStatusCode.OK, "Chưa kết nối", "disabled", "href=\"/Home/Attendance\"");
     await Check("/Work?kind=kpi", "ADMIN", HttpStatusCode.OK, "Tổng tỷ trọng", "Tên tiêu chí KPI", "Mã KPI / Từ khóa", "Phòng ban nhận KPI", "Chọn một nhân viên hoặc một phòng ban", "Cách đo / Nguồn dữ liệu");
-    await Check("/Home/InternalCommunications", "ADMIN", HttpStatusCode.OK, "Ảnh / tệp", "id=\"preview\"", ".webp", "FormData", "AuthorAvatarUrl", "wall-avatar", "Ảnh đại diện");
+    await Check("/Home/InternalCommunications", "ADMIN", HttpStatusCode.OK, "Ảnh / tệp", "id=\"preview\"", ".webp", "FormData", "AuthorAvatarUrl", "AuthorJobTitle", "wall-avatar", "Ảnh đại diện");
     await Check("/Home/LeaveRequests", "EMPLOYEE", HttpStatusCode.OK, "name=\"attachment\"", "FormData(this)", "LeaveAttachment", "Tệp cũ chưa lưu nội dung");
     await Check("/Work?kind=helpdesk", "EMPLOYEE", HttpStatusCode.OK, "Tạo yêu cầu Helpdesk IT");
     await Check("/Work?kind=overtime", "EMPLOYEE", HttpStatusCode.OK, "Số giờ tăng ca", "Lý do tăng ca");

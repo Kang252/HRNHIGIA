@@ -201,7 +201,7 @@ namespace NHIGIA.Modern.Infrastructure
         {
             const string sql = @"SELECT u.Id, u.Username, p.EmployeeCode,
                 CASE WHEN p.AvatarContent IS NOT NULL THEN CONCAT('/Home/Avatar/', p.UserId, '?v=', DATEDIFF_BIG(MILLISECOND, '19700101', COALESCE(p.UpdatedAt, p.CreatedAt))) ELSE p.AvatarUrl END AvatarUrl,
-                u.DisplayName, u.RoleCode, u.DepartmentId, d.Name DepartmentName,
+                u.DisplayName, u.RoleCode, p.JobTitle, u.DepartmentId, d.Name DepartmentName,
                 u.SupervisorUserId, u.IsActive
                 FROM dbo.HrmUserAccount u LEFT JOIN dbo.HrmDepartment d ON d.Id=u.DepartmentId
                 LEFT JOIN dbo.HrmEmployeeProfile p ON p.UserId=u.Id
@@ -513,7 +513,7 @@ namespace NHIGIA.Modern.Infrastructure
             const string sql = @"SELECT TOP (@Take) c.Id, c.AuthorUserId, u.DisplayName AuthorName,
                 CASE WHEN authorProfile.AvatarContent IS NOT NULL
                     THEN CONCAT('/Home/Avatar/',u.Id,'?v=',DATEDIFF_BIG(MILLISECOND,'19700101',COALESCE(authorProfile.UpdatedAt,authorProfile.CreatedAt)))
-                    ELSE authorProfile.AvatarUrl END AuthorAvatarUrl, c.Category, c.ScopeCode,
+                    ELSE authorProfile.AvatarUrl END AuthorAvatarUrl, authorProfile.JobTitle AuthorJobTitle, c.Category, c.ScopeCode,
                 c.DepartmentId, c.Title, c.Body, c.AttachmentName, c.AttachmentContentType, c.IsPinned,
                 COALESCE(c.StatusCode, CASE WHEN c.IsPublished=1 THEN 'PUBLISHED' ELSE 'PENDING' END) StatusCode,
                 c.ApprovedByUserId, approver.DisplayName ApprovedByName, c.ReviewNote,
@@ -546,7 +546,7 @@ namespace NHIGIA.Modern.Infrastructure
                 const string commentSql = @"SELECT m.Id, m.CommunicationId, m.AuthorUserId, u.DisplayName AuthorName,
                     CASE WHEN p.AvatarContent IS NOT NULL
                         THEN CONCAT('/Home/Avatar/',u.Id,'?v=',DATEDIFF_BIG(MILLISECOND,'19700101',COALESCE(p.UpdatedAt,p.CreatedAt)))
-                        ELSE p.AvatarUrl END AuthorAvatarUrl, m.Body, m.CreatedAt,
+                        ELSE p.AvatarUrl END AuthorAvatarUrl, p.JobTitle AuthorJobTitle, m.Body, m.CreatedAt,
                     CAST(CASE WHEN m.AuthorUserId=@ActorId THEN 1 ELSE 0 END AS BIT) IsMine
                     FROM dbo.HrmCommunicationComment m INNER JOIN dbo.HrmUserAccount u ON u.Id=m.AuthorUserId
                     LEFT JOIN dbo.HrmEmployeeProfile p ON p.UserId=u.Id
@@ -588,7 +588,7 @@ namespace NHIGIA.Modern.Infrastructure
                 SELECT c.Id, c.AuthorUserId, u.DisplayName AuthorName,
                     CASE WHEN p.AvatarContent IS NOT NULL
                         THEN CONCAT('/Home/Avatar/',u.Id,'?v=',DATEDIFF_BIG(MILLISECOND,'19700101',COALESCE(p.UpdatedAt,p.CreatedAt)))
-                        ELSE p.AvatarUrl END AuthorAvatarUrl, c.Category, c.ScopeCode, c.DepartmentId,
+                        ELSE p.AvatarUrl END AuthorAvatarUrl, p.JobTitle AuthorJobTitle, c.Category, c.ScopeCode, c.DepartmentId,
                     c.Title, c.Body, c.AttachmentName, c.AttachmentContentType, c.IsPinned, c.StatusCode,
                     c.SubmittedAt, c.PublishedAt, CAST(1 AS BIT) IsMine
                 FROM dbo.HrmCommunication c INNER JOIN dbo.HrmUserAccount u ON u.Id=c.AuthorUserId
@@ -651,7 +651,7 @@ namespace NHIGIA.Modern.Infrastructure
                     SELECT m.Id,m.CommunicationId,m.AuthorUserId,u.DisplayName AuthorName,
                         CASE WHEN p.AvatarContent IS NOT NULL
                             THEN CONCAT('/Home/Avatar/',u.Id,'?v=',DATEDIFF_BIG(MILLISECOND,'19700101',COALESCE(p.UpdatedAt,p.CreatedAt)))
-                            ELSE p.AvatarUrl END AuthorAvatarUrl,
+                            ELSE p.AvatarUrl END AuthorAvatarUrl, p.JobTitle AuthorJobTitle,
                         m.Body,m.CreatedAt,CAST(1 AS BIT) IsMine
                     FROM dbo.HrmCommunicationComment m INNER JOIN dbo.HrmUserAccount u ON u.Id=m.AuthorUserId
                     LEFT JOIN dbo.HrmEmployeeProfile p ON p.UserId=u.Id WHERE m.Id=@Id;

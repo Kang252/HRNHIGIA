@@ -46,11 +46,14 @@ public sealed class HomeController : BaseController
         ViewBag.Title = "Truyền thông nội bộ";
         try
         {
-            ViewBag.CurrentAvatarUrl = Store.GetAvatarUrl(CurrentHrmUser.Id);
+            var profile = Store.GetEmployeeProfile(CurrentHrmUser.Id);
+            ViewBag.CurrentAvatarUrl = profile?.AvatarUrl ?? string.Empty;
+            ViewBag.CurrentJobTitle = profile?.JobTitle ?? string.Empty;
         }
         catch
         {
             ViewBag.CurrentAvatarUrl = string.Empty;
+            ViewBag.CurrentJobTitle = string.Empty;
         }
         return View();
     }

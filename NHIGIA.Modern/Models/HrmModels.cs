@@ -50,6 +50,7 @@ namespace NHIGIA.Modern.Models
         public int? SupervisorUserId { get; set; }
         public bool IsActive { get; set; }
         public string AvatarUrl { get; set; }
+        public string JobTitle { get; set; }
     }
 
     public class EmployeeProfileModel
@@ -278,6 +279,7 @@ namespace NHIGIA.Modern.Models
         public int AuthorUserId { get; set; }
         public string AuthorName { get; set; }
         public string AuthorAvatarUrl { get; set; }
+        public string AuthorJobTitle { get; set; }
         public string Category { get; set; }
         public string ScopeCode { get; set; }
         public int? DepartmentId { get; set; }
@@ -325,6 +327,7 @@ namespace NHIGIA.Modern.Models
         public int AuthorUserId { get; set; }
         public string AuthorName { get; set; }
         public string AuthorAvatarUrl { get; set; }
+        public string AuthorJobTitle { get; set; }
         public string Body { get; set; }
         public DateTime CreatedAt { get; set; }
         public bool IsMine { get; set; }
