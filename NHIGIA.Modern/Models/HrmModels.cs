@@ -360,6 +360,9 @@ namespace NHIGIA.Modern.Models
         public TimeSpan? ScheduledEnd { get; set; }
         public DateTime? CheckIn { get; set; }
         public DateTime? CheckOut { get; set; }
+        public DateTime? LastSeen { get; set; }
+        public int EventCount { get; set; }
+        public bool IsProvisional { get; set; }
         public int WorkedMinutes { get; set; }
         public int LateMinutes { get; set; }
         public int EarlyMinutes { get; set; }

@@ -688,15 +688,24 @@ namespace NHIGIA.Modern.Infrastructure
             public int GraceMinutes { get; set; }
         }
 
+        public static DateTime CurrentVietnamTime()
+        {
+            var zone = TimeZoneInfo.FindSystemTimeZoneById(OperatingSystem.IsWindows() ? "SE Asia Standard Time" : "Asia/Bangkok");
+            return TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, zone).DateTime;
+        }
+
         public IList<AttendanceRecordModel> GetAttendance(HrmUserAccountModel actor, DateTime fromDate, DateTime toDate)
         {
             const string sql = @"WITH Events AS (
-                    SELECT e.UserId, CAST(e.CheckTime AS DATE) WorkDate, MIN(e.CheckTime) CheckIn, MAX(e.CheckTime) CheckOut
+                    SELECT e.UserId, CAST(e.CheckTime AS DATE) WorkDate, MIN(e.CheckTime) CheckIn,
+                        MAX(e.CheckTime) LastSeen, COUNT(1) EventCount
                     FROM dbo.HrmAttendanceEvent e WHERE e.UserId IS NOT NULL AND e.CheckTime>=@FromDate AND e.CheckTime<DATEADD(DAY,1,@ToDate)
                     GROUP BY e.UserId, CAST(e.CheckTime AS DATE)
                 )
                 SELECT e.UserId, hm.PersonId, p.EmployeeCode, u.DisplayName, p.JobTitle, d.Name DepartmentName, e.WorkDate, s.ShiftName,
-                    s.StartTime ScheduledStart, s.EndTime ScheduledEnd, s.GraceMinutes, e.CheckIn, e.CheckOut, 'HANET' Source
+                    s.StartTime ScheduledStart, s.EndTime ScheduledEnd, s.GraceMinutes, e.CheckIn,
+                    CASE WHEN e.EventCount>1 AND e.LastSeen<>e.CheckIn THEN e.LastSeen END CheckOut,
+                    e.LastSeen, e.EventCount, 'HANET' Source
                 FROM Events e INNER JOIN dbo.HrmUserAccount u ON u.Id=e.UserId
                 LEFT JOIN dbo.HrmEmployeeProfile p ON p.UserId=u.Id
                 LEFT JOIN dbo.HrmHanetPersonMap hm ON hm.UserId=u.Id AND hm.IsActive=1
@@ -711,6 +720,7 @@ namespace NHIGIA.Modern.Infrastructure
             using (var connection = OpenConnection())
             {
                 var rows = connection.Query<AttendanceProjection>(sql, new { FromDate = fromDate.Date, ToDate = toDate.Date, CanSeeAll = canSeeAll, IsManager = actor.RoleCode == HrmRoles.Manager, ActorId = actor.Id, actor.DepartmentId }).ToList();
+                var currentTime = CurrentVietnamTime();
                 foreach (var row in rows)
                 {
                     if (!row.ScheduledStart.HasValue || !row.ScheduledEnd.HasValue)
@@ -721,10 +731,19 @@ namespace NHIGIA.Modern.Infrastructure
                     var scheduledStart = row.WorkDate.Date.Add(row.ScheduledStart.Value);
                     var scheduledEnd = row.WorkDate.Date.Add(row.ScheduledEnd.Value);
                     if (scheduledEnd <= scheduledStart) scheduledEnd = scheduledEnd.AddDays(1);
-                    row.WorkedMinutes = row.CheckIn.HasValue && row.CheckOut.HasValue ? Math.Max(0, (int)(row.CheckOut.Value - row.CheckIn.Value).TotalMinutes) : 0;
                     row.LateMinutes = row.CheckIn.HasValue ? Math.Max(0, (int)(row.CheckIn.Value - scheduledStart.AddMinutes(row.GraceMinutes)).TotalMinutes) : 0;
+                    if (currentTime < scheduledEnd)
+                    {
+                        row.IsProvisional = true;
+                        row.CheckOut = null;
+                        row.WorkedMinutes = 0;
+                        row.EarlyMinutes = 0;
+                        row.StatusCode = "IN_PROGRESS";
+                        continue;
+                    }
+                    row.WorkedMinutes = row.CheckIn.HasValue && row.CheckOut.HasValue ? Math.Max(0, (int)(row.CheckOut.Value - row.CheckIn.Value).TotalMinutes) : 0;
                     row.EarlyMinutes = row.CheckOut.HasValue ? Math.Max(0, (int)(scheduledEnd - row.CheckOut.Value).TotalMinutes) : 0;
-                    if (!row.CheckIn.HasValue || !row.CheckOut.HasValue || row.CheckIn == row.CheckOut) row.StatusCode = "MISSING_CHECK";
+                    if (!row.CheckIn.HasValue || !row.CheckOut.HasValue) row.StatusCode = "MISSING_CHECK";
                     else if (row.LateMinutes > 0 && row.EarlyMinutes > 0) row.StatusCode = "LATE_EARLY";
                     else if (row.LateMinutes > 0) row.StatusCode = "LATE";
                     else if (row.EarlyMinutes > 0) row.StatusCode = "EARLY";
@@ -736,7 +755,7 @@ namespace NHIGIA.Modern.Infrastructure
 
         public DashboardModel GetDashboard(HrmUserAccountModel actor)
         {
-            var today = DateTime.Today;
+            var today = CurrentVietnamTime().Date;
             var attendance = GetAttendance(actor, today, today);
             var communications = GetCommunications(actor, string.Empty, string.Empty, "PUBLISHED", 3);
             const string employeeSql = @"SELECT COUNT(1) FROM dbo.HrmUserAccount u WHERE u.IsActive=1 AND u.RoleCode<>'ADMIN'

@@ -8,12 +8,13 @@ using Microsoft.AspNetCore.DataProtection;
 var root = Path.GetFullPath(args.Length > 0 ? args[0] : "NHIGIA.Modern");
 var assistantOnly = args.Skip(1).Contains("--assistant-only");
 var communicationsOnly = args.Skip(1).Contains("--communications-only");
+var attendanceOnly = args.Skip(1).Contains("--attendance-only");
 var keys = Path.Combine(Path.GetTempPath(), "nhigia-smoke-" + Guid.NewGuid());
 Directory.CreateDirectory(keys);
 var start = new ProcessStartInfo("dotnet") { WorkingDirectory = root, UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true, CreateNoWindow = true };
 start.ArgumentList.Add(Path.Combine(root, "bin/Release/net8.0/NHIGIA.Modern.dll"));
 start.ArgumentList.Add("--urls"); start.ArgumentList.Add("http://127.0.0.1:5182");
-start.Environment["ASPNETCORE_ENVIRONMENT"] = communicationsOnly ? "Development" : "Production";
+start.Environment["ASPNETCORE_ENVIRONMENT"] = communicationsOnly || attendanceOnly ? "Development" : "Production";
 start.Environment["HRM_DATA_PROTECTION_PATH"] = keys;
 start.Environment["HRM_CONNECTION_STRING"] = "Server=tcp:127.0.0.1,1;Database=unavailable;User Id=smoke;Password=unused;Connect Timeout=1;Encrypt=True";
 using var process = Process.Start(start)!;
@@ -67,6 +68,11 @@ try
     if (communicationsOnly)
     {
         await Check("/Home/InternalCommunications", "ADMIN", HttpStatusCode.OK, "Ảnh / tệp", "id=\"preview\"", ".webp", "FormData", "AuthorAvatarUrl", "AuthorJobTitle", "wall-avatar", "Ảnh đại diện");
+        return;
+    }
+    if (attendanceOnly)
+    {
+        await Check("/Home/Attendance", "ADMIN", HttpStatusCode.OK, "Đang cập nhật", "Lần quét gần nhất", "Chờ kết thúc ca", "IsProvisional");
         return;
     }
     await Check("/Work?kind=kpi", null, HttpStatusCode.Redirect);

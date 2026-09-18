@@ -49,13 +49,16 @@ public sealed class HrmAssistantService
 
         if (ContainsAny(normalized, "cham cong", "gio vao", "gio ra", "di muon", "ve som", "co mat hom nay"))
         {
-            var today = DateTime.Today;
+            var today = HrmDataStore.CurrentVietnamTime().Date;
             var rows = _hrm.GetAttendance(actor, today, today);
             if (actor.RoleCode == HrmRoles.Employee)
             {
                 var row = rows.FirstOrDefault(x => x.UserId == actor.Id);
                 if (row == null) return Reply("Hôm nay chưa có dữ liệu chấm công của bạn.", scope, "/Home/Attendance", "Mở chấm công", suggestions);
-                return Reply($"Chấm công hôm nay: vào {Time(row.CheckIn)}, ra {Time(row.CheckOut)}, trạng thái {AttendanceStatus(row.StatusCode)}. Đi muộn {row.LateMinutes} phút, về sớm {row.EarlyMinutes} phút.", scope, "/Home/Attendance", "Xem chi tiết", suggestions);
+                var detail = row.IsProvisional
+                    ? $"Chấm công hôm nay: vào {Time(row.CheckIn)}, lần quét gần nhất {Time(row.LastSeen)}, trạng thái {AttendanceStatus(row.StatusCode)}. Hệ thống sẽ chốt giờ ra khi kết thúc ca."
+                    : $"Chấm công hôm nay: vào {Time(row.CheckIn)}, ra {Time(row.CheckOut)}, trạng thái {AttendanceStatus(row.StatusCode)}. Đi muộn {row.LateMinutes} phút, về sớm {row.EarlyMinutes} phút.";
+                return Reply(detail, scope, "/Home/Attendance", "Xem chi tiết", suggestions);
             }
             var present = rows.Select(x => x.UserId).Distinct().Count();
             var exceptions = rows.Count(x => x.LateMinutes > 0 || x.EarlyMinutes > 0 || x.StatusCode == "MISSING_CHECK");
@@ -77,7 +80,8 @@ public sealed class HrmAssistantService
             var schedules = _hrm.GetSchedules(actor).ToList();
             if (actor.RoleCode == HrmRoles.Employee)
             {
-                var current = schedules.FirstOrDefault(x => x.UserId == actor.Id && x.EffectiveFrom.Date <= DateTime.Today && (!x.EffectiveTo.HasValue || x.EffectiveTo.Value.Date >= DateTime.Today));
+                var today = HrmDataStore.CurrentVietnamTime().Date;
+                var current = schedules.FirstOrDefault(x => x.UserId == actor.Id && x.EffectiveFrom.Date <= today && (!x.EffectiveTo.HasValue || x.EffectiveTo.Value.Date >= today));
                 return current == null
                     ? Reply("Bạn chưa có ca làm việc đang hiệu lực.", scope, "/Home/WorkSchedules", "Mở lịch làm việc", suggestions)
                     : Reply($"Ca hiện tại của bạn là {current.ShiftName}, từ {current.StartTime:hh\\:mm} đến {current.EndTime:hh\\:mm}, áp dụng từ {current.EffectiveFrom:dd/MM/yyyy}.", scope, "/Home/WorkSchedules", "Xem lịch làm việc", suggestions);
@@ -151,11 +155,12 @@ public sealed class HrmAssistantService
     {
         var profile = _hrm.GetEmployeeProfile(actor.Id);
         var leave = _hrm.GetLeaveStats(actor);
-        var attendance = _hrm.GetAttendance(actor, DateTime.Today, DateTime.Today)
+        var today = HrmDataStore.CurrentVietnamTime().Date;
+        var attendance = _hrm.GetAttendance(actor, today, today)
             .FirstOrDefault(x => x.UserId == actor.Id);
         var schedule = _hrm.GetSchedules(actor)
-            .FirstOrDefault(x => x.UserId == actor.Id && x.EffectiveFrom.Date <= DateTime.Today &&
-                (!x.EffectiveTo.HasValue || x.EffectiveTo.Value.Date >= DateTime.Today));
+            .FirstOrDefault(x => x.UserId == actor.Id && x.EffectiveFrom.Date <= today &&
+                (!x.EffectiveTo.HasValue || x.EffectiveTo.Value.Date >= today));
 
         var facts = new List<string>
         {
@@ -222,7 +227,7 @@ public sealed class HrmAssistantService
 
     private static string AttendanceStatus(string status) => status switch
     {
-        "ON_TIME" => "đúng giờ", "LATE" => "đi muộn", "EARLY" => "về sớm", "LATE_EARLY" => "đi muộn và về sớm",
+        "IN_PROGRESS" => "đang cập nhật đến khi kết thúc ca", "ON_TIME" => "đúng giờ", "LATE" => "đi muộn", "EARLY" => "về sớm", "LATE_EARLY" => "đi muộn và về sớm",
         "MISSING_CHECK" => "thiếu lượt chấm", "MISSING_SCHEDULE" => "chưa có ca làm", _ => "chưa xác định"
     };
 

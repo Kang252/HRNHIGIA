@@ -384,7 +384,7 @@ public sealed class HrmController : BaseController
     [HttpGet]
     public IActionResult Attendance(DateTime? fromDate, DateTime? toDate) => Execute(() =>
     {
-        var to = (toDate ?? DateTime.Today).Date;
+        var to = (toDate ?? HrmDataStore.CurrentVietnamTime()).Date;
         var from = (fromDate ?? to.AddDays(-30)).Date;
         if (to < from || (to - from).TotalDays > 366) throw new InvalidOperationException("Khoảng lọc tối đa là 366 ngày.");
         return Store.GetAttendance(CurrentHrmUser, from, to);
@@ -616,14 +616,14 @@ public sealed class HrmController : BaseController
     [HttpGet]
     public FileContentResult AttendanceCsv(DateTime? fromDate, DateTime? toDate)
     {
-        var to = (toDate ?? DateTime.Today).Date;
+        var to = (toDate ?? HrmDataStore.CurrentVietnamTime()).Date;
         var from = (fromDate ?? to.AddDays(-30)).Date;
         var rows = Store.GetAttendance(CurrentHrmUser, from, to);
         var csv = new StringBuilder("Ngay,Nhan vien,Phong ban,Ca,Check-in,Check-out,Phut cong,Di muon,Ve som,Trang thai\r\n");
         foreach (var row in rows)
         {
             static string Q(string value) => "\"" + (value ?? string.Empty).Replace("\"", "\"\"") + "\"";
-            csv.AppendLine(string.Join(",", Q(row.WorkDate.ToString("dd/MM/yyyy")), Q(row.DisplayName), Q(row.DepartmentName), Q(row.ShiftName), Q(row.CheckIn?.ToString("HH:mm")), Q(row.CheckOut?.ToString("HH:mm")), row.WorkedMinutes, row.LateMinutes, row.EarlyMinutes, Q(row.StatusCode)));
+            csv.AppendLine(string.Join(",", Q(row.WorkDate.ToString("dd/MM/yyyy")), Q(row.DisplayName), Q(row.DepartmentName), Q(row.ShiftName), Q(row.CheckIn?.ToString("HH:mm")), Q(row.IsProvisional ? "Tạm tính" : row.CheckOut?.ToString("HH:mm")), row.WorkedMinutes, row.LateMinutes, row.EarlyMinutes, Q(row.StatusCode)));
         }
         return File(Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(csv.ToString())).ToArray(), "text/csv", "cham-cong.csv");
     }
@@ -633,7 +633,7 @@ public sealed class HrmController : BaseController
     {
         try
         {
-            var to = (toDate ?? DateTime.Today).Date;
+            var to = (toDate ?? HrmDataStore.CurrentVietnamTime()).Date;
             var from = (fromDate ?? to.AddDays(-30)).Date;
             if (to < from || (to - from).TotalDays > 62) throw new InvalidOperationException("Khoảng xuất bảng chấm công tối đa là 63 ngày.");
             var rows = Store.GetAttendance(CurrentHrmUser, from, to);
@@ -692,8 +692,9 @@ public sealed class HrmController : BaseController
                         continue;
                     }
                     sheet.Cell(rowNumber, column).Value = attendance.CheckIn?.ToString("HH:mm") ?? "-";
-                    sheet.Cell(rowNumber, column + 1).Value = attendance.CheckOut?.ToString("HH:mm") ?? "-";
+                    sheet.Cell(rowNumber, column + 1).Value = attendance.IsProvisional ? "Tạm tính" : attendance.CheckOut?.ToString("HH:mm") ?? "-";
                     if (attendance.LateMinutes > 0) sheet.Cell(rowNumber, column).Style.Font.SetFontColor(XLColor.Red);
+                    if (attendance.IsProvisional) sheet.Cell(rowNumber, column + 1).Style.Font.SetFontColor(XLColor.Blue);
                     if (attendance.EarlyMinutes > 0 || attendance.StatusCode == "MISSING_CHECK") sheet.Cell(rowNumber, column + 1).Style.Font.SetFontColor(XLColor.Red);
                 }
             }
