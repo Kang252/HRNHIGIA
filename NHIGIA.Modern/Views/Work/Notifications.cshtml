@@ -1,32 +1,23 @@
 @model IReadOnlyList<WorkNotification>
-
+@{ var unread = Model.Count(x => !x.IsRead); var error = ViewBag.NotificationError as string ?? TempData["NotificationError"] as string; }
 <div class="container-fluid">
-    <div class="hrm-page-header">
-        <div>
-            <h1 class="hrm-page-title">Thông báo của tôi</h1>
-            <p class="hrm-page-subtitle">Lời mời họp, chuyến xe và các cập nhật liên quan đến bạn</p>
-        </div>
-    </div>
-
-    <section class="work-panel">
-        @if (Model.Count == 0)
-        {
-            <div class="work-empty"><i class="material-icons">notifications_none</i><h4>Chưa có thông báo</h4><p>Thông báo mới sẽ xuất hiện khi bạn được thêm vào lịch họp hoặc chuyến xe.</p></div>
-        }
-        else
-        {
-            <div class="notification-list">
-                @foreach (var notification in Model)
-                {
-                    <form method="post" asp-controller="Work" asp-action="OpenNotification">
-                        <input type="hidden" name="id" value="@notification.Id" />
-                        <button type="submit" class="notification-item @(notification.IsRead ? "" : "is-unread")">
-                            <i class="material-icons">@(notification.IsRead ? "notifications" : "notifications_active")</i>
-                            <span class="notification-copy"><strong>@notification.Title</strong><span>@notification.Message</span><small>@notification.CreatedAt.ToString("dd/MM/yyyy HH:mm")</small></span>
-                        </button>
-                    </form>
-                }
-            </div>
-        }
-    </section>
+ <div class="hrm-page-header"><div><h1 class="hrm-page-title">Thông báo của tôi</h1><p class="hrm-page-subtitle">Lời mời họp, chuyến xe và các cập nhật liên quan đến bạn</p></div>
+ <form method="post" asp-action="ReadAllNotifications"><button class="hrm-btn" type="submit" disabled="@(unread == 0 || error != null)"><i class="material-icons">done_all</i> Đánh dấu tất cả đã đọc</button></form></div>
+ @if (error != null) { <div class="alert alert-danger" role="alert">@error <a asp-action="Notifications">Thử lại</a></div> }
+ <section class="hrm-card notification-card">
+ <div class="hrm-card-header notification-toolbar"><div><h2 class="hrm-card-title">Hộp thông báo</h2><p class="hrm-card-subtitle">@unread chưa đọc trong @Model.Count thông báo gần nhất</p></div><div class="notification-filters"><button type="button" class="hrm-btn hrm-btn-primary" data-notification-filter="all" aria-pressed="true">Tất cả</button><button type="button" class="hrm-btn" data-notification-filter="unread" aria-pressed="false">Chưa đọc</button></div></div>
+ <div class="notification-list">
+ @foreach (var n in Model) {
+  <form method="post" asp-action="OpenNotification" data-notification-read="@(n.IsRead ? "true" : "false")"><input type="hidden" name="id" value="@n.Id" />
+  <button type="submit" class="notification-item @(n.IsRead ? "" : "is-unread")"><span class="notification-icon"><i class="material-icons">notifications</i></span><span class="notification-copy"><strong>@n.Title</strong><span>@n.Message</span><small>@n.CreatedAt.ToString("dd/MM/yyyy HH:mm") · @(n.IsRead ? "Đã đọc" : "Chưa đọc")</small></span><i class="material-icons notification-arrow" aria-hidden="true">chevron_right</i></button></form>
+ }
+ <div id="notificationEmpty" class="hrm-empty" hidden="@(Model.Count > 0 || error != null)"><i class="material-icons">notifications_none</i><strong>Chưa có thông báo</strong><p>Thông báo mới sẽ xuất hiện khi có cập nhật liên quan đến bạn.</p></div>
+ </div></section>
 </div>
+<style>
+.notification-toolbar,.notification-filters{display:flex;gap:12px;flex-wrap:wrap;align-items:center}.notification-list form{margin:0}.notification-item{display:flex;align-items:flex-start;gap:16px;width:100%;padding:20px 24px;background:white;border:0;border-bottom:1px solid #edf1f7;text-align:left;font:inherit;color:#334155;cursor:pointer}.notification-item:hover{background:#f8fafc}.notification-item:focus-visible{outline:2px solid #1769e0;outline-offset:-2px}.notification-item.is-unread{background:#eff6ff;border-left:3px solid #1769e0}.notification-icon{display:flex;align-items:center;justify-content:center;background:#eaf2ff;color:#1769e0;border-radius:12px;width:40px;height:40px;flex:0 0 40px}.notification-copy{display:flex;flex-direction:column;gap:6px;flex:1;min-width:0;overflow-wrap:anywhere}.notification-copy strong{color:#183153}.notification-copy small{color:#74849b;font-size:12px}.notification-arrow{align-self:center;color:#94a3b8}.notification-list [hidden]{display:none!important}
+@@media(max-width:600px){.notification-item{padding:16px 12px;gap:10px}.notification-toolbar{padding:16px}.notification-filters{width:100%}.notification-filters button{flex:1}}
+</style>
+<script>
+(function(){document.querySelectorAll('[data-notification-filter]').forEach(function(button){button.addEventListener('click',function(){var onlyUnread=button.dataset.notificationFilter==='unread',shown=0;document.querySelectorAll('[data-notification-read]').forEach(function(row){row.hidden=onlyUnread&&row.dataset.notificationRead==='true';if(!row.hidden)shown++;});document.querySelectorAll('[data-notification-filter]').forEach(function(b){var active=b===button;b.setAttribute('aria-pressed',String(active));b.classList.toggle('hrm-btn-primary',active);});var empty=document.getElementById('notificationEmpty');empty.hidden=shown>0;empty.querySelector('strong').textContent=onlyUnread?'Không có thông báo chưa đọc':'Chưa có thông báo';});});})();
+</script>

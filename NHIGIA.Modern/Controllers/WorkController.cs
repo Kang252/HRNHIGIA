@@ -432,6 +432,7 @@ public sealed class WorkController : Controller
         catch (Exception ex)
         {
             _logger.LogError(ex, "Cannot load notifications");
+            ViewBag.NotificationError = "Không thể tải thông báo. Vui lòng thử lại.";
             return View(Array.Empty<WorkNotification>());
         }
     }
@@ -440,13 +441,32 @@ public sealed class WorkController : Controller
     public IActionResult NotificationCount()
     {
         try { return Json(new { Count = _store.GetUnreadNotificationCount(_user.Current.Id) }); }
-        catch { return Json(new { Count = 0 }); }
+        catch { return StatusCode(503, new { Message = "Không thể tải số thông báo chưa đọc." }); }
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public IActionResult ReadAllNotifications()
+    {
+        try { _store.ReadAllNotifications(_user.Current.Id); }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Cannot mark notifications read");
+            TempData["NotificationError"] = "Không thể đánh dấu đã đọc. Vui lòng thử lại.";
+        }
+        return RedirectToAction(nameof(Notifications));
     }
 
     [HttpPost, ValidateAntiForgeryToken]
     public IActionResult OpenNotification(long id)
     {
-        var link = _store.ReadNotification(id, _user.Current.Id);
+        string link;
+        try { link = _store.ReadNotification(id, _user.Current.Id); }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Cannot open notification");
+            TempData["NotificationError"] = "Không thể mở thông báo. Vui lòng thử lại.";
+            return RedirectToAction(nameof(Notifications));
+        }
         return Redirect(Url.IsLocalUrl(link) ? link : Url.Action(nameof(Notifications))!);
     }
 

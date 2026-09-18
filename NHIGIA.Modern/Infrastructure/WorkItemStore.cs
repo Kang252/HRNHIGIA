@@ -428,9 +428,15 @@ public sealed class WorkItemStore
     public string ReadNotification(long id, int userId)
     {
         using var db = Open();
-        var link = db.QuerySingleOrDefault<string>("SELECT LinkUrl FROM dbo.HrmNotification WHERE Id=@Id AND UserId=@UserId", new { Id = id, UserId = userId });
-        if (link != null) db.Execute("UPDATE dbo.HrmNotification SET IsRead=1 WHERE Id=@Id AND UserId=@UserId", new { Id = id, UserId = userId });
-        return link;
+        return db.QuerySingleOrDefault<string>(@"UPDATE dbo.HrmNotification SET IsRead=1
+            OUTPUT COALESCE(INSERTED.LinkUrl,'') WHERE Id=@Id AND UserId=@UserId",
+            new { Id = id, UserId = userId });
+    }
+
+    public int ReadAllNotifications(int userId)
+    {
+        using var db = Open();
+        return db.Execute("UPDATE dbo.HrmNotification SET IsRead=1 WHERE UserId=@UserId AND IsRead=0", new { UserId=userId });
     }
 
     private static void AddParticipantNotifications(SqlConnection db, SqlTransaction transaction, int workItemId, string kind, string title, string message)

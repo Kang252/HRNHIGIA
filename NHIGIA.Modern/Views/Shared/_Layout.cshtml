@@ -318,5 +318,11 @@
             document.addEventListener('keydown', function (event) { if (event.key === 'Escape') close(); });
         })();
     </script>
+<style>
+.hrm-notification{position:relative}#hrmNotificationBadge{position:absolute;top:-5px;right:-6px;min-width:18px;height:18px;padding:0 4px;border-radius:10px;background:#ef4444;color:white;font-size:10px;font-weight:700;line-height:18px;text-align:center;border:2px solid #2876df}#hrmNotificationBadge[hidden]{display:none!important}
+</style>
+<script>
+(function(){var badge=document.getElementById('hrmNotificationBadge');if(!badge)return;var busy=false;async function refresh(){if(busy||document.hidden)return;busy=true;try{var response=await fetch('@Url.Action("NotificationCount","Work")',{credentials:'same-origin',cache:'no-store'});if(!response.ok)return;var data=await response.json();if(typeof data.Count!=='number')return;badge.textContent=data.Count>99?'99+':String(data.Count);badge.hidden=data.Count<=0;badge.parentElement.setAttribute('aria-label','Mở thông báo, '+data.Count+' chưa đọc');}catch(e){}finally{busy=false;}}refresh();setInterval(refresh,30000);window.addEventListener('pageshow',refresh);document.addEventListener('visibilitychange',refresh);})();
+</script>
 </body>
 </html>
