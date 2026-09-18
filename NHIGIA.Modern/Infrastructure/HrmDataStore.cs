@@ -695,6 +695,42 @@ namespace NHIGIA.Modern.Infrastructure
             }
         }
 
+        public IList<HanetDeviceModel> GetHanetDevices()
+        {
+            using var db = OpenConnection();
+            return db.Query<HanetDeviceModel>("SELECT Id,DeviceId,Name,PlaceId,Location,Notes,IsActive FROM dbo.HrmHanetDevice ORDER BY Name,Id").ToList();
+        }
+
+        public int SaveHanetDevice(HanetDeviceModel device, HrmUserAccountModel actor, string ip)
+        {
+            using var db = OpenConnection();
+            using var tx = db.BeginTransaction();
+            int id;
+            if (device.Id == 0)
+                id = db.ExecuteScalar<int>(@"INSERT dbo.HrmHanetDevice(DeviceId,Name,PlaceId,Location,Notes,IsActive)
+                    OUTPUT INSERTED.Id VALUES(@DeviceId,@Name,@PlaceId,@Location,@Notes,@IsActive)", device, tx);
+            else
+            {
+                if (db.Execute(@"UPDATE dbo.HrmHanetDevice SET DeviceId=@DeviceId,Name=@Name,PlaceId=@PlaceId,
+                    Location=@Location,Notes=@Notes,IsActive=@IsActive,UpdatedAt=SYSDATETIME() WHERE Id=@Id", device, tx) == 0)
+                    throw new InvalidOperationException("Thiết bị không còn tồn tại.");
+                id = device.Id;
+            }
+            AddAudit(db, actor.Id, device.Id == 0 ? "CREATE" : "UPDATE", "HrmHanetDevice", id.ToString(), "Lưu thiết bị HANET " + device.DeviceId, ip, tx);
+            tx.Commit();
+            return id;
+        }
+
+        public bool DeleteHanetDevice(int id, HrmUserAccountModel actor, string ip)
+        {
+            using var db = OpenConnection();
+            using var tx = db.BeginTransaction();
+            var changed = db.Execute("DELETE dbo.HrmHanetDevice WHERE Id=@Id", new { Id=id }, tx) > 0;
+            if (changed) AddAudit(db, actor.Id, "DELETE", "HrmHanetDevice", id.ToString(), "Xóa bản ghi quản lý thiết bị HANET", ip, tx);
+            tx.Commit();
+            return changed;
+        }
+
         public HanetSettingsModel GetHanetSettings(bool includeSecrets)
         {
             const string sql = @"SELECT ApiBaseUrl, OAuthTokenUrl, ClientId, ProtectedClientSecret ClientSecret,

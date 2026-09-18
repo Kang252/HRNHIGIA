@@ -88,6 +88,18 @@ try
         if ((await client.SendAsync(assistantPost)).StatusCode != HttpStatusCode.BadRequest) throw new Exception("Assistant accepted a request without anti-forgery token.");
         Console.WriteLine("PASS assistant anti-forgery protection");
     }
+    foreach (var role in new[] { "EMPLOYEE", "MANAGER", "HR", "DIRECTOR" })
+        await Check("/Hrm/HanetDevices", role, HttpStatusCode.Redirect);
+    foreach (var endpoint in new[] { "SaveHanetDevice", "DeleteHanetDevice" })
+    {
+        using var devicePost = new HttpRequestMessage(HttpMethod.Post, "/Hrm/" + endpoint);
+        devicePost.Headers.Add("Cookie", Cookie("ADMIN"));
+        devicePost.Content = new FormUrlEncodedContent(new Dictionary<string,string> { ["Id"]="1" });
+        if ((await client.SendAsync(devicePost)).StatusCode != HttpStatusCode.BadRequest)
+            throw new Exception(endpoint + " accepted a request without anti-forgery token.");
+        Console.WriteLine("PASS device anti-forgery " + endpoint);
+    }
+    await Check("/Home/HanetIntegration", "ADMIN", HttpStatusCode.OK, "Danh sách thiết bị đã lưu", "deviceSearch", "SaveHanetDevice", "DeleteHanetDevice");
     if (assistantOnly) return;
     await Check("/Home/HanetIntegration", "ADMIN", HttpStatusCode.OK, "Tích hợp camera HANET", "hanetWebhookUrl", "Nhập hàng loạt bằng file", "HanetMappingTemplate", "ImportHanetMappings");
     await Check("/Hrm/HanetMappingTemplate", "ADMIN", HttpStatusCode.OK, "MaNhanVien,TaiKhoan,PersonID,AliasID,PlaceID");

@@ -760,3 +760,14 @@ VALUES
      CONCAT(N'Số ', source.Seq + 10, N', đường Nguyễn Trãi, ', source.PlaceOfBirth),
      N'Dữ liệu nhân viên thử nghiệm đầy đủ; mã DEMO dùng để nhận diện và lọc dữ liệu.');
 GO
+
+-- HRM device inventory; does not change camera configuration on HANET.
+IF OBJECT_ID('dbo.HrmHanetDevice','U') IS NULL
+BEGIN
+ CREATE TABLE dbo.HrmHanetDevice (
+ Id INT IDENTITY PRIMARY KEY, DeviceId NVARCHAR(100) NOT NULL UNIQUE,
+ Name NVARCHAR(150) NOT NULL, PlaceId NVARCHAR(100) NOT NULL,
+ Location NVARCHAR(250) NULL, Notes NVARCHAR(1000) NULL,
+ IsActive BIT NOT NULL DEFAULT 1, UpdatedAt DATETIME2 NOT NULL DEFAULT SYSDATETIME());
+END;
+GO

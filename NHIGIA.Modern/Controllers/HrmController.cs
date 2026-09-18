@@ -393,6 +393,31 @@ public sealed class HrmController : BaseController
         return Store.GetAttendance(CurrentHrmUser, from, to);
     });
 
+    [HttpGet, HrmAuthorize(HrmRoles.Admin)]
+    public IActionResult HanetDevices() => Execute(() => Store.GetHanetDevices());
+
+    [HttpPost, ValidateAntiForgeryToken, HrmAuthorize(HrmRoles.Admin)]
+    public IActionResult SaveHanetDevice(HanetDeviceModel device) => Execute(() =>
+    {
+        if (!ModelState.IsValid || device.Id < 0 || string.IsNullOrWhiteSpace(device.DeviceId) ||
+            string.IsNullOrWhiteSpace(device.Name) || string.IsNullOrWhiteSpace(device.PlaceId))
+            throw new InvalidOperationException("Vui lòng nhập tên thiết bị, Device ID và Place ID hợp lệ.");
+        device.DeviceId = device.DeviceId.Trim();
+        device.Name = device.Name.Trim();
+        device.PlaceId = device.PlaceId.Trim();
+        try { return Store.SaveHanetDevice(device, CurrentHrmUser, ClientIp); }
+        catch (Microsoft.Data.SqlClient.SqlException ex) when (ex.Number is 2601 or 2627)
+        { throw new InvalidOperationException("Device ID đã được lưu. Vui lòng sửa bản ghi hiện có."); }
+    });
+
+    [HttpPost, ValidateAntiForgeryToken, HrmAuthorize(HrmRoles.Admin)]
+    public IActionResult DeleteHanetDevice(int id) => Execute(() =>
+    {
+        if (id <= 0 || !Store.DeleteHanetDevice(id, CurrentHrmUser, ClientIp))
+            throw new InvalidOperationException("Không tìm thấy thiết bị.");
+        return true;
+    });
+
     [HttpGet]
     [HrmAuthorize(HrmRoles.Admin)]
     public IActionResult HanetSettings() => Execute(() => Store.GetHanetSettings(false));

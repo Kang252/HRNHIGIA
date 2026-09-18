@@ -43,6 +43,40 @@
         </div></div>
     </div>
 </div>
+<div class="container-fluid" style="margin-top:24px">
+ <div class="hrm-card"><div class="hrm-card-header"><div><h2 class="hrm-card-title">Danh sách thiết bị đã lưu</h2><p class="hrm-card-subtitle">Quản lý bản ghi trong HRM; không thay đổi camera hoặc lịch sử chấm công trên HANET.</p></div></div>
+ <div class="hrm-card-body">
+  <label>Tìm thiết bị<input id="deviceSearch" class="hrm-control" type="search" placeholder="Tên, Device ID, Place ID hoặc vị trí" /></label>
+  <div style="overflow-x:auto;margin:16px 0"><table class="table"><thead><tr><th>Tên thiết bị</th><th>Device ID</th><th>Place ID</th><th>Vị trí</th><th>Trạng thái quản lý</th><th>Thao tác</th></tr></thead><tbody id="deviceRows"></tbody></table></div>
+  <form id="deviceForm">@Html.AntiForgeryToken()
+   <h3 id="deviceEditorTitle">Thêm thiết bị</h3><input name="Id" id="deviceRecordId" type="hidden" value="0" />
+   <div class="row">
+    <div class="col-sm-6 form-group"><label for="deviceName">Tên thiết bị *</label><input id="deviceName" name="Name" class="hrm-control" required maxlength="150" /></div>
+    <div class="col-sm-6 form-group"><label for="deviceCode">Device ID *</label><input id="deviceCode" name="DeviceId" class="hrm-control" required maxlength="100" /></div>
+    <div class="col-sm-6 form-group"><label for="devicePlace">Place ID *</label><input id="devicePlace" name="PlaceId" class="hrm-control" list="hanetPlaceOptions" required maxlength="100" /></div>
+    <div class="col-sm-6 form-group"><label for="deviceLocation">Vị trí lắp đặt</label><input id="deviceLocation" name="Location" class="hrm-control" maxlength="250" /></div>
+   </div>
+   <div class="form-group"><label for="deviceNotes">Ghi chú</label><textarea id="deviceNotes" name="Notes" class="hrm-control" maxlength="1000"></textarea></div>
+   <label class="hrm-check"><input id="deviceActive" type="checkbox" checked /> Đang sử dụng (không phải trạng thái online của camera)</label>
+   <div style="margin-top:16px"><button id="deviceSave" class="hrm-btn hrm-btn-primary" type="submit">Lưu thiết bị</button> <button id="deviceCancel" class="hrm-btn" type="button">Hủy chỉnh sửa</button></div>
+  </form><p id="deviceMessage" role="status" class="hrm-field-note" style="margin-top:12px"></p>
+ </div></div>
+</div>
+<script>
+(function(){
+ var devices=[];
+ function safe(v){return $('<div>').text(v==null?'':v).html();}
+ function fail(x){$('#deviceMessage').text(x.responseJSON&&x.responseJSON.Message||'Không thể xử lý thiết bị. Vui lòng thử lại.');}
+ function render(){var q=($('#deviceSearch').val()||'').toLowerCase();var rows=devices.filter(function(d){return [d.Name,d.DeviceId,d.PlaceId,d.Location].join(' ').toLowerCase().indexOf(q)>=0;});$('#deviceRows').html(rows.length?rows.map(function(d){return '<tr><td>'+safe(d.Name)+'</td><td>'+safe(d.DeviceId)+'</td><td>'+safe(d.PlaceId)+'</td><td>'+safe(d.Location||'—')+'</td><td>'+ (d.IsActive?'Đang sử dụng':'Ngừng sử dụng')+'</td><td><button type="button" class="hrm-btn device-edit" data-id="'+d.Id+'">Sửa</button> <button type="button" class="hrm-btn device-delete" data-id="'+d.Id+'">Xóa</button></td></tr>';}).join(''):'<tr><td colspan="6">Chưa có thiết bị phù hợp. Thêm thiết bị bằng biểu mẫu bên dưới.</td></tr>');}
+ function load(){$.get('@Url.Action("HanetDevices","Hrm")').done(function(r){devices=r.Data||[];render();}).fail(fail);}
+ function reset(){document.getElementById('deviceForm').reset();$('#deviceRecordId').val('0');$('#deviceEditorTitle').text('Thêm thiết bị');}
+ $('#deviceSearch').on('input',render);$('#deviceCancel').on('click',reset);
+ $('#deviceRows').on('click','.device-edit',function(){var id=Number($(this).attr('data-id'));var d=devices.find(function(x){return x.Id===id;});if(!d)return;$('#deviceRecordId').val(d.Id);$('#deviceName').val(d.Name);$('#deviceCode').val(d.DeviceId);$('#devicePlace').val(d.PlaceId);$('#deviceLocation').val(d.Location);$('#deviceNotes').val(d.Notes);$('#deviceActive').prop('checked',d.IsActive);$('#deviceEditorTitle').text('Sửa thiết bị');document.getElementById('deviceForm').scrollIntoView({behavior:'smooth',block:'center'});});
+ $('#deviceForm').on('submit',function(e){e.preventDefault();var b=$('#deviceSave').prop('disabled',true);var data=$(this).serializeArray();data.push({name:'IsActive',value:$('#deviceActive').is(':checked')});$.post('@Url.Action("SaveHanetDevice","Hrm")',data).done(function(){reset();load();$('#deviceMessage').text('Đã lưu thiết bị.');}).fail(fail).always(function(){b.prop('disabled',false);});});
+ $('#deviceRows').on('click','.device-delete',function(){var id=Number($(this).attr('data-id'));if(!confirm('Xóa bản ghi thiết bị trong HRM? Camera HANET và lịch sử chấm công vẫn được giữ nguyên.'))return;var b=$(this).prop('disabled',true);$.post('@Url.Action("DeleteHanetDevice","Hrm")',{id:id,__RequestVerificationToken:$('#deviceForm input[name=__RequestVerificationToken]').val()}).done(function(){if(Number($('#deviceRecordId').val())===id)reset();load();$('#deviceMessage').text('Đã xóa bản ghi thiết bị.');}).fail(fail).always(function(){b.prop('disabled',false);});});
+ load();
+})();
+</script>
 <script>
 (function(){
     $('.hanet_menu').addClass('active');
