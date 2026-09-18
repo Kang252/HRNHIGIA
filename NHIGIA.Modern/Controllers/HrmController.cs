@@ -187,11 +187,8 @@ public sealed class HrmController : BaseController
 
     [HttpPost, ValidateAntiForgeryToken]
     [HrmAuthorize(HrmRoles.Admin, HrmRoles.Hr, HrmRoles.Director, HrmRoles.Manager)]
-    public IActionResult SeedSampleRequests() => Execute(() =>
-    {
-        Store.EnsureSampleLeaveRequests();
-        return new { Message = "Đã nạp 5 yêu cầu mẫu thành công." };
-    });
+    public IActionResult SeedSampleRequests() => StatusCode(410,
+        ApiResponse.Fail("Chức năng tạo yêu cầu mẫu đã được tắt trên hệ thống vận hành."));
 
     [HttpGet]
     [HrmAuthorize(HrmRoles.Admin, HrmRoles.Hr, HrmRoles.Director, HrmRoles.Manager)]

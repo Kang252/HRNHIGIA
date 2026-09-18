@@ -17,7 +17,7 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
     {
         options.LoginPath = "/Account/Login";
         options.AccessDeniedPath = "/Account/AccessDenied";
-        options.Cookie.Name = "NHIGIA.Auth.v2";
+        options.Cookie.Name = "NHIGIA.Auth.v3";
         options.Cookie.HttpOnly = true;
         options.Cookie.SameSite = SameSiteMode.Lax;
         options.SlidingExpiration = true;
@@ -84,8 +84,6 @@ try
 {
     var store = app.Services.GetRequiredService<HrmDataStore>();
     store.EnsureSchema(Path.Combine(app.Environment.ContentRootPath, "App_Data", "hrm-mvp.sql"));
-    store.EnsureSchema(Path.Combine(app.Environment.ContentRootPath, "App_Data", "demo-functional-data.sql"));
-    store.EnsureSchema(Path.Combine(app.Environment.ContentRootPath, "App_Data", "seed-40-assets.sql"));
 }
 catch (Exception exception)
 {

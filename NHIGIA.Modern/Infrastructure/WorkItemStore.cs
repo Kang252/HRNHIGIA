@@ -864,6 +864,7 @@ public sealed class WorkItemStore
 
     private void SeedTransferData(SqlConnection db)
     {
+        if (!_configuration.GetValue<bool>("HRM_ENABLE_DEMO_DATA")) return;
         try
         {
             var adminId = db.ExecuteScalar<int?>("SELECT TOP 1 Id FROM dbo.HrmUserAccount WHERE RoleCode IN ('HR','ADMIN')") ?? 1;
@@ -1305,6 +1306,7 @@ public sealed class WorkItemStore
 
     private void SeedAssetsData(SqlConnection db)
     {
+        if (!_configuration.GetValue<bool>("HRM_ENABLE_DEMO_DATA")) return;
         try
         {
             var adminId = db.ExecuteScalar<int?>("SELECT TOP 1 Id FROM dbo.HrmUserAccount WHERE RoleCode IN ('HR','ADMIN')") ?? 1;
@@ -1903,6 +1905,7 @@ public sealed class WorkItemStore
 
     private void SeedPayrollData(SqlConnection db)
     {
+        if (!_configuration.GetValue<bool>("HRM_ENABLE_DEMO_DATA")) return;
         try
         {
             var adminId = db.ExecuteScalar<int?>("SELECT TOP 1 Id FROM dbo.HrmUserAccount WHERE RoleCode IN ('HR','ADMIN')") ?? 1;

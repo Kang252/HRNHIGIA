@@ -42,7 +42,7 @@ try
     string Cookie(string role)
     {
         var identity = new ClaimsIdentity(new[] { new Claim(ClaimTypes.NameIdentifier, "1"), new Claim(ClaimTypes.Name, "local-smoke"), new Claim(ClaimTypes.Role, role), new Claim("display_name", "Local smoke") }, "Cookies");
-        return "NHIGIA.Auth.v2=" + format.Protect(new AuthenticationTicket(new ClaimsPrincipal(identity), new AuthenticationProperties { ExpiresUtc = DateTimeOffset.UtcNow.AddMinutes(5) }, "Cookies"));
+        return "NHIGIA.Auth.v3=" + format.Protect(new AuthenticationTicket(new ClaimsPrincipal(identity), new AuthenticationProperties { ExpiresUtc = DateTimeOffset.UtcNow.AddMinutes(5) }, "Cookies"));
     }
     async Task Check(string path, string role, HttpStatusCode expected, params string[] text)
     {
