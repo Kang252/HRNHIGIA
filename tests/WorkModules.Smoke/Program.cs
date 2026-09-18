@@ -7,12 +7,13 @@ using Microsoft.AspNetCore.DataProtection;
 // Local-only integration check: synthetic authentication tickets never leave loopback.
 var root = Path.GetFullPath(args.Length > 0 ? args[0] : "NHIGIA.Modern");
 var assistantOnly = args.Skip(1).Contains("--assistant-only");
+var communicationsOnly = args.Skip(1).Contains("--communications-only");
 var keys = Path.Combine(Path.GetTempPath(), "nhigia-smoke-" + Guid.NewGuid());
 Directory.CreateDirectory(keys);
 var start = new ProcessStartInfo("dotnet") { WorkingDirectory = root, UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true, CreateNoWindow = true };
 start.ArgumentList.Add(Path.Combine(root, "bin/Release/net8.0/NHIGIA.Modern.dll"));
 start.ArgumentList.Add("--urls"); start.ArgumentList.Add("http://127.0.0.1:5182");
-start.Environment["ASPNETCORE_ENVIRONMENT"] = "Production";
+start.Environment["ASPNETCORE_ENVIRONMENT"] = communicationsOnly ? "Development" : "Production";
 start.Environment["HRM_DATA_PROTECTION_PATH"] = keys;
 start.Environment["HRM_CONNECTION_STRING"] = "Server=tcp:127.0.0.1,1;Database=unavailable;User Id=smoke;Password=unused;Connect Timeout=1;Encrypt=True";
 using var process = Process.Start(start)!;
@@ -49,8 +50,8 @@ try
         using var request = new HttpRequestMessage(HttpMethod.Get, path);
         if (role != null) request.Headers.Add("Cookie", Cookie(role));
         var response = await client.SendAsync(request);
-        if (response.StatusCode != expected) throw new Exception($"{path}: expected {expected}, got {response.StatusCode}");
         var html = WebUtility.HtmlDecode(await response.Content.ReadAsStringAsync());
+        if (response.StatusCode != expected) throw new Exception($"{path}: expected {expected}, got {response.StatusCode}\n{html[..Math.Min(html.Length, 4000)]}");
         foreach (var value in text) if (!html.Contains(value)) throw new Exception($"{path}: missing {value}");
         Console.WriteLine($"PASS {role ?? "anonymous"} {path}");
     }
@@ -62,6 +63,11 @@ try
         var html = WebUtility.HtmlDecode(await response.Content.ReadAsStringAsync());
         foreach (var value in text) if (html.Contains(value)) throw new Exception($"{path}: unexpected {value}");
         Console.WriteLine($"PASS removed content {path}");
+    }
+    if (communicationsOnly)
+    {
+        await Check("/Home/InternalCommunications", "ADMIN", HttpStatusCode.OK, "Ảnh / tệp", "id=\"preview\"", ".webp", "FormData", "AuthorAvatarUrl", "wall-avatar", "Ảnh đại diện");
+        return;
     }
     await Check("/Work?kind=kpi", null, HttpStatusCode.Redirect);
     await Check("/Hrm/LeaveAttachment?id=1", null, HttpStatusCode.Redirect);
@@ -113,7 +119,7 @@ try
     foreach (var kind in new[] { "kpi", "payroll", "recruitment", "training", "overtime", "resignation", "transfer", "helpdesk", "vehicle", "meeting", "business-trip" })
         await Check("/Work?kind=" + kind, "ADMIN", HttpStatusCode.OK, "Chưa kết nối", "disabled", "href=\"/Home/Attendance\"");
     await Check("/Work?kind=kpi", "ADMIN", HttpStatusCode.OK, "Tổng tỷ trọng", "Tên tiêu chí KPI", "Mã KPI / Từ khóa", "Phòng ban nhận KPI", "Chọn một nhân viên hoặc một phòng ban", "Cách đo / Nguồn dữ liệu");
-    await Check("/Home/InternalCommunications", "ADMIN", HttpStatusCode.OK, "Ảnh đính kèm", "communicationImagePreview", "image/webp", "FormData");
+    await Check("/Home/InternalCommunications", "ADMIN", HttpStatusCode.OK, "Ảnh / tệp", "id=\"preview\"", ".webp", "FormData", "AuthorAvatarUrl", "wall-avatar", "Ảnh đại diện");
     await Check("/Home/LeaveRequests", "EMPLOYEE", HttpStatusCode.OK, "name=\"attachment\"", "FormData(this)", "LeaveAttachment", "Tệp cũ chưa lưu nội dung");
     await Check("/Work?kind=helpdesk", "EMPLOYEE", HttpStatusCode.OK, "Tạo yêu cầu Helpdesk IT");
     await Check("/Work?kind=overtime", "EMPLOYEE", HttpStatusCode.OK, "Số giờ tăng ca", "Lý do tăng ca");

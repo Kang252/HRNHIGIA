@@ -104,16 +104,12 @@ namespace NHIGIA.Modern.Infrastructure
                 FROM dbo.HrmEmployeeProfile p
                 INNER JOIN dbo.HrmUserAccount u ON u.Id=p.UserId
                 WHERE p.UserId=@UserId AND p.AvatarContent IS NOT NULL
-                  AND (@CanSeeAll=1 OR u.Id=@ActorId OR (@IsManager=1 AND u.DepartmentId=@DepartmentId))";
-            var canSeeAll = actor.RoleCode is HrmRoles.Admin or HrmRoles.Hr or HrmRoles.Director;
+                  AND u.IsActive=1 AND @ActorId>0";
             using var connection = OpenConnection();
             return connection.QuerySingleOrDefault<CommunicationAttachmentModel>(sql, new
             {
                 UserId = userId,
-                CanSeeAll = canSeeAll,
-                IsManager = actor.RoleCode == HrmRoles.Manager,
-                ActorId = actor.Id,
-                actor.DepartmentId
+                ActorId = actor?.Id ?? 0
             });
         }
 
@@ -514,7 +510,10 @@ namespace NHIGIA.Modern.Infrastructure
 
         public IList<CommunicationModel> GetCommunications(HrmUserAccountModel actor, string keyword, string category, string status = "", int take = 100)
         {
-            const string sql = @"SELECT TOP (@Take) c.Id, c.AuthorUserId, u.DisplayName AuthorName, c.Category, c.ScopeCode,
+            const string sql = @"SELECT TOP (@Take) c.Id, c.AuthorUserId, u.DisplayName AuthorName,
+                CASE WHEN authorProfile.AvatarContent IS NOT NULL
+                    THEN CONCAT('/Home/Avatar/',u.Id,'?v=',DATEDIFF_BIG(MILLISECOND,'19700101',COALESCE(authorProfile.UpdatedAt,authorProfile.CreatedAt)))
+                    ELSE authorProfile.AvatarUrl END AuthorAvatarUrl, c.Category, c.ScopeCode,
                 c.DepartmentId, c.Title, c.Body, c.AttachmentName, c.AttachmentContentType, c.IsPinned,
                 COALESCE(c.StatusCode, CASE WHEN c.IsPublished=1 THEN 'PUBLISHED' ELSE 'PENDING' END) StatusCode,
                 c.ApprovedByUserId, approver.DisplayName ApprovedByName, c.ReviewNote,
@@ -524,6 +523,7 @@ namespace NHIGIA.Modern.Infrastructure
                 CAST(CASE WHEN EXISTS(SELECT 1 FROM dbo.HrmCommunicationReaction r WHERE r.CommunicationId=c.Id AND r.UserId=@ActorId) THEN 1 ELSE 0 END AS BIT) LikedByCurrentUser,
                 CAST(CASE WHEN c.AuthorUserId=@ActorId THEN 1 ELSE 0 END AS BIT) IsMine
                 FROM dbo.HrmCommunication c INNER JOIN dbo.HrmUserAccount u ON u.Id=c.AuthorUserId
+                LEFT JOIN dbo.HrmEmployeeProfile authorProfile ON authorProfile.UserId=u.Id
                 LEFT JOIN dbo.HrmUserAccount approver ON approver.Id=c.ApprovedByUserId
                 WHERE (
                     (c.IsPublished=1 AND (c.ScopeCode='ALL' OR (c.ScopeCode='DEPARTMENT' AND c.DepartmentId=@DepartmentId)
@@ -543,9 +543,13 @@ namespace NHIGIA.Modern.Infrastructure
             var ids = posts.Where(x => x.StatusCode == "PUBLISHED").Select(x => x.Id).ToArray();
             if (ids.Length > 0)
             {
-                const string commentSql = @"SELECT m.Id, m.CommunicationId, m.AuthorUserId, u.DisplayName AuthorName, m.Body, m.CreatedAt,
+                const string commentSql = @"SELECT m.Id, m.CommunicationId, m.AuthorUserId, u.DisplayName AuthorName,
+                    CASE WHEN p.AvatarContent IS NOT NULL
+                        THEN CONCAT('/Home/Avatar/',u.Id,'?v=',DATEDIFF_BIG(MILLISECOND,'19700101',COALESCE(p.UpdatedAt,p.CreatedAt)))
+                        ELSE p.AvatarUrl END AuthorAvatarUrl, m.Body, m.CreatedAt,
                     CAST(CASE WHEN m.AuthorUserId=@ActorId THEN 1 ELSE 0 END AS BIT) IsMine
                     FROM dbo.HrmCommunicationComment m INNER JOIN dbo.HrmUserAccount u ON u.Id=m.AuthorUserId
+                    LEFT JOIN dbo.HrmEmployeeProfile p ON p.UserId=u.Id
                     WHERE m.IsDeleted=0 AND m.CommunicationId IN @Ids ORDER BY m.CreatedAt";
                 var comments = connection.Query<CommunicationCommentModel>(commentSql, new { Ids = ids, ActorId = actor.Id }).ToLookup(x => x.CommunicationId);
                 foreach (var post in posts) post.Comments = comments[post.Id].ToList();
@@ -581,10 +585,14 @@ namespace NHIGIA.Modern.Infrastructure
             const string sql = @"INSERT dbo.HrmCommunication(AuthorUserId, Category, ScopeCode, DepartmentId, Title, Body, AttachmentName, AttachmentContentType, AttachmentContent, IsPinned, IsPublished, StatusCode, SubmittedAt, ApprovedByUserId, ReviewedAt)
                 VALUES(@AuthorUserId, @Category, @ScopeCode, @DepartmentId, @Title, @Body, @AttachmentName, @AttachmentContentType, @AttachmentContent, @IsPinned, @IsPublished, @StatusCode, SYSDATETIME(), @ApprovedByUserId, @ReviewedAt);
                 DECLARE @Id INT=CAST(SCOPE_IDENTITY() AS INT);
-                SELECT c.Id, c.AuthorUserId, u.DisplayName AuthorName, c.Category, c.ScopeCode, c.DepartmentId,
+                SELECT c.Id, c.AuthorUserId, u.DisplayName AuthorName,
+                    CASE WHEN p.AvatarContent IS NOT NULL
+                        THEN CONCAT('/Home/Avatar/',u.Id,'?v=',DATEDIFF_BIG(MILLISECOND,'19700101',COALESCE(p.UpdatedAt,p.CreatedAt)))
+                        ELSE p.AvatarUrl END AuthorAvatarUrl, c.Category, c.ScopeCode, c.DepartmentId,
                     c.Title, c.Body, c.AttachmentName, c.AttachmentContentType, c.IsPinned, c.StatusCode,
                     c.SubmittedAt, c.PublishedAt, CAST(1 AS BIT) IsMine
-                FROM dbo.HrmCommunication c INNER JOIN dbo.HrmUserAccount u ON u.Id=c.AuthorUserId WHERE c.Id=@Id;";
+                FROM dbo.HrmCommunication c INNER JOIN dbo.HrmUserAccount u ON u.Id=c.AuthorUserId
+                LEFT JOIN dbo.HrmEmployeeProfile p ON p.UserId=u.Id WHERE c.Id=@Id;";
             using (var connection = OpenConnection())
             {
                 using var transaction = connection.BeginTransaction();
@@ -640,8 +648,13 @@ namespace NHIGIA.Modern.Infrastructure
                 BEGIN
                     INSERT dbo.HrmCommunicationComment(CommunicationId,AuthorUserId,Body) VALUES(@CommunicationId,@AuthorUserId,@Body);
                     DECLARE @Id INT=CAST(SCOPE_IDENTITY() AS INT);
-                    SELECT m.Id,m.CommunicationId,m.AuthorUserId,u.DisplayName AuthorName,m.Body,m.CreatedAt,CAST(1 AS BIT) IsMine
-                    FROM dbo.HrmCommunicationComment m INNER JOIN dbo.HrmUserAccount u ON u.Id=m.AuthorUserId WHERE m.Id=@Id;
+                    SELECT m.Id,m.CommunicationId,m.AuthorUserId,u.DisplayName AuthorName,
+                        CASE WHEN p.AvatarContent IS NOT NULL
+                            THEN CONCAT('/Home/Avatar/',u.Id,'?v=',DATEDIFF_BIG(MILLISECOND,'19700101',COALESCE(p.UpdatedAt,p.CreatedAt)))
+                            ELSE p.AvatarUrl END AuthorAvatarUrl,
+                        m.Body,m.CreatedAt,CAST(1 AS BIT) IsMine
+                    FROM dbo.HrmCommunicationComment m INNER JOIN dbo.HrmUserAccount u ON u.Id=m.AuthorUserId
+                    LEFT JOIN dbo.HrmEmployeeProfile p ON p.UserId=u.Id WHERE m.Id=@Id;
                 END";
             var isManager = actor.RoleCode is HrmRoles.Manager or HrmRoles.Hr or HrmRoles.Director or HrmRoles.Admin;
             using var connection = OpenConnection();

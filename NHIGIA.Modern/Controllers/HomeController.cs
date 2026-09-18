@@ -41,7 +41,19 @@ public sealed class HomeController : BaseController
     public IActionResult Attendance() { ViewBag.Title = "Chấm công"; return View(); }
     public IActionResult WorkSchedules() { ViewBag.Title = "Lịch làm việc"; return View(); }
     public IActionResult LeaveRequests() { ViewBag.Title = "Yêu cầu của tôi"; return View(); }
-    public IActionResult InternalCommunications() { ViewBag.Title = "Truyền thông nội bộ"; return View(); }
+    public IActionResult InternalCommunications()
+    {
+        ViewBag.Title = "Truyền thông nội bộ";
+        try
+        {
+            ViewBag.CurrentAvatarUrl = Store.GetAvatarUrl(CurrentHrmUser.Id);
+        }
+        catch
+        {
+            ViewBag.CurrentAvatarUrl = string.Empty;
+        }
+        return View();
+    }
 
     public IActionResult MyProfile(int? id = null)
     {

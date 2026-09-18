@@ -277,6 +277,7 @@ namespace NHIGIA.Modern.Models
         public int Id { get; set; }
         public int AuthorUserId { get; set; }
         public string AuthorName { get; set; }
+        public string AuthorAvatarUrl { get; set; }
         public string Category { get; set; }
         public string ScopeCode { get; set; }
         public int? DepartmentId { get; set; }
@@ -323,6 +324,7 @@ namespace NHIGIA.Modern.Models
         public int CommunicationId { get; set; }
         public int AuthorUserId { get; set; }
         public string AuthorName { get; set; }
+        public string AuthorAvatarUrl { get; set; }
         public string Body { get; set; }
         public DateTime CreatedAt { get; set; }
         public bool IsMine { get; set; }
