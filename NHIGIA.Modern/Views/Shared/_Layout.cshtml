@@ -94,7 +94,7 @@
                     }
                     <li class="@(action == "Attendance" ? "active" : "")"><a asp-controller="Home" asp-action="Attendance"><i class="material-icons">alarm_on</i><span>Chấm công</span></a></li>
                     <li class="@(action == "WorkSchedules" ? "active" : "")"><a asp-controller="Home" asp-action="WorkSchedules"><i class="material-icons">event_note</i><span>@(canManage ? "Phân ca làm việc" : "Lịch làm việc")</span></a></li>
-                    <li class="@(action == "LeaveRequests" ? "active" : "")"><a asp-controller="Home" asp-action="LeaveRequests"><i class="material-icons">event_busy</i><span>Nghỉ phép</span></a></li>
+                    <li class="@(action == "LeaveRequests" ? "active" : "")"><a asp-controller="Home" asp-action="LeaveRequests"><i class="material-icons">event_busy</i><span>Yêu cầu nhân sự</span></a></li>
                     @if (canManage)
                     {
                         <li class="@(action == "Approvals" ? "active" : "")"><a asp-controller="Home" asp-action="Approvals"><i class="material-icons">fact_check</i><span>Phê duyệt</span></a></li>

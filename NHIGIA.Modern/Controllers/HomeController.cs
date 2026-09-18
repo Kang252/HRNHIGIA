@@ -40,7 +40,7 @@ public sealed class HomeController : BaseController
     }
     public IActionResult Attendance() { ViewBag.Title = "Chấm công"; return View(); }
     public IActionResult WorkSchedules() { ViewBag.Title = "Lịch làm việc"; return View(); }
-    public IActionResult LeaveRequests() { ViewBag.Title = "Yêu cầu nghỉ phép"; return View(); }
+    public IActionResult LeaveRequests() { ViewBag.Title = "Yêu cầu của tôi"; return View(); }
     public IActionResult InternalCommunications() { ViewBag.Title = "Truyền thông nội bộ"; return View(); }
 
     public IActionResult MyProfile(int? id = null)
@@ -274,7 +274,7 @@ public sealed class HomeController : BaseController
     };
 
     [HrmAuthorize(HrmRoles.Admin, HrmRoles.Hr, HrmRoles.Director, HrmRoles.Manager)]
-    public IActionResult Approvals() { ViewBag.Title = "Phê duyệt nghỉ phép"; return View(); }
+    public IActionResult Approvals() { ViewBag.Title = "Phê duyệt yêu cầu"; return View(); }
 
     [HrmAuthorize(HrmRoles.Admin, HrmRoles.Hr, HrmRoles.Director)]
     public IActionResult Reports() { ViewBag.Title = "Báo cáo nhân sự"; return View(); }
