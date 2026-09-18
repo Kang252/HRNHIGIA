@@ -268,6 +268,7 @@ public sealed class WorkItemStore
             AddParticipantNotifications(db, transaction, id, item.Kind, title,
                 $"{route} · {item.StartAt:dd/MM/yyyy HH:mm}–{item.EndAt:HH:mm}. {state}");
         }
+        NotifyWorkChange(db, transaction, id, item.Status is "PENDING" or "PENDING_APPROVAL" ? item.Status : "CREATED", participantsAlreadyNotified: item.Kind is "meeting" or "vehicle");
         transaction.Commit();
         return id;
     }
@@ -297,6 +298,7 @@ public sealed class WorkItemStore
             WHERE Id=@Id AND Kind='kpi'",
             new { Id = id, Actual = actual, ProofNote = proofNote?.Trim() }, transaction) > 0;
         if (changed) AddAudit(db, transaction, actorId, "SUBMIT_PROOF", id, $"Gửi chứng minh kết quả KPI: thực hiện {actual}. {proofNote}".Trim(), ipAddress);
+        if (changed) NotifyWorkChange(db, transaction, id, "WAITING_PROOF", proofNote);
         transaction.Commit();
         return changed;
     }
@@ -309,9 +311,10 @@ public sealed class WorkItemStore
         var action = approve ? "APPROVE_PROOF" : "REJECT_PROOF";
         var changed = db.Execute(@"UPDATE dbo.HrmWorkItem SET Status=@NewStatus,
                 LastActionNote=@ReviewNote, UpdatedAt=SYSUTCDATETIME()
-            WHERE Id=@Id AND Kind='kpi'",
+            WHERE Id=@Id AND Status='WAITING_PROOF' AND Kind='kpi'",
             new { Id = id, NewStatus = newStatus, ReviewNote = reviewNote?.Trim() }, transaction) > 0;
         if (changed) AddAudit(db, transaction, actorId, action, id, $"Đánh giá kết quả KPI: {newStatus}. {reviewNote}".Trim(), ipAddress);
+        if (changed) NotifyWorkChange(db, transaction, id, newStatus, reviewNote);
         transaction.Commit();
         return changed;
     }
@@ -349,6 +352,7 @@ public sealed class WorkItemStore
               AND (@EmployeeId IS NULL OR EmployeeId=@EmployeeId)",
             new { Id = id, ExpectedStatus = expectedStatus, NewStatus = newStatus, Note = string.IsNullOrWhiteSpace(note) ? null : note.Trim(), EmployeeId = employeeId }, transaction) > 0;
         if (changed) AddAudit(db, transaction, actorId, action, id, $"Bảng lương: {expectedStatus} -> {newStatus}. {note}".Trim(), ipAddress);
+        if (changed) NotifyWorkChange(db, transaction, id, newStatus, note);
         transaction.Commit();
         return changed;
     }
@@ -382,6 +386,7 @@ public sealed class WorkItemStore
                     $"{route} · {item.StartAt:dd/MM/yyyy HH:mm}–{item.EndAt:HH:mm}. {note}".Trim());
             }
         }
+        if (changed) NotifyWorkChange(db, transaction, id, newStatus, note, kind is "meeting" or "vehicle");
         transaction.Commit();
         return changed;
     }
@@ -439,6 +444,38 @@ public sealed class WorkItemStore
         return db.Execute("UPDATE dbo.HrmNotification SET IsRead=1 WHERE UserId=@UserId AND IsRead=0", new { UserId=userId });
     }
 
+    private static void NotifyWorkChange(SqlConnection db, SqlTransaction transaction, int id, string status, string note = null, bool participantsAlreadyNotified = false)
+    {
+        var item = db.QuerySingle<WorkItem>("SELECT * FROM dbo.HrmWorkItem WHERE Id=@Id", new { Id=id }, transaction);
+        var label = status switch {
+            "CREATED" => "Đã tạo", "PENDING" or "PENDING_APPROVAL" => "Chờ phê duyệt",
+            "APPROVED" or "PROVEN" => "Đã phê duyệt", "REJECTED" or "NEEDS_REVISION" => "Bị từ chối / cần bổ sung",
+            "CANCELLED" => "Đã hủy", "WAITING_PROOF" => "Chờ đánh giá KPI",
+            "MANAGER_APPROVED" => "Trưởng phòng đã duyệt", "HR_REVIEWED" => "HR đã kiểm tra",
+            "PUBLISHED" => "Đã phát hành", "PAID" => "Đã thanh toán", "EXECUTED" => "Đã thực hiện", _ => "Đã cập nhật"
+        };
+        var title = $"{label}: {(!string.IsNullOrWhiteSpace(item.Reference) ? item.Reference : $"#{id}")} · {item.Title}";
+        var message = $"{label}. {note}".Trim();
+        db.Execute(@"INSERT dbo.HrmNotification(UserId,Title,Message,LinkUrl)
+            SELECT DISTINCT u.Id,@Title,@Message,@Link FROM dbo.HrmUserAccount u
+            WHERE u.IsActive=1 AND (u.Id=@CreatedBy OR u.Id=@EmployeeId)
+              AND (@SkipParticipants=0 OR NOT EXISTS(SELECT 1 FROM dbo.HrmWorkItemParticipant p WHERE p.WorkItemId=@Id AND p.UserId=u.Id))",
+            new { Id=id, item.CreatedBy, item.EmployeeId, Title=title.Length>200?title[..200]:title,
+                Message=message.Length>1000?message[..1000]:message, Link=$"/Work?kind={item.Kind}", SkipParticipants=participantsAlreadyNotified }, transaction);
+        if (status is "PENDING" or "PENDING_APPROVAL" or "WAITING_PROOF")
+        {
+            db.Execute(@"INSERT dbo.HrmNotification(UserId,Title,Message,LinkUrl)
+                SELECT u.Id,@Title,N'Có yêu cầu mới cần bạn xử lý.',@Link FROM dbo.HrmUserAccount u
+                LEFT JOIN dbo.HrmUserAccount owner ON owner.Id=@EmployeeId
+                WHERE u.IsActive=1 AND u.Id<>@CreatedBy AND ( @EmployeeId IS NULL OR u.Id<>@EmployeeId)
+                  AND ((@Kind='payroll' AND u.RoleCode IN ('ADMIN','DIRECTOR'))
+                    OR (@Kind<>'payroll' AND (u.RoleCode IN ('ADMIN','HR','DIRECTOR')
+                      OR (@Kind<>'transfer' AND u.RoleCode='MANAGER' AND u.DepartmentId=COALESCE(@DepartmentId,owner.DepartmentId)))))",
+                new { item.CreatedBy, item.EmployeeId, item.DepartmentId, item.Kind, Title=title.Length>200?title[..200]:title,
+                    Link=$"/Work?kind={item.Kind}" }, transaction);
+        }
+    }
+
     private static void AddParticipantNotifications(SqlConnection db, SqlTransaction transaction, int workItemId, string kind, string title, string message)
     {
         db.Execute(@"INSERT dbo.HrmNotification(UserId,Title,Message,LinkUrl)
@@ -464,6 +501,9 @@ public sealed class WorkItemStore
                 new { TrainingId = trainingId }, transaction);
             AddAudit(db, transaction, actorId, "ENROLL", trainingId, $"Đăng ký tham gia khóa đào tạo #{trainingId}", ipAddress);
         }
+        if (inserted) db.Execute(@"INSERT dbo.HrmNotification(UserId,Title,Message,LinkUrl)
+            SELECT @EmployeeId,LEFT(CONCAT(N'Đã đăng ký đào tạo: ',Title),200),N'Đã đăng ký đào tạo.','/Work?kind=training'
+            FROM dbo.HrmWorkItem WHERE Id=@Id", new { EmployeeId=employeeId, Id=trainingId }, transaction);
         transaction.Commit();
         return inserted;
     }
@@ -480,6 +520,9 @@ public sealed class WorkItemStore
                 new { TrainingId = trainingId }, transaction);
             AddAudit(db, transaction, actorId, "UNENROLL", trainingId, $"Hủy đăng ký khóa đào tạo #{trainingId}", ipAddress);
         }
+        if (deleted) db.Execute(@"INSERT dbo.HrmNotification(UserId,Title,Message,LinkUrl)
+            SELECT @EmployeeId,LEFT(CONCAT(N'Đã hủy đăng ký đào tạo: ',Title),200),N'Đã hủy đăng ký đào tạo.','/Work?kind=training'
+            FROM dbo.HrmWorkItem WHERE Id=@Id", new { EmployeeId=employeeId, Id=trainingId }, transaction);
         transaction.Commit();
         return deleted;
     }
@@ -505,6 +548,10 @@ public sealed class WorkItemStore
             new { Id = enrollmentId, Progress = progress, Score = score, Result = result, Note = note?.Trim(), Status = status, CertNo = certNo, CertDate = certDate }, transaction) > 0;
         if (updated)
             AddAudit(db, transaction, actorId, "EVALUATE", enrollmentId, $"Đánh giá học viên đào tạo #{enrollmentId}: {result}, điểm {score}", ipAddress);
+        if (updated) db.Execute(@"INSERT dbo.HrmNotification(UserId,Title,Message,LinkUrl)
+            SELECT e.EmployeeId,LEFT(CONCAT(N'Kết quả đào tạo: ',w.Title),200),LEFT(CONCAT(@Result,N'. ',@Note),1000),'/Work?kind=training'
+            FROM dbo.HrmTrainingEnrollment e JOIN dbo.HrmWorkItem w ON w.Id=e.TrainingId WHERE e.Id=@Id",
+            new { Id=enrollmentId, Result=result, Note=note }, transaction);
         transaction.Commit();
         return updated;
     }
@@ -559,8 +606,9 @@ public sealed class WorkItemStore
         using var transaction = db.BeginTransaction();
         var changed = db.Execute(@"UPDATE dbo.HrmWorkItem 
             SET Status=@Status, LastActionNote=@Note, UpdatedAt=SYSDATETIME() 
-            WHERE Id=@Id AND Kind='overtime'", new { Id = id, Status = status, Note = note }, transaction) > 0;
+            WHERE Id=@Id AND COALESCE(Status,'')<>@Status AND Kind='overtime'", new { Id = id, Status = status, Note = note }, transaction) > 0;
         if (changed) AddAudit(db, transaction, actorId, status == "APPROVED" ? "APPROVE" : "REJECT", id, $"{status}: {note}", ipAddress);
+        if (changed) NotifyWorkChange(db, transaction, id, status, note);
         transaction.Commit();
         return changed;
     }
@@ -581,8 +629,9 @@ public sealed class WorkItemStore
         using var transaction = db.BeginTransaction();
         var changed = db.Execute(@"UPDATE dbo.HrmWorkItem 
             SET Status=@Status, LastActionNote=@Note, UpdatedAt=SYSDATETIME() 
-            WHERE Id=@Id AND Kind='resignation'", new { Id = id, Status = status, Note = note }, transaction) > 0;
+            WHERE Id=@Id AND COALESCE(Status,'')<>@Status AND Kind='resignation'", new { Id = id, Status = status, Note = note }, transaction) > 0;
         if (changed) AddAudit(db, transaction, actorId, status == "APPROVED" ? "APPROVE" : (status == "REJECTED" ? "REJECT" : "UPDATE"), id, $"{status}: {note}", ipAddress);
+        if (changed) NotifyWorkChange(db, transaction, id, status, note);
         transaction.Commit();
         return changed;
     }
@@ -613,7 +662,7 @@ public sealed class WorkItemStore
         using var transaction = db.BeginTransaction();
         var changed = db.Execute(@"UPDATE dbo.HrmWorkItem
             SET Status=@Status, LastActionNote=@Note, UpdatedAt=SYSDATETIME()
-            WHERE Id=@Id AND Kind='transfer'", new { Id = id, Status = status, Note = note }, transaction) > 0;
+            WHERE Id=@Id AND COALESCE(Status,'')<>@Status AND Kind='transfer'", new { Id = id, Status = status, Note = note }, transaction) > 0;
         if (changed)
         {
             var actionCode = status switch
@@ -626,6 +675,7 @@ public sealed class WorkItemStore
             };
             AddAudit(db, transaction, actorId, actionCode, id, $"Cập nhật phiếu luân chuyển #{id}: {status} - {note}", ipAddress);
         }
+        if (changed) NotifyWorkChange(db, transaction, id, status, note);
         transaction.Commit();
         return changed;
     }
@@ -1730,11 +1780,14 @@ public sealed class WorkItemStore
                 SET Status = @NewStatus, 
                     LastActionNote = COALESCE(@Note, LastActionNote), 
                     UpdatedAt = SYSUTCDATETIME()
+                OUTPUT INSERTED.Id
                 WHERE Kind = 'payroll' 
                   AND (Quarter = @Period OR @Period IS NULL)
                   AND Status IN ({allowedStatus})";
 
-            var affected = db.Execute(sql, new { NewStatus = newStatus, Note = note, Period = period }, transaction);
+            var changedIds = db.Query<int>(sql, new { NewStatus = newStatus, Note = note, Period = period }, transaction).ToList();
+            var affected = changedIds.Count;
+            foreach (var id in changedIds) NotifyWorkChange(db, transaction, id, newStatus, note);
 
             if (affected > 0)
             {

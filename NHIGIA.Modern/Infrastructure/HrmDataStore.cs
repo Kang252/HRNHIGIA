@@ -326,6 +326,21 @@ namespace NHIGIA.Modern.Infrastructure
             using (var connection = OpenConnection()) return connection.QuerySingle<LeaveStatsModel>(sql, new { UserId = actor.Id });
         }
 
+        private static void NotifyLeave(SqlConnection connection, SqlTransaction transaction, int id, string label, string note, bool pending = false)
+        {
+            connection.Execute(@"INSERT dbo.HrmNotification(UserId,Title,Message,LinkUrl)
+                SELECT r.UserId,LEFT(CONCAT(@Label,N': ',r.RequestCode),200),LEFT(CONCAT(r.LeaveType,N' · ',@Label,N'. ',@Note),1000),'/Home/LeaveRequests'
+                FROM dbo.HrmLeaveRequest r WHERE r.Id=@Id;
+                IF @Pending=1
+                INSERT dbo.HrmNotification(UserId,Title,Message,LinkUrl)
+                SELECT reviewer.Id,LEFT(CONCAT(N'Chờ duyệt: ',r.RequestCode),200),N'Có yêu cầu nhân sự mới cần xử lý.','/Home/Approvals'
+                FROM dbo.HrmLeaveRequest r JOIN dbo.HrmUserAccount owner ON owner.Id=r.UserId
+                JOIN dbo.HrmUserAccount reviewer ON reviewer.IsActive=1 AND reviewer.Id<>r.UserId
+                  AND (reviewer.RoleCode IN ('ADMIN','HR','DIRECTOR') OR
+                    (r.StatusCode='PENDING_MANAGER' AND owner.RoleCode<>'MANAGER' AND reviewer.RoleCode='MANAGER' AND reviewer.DepartmentId=owner.DepartmentId))
+                WHERE r.Id=@Id;", new { Id=id, Label=label, Note=note, Pending=pending }, transaction);
+        }
+
         public LeaveRequestModel CreateLeave(CreateLeaveRequest request, HrmUserAccountModel actor, string ipAddress)
         {
             var targetUserId = (actor != null && HrmRoles.CanManagePeople(actor.RoleCode) && request.EmployeeId.HasValue && request.EmployeeId.Value > 0)
@@ -341,8 +356,11 @@ namespace NHIGIA.Modern.Infrastructure
                 LEFT JOIN dbo.HrmDepartment d ON d.Id=u.DepartmentId WHERE r.Id=@Id;";
             using (var connection = OpenConnection())
             {
-                var result = connection.QuerySingle<LeaveRequestModel>(sql, new { UserId = targetUserId, request.LeaveType, request.StartDate, request.EndDate, request.SessionCode, request.HandoverTo, request.Reason, request.AttachmentName, request.AttachmentContentType, request.AttachmentContent });
-                AddAudit(connection, actor.Id, "CREATE", "HrmLeaveRequest", result.Id.ToString(), "Gửi đơn yêu cầu " + result.RequestCode, ipAddress);
+                using var transaction = connection.BeginTransaction();
+                var result = connection.QuerySingle<LeaveRequestModel>(sql, new { UserId = targetUserId, request.LeaveType, request.StartDate, request.EndDate, request.SessionCode, request.HandoverTo, request.Reason, request.AttachmentName, request.AttachmentContentType, request.AttachmentContent }, transaction);
+                AddAudit(connection, actor.Id, "CREATE", "HrmLeaveRequest", result.Id.ToString(), "Gửi đơn yêu cầu " + result.RequestCode, ipAddress, transaction);
+                NotifyLeave(connection, transaction, result.Id, "Đã gửi, chờ phê duyệt", null, true);
+                transaction.Commit();
                 return result;
             }
         }
@@ -351,8 +369,11 @@ namespace NHIGIA.Modern.Infrastructure
         {
             using (var connection = OpenConnection())
             {
-                var changed = connection.Execute("UPDATE dbo.HrmLeaveRequest SET StatusCode='CANCELLED', UpdatedAt=SYSDATETIME() WHERE Id=@Id AND UserId=@UserId AND StatusCode IN ('PENDING_MANAGER','PENDING_HR')", new { Id = id, UserId = actor.Id }) > 0;
-                if (changed) AddAudit(connection, actor.Id, "CANCEL", "HrmLeaveRequest", id.ToString(), "Hủy đơn nghỉ phép", ipAddress);
+                using var transaction = connection.BeginTransaction();
+                var changed = connection.Execute("UPDATE dbo.HrmLeaveRequest SET StatusCode='CANCELLED', UpdatedAt=SYSDATETIME() WHERE Id=@Id AND UserId=@UserId AND StatusCode IN ('PENDING_MANAGER','PENDING_HR')", new { Id = id, UserId = actor.Id }, transaction) > 0;
+                if (changed) AddAudit(connection, actor.Id, "CANCEL", "HrmLeaveRequest", id.ToString(), "Hủy đơn nghỉ phép", ipAddress, transaction);
+                if (changed) NotifyLeave(connection, transaction, id, "Đã hủy yêu cầu", null);
+                transaction.Commit();
                 return changed;
             }
         }
@@ -416,11 +437,12 @@ namespace NHIGIA.Modern.Infrastructure
         {
             using (var connection = OpenConnection())
             {
+                using var transaction = connection.BeginTransaction();
                 var target = connection.QuerySingleOrDefault<LeaveRequestModel>(@"
                     SELECT r.Id, r.UserId, r.StatusCode, u.RoleCode, u.DepartmentId
                     FROM dbo.HrmLeaveRequest r
                     INNER JOIN dbo.HrmUserAccount u ON u.Id=r.UserId
-                    WHERE r.Id=@Id", new { request.Id });
+                    WHERE r.Id=@Id", new { request.Id }, transaction);
                 if (target == null) return false;
 
                 // Không được tự phê duyệt đơn của chính mình
@@ -436,8 +458,10 @@ namespace NHIGIA.Modern.Infrastructure
                     WHERE Id=@Id AND StatusCode IN ('PENDING_MANAGER','PENDING_HR')";
                 var param = new { Status = request.Approve ? "APPROVED" : "REJECTED", request.Note, ActorId = actor.Id, request.Id };
 
-                var changed = connection.Execute(sql, param) > 0;
-                if (changed) AddAudit(connection, actor.Id, request.Approve ? "APPROVE" : "REJECT", "HrmLeaveRequest", request.Id.ToString(), request.Note, ipAddress);
+                var changed = connection.Execute(sql, param, transaction) > 0;
+                if (changed) AddAudit(connection, actor.Id, request.Approve ? "APPROVE" : "REJECT", "HrmLeaveRequest", request.Id.ToString(), request.Note, ipAddress, transaction);
+                if (changed) NotifyLeave(connection, transaction, request.Id, request.Approve ? "Đã phê duyệt" : "Đã từ chối", request.Note);
+                transaction.Commit();
                 return changed;
             }
         }
@@ -483,6 +507,7 @@ namespace NHIGIA.Modern.Infrastructure
             var ids = connection.Query<int>(sql, parameters, transaction).ToList();
             if (ids.Count > 0)
                 AddAudit(connection, actor.Id, "APPROVE_ALL", "HrmLeaveRequest", string.Join(",", ids.Take(5)), $"Phê duyệt hàng loạt {ids.Count} đơn nghỉ phép", ipAddress, transaction);
+            foreach (var id in ids) NotifyLeave(connection, transaction, id, actor.RoleCode == HrmRoles.Manager ? "Trưởng phòng đã duyệt, chờ HR" : "Đã phê duyệt", note, actor.RoleCode == HrmRoles.Manager);
             transaction.Commit();
             return ids.Count;
         }
@@ -528,6 +553,26 @@ namespace NHIGIA.Modern.Infrastructure
             return posts;
         }
 
+        private static void NotifyPublishedPost(SqlConnection connection, SqlTransaction transaction, int id)
+        {
+            connection.Execute(@"INSERT dbo.HrmNotification(UserId,Title,Message,LinkUrl)
+                SELECT u.Id,LEFT(CONCAT(N'Bài đăng mới: ',c.Title),200),N'Có bài đăng mới trong truyền thông nội bộ.','/Home/InternalCommunications'
+                FROM dbo.HrmCommunication c JOIN dbo.HrmUserAccount u ON u.IsActive=1 AND u.Id<>c.AuthorUserId
+                AND (c.ScopeCode='ALL' OR (c.ScopeCode='DEPARTMENT' AND u.DepartmentId=c.DepartmentId)
+                  OR (c.ScopeCode='MANAGER' AND u.RoleCode IN ('MANAGER','HR','DIRECTOR','ADMIN')))
+                WHERE c.Id=@Id AND c.IsPublished=1",new { Id=id },transaction);
+        }
+
+        private static void NotifyCommunication(SqlConnection connection, SqlTransaction transaction, int id, string label, string message, int actorId, bool reviewers = false)
+        {
+            connection.Execute(@"INSERT dbo.HrmNotification(UserId,Title,Message,LinkUrl)
+                SELECT u.Id,LEFT(CONCAT(@Label,N': ',c.Title),200),LEFT(@Message,1000),'/Home/InternalCommunications'
+                FROM dbo.HrmCommunication c JOIN dbo.HrmUserAccount u ON u.IsActive=1
+                  AND ((@Reviewers=0 AND u.Id=c.AuthorUserId AND u.Id<>@ActorId)
+                    OR (@Reviewers=1 AND u.RoleCode IN ('ADMIN','HR','DIRECTOR') AND u.Id<>@ActorId))
+                WHERE c.Id=@Id;",new { Id=id, Label=label, Message=message ?? label, ActorId=actorId, Reviewers=reviewers },transaction);
+        }
+
         public CommunicationModel CreateCommunication(CreateCommunicationRequest request, HrmUserAccountModel actor, string ipAddress)
         {
             var scope = (request.ScopeCode ?? "DEPARTMENT").ToUpperInvariant();
@@ -542,8 +587,12 @@ namespace NHIGIA.Modern.Infrastructure
                 FROM dbo.HrmCommunication c INNER JOIN dbo.HrmUserAccount u ON u.Id=c.AuthorUserId WHERE c.Id=@Id;";
             using (var connection = OpenConnection())
             {
-                var result = connection.QuerySingle<CommunicationModel>(sql, new { AuthorUserId = actor.Id, request.Category, ScopeCode = scope, DepartmentId = departmentId, request.Title, request.Body, request.AttachmentName, request.AttachmentContentType, request.AttachmentContent, IsPinned = publishImmediately && request.IsPinned, IsPublished = publishImmediately, StatusCode = publishImmediately ? "PUBLISHED" : "PENDING", ApprovedByUserId = publishImmediately ? actor.Id : (int?)null, ReviewedAt = publishImmediately ? DateTime.Now : (DateTime?)null });
-                AddAudit(connection, actor.Id, publishImmediately ? "PUBLISH" : "SUBMIT", "HrmCommunication", result.Id.ToString(), result.Title, ipAddress);
+                using var transaction = connection.BeginTransaction();
+                var result = connection.QuerySingle<CommunicationModel>(sql, new { AuthorUserId = actor.Id, request.Category, ScopeCode = scope, DepartmentId = departmentId, request.Title, request.Body, request.AttachmentName, request.AttachmentContentType, request.AttachmentContent, IsPinned = publishImmediately && request.IsPinned, IsPublished = publishImmediately, StatusCode = publishImmediately ? "PUBLISHED" : "PENDING", ApprovedByUserId = publishImmediately ? actor.Id : (int?)null, ReviewedAt = publishImmediately ? DateTime.Now : (DateTime?)null }, transaction);
+                AddAudit(connection, actor.Id, publishImmediately ? "PUBLISH" : "SUBMIT", "HrmCommunication", result.Id.ToString(), result.Title, ipAddress, transaction);
+                if (publishImmediately) NotifyPublishedPost(connection, transaction, result.Id);
+                if (!publishImmediately) NotifyCommunication(connection, transaction, result.Id, "Bài đăng chờ duyệt", "Có bài đăng mới cần duyệt.", actor.Id, true);
+                transaction.Commit();
                 return result;
             }
         }
@@ -556,8 +605,12 @@ namespace NHIGIA.Modern.Infrastructure
                     PublishedAt=CASE WHEN @IsPublished=1 THEN SYSDATETIME() ELSE PublishedAt END
                 WHERE Id=@Id AND COALESCE(StatusCode,CASE WHEN IsPublished=1 THEN 'PUBLISHED' ELSE 'PENDING' END)='PENDING';";
             using var connection = OpenConnection();
-            var changed = connection.Execute(sql, new { request.Id, StatusCode = request.Approve ? "PUBLISHED" : "REJECTED", IsPublished = request.Approve, ActorId = actor.Id, Note = string.IsNullOrWhiteSpace(request.Note) ? null : request.Note.Trim() }) == 1;
-            if (changed) AddAudit(connection, actor.Id, request.Approve ? "APPROVE" : "REJECT", "HrmCommunication", request.Id.ToString(), request.Note, ipAddress);
+            using var transaction = connection.BeginTransaction();
+            var changed = connection.Execute(sql, new { request.Id, StatusCode = request.Approve ? "PUBLISHED" : "REJECTED", IsPublished = request.Approve, ActorId = actor.Id, Note = string.IsNullOrWhiteSpace(request.Note) ? null : request.Note.Trim() }, transaction) == 1;
+            if (changed) AddAudit(connection, actor.Id, request.Approve ? "APPROVE" : "REJECT", "HrmCommunication", request.Id.ToString(), request.Note, ipAddress, transaction);
+            if (changed && request.Approve) NotifyPublishedPost(connection, transaction, request.Id);
+            if (changed) NotifyCommunication(connection, transaction, request.Id, request.Approve ? "Bài đăng đã duyệt" : "Bài đăng bị từ chối", request.Note, actor.Id);
+            transaction.Commit();
             return changed;
         }
 
@@ -574,6 +627,7 @@ namespace NHIGIA.Modern.Infrastructure
             if (liked) connection.Execute("DELETE dbo.HrmCommunicationReaction WHERE CommunicationId=@Id AND UserId=@UserId", new { Id = id, UserId = actor.Id }, transaction);
             else connection.Execute("INSERT dbo.HrmCommunicationReaction(CommunicationId,UserId) VALUES(@Id,@UserId)", new { Id = id, UserId = actor.Id }, transaction);
             var count = connection.ExecuteScalar<int>("SELECT COUNT(1) FROM dbo.HrmCommunicationReaction WHERE CommunicationId=@Id", new { Id = id }, transaction);
+            if (!liked) NotifyCommunication(connection, transaction, id, "Tương tác mới", $"{actor.DisplayName} đã thích bài đăng của bạn.", actor.Id);
             transaction.Commit();
             return new { Liked = !liked, Count = count };
         }
@@ -591,9 +645,12 @@ namespace NHIGIA.Modern.Infrastructure
                 END";
             var isManager = actor.RoleCode is HrmRoles.Manager or HrmRoles.Hr or HrmRoles.Director or HrmRoles.Admin;
             using var connection = OpenConnection();
-            var comment = connection.QuerySingleOrDefault<CommunicationCommentModel>(sql, new { CommunicationId = id, AuthorUserId = actor.Id, Body = body.Trim(), actor.DepartmentId, IsManager = isManager });
+            using var transaction = connection.BeginTransaction();
+            var comment = connection.QuerySingleOrDefault<CommunicationCommentModel>(sql, new { CommunicationId = id, AuthorUserId = actor.Id, Body = body.Trim(), actor.DepartmentId, IsManager = isManager }, transaction);
             if (comment == null) throw new InvalidOperationException("Bài đăng không tồn tại hoặc chưa được xuất bản.");
-            AddAudit(connection, actor.Id, "COMMENT", "HrmCommunication", id.ToString(), body, ipAddress);
+            AddAudit(connection, actor.Id, "COMMENT", "HrmCommunication", id.ToString(), body, ipAddress, transaction);
+            NotifyCommunication(connection, transaction, id, "Bình luận mới", $"{actor.DisplayName}: {body}", actor.Id);
+            transaction.Commit();
             return comment;
         }
 

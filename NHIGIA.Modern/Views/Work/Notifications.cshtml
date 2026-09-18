@@ -1,7 +1,7 @@
 @model IReadOnlyList<WorkNotification>
 @{ var unread = Model.Count(x => !x.IsRead); var error = ViewBag.NotificationError as string ?? TempData["NotificationError"] as string; }
 <div class="container-fluid">
- <div class="hrm-page-header"><div><h1 class="hrm-page-title">Thông báo của tôi</h1><p class="hrm-page-subtitle">Lời mời họp, chuyến xe và các cập nhật liên quan đến bạn</p></div>
+ <div class="hrm-page-header"><div><h1 class="hrm-page-title">Thông báo của tôi</h1><p class="hrm-page-subtitle">Yêu cầu, phê duyệt, lịch họp, đào tạo và tương tác bài đăng liên quan đến bạn</p></div>
  <form method="post" asp-action="ReadAllNotifications"><button class="hrm-btn" type="submit" disabled="@(unread == 0 || error != null)"><i class="material-icons">done_all</i> Đánh dấu tất cả đã đọc</button></form></div>
  @if (error != null) { <div class="alert alert-danger" role="alert">@error <a asp-action="Notifications">Thử lại</a></div> }
  <section class="hrm-card notification-card">
