@@ -1,10 +1,16 @@
-<div class="container-fluid">
+<div class="container-fluid hanet-page">
     <div class="hrm-page-header">
         <div><h1 class="hrm-page-title">Tích hợp camera HANET</h1><p class="hrm-page-subtitle">Cấu hình API, webhook và ánh xạ khuôn mặt với nhân viên</p></div>
         <button id="testHanet" class="hrm-btn"><i class="material-icons">network_check</i> Kiểm tra kết nối</button>
     </div>
-    <div class="hrm-grid hrm-grid-2">
-        <div class="hrm-card"><div class="hrm-card-header"><div><h2 class="hrm-card-title">Cấu hình kết nối</h2><p class="hrm-card-subtitle">Thông tin bí mật được mã hóa trước khi lưu</p></div></div><div class="hrm-card-body">
+    <nav class="hanet-tabs" aria-label="Quản lý tích hợp HANET">
+        <button type="button" class="active" data-panel="devices" aria-pressed="true"><i class="material-icons">videocam</i> Thiết bị</button>
+        <button type="button" data-panel="connection" aria-pressed="false"><i class="material-icons">settings_ethernet</i> Kết nối</button>
+        <button type="button" data-panel="mapping" aria-pressed="false"><i class="material-icons">people_alt</i> Ánh xạ nhân viên</button>
+    </nav>
+    <div class="hanet-feedback" id="hanetGlobalStatus" role="status">Đang tải cấu hình kết nối…</div>
+    <div class="hanet-content">
+        <div class="hrm-card hanet-panel" data-hanet-panel="connection" hidden><div class="hrm-card-header"><div><h2 class="hrm-card-title">Cấu hình kết nối</h2><p class="hrm-card-subtitle">Thông tin bí mật được mã hóa trước khi lưu</p></div></div><div class="hrm-card-body">
             <form id="hanetForm">@Html.AntiForgeryToken()
                 <div class="form-group"><label>API base URL</label><input id="hanetApi" class="hrm-control" required /></div>
                 <div class="form-group"><label>OAuth token URL</label><input id="hanetOAuth" class="hrm-control" required /></div>
@@ -17,7 +23,7 @@
                 <div id="hanetStatus" class="hanet-status"></div>
             </form>
         </div></div>
-        <div class="hrm-card"><div class="hrm-card-header"><div><h2 class="hrm-card-title">Ánh xạ nhân viên</h2><p class="hrm-card-subtitle">Ghép Person ID/Alias ID từ HANET với tài khoản HRM</p></div></div><div class="hrm-card-body">
+        <div class="hrm-card hanet-panel" data-hanet-panel="mapping" hidden><div class="hrm-card-header"><div><h2 class="hrm-card-title">Ánh xạ nhân viên</h2><p class="hrm-card-subtitle">Ghép Person ID/Alias ID từ HANET với tài khoản HRM</p></div></div><div class="hrm-card-body">
             <div class="hanet-person-toolbar">
                 <button id="loadHanetPersons" class="hrm-btn hrm-btn-primary" type="button"><i class="material-icons">groups</i> Tải nhân viên HANET</button>
                 <label class="hanet-person-search"><i class="material-icons">search</i><input id="hanetPersonSearch" type="search" placeholder="Tìm theo tên, Person ID hoặc Alias ID" /></label>
@@ -43,12 +49,12 @@
         </div></div>
     </div>
 </div>
-<div class="container-fluid" style="margin-top:24px">
+<div class="container-fluid hanet-page hanet-panel" data-hanet-panel="devices">
  <div class="hrm-card"><div class="hrm-card-header"><div><h2 class="hrm-card-title">Danh sách thiết bị đã lưu</h2><p class="hrm-card-subtitle">Quản lý bản ghi trong HRM; không thay đổi camera hoặc lịch sử chấm công trên HANET.</p></div></div>
  <div class="hrm-card-body">
-  <label>Tìm thiết bị<input id="deviceSearch" class="hrm-control" type="search" placeholder="Tên, Device ID, Place ID hoặc vị trí" /></label>
-  <div style="overflow-x:auto;margin:16px 0"><table class="table"><thead><tr><th>Tên thiết bị</th><th>Device ID</th><th>Place ID</th><th>Vị trí</th><th>Trạng thái quản lý</th><th>Thao tác</th></tr></thead><tbody id="deviceRows"></tbody></table></div>
-  <form id="deviceForm">@Html.AntiForgeryToken()
+  <div class="hanet-device-toolbar"><label class="hanet-device-search" for="deviceSearch"><i class="material-icons" aria-hidden="true">search</i><input id="deviceSearch" type="search" placeholder="Tìm theo tên, Device ID, địa điểm hoặc vị trí…" /></label><button type="button" id="deviceAdd" class="hrm-btn hrm-btn-primary"><i class="material-icons">add</i> Thêm thiết bị</button></div>
+  <div style="overflow-x:auto;margin:16px 0"><table class="hrm-table hanet-device-table"><thead><tr><th>Tên thiết bị</th><th>Device ID</th><th>Place ID</th><th>Vị trí</th><th>Trạng thái quản lý</th><th>Thao tác</th></tr></thead><tbody id="deviceRows"></tbody></table></div>
+  <form id="deviceForm" class="hanet-device-editor" hidden>@Html.AntiForgeryToken()
    <h3 id="deviceEditorTitle">Thêm thiết bị</h3><input name="Id" id="deviceRecordId" type="hidden" value="0" />
    <div class="row">
     <div class="col-sm-6 form-group"><label for="deviceName">Tên thiết bị *</label><input id="deviceName" name="Name" class="hrm-control" required maxlength="150" /></div>
@@ -67,11 +73,11 @@
  var devices=[];
  function safe(v){return $('<div>').text(v==null?'':v).html();}
  function fail(x){$('#deviceMessage').text(x.responseJSON&&x.responseJSON.Message||'Không thể xử lý thiết bị. Vui lòng thử lại.');}
- function render(){var q=($('#deviceSearch').val()||'').toLowerCase();var rows=devices.filter(function(d){return [d.Name,d.DeviceId,d.PlaceId,d.Location].join(' ').toLowerCase().indexOf(q)>=0;});$('#deviceRows').html(rows.length?rows.map(function(d){return '<tr><td>'+safe(d.Name)+'</td><td>'+safe(d.DeviceId)+'</td><td>'+safe(d.PlaceId)+'</td><td>'+safe(d.Location||'—')+'</td><td>'+ (d.IsActive?'Đang sử dụng':'Ngừng sử dụng')+'</td><td><button type="button" class="hrm-btn device-edit" data-id="'+d.Id+'">Sửa</button> <button type="button" class="hrm-btn device-delete" data-id="'+d.Id+'">Xóa</button></td></tr>';}).join(''):'<tr><td colspan="6">Chưa có thiết bị phù hợp. Thêm thiết bị bằng biểu mẫu bên dưới.</td></tr>');}
+ function render(){var q=($('#deviceSearch').val()||'').toLowerCase();var rows=devices.filter(function(d){return [d.Name,d.DeviceId,d.PlaceId,d.Location].join(' ').toLowerCase().indexOf(q)>=0;});$('#deviceRows').html(rows.length?rows.map(function(d){return '<tr><td>'+safe(d.Name)+'</td><td>'+safe(d.DeviceId)+'</td><td>'+safe(d.PlaceId)+'</td><td>'+safe(d.Location||'—')+'</td><td>'+ (d.IsActive?'Đang sử dụng':'Ngừng sử dụng')+'</td><td><button type="button" class="hrm-btn device-edit" data-id="'+d.Id+'">Sửa</button> <button type="button" class="hrm-btn device-delete" data-id="'+d.Id+'">Xóa</button></td></tr>';}).join(''):'<tr><td colspan="6">Chưa có thiết bị phù hợp. Chọn Thêm thiết bị để tạo bản ghi mới.</td></tr>');}
  function load(){$.get('@Url.Action("HanetDevices","Hrm")').done(function(r){devices=r.Data||[];render();}).fail(fail);}
- function reset(){document.getElementById('deviceForm').reset();$('#deviceRecordId').val('0');$('#deviceEditorTitle').text('Thêm thiết bị');}
- $('#deviceSearch').on('input',render);$('#deviceCancel').on('click',reset);
- $('#deviceRows').on('click','.device-edit',function(){var id=Number($(this).attr('data-id'));var d=devices.find(function(x){return x.Id===id;});if(!d)return;$('#deviceRecordId').val(d.Id);$('#deviceName').val(d.Name);$('#deviceCode').val(d.DeviceId);$('#devicePlace').val(d.PlaceId);$('#deviceLocation').val(d.Location);$('#deviceNotes').val(d.Notes);$('#deviceActive').prop('checked',d.IsActive);$('#deviceEditorTitle').text('Sửa thiết bị');document.getElementById('deviceForm').scrollIntoView({behavior:'smooth',block:'center'});});
+ function reset(){document.getElementById('deviceForm').reset();$('#deviceRecordId').val('0');$('#deviceEditorTitle').text('Thêm thiết bị');$('#deviceForm').prop('hidden',true);}
+ $('#deviceAdd').on('click',function(){reset();$('#deviceForm').prop('hidden',false);$('#devicePlace').val($('#hanetPlace').val());$('#deviceName').trigger('focus');});$('#deviceSearch').on('input',render);$('#deviceCancel').on('click',reset);
+ $('#deviceRows').on('click','.device-edit',function(){var id=Number($(this).attr('data-id'));var d=devices.find(function(x){return x.Id===id;});if(!d)return;$('#deviceForm').prop('hidden',false);$('#deviceRecordId').val(d.Id);$('#deviceName').val(d.Name);$('#deviceCode').val(d.DeviceId);$('#devicePlace').val(d.PlaceId);$('#deviceLocation').val(d.Location);$('#deviceNotes').val(d.Notes);$('#deviceActive').prop('checked',d.IsActive);$('#deviceEditorTitle').text('Sửa thiết bị');document.getElementById('deviceForm').scrollIntoView({behavior:'smooth',block:'center'});});
  $('#deviceForm').on('submit',function(e){e.preventDefault();var b=$('#deviceSave').prop('disabled',true);var data=$(this).serializeArray();data.push({name:'IsActive',value:$('#deviceActive').is(':checked')});$.post('@Url.Action("SaveHanetDevice","Hrm")',data).done(function(){reset();load();$('#deviceMessage').text('Đã lưu thiết bị.');}).fail(fail).always(function(){b.prop('disabled',false);});});
  $('#deviceRows').on('click','.device-delete',function(){var id=Number($(this).attr('data-id'));if(!confirm('Xóa bản ghi thiết bị trong HRM? Camera HANET và lịch sử chấm công vẫn được giữ nguyên.'))return;var b=$(this).prop('disabled',true);$.post('@Url.Action("DeleteHanetDevice","Hrm")',{id:id,__RequestVerificationToken:$('#deviceForm input[name=__RequestVerificationToken]').val()}).done(function(){if(Number($('#deviceRecordId').val())===id)reset();load();$('#deviceMessage').text('Đã xóa bản ghi thiết bị.');}).fail(fail).always(function(){b.prop('disabled',false);});});
  load();
@@ -89,7 +95,7 @@
     function loadHanetPlaces(current){$('#hanetPlace').val(current||'');$.post('@Url.Action("TestHanet","Hrm")',{__RequestVerificationToken:token('#hanetForm')}).done(function(r){var places=r.Data||[];placeOptions(places);if(!current&&places.length===1)$('#hanetPlace').val(String(places[0].id));$('#hanetPlaceNote').text(places.length?'Đã tìm thấy '+places.length+' địa điểm. Hãy chọn địa điểm đặt camera chấm công.':'Token hiện không liệt kê địa điểm. Có thể nhập Place ID thủ công nếu đây là địa điểm được chia sẻ.');}).fail(function(x){$('#hanetPlaceNote').text(message(x,'Không thể tải danh sách địa điểm HANET.'));});}
     function suggestedUser(person){var alias=normalize(person.aliasID),name=normalize(person.name),matches=hrmUsers.filter(function(user){return alias&&(alias===normalize(user.EmployeeCode)||alias===normalize(user.Username));});if(matches.length===1)return matches[0].Id;matches=hrmUsers.filter(function(user){return name&&name===normalize(user.DisplayName);});return matches.length===1?matches[0].Id:'';}
     function renderHanetPersons(){var keyword=normalize($('#hanetPersonSearch').val()),rows=hanetPersons.filter(function(person){return !keyword||normalize([person.name,person.personID,person.aliasID,person.title].join(' ')).indexOf(keyword)>=0;});$('#hanetPersonList').prop('hidden',false).html(rows.length?rows.map(function(person){var selected=suggestedUser(person),options='<option value="">Chọn nhân viên HRM</option>'+hrmUsers.map(function(user){return '<option value="'+user.Id+'" '+(String(user.Id)===String(selected)?'selected':'')+'>'+esc(user.DisplayName+' · '+(user.EmployeeCode||user.Username))+'</option>';}).join('');return '<article class="hanet-person-row" data-index="'+hanetPersons.indexOf(person)+'"><div class="hanet-person-avatar">'+(person.avatar?'<img src="'+esc(person.avatar)+'" alt="" />':'<i class="material-icons">person</i>')+'</div><div class="hanet-person-info"><strong>'+esc(person.name||'Chưa đặt tên')+'</strong><span>Person ID: '+esc(person.personID||'--')+'</span><span>Alias ID: '+esc(person.aliasID||'--')+(person.title?' · '+esc(person.title):'')+'</span></div><select class="hrm-control hanet-user-select">'+options+'</select><button class="hrm-btn map-hanet-person" type="button">Lưu ánh xạ</button></article>';}).join(''):'<div class="hrm-empty">Không có nhân viên HANET phù hợp.</div>');}
-    $.get('@Url.Action("HanetSettings","Hrm")').done(function(r){var s=r.Data||{};$('#hanetApi').val(s.ApiBaseUrl);$('#hanetOAuth').val(s.OAuthTokenUrl);$('#hanetClient').val(s.ClientId);$('#hanetWebhook').val(s.WebhookSecret);$('#hanetEnabled').prop('checked',s.IsEnabled);$('#hanetStatus').text(s.LastSyncMessage||'Chưa kiểm tra kết nối.').attr('data-status',s.LastSyncStatus||'NOT_CONFIGURED');loadHanetPlaces(s.PlaceId);});
+    $.get('@Url.Action("HanetSettings","Hrm")').done(function(r){var s=r.Data||{};$('#hanetApi').val(s.ApiBaseUrl);$('#hanetOAuth').val(s.OAuthTokenUrl);$('#hanetClient').val(s.ClientId);$('#hanetWebhook').val(s.WebhookSecret);$('#hanetEnabled').prop('checked',s.IsEnabled);$('#hanetStatus').text(s.LastSyncMessage||'Chưa kiểm tra kết nối.').attr('data-status',s.LastSyncStatus||'NOT_CONFIGURED');$('#hanetGlobalStatus').text(s.LastSyncMessage||'Chưa kiểm tra kết nối. Lưu cấu hình trước khi kiểm tra.');loadHanetPlaces(s.PlaceId);});
     $.get('@Url.Action("Users","Hrm")').done(function(r){hrmUsers=r.Data||[];$('#mapUser').html(hrmUsers.map(function(x){return '<option value="'+x.Id+'">'+esc(x.DisplayName+' · '+(x.DepartmentName||''))+'</option>';}).join(''));});
     $('#hanetForm').on('submit',function(e){e.preventDefault();$.post('@Url.Action("SaveHanetSettings","Hrm")',{__RequestVerificationToken:token('#hanetForm'),ApiBaseUrl:$('#hanetApi').val(),OAuthTokenUrl:$('#hanetOAuth').val(),ClientId:$('#hanetClient').val(),ClientSecret:$('#hanetSecret').val(),AccessToken:$('#hanetToken').val(),PlaceId:$('#hanetPlace').val(),WebhookSecret:$('#hanetWebhook').val(),IsEnabled:$('#hanetEnabled').is(':checked')}).done(function(){$('#hanetMessage').text('Đã lưu cấu hình.');}).fail(function(x){$('#hanetMessage').text(message(x,'Không thể lưu.'));});});
     $('#mapForm').on('submit',function(e){e.preventDefault();$.post('@Url.Action("SaveHanetPersonMap","Hrm")',{__RequestVerificationToken:token('#mapForm'),UserId:$('#mapUser').val(),PersonId:$('#mapPerson').val(),AliasId:$('#mapAlias').val(),PlaceId:$('#hanetPlace').val()}).done(function(){alert('Đã lưu ánh xạ.');}).fail(function(x){alert(message(x,'Không thể lưu ánh xạ.'));});});
@@ -98,7 +104,31 @@
     $('#hanetPersonSearch').on('input',renderHanetPersons);
     $('#hanetPersonList').on('click','.map-hanet-person',function(){var row=$(this).closest('.hanet-person-row'),person=hanetPersons[Number(row.attr('data-index'))],userId=row.find('.hanet-user-select').val(),button=$(this);if(!userId){alert('Vui lòng chọn nhân viên HRM.');return;}button.prop('disabled',true).text('Đang lưu...');$.post('@Url.Action("SaveHanetPersonMap","Hrm")',{__RequestVerificationToken:token('#mapForm'),UserId:userId,PersonId:person.personID||'',AliasId:person.aliasID||'',PlaceId:$('#hanetPlace').val()}).done(function(){button.text('Đã ánh xạ').addClass('hrm-btn-success');}).fail(function(x){button.text('Lưu ánh xạ');alert(message(x,'Không thể lưu ánh xạ.'));}).always(function(){button.prop('disabled',false);});});
     $('#hanetImportForm').on('submit',function(e){e.preventDefault();var result=$('#hanetImportResult').prop('hidden',false).text('Đang kiểm tra và nhập dữ liệu...');var data=new FormData(this);$.ajax({url:'@Url.Action("ImportHanetMappings","Hrm")',method:'POST',data:data,processData:false,contentType:false}).done(function(r){var detail=r.Data||{};var errors=detail.Errors||[];result.empty().append($('<strong>').text(r.Message||'Đã nhập ánh xạ.'));if(errors.length){result.append($('<ul>').append(errors.map(function(x){return $('<li>').text(x);})));}}).fail(function(x){result.text(message(x,'Không thể nhập file ánh xạ.'));});});
-    $('#testHanet').on('click',function(){$.post('@Url.Action("TestHanet","Hrm")',{__RequestVerificationToken:token('#hanetForm')}).done(function(r){$('#hanetStatus').text(r.Message).attr('data-status','SUCCESS');placeOptions(r.Data||[]);}).fail(function(x){$('#hanetStatus').text(message(x,'Kết nối thất bại.')).attr('data-status','FAILED');});});
+    $('#testHanet').on('click',function(){var button=$(this).prop('disabled',true);$('#hanetGlobalStatus').text('Đang kiểm tra kết nối API HANET…');$.post('@Url.Action("TestHanet","Hrm")',{__RequestVerificationToken:token('#hanetForm')}).done(function(r){$('#hanetGlobalStatus').text(r.Message);$('#hanetStatus').text(r.Message).attr('data-status','SUCCESS');placeOptions(r.Data||[]);}).fail(function(x){$('#hanetGlobalStatus').text(message(x,'Kết nối thất bại.'));$('#hanetStatus').text(message(x,'Kết nối thất bại.')).attr('data-status','FAILED');}).always(function(){button.prop('disabled',false);});});
     $('#copyWebhook').on('click',function(){navigator.clipboard.writeText($('#hanetWebhookUrl').text()).then(function(){$('#hanetMessage').text('Đã sao chép URL webhook.');});});
+})();
+</script>
+
+<style>
+.hanet-page{min-width:0}.hanet-panel[hidden],.hanet-device-editor[hidden]{display:none!important}
+.hanet-tabs{display:flex;gap:8px;padding:8px;background:white;border:1px solid #e2e8f0;border-radius:14px;margin-bottom:16px;flex-wrap:wrap}
+.hanet-tabs button{display:flex;align-items:center;gap:10px;border:0;background:transparent;color:#526480;padding:14px 20px;border-radius:10px;font:inherit;font-weight:600;cursor:pointer}
+.hanet-tabs button.active{background:#eaf2ff;color:#1769e0}.hanet-tabs button:focus-visible{outline:2px solid #1769e0;outline-offset:2px}
+.hanet-feedback{padding:12px 16px;background:#eef5ff;border:1px solid #dbeafe;border-radius:10px;margin-bottom:20px;color:#36577a;overflow-wrap:anywhere}
+.hanet-content{display:block}.hanet-page .hrm-card{overflow:hidden}.hanet-page .hrm-card-body{padding:24px}
+.hanet-device-toolbar{display:flex;align-items:center;gap:16px;justify-content:space-between}
+.hanet-device-search{display:flex;align-items:center;gap:10px;border:1px solid #d5dfec;border-radius:10px;padding:12px 16px;flex:1;max-width:650px;margin:0;color:#74849b}
+.hanet-device-search input{border:0;outline:0;width:100%;min-width:0;background:transparent;font:inherit;color:#203650}
+.hanet-device-editor{margin-top:20px;padding:24px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px}.hanet-device-editor h3{margin:0 0 20px;font-size:20px}
+.hanet-page .hanet-person-toolbar{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:20px}.hanet-page .hanet-person-search{display:flex;align-items:center;gap:10px;flex:1;border:1px solid #d5dfec;border-radius:10px;padding:12px;min-width:200px}.hanet-person-search input{min-width:0;width:100%;border:0;background:transparent;outline:0;font:inherit}
+.hanet-page #mapForm{margin-top:24px;padding:20px;border:1px solid #e2e8f0;border-radius:12px}.hanet-page .hanet-import{margin-top:24px;padding:20px;background:#f8fafc;border-radius:12px}
+.hanet-page .hanet-webhook-box{display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:16px;background:#f8fafc;border-radius:10px;margin-top:18px}.hanet-webhook-box code{overflow-wrap:anywhere;min-width:0;flex:1}
+.hanet-device-table td:last-child{white-space:nowrap}
+@@media(min-width:1000px){.hanet-page #hanetForm{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 24px}.hanet-page #hanetForm>.row,.hanet-page #hanetForm>.hanet-webhook-box,.hanet-page #hanetForm>.hanet-status{grid-column:1/-1}}
+@@media(max-width:600px){.hanet-tabs{gap:4px}.hanet-tabs button{flex:1;justify-content:center;padding:12px 6px;gap:6px;font-size:13px}.hanet-tabs button i{font-size:20px}.hanet-device-toolbar{flex-direction:column;align-items:stretch}.hanet-device-search{max-width:none}.hanet-page .hrm-card-body,.hanet-device-editor{padding:16px}.hanet-page .hanet-person-toolbar{flex-direction:column}.hanet-page .hrm-page-header{gap:16px}.hanet-import-heading{display:flex;flex-wrap:wrap;gap:12px}}
+</style>
+<script>
+(function(){
+ $('.hanet-tabs button').on('click',function(){var key=$(this).attr('data-panel');$('.hanet-tabs button').removeClass('active').attr('aria-pressed','false');$(this).addClass('active').attr('aria-pressed','true');$('.hanet-panel').each(function(){$(this).prop('hidden',$(this).attr('data-hanet-panel')!==key);});});
 })();
 </script>
