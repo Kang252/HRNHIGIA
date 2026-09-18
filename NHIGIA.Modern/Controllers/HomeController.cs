@@ -14,7 +14,7 @@ public sealed class HomeController : BaseController
         : base(store, userAccessor) => _configuration = configuration;
 
     public IActionResult Index() { ViewBag.Title = "Trang chủ"; return View(); }
-    public IActionResult CompanyInformation(string section = "introduction")
+    public IActionResult CompanyInformation(string section = "introduction", string brand = "nhigia")
     {
         section = section?.Trim().ToLowerInvariant() switch
         {
@@ -23,6 +23,12 @@ public sealed class HomeController : BaseController
             _ => "introduction"
         };
 
+        ViewBag.CompanyBrand = brand?.Trim().ToLowerInvariant() switch
+        {
+            "gotravel" => "gotravel",
+            "ttp" => "ttp",
+            _ => "nhigia"
+        };
         ViewBag.CompanySection = section;
         ViewBag.Title = section switch
         {

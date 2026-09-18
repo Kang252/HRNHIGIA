@@ -100,6 +100,9 @@ try
         Console.WriteLine("PASS device anti-forgery " + endpoint);
     }
     await Check("/Home/HanetIntegration", "ADMIN", HttpStatusCode.OK, "Danh sách thiết bị đã lưu", "deviceSearch", "SaveHanetDevice", "DeleteHanetDevice");
+    foreach (var brand in new[] { "gotravel", "ttp", "nhigia" })
+        await Check("/Home/CompanyInformation?section=brand&brand=" + brand, "EMPLOYEE", HttpStatusCode.OK,
+            "GoTravel", "TTP", "Nhị Gia", "download=\"" + brand + "-logo.png\"", "company-brand-tabs");
     if (assistantOnly) return;
     await Check("/Home/HanetIntegration", "ADMIN", HttpStatusCode.OK, "Tích hợp camera HANET", "hanetWebhookUrl", "Nhập hàng loạt bằng file", "HanetMappingTemplate", "ImportHanetMappings");
     await Check("/Hrm/HanetMappingTemplate", "ADMIN", HttpStatusCode.OK, "MaNhanVien,TaiKhoan,PersonID,AliasID,PlaceID");

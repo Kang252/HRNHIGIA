@@ -3,6 +3,9 @@
     var isIntroduction = section == "introduction";
     var isRules = section == "rules";
     var isBrand = section == "brand";
+    var brand = (ViewBag.CompanyBrand as string) ?? "nhigia";
+    var brandName = brand switch { "gotravel" => "GoTravel", "ttp" => "TTP", _ => "Nhị Gia" };
+    var brandLogo = brand switch { "gotravel" => "/images/gotravel-logo.png", "ttp" => "/images/ttp-logo.png", _ => "/images/nhigia-logo.png" };
 }
 
 <div class="container-fluid company-info-page">
@@ -14,11 +17,23 @@
         </div>
     </div>
 
+    @if (isBrand)
+    {
+        <nav class="company-info-tabs company-brand-tabs" aria-label="Logo các thương hiệu">
+            @foreach (var item in new[] { (Key: "gotravel", Name: "GoTravel", Logo: "/images/gotravel-logo.png"), (Key: "ttp", Name: "TTP", Logo: "/images/ttp-logo.png"), (Key: "nhigia", Name: "Nhị Gia", Logo: "/images/nhigia-logo.png") })
+            {
+                <a class="@(brand == item.Key ? "active" : "")" asp-action="CompanyInformation" asp-route-section="brand" asp-route-brand="@item.Key" aria-current="@(brand == item.Key ? "page" : null)"><img src="@item.Logo" alt="" asp-append-version="true" />@item.Name</a>
+            }
+        </nav>
+    }
+    else
+    {
     <nav class="company-info-tabs" aria-label="Thông tin công ty">
         <a class="@(isIntroduction ? "active" : "")" asp-action="CompanyInformation" asp-route-section="introduction"><i class="material-icons">business</i>Giới thiệu công ty</a>
         <a class="@(isRules ? "active" : "")" asp-action="CompanyInformation" asp-route-section="rules"><i class="material-icons">gavel</i>Nội quy</a>
         <a class="@(isBrand ? "active" : "")" asp-action="CompanyInformation" asp-route-section="brand"><i class="material-icons">palette</i>Logo mẫu</a>
     </nav>
+    }
 
     @if (isIntroduction)
     {
@@ -53,14 +68,22 @@
     else
     {
         <section class="hrm-card company-brand-card">
-            <div class="company-brand-preview"><span>LOGO CHÍNH THỨC</span><img src="~/images/nhigia-logo.png" asp-append-version="true" alt="Logo chính thức Nhị Gia" /></div>
+            <div class="company-brand-preview"><span>LOGO CHÍNH THỨC</span><img src="@brandLogo" asp-append-version="true" alt="Logo @brandName" /></div>
             <div class="company-brand-content">
                 <span class="company-info-eyebrow">NHẬN DIỆN THƯƠNG HIỆU</span>
-                <h2>Logo Nhị Gia</h2>
+                <h2>Logo @brandName</h2>
                 <p>Sử dụng tệp logo này cho tài liệu nội bộ, biểu mẫu và các ấn phẩm được công ty phê duyệt. Giữ nguyên tỷ lệ, màu sắc và khoảng trống quanh logo.</p>
                 <div class="company-brand-notes"><span><i class="material-icons">check_circle</i>Giữ nguyên tỷ lệ ảnh</span><span><i class="material-icons">check_circle</i>Dùng nền rõ, tương phản</span><span><i class="material-icons">check_circle</i>Không tự ý đổi màu</span></div>
-                <a class="hrm-btn hrm-btn-primary" href="~/images/nhigia-logo.png" download="logo-nhi-gia.png"><i class="material-icons">download</i>Tải logo PNG</a>
+                <a class="hrm-btn hrm-btn-primary" href="@brandLogo" download="@(brand + "-logo.png")"><i class="material-icons">download</i>Tải logo PNG</a>
             </div>
         </section>
     }
 </div>
+
+<style>
+.company-brand-tabs{display:flex;flex-wrap:wrap;gap:12px}
+.company-brand-tabs a{display:flex;align-items:center;gap:12px;min-height:60px}
+.company-brand-tabs a img{width:36px;height:36px;object-fit:contain;border-radius:6px;background:white}
+.company-brand-preview img{object-fit:contain;max-width:100%;height:auto}
+@@media(max-width:600px){.company-brand-tabs{gap:6px}.company-brand-tabs a{flex:1;justify-content:center;min-width:90px;padding:10px 8px;flex-direction:column;gap:6px}}
+</style>
