@@ -523,6 +523,17 @@ public sealed class HrmController : BaseController
 
     private static string NormalizeHeader(string value) => new string((value ?? string.Empty).Where(char.IsLetterOrDigit).Select(char.ToUpperInvariant).ToArray());
 
+    private static string HanetRequestError(JsonObject json, HttpResponseMessage response, string operation, bool usesPlace)
+    {
+        var code = json["returnCode"]?.ToString() ?? json["code"]?.ToString() ?? "không có";
+        var message = json["returnMessage"]?.ToString() ?? json["message"]?.ToString() ?? response.ReasonPhrase;
+        var hint = message?.Contains("Invalid input", StringComparison.OrdinalIgnoreCase) == true
+            ? (usesPlace ? " Kiểm tra Place ID là ID địa điểm HANET, không phải Device ID hoặc tên địa điểm; token phải có quyền truy cập địa điểm đó."
+                : " Kiểm tra Access Token HANET và API URL; không dùng Client ID, Client Secret hoặc mã authorization thay cho Access Token.")
+            : "";
+        return $"HANET từ chối {operation} (HTTP {(int)response.StatusCode}, mã {code}): {message}.{hint}";
+    }
+
     [HttpPost, ValidateAntiForgeryToken]
     [HrmAuthorize(HrmRoles.Admin)]
     public async Task<IActionResult> HanetPersons()
@@ -535,20 +546,41 @@ public sealed class HrmController : BaseController
 
             var endpoint = settings.ApiBaseUrl.TrimEnd('/') + "/person/getListByPlace";
             using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
-            using var response = await client.PostAsync(endpoint, new FormUrlEncodedContent(new Dictionary<string, string>
+            var people = new JsonArray();
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+            const int pageSize = 50;
+            for (var page = 1; page <= 200; page++)
             {
-                ["token"] = settings.AccessToken,
-                ["placeID"] = settings.PlaceId,
-                ["type"] = "0",
-                ["page"] = "0",
-                ["size"] = "500"
-            }));
-            var body = await response.Content.ReadAsStringAsync();
-            var json = JsonNode.Parse(body)?.AsObject() ?? new JsonObject();
-            var code = json["returnCode"]?.ToString() ?? json["code"]?.ToString();
-            var ok = response.IsSuccessStatusCode && (code == "1" || code == "200" || string.IsNullOrEmpty(code));
-            if (!ok) throw new InvalidOperationException("HANET từ chối yêu cầu: " + (json["returnMessage"]?.ToString() ?? json["message"]?.ToString() ?? response.ReasonPhrase));
-            return Json(ApiResponse.Ok(json["data"], "Đã tải danh sách nhân viên từ HANET."));
+                using var response = await client.PostAsync(endpoint, new FormUrlEncodedContent(new Dictionary<string, string>
+                {
+                    ["token"] = settings.AccessToken.Trim(),
+                    ["placeID"] = settings.PlaceId.Trim(),
+                    ["type"] = "0",
+                    ["page"] = page.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    ["size"] = pageSize.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                }), HttpContext.RequestAborted);
+                var body = await response.Content.ReadAsStringAsync(HttpContext.RequestAborted);
+                var json = JsonNode.Parse(body)?.AsObject() ?? new JsonObject();
+                var code = json["returnCode"]?.ToString() ?? json["code"]?.ToString();
+                var ok = response.IsSuccessStatusCode && (code == "1" || code == "200" || string.IsNullOrEmpty(code));
+                if (!ok) throw new InvalidOperationException(HanetRequestError(json, response, $"tải danh sách nhân viên, trang {page}", true));
+                if (json["data"] is not JsonArray rows)
+                    throw new InvalidOperationException("HANET trả danh sách nhân viên không đúng định dạng.");
+                var added = 0;
+                foreach (var person in rows)
+                {
+                    if (person == null) continue;
+                    var key = person["personID"]?.ToString() ?? person.ToJsonString();
+                    if (!seen.Add(key)) continue;
+                    people.Add(person.DeepClone());
+                    added++;
+                }
+                if (rows.Count < pageSize)
+                    return Json(ApiResponse.Ok(people, $"Đã tải {people.Count} nhân viên từ HANET."));
+                if (added == 0)
+                    throw new InvalidOperationException("HANET trả lặp lại trang nhân viên. Không thể xác nhận đã tải đủ danh sách.");
+            }
+            throw new InvalidOperationException("Danh sách HANET vượt giới hạn 10.000 người. Vui lòng kiểm tra địa điểm và phân trang.");
         }
         catch (Exception exception)
         {
@@ -567,12 +599,12 @@ public sealed class HrmController : BaseController
             if (string.IsNullOrWhiteSpace(settings.AccessToken)) throw new InvalidOperationException("Chưa có access token HANET.");
             var endpoint = settings.ApiBaseUrl.TrimEnd('/') + "/place/getPlaces";
             using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(20) };
-            using var response = await client.PostAsync(endpoint, new FormUrlEncodedContent(new Dictionary<string, string> { ["token"] = settings.AccessToken }));
+            using var response = await client.PostAsync(endpoint, new FormUrlEncodedContent(new Dictionary<string, string> { ["token"] = settings.AccessToken.Trim() }));
             var body = await response.Content.ReadAsStringAsync();
             var json = JsonNode.Parse(body)?.AsObject() ?? new JsonObject();
             var code = json["returnCode"]?.ToString() ?? json["code"]?.ToString();
             var ok = response.IsSuccessStatusCode && (code == "1" || code == "200" || string.IsNullOrEmpty(code));
-            var message = ok ? "Kết nối HANET thành công." : "HANET từ chối yêu cầu: " + (json["returnMessage"]?.ToString() ?? json["message"]?.ToString() ?? response.ReasonPhrase);
+            var message = ok ? "Kết nối HANET thành công." : HanetRequestError(json, response, "kiểm tra kết nối", false);
             Store.UpdateHanetSyncStatus(ok ? "SUCCESS" : "FAILED", message);
             return ok ? Json(ApiResponse.Ok(json["data"], message)) : BadRequest(ApiResponse.Fail(message));
         }
@@ -715,8 +747,8 @@ public sealed class HrmController : BaseController
             using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(45) };
             using var response = await client.PostAsync(endpoint, new FormUrlEncodedContent(new Dictionary<string, string>
             {
-                ["token"] = settings.AccessToken,
-                ["placeID"] = settings.PlaceId,
+                ["token"] = settings.AccessToken.Trim(),
+                ["placeID"] = settings.PlaceId.Trim(),
                 ["date"] = today.ToString("yyyy-MM-dd"),
                 ["type"] = "0",
                 ["exType"] = "1,2",
@@ -727,7 +759,7 @@ public sealed class HrmController : BaseController
             var json = JsonNode.Parse(body)?.AsObject() ?? new JsonObject();
             var code = json["returnCode"]?.ToString() ?? json["code"]?.ToString();
             if (!response.IsSuccessStatusCode || (code != "1" && code != "200" && !string.IsNullOrEmpty(code)))
-                throw new InvalidOperationException("HANET từ chối yêu cầu: " + (json["returnMessage"]?.ToString() ?? json["message"]?.ToString() ?? response.ReasonPhrase));
+                throw new InvalidOperationException(HanetRequestError(json, response, "tải ảnh chấm công", true));
 
             var rows = json["data"] as JsonArray ?? new JsonArray();
             if (rows.Count == 0) throw new InvalidOperationException("Hôm nay chưa có ảnh chấm công trên HANET.");

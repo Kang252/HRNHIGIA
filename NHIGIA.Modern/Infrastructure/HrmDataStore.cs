@@ -812,6 +812,11 @@ namespace NHIGIA.Modern.Infrastructure
 
         public void SaveHanetSettings(HanetSettingsModel settings, HrmUserAccountModel actor, string ipAddress)
         {
+            settings.AccessToken = settings.AccessToken?.Trim();
+            settings.PlaceId = settings.PlaceId?.Trim();
+            settings.ApiBaseUrl = settings.ApiBaseUrl?.Trim().TrimEnd('/');
+            settings.OAuthTokenUrl = settings.OAuthTokenUrl?.Trim();
+
             const string sql = @"UPDATE dbo.HrmHanetSettings SET ApiBaseUrl=@ApiBaseUrl, OAuthTokenUrl=@OAuthTokenUrl,
                 ClientId=@ClientId, ProtectedClientSecret=COALESCE(@ProtectedClientSecret, ProtectedClientSecret),
                 ProtectedAccessToken=COALESCE(@ProtectedAccessToken, ProtectedAccessToken), PlaceId=@PlaceId,
