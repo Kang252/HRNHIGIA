@@ -26,14 +26,6 @@
             }
         </nav>
     }
-    else
-    {
-    <nav class="company-info-tabs" aria-label="Thông tin công ty">
-        <a class="@(isIntroduction ? "active" : "")" asp-action="CompanyInformation" asp-route-section="introduction"><i class="material-icons">business</i>Giới thiệu công ty</a>
-        <a class="@(isRules ? "active" : "")" asp-action="CompanyInformation" asp-route-section="rules"><i class="material-icons">gavel</i>Nội quy</a>
-        <a class="@(isBrand ? "active" : "")" asp-action="CompanyInformation" asp-route-section="brand"><i class="material-icons">palette</i>Logo mẫu</a>
-    </nav>
-    }
 
     @if (isIntroduction)
     {
