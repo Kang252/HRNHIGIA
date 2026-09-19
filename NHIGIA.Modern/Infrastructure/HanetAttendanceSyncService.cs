@@ -103,8 +103,9 @@ public sealed class HanetAttendanceSyncService : BackgroundService
 
     private static string Value(JsonObject source, params string[] names)
     {
-        foreach (var property in source)
-            if (names.Any(x => string.Equals(x, property.Key, StringComparison.OrdinalIgnoreCase))) return property.Value?.ToString();
+        foreach (var name in names)
+            foreach (var property in source)
+                if (string.Equals(name, property.Key, StringComparison.OrdinalIgnoreCase)) return property.Value?.ToString();
         return null;
     }
 
