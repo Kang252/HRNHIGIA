@@ -37,11 +37,18 @@ public sealed class HanetAttendanceSyncService : BackgroundService
     }
 
     public async Task<HanetAttendanceSyncResult> SynchronizeToday(CancellationToken stoppingToken)
+        => await SynchronizeDate(HrmDataStore.CurrentVietnamTime().Date, stoppingToken);
+
+    public async Task<HanetAttendanceSyncResult> SynchronizeDate(DateTime date, CancellationToken stoppingToken)
     {
+        date = date.Date;
+        var today = HrmDataStore.CurrentVietnamTime().Date;
+        if (date > today) throw new InvalidOperationException("Không thể đồng bộ ngày trong tương lai.");
+        if (date < today.AddDays(-31)) throw new InvalidOperationException("Chỉ hỗ trợ đồng bộ lại dữ liệu trong 31 ngày gần nhất.");
         await _syncLock.WaitAsync(stoppingToken);
         try
         {
-            return await SynchronizeTodayCore(stoppingToken);
+            return await SynchronizeDateCore(date, stoppingToken);
         }
         finally
         {
@@ -49,14 +56,13 @@ public sealed class HanetAttendanceSyncService : BackgroundService
         }
     }
 
-    private async Task<HanetAttendanceSyncResult> SynchronizeTodayCore(CancellationToken stoppingToken)
+    private async Task<HanetAttendanceSyncResult> SynchronizeDateCore(DateTime date, CancellationToken stoppingToken)
     {
         var settings = _store.GetHanetSettings(true);
         if (!settings.IsEnabled) throw new InvalidOperationException("Tích hợp HANET đang tắt.");
         if (string.IsNullOrWhiteSpace(settings.AccessToken)) throw new InvalidOperationException("Chưa có Access Token HANET.");
         if (string.IsNullOrWhiteSpace(settings.PlaceId)) throw new InvalidOperationException("Chưa có Place ID HANET.");
 
-        var date = HrmDataStore.CurrentVietnamTime().Date;
         var elapsed = System.Diagnostics.Stopwatch.StartNew();
         var endpoint = settings.ApiBaseUrl.TrimEnd('/') + "/person/getCheckinByPlaceIdInDay";
         var client = _clients.CreateClient("Hanet");

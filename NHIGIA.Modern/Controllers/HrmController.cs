@@ -541,12 +541,14 @@ public sealed class HrmController : BaseController
 
     [HttpPost, ValidateAntiForgeryToken]
     [HrmAuthorize(HrmRoles.Admin)]
-    public async Task<IActionResult> SyncHanetAttendanceToday()
+    public async Task<IActionResult> SyncHanetAttendanceToday(DateTime? date = null)
     {
         try
         {
-            var result = await _hanetAttendanceSync.SynchronizeToday(HttpContext.RequestAborted);
-            return Json(ApiResponse.Ok(result, $"Đã nhận {result.Received} lượt HANET và thêm {result.Inserted} lượt mới."));
+            var result = date.HasValue
+                ? await _hanetAttendanceSync.SynchronizeDate(date.Value, HttpContext.RequestAborted)
+                : await _hanetAttendanceSync.SynchronizeToday(HttpContext.RequestAborted);
+            return Json(ApiResponse.Ok(result, $"Đã đồng bộ {result.Date:dd/MM/yyyy}: nhận {result.Received} lượt HANET và thêm {result.Inserted} lượt mới."));
         }
         catch (Exception exception)
         {
