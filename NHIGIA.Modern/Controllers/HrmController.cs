@@ -3,6 +3,7 @@ using System.Text.Json.Nodes;
 using System.IO.Compression;
 using ClosedXML.Excel;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Caching.Memory;
 using NHIGIA.Modern.Infrastructure;
 using NHIGIA.Modern.Models;
 
@@ -12,12 +13,19 @@ public sealed class HrmController : BaseController
 {
     private readonly ILogger<HrmController> _logger;
     private readonly WorkItemStore _workStore;
+    private readonly IHttpClientFactory _httpClientFactory;
+    private readonly IMemoryCache _cache;
+    private readonly HanetAttendanceSyncService _hanetAttendanceSync;
 
-    public HrmController(HrmDataStore store, HrmUserAccessor userAccessor, ILogger<HrmController> logger, WorkItemStore workStore)
+    public HrmController(HrmDataStore store, HrmUserAccessor userAccessor, ILogger<HrmController> logger, WorkItemStore workStore,
+        IHttpClientFactory httpClientFactory, IMemoryCache cache, HanetAttendanceSyncService hanetAttendanceSync)
         : base(store, userAccessor)
     {
         _logger = logger;
         _workStore = workStore;
+        _httpClientFactory = httpClientFactory;
+        _cache = cache;
+        _hanetAttendanceSync = hanetAttendanceSync;
     }
 
     private string ClientIp => HttpContext.Connection.RemoteIpAddress?.ToString();
@@ -533,7 +541,23 @@ public sealed class HrmController : BaseController
 
     [HttpPost, ValidateAntiForgeryToken]
     [HrmAuthorize(HrmRoles.Admin)]
-    public async Task<IActionResult> HanetPersons()
+    public async Task<IActionResult> SyncHanetAttendanceToday()
+    {
+        try
+        {
+            var result = await _hanetAttendanceSync.SynchronizeToday(HttpContext.RequestAborted);
+            return Json(ApiResponse.Ok(result, $"Đã nhận {result.Received} lượt HANET và thêm {result.Inserted} lượt mới."));
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(exception, "Manual HANET attendance synchronization failed");
+            return BadRequest(ApiResponse.Fail(exception.Message));
+        }
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    [HrmAuthorize(HrmRoles.Admin)]
+    public async Task<IActionResult> HanetPersons(bool refresh = false)
     {
         try
         {
@@ -541,8 +565,15 @@ public sealed class HrmController : BaseController
             if (string.IsNullOrWhiteSpace(settings.AccessToken)) throw new InvalidOperationException("Chưa có access token HANET.");
             if (string.IsNullOrWhiteSpace(settings.PlaceId)) throw new InvalidOperationException("Chưa cấu hình Place ID.");
 
+            var cacheKey = $"hanet-persons:{settings.PlaceId.Trim()}:{settings.AccessToken.GetHashCode()}";
+            if (!refresh && _cache.TryGetValue<JsonArray>(cacheKey, out var cached) && cached != null)
+                return Json(ApiResponse.Ok(cached.DeepClone(), $"Đã tải {cached.Count} nhân viên từ bộ nhớ tạm. Bấm tải lại để làm mới từ HANET."));
+
             var endpoint = settings.ApiBaseUrl.TrimEnd('/') + "/person/getListByPlace";
-            using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+            var client = _httpClientFactory.CreateClient("Hanet");
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(HttpContext.RequestAborted);
+            timeout.CancelAfter(TimeSpan.FromSeconds(60));
+            var elapsed = System.Diagnostics.Stopwatch.StartNew();
             var people = new JsonArray();
             var seen = new HashSet<string>(StringComparer.Ordinal);
             const int pageSize = 50;
@@ -555,8 +586,8 @@ public sealed class HrmController : BaseController
                     ["type"] = "0",
                     ["page"] = page.ToString(System.Globalization.CultureInfo.InvariantCulture),
                     ["size"] = pageSize.ToString(System.Globalization.CultureInfo.InvariantCulture)
-                }), HttpContext.RequestAborted);
-                var body = await response.Content.ReadAsStringAsync(HttpContext.RequestAborted);
+                }), timeout.Token);
+                var body = await response.Content.ReadAsStringAsync(timeout.Token);
                 var json = JsonNode.Parse(body)?.AsObject() ?? new JsonObject();
                 var code = json["returnCode"]?.ToString() ?? json["code"]?.ToString();
                 var ok = response.IsSuccessStatusCode && (code == "1" || code == "200" || string.IsNullOrEmpty(code));
@@ -573,7 +604,10 @@ public sealed class HrmController : BaseController
                     added++;
                 }
                 if (rows.Count < pageSize)
-                    return Json(ApiResponse.Ok(people, $"Đã tải {people.Count} nhân viên từ HANET."));
+                {
+                    _cache.Set(cacheKey, (JsonArray)people.DeepClone(), TimeSpan.FromMinutes(10));
+                    return Json(ApiResponse.Ok(people, $"Đã tải {people.Count} nhân viên từ HANET trong {elapsed.Elapsed.TotalSeconds:0.0} giây; dữ liệu được lưu tạm 10 phút."));
+                }
                 if (added == 0)
                     throw new InvalidOperationException("HANET trả lặp lại trang nhân viên. Không thể xác nhận đã tải đủ danh sách.");
             }
@@ -582,7 +616,10 @@ public sealed class HrmController : BaseController
         catch (Exception exception)
         {
             _logger.LogError(exception, "HANET person list failed");
-            return BadRequest(ApiResponse.Fail(exception.Message));
+            var message = exception is OperationCanceledException
+                ? "HANET phản hồi quá chậm. Yêu cầu đã dừng sau 60 giây; dữ liệu chấm công nhận qua webhook vẫn hoạt động bình thường."
+                : exception.Message;
+            return BadRequest(ApiResponse.Fail(message));
         }
     }
 
@@ -595,7 +632,7 @@ public sealed class HrmController : BaseController
             var settings = Store.GetHanetSettings(true);
             if (string.IsNullOrWhiteSpace(settings.AccessToken)) throw new InvalidOperationException("Chưa có access token HANET.");
             var endpoint = settings.ApiBaseUrl.TrimEnd('/') + "/place/getPlaces";
-            using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(20) };
+            var client = _httpClientFactory.CreateClient("Hanet");
             using var response = await client.PostAsync(endpoint, new FormUrlEncodedContent(new Dictionary<string, string> { ["token"] = settings.AccessToken.Trim() }));
             var body = await response.Content.ReadAsStringAsync();
             var json = JsonNode.Parse(body)?.AsObject() ?? new JsonObject();
@@ -742,7 +779,7 @@ public sealed class HrmController : BaseController
             var vietnam = TimeZoneInfo.FindSystemTimeZoneById(OperatingSystem.IsWindows() ? "SE Asia Standard Time" : "Asia/Bangkok");
             var today = TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, vietnam).Date;
             var endpoint = settings.ApiBaseUrl.TrimEnd('/') + "/person/getCheckinByPlaceIdInDay";
-            using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(45) };
+            var client = _httpClientFactory.CreateClient("Hanet");
             using var response = await client.PostAsync(endpoint, new FormUrlEncodedContent(new Dictionary<string, string>
             {
                 ["token"] = settings.AccessToken.Trim(),
@@ -762,6 +799,7 @@ public sealed class HrmController : BaseController
             var rows = json["data"] as JsonArray ?? new JsonArray();
             if (rows.Count == 0) throw new InvalidOperationException("Hôm nay chưa có ảnh chấm công trên HANET.");
             using var output = new MemoryStream();
+            var downloadedImages = 0;
             using (var archive = new ZipArchive(output, ZipArchiveMode.Create, true))
             {
                 var manifest = new StringBuilder("Nhan vien,Thoi gian,Dia diem,Thiet bi,Person ID,Alias ID,Ten file\r\n");
@@ -783,11 +821,12 @@ public sealed class HrmController : BaseController
                         var entry = archive.CreateEntry(fileName, CompressionLevel.Fastest);
                         await using var stream = entry.Open();
                         await stream.WriteAsync(bytes);
+                        downloadedImages++;
                         manifest.AppendLine(string.Join(',', CsvValue(personName), CsvValue(checkTime.ToString("dd/MM/yyyy HH:mm:ss")), CsvValue(HanetValue(node, "place", "placeName")), CsvValue(HanetValue(node, "deviceName", "deviceID")), CsvValue(HanetValue(node, "personID")), CsvValue(HanetValue(node, "aliasID")), CsvValue(fileName)));
                     }
                     catch (Exception exception) { failures.Add($"{personName} - {checkTime:HH:mm:ss}: {exception.Message}"); }
                 }
-                if (!archive.Entries.Any(x => !x.FullName.EndsWith(".csv", StringComparison.OrdinalIgnoreCase))) throw new InvalidOperationException("HANET chưa trả về ảnh chấm công có thể tải trong hôm nay.");
+                if (downloadedImages == 0) throw new InvalidOperationException("HANET chưa trả về ảnh chấm công có thể tải trong hôm nay.");
                 var csvEntry = archive.CreateEntry("danh-sach-cham-cong.csv", CompressionLevel.Fastest);
                 await using (var stream = csvEntry.Open()) await stream.WriteAsync(Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(manifest.ToString())).ToArray());
                 if (failures.Count > 0)

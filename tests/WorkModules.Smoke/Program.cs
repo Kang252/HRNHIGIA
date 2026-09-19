@@ -72,7 +72,7 @@ try
     }
     if (attendanceOnly)
     {
-        await Check("/Home/Attendance", "ADMIN", HttpStatusCode.OK, "Đang cập nhật", "Lần quét gần nhất", "Chờ kết thúc ca", "IsProvisional");
+        await Check("/Home/Attendance", "ADMIN", HttpStatusCode.OK, "Đang cập nhật", "Lần quét gần nhất", "Chờ kết thúc ca", "IsProvisional", "Đồng bộ hôm nay", "SyncHanetAttendanceToday");
         return;
     }
     await Check("/Work?kind=kpi", null, HttpStatusCode.Redirect);
@@ -102,7 +102,7 @@ try
     }
     foreach (var role in new[] { "EMPLOYEE", "MANAGER", "HR", "DIRECTOR" })
         await Check("/Hrm/HanetDevices", role, HttpStatusCode.Redirect);
-    foreach (var endpoint in new[] { "SaveHanetDevice", "DeleteHanetDevice" })
+    foreach (var endpoint in new[] { "SaveHanetDevice", "DeleteHanetDevice", "SyncHanetAttendanceToday" })
     {
         using var devicePost = new HttpRequestMessage(HttpMethod.Post, "/Hrm/" + endpoint);
         devicePost.Headers.Add("Cookie", Cookie("ADMIN"));

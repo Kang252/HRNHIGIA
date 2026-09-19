@@ -7,6 +7,7 @@
         </div>
         <div class="hrm-header-actions">
             @if (canConfigureHanet) { <a class="hrm-btn" href="@Url.Action("HanetIntegration", "Home")"><i class="material-icons">sync</i> Cấu hình thiết bị</a> }
+            @if (canConfigureHanet) { <button id="syncAttendanceToday" class="hrm-btn" type="button"><i class="material-icons">sync_alt</i> Đồng bộ hôm nay</button> }
             @if (canConfigureHanet) { <button id="exportAttendanceImages" class="hrm-btn" type="button"><i class="material-icons">photo_library</i> Xuất ảnh hôm nay</button> }
             <button id="exportAttendance" class="hrm-btn" type="button"><i class="material-icons">file_download</i> Xuất Excel</button>
             <a class="hrm-btn hrm-btn-primary" href="@Url.Action("WorkSchedules", "Home")"><i class="material-icons">event_available</i> Phân lịch</a>
@@ -46,6 +47,7 @@
         </div>
     </div>
 </div>
+@if (canConfigureHanet) { <form id="attendanceSyncForm" hidden>@Html.AntiForgeryToken()</form> }
 
 <script>
 (function(){
@@ -62,6 +64,7 @@
     function load(){var badge=$('#attendanceSourceBadge').text('Đang tải dữ liệu...').removeClass('hrm-badge-success hrm-badge-warning').addClass('hrm-badge-neutral');$.get('@Url.Action("Attendance","Hrm")',{fromDate:$('#attendanceFrom').val(),toDate:$('#attendanceTo').val()}).done(function(r){all=r.Data||[];var sources={};all.forEach(function(x){sources[x.Source||'Thiết bị']=true;});var names=Object.keys(sources);badge.text(all.length?(names.join(', ')+' · '+all.length+' bản ghi'):'Không có dữ liệu trong kỳ').toggleClass('hrm-badge-success',all.length>0).toggleClass('hrm-badge-neutral',!all.length);render();}).fail(function(x){badge.text('Lỗi tải dữ liệu').removeClass('hrm-badge-neutral').addClass('hrm-badge-warning');empty('Không thể tải dữ liệu',(x.responseJSON&&x.responseJSON.Message)||'Vui lòng tải lại trang.',8);});}
     $('[data-attendance-view]').on('click',function(){view=this.dataset.attendanceView;$('[data-attendance-view]').removeClass('active').attr('aria-selected','false');$(this).addClass('active').attr('aria-selected','true');render();});
     $('#attendanceFrom').val(moment().startOf('month').format('YYYY-MM-DD'));$('#attendanceTo').val(moment().format('YYYY-MM-DD'));$('#filterAttendance').off('click').on('click',load);$('#attendanceSearch,#attendanceStatus').on('input change',render);$('#exportAttendance').off('click').on('click',function(){window.location='@Url.Action("AttendanceXlsx","Hrm")?fromDate='+$('#attendanceFrom').val()+'&toDate='+$('#attendanceTo').val();});load();
+    $('#syncAttendanceToday').on('click',function(){var button=$(this).prop('disabled',true),badge=$('#attendanceSourceBadge').text('Đang đồng bộ HANET; bạn vẫn có thể dùng các phần khác...');$.post('@Url.Action("SyncHanetAttendanceToday","Hrm")',{__RequestVerificationToken:$('#attendanceSyncForm input[name="__RequestVerificationToken"]').val()}).done(function(r){badge.text(r.Message||'Đồng bộ HANET hoàn tất.');load();}).fail(function(x){badge.text(x.responseJSON&&x.responseJSON.Message||'Không thể đồng bộ HANET.').removeClass('hrm-badge-success').addClass('hrm-badge-warning');}).always(function(){button.prop('disabled',false);});});
     $('#exportAttendanceImages').on('click',function(){var button=$(this);button.prop('disabled',true);fetch('@Url.Action("AttendanceImagesToday","Hrm")').then(async function(response){if(!response.ok){var error=await response.json().catch(function(){return null;});throw new Error(error&&error.Message||'Không thể xuất ảnh chấm công.');}var blob=await response.blob(),url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download='anh-cham-cong-'+moment().format('YYYY-MM-DD')+'.zip';document.body.appendChild(link);link.click();link.remove();URL.revokeObjectURL(url);}).catch(function(error){alert(error.message);}).finally(function(){button.prop('disabled',false);});});
 })();
 </script>

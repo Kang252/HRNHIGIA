@@ -909,6 +909,28 @@ namespace NHIGIA.Modern.Infrastructure
             }
         }
 
+        public int SaveAttendanceEvents(IEnumerable<HanetWebhookEvent> items)
+        {
+            var rows = (items ?? Enumerable.Empty<HanetWebhookEvent>()).Where(x => !string.IsNullOrWhiteSpace(x.EventKey)).ToList();
+            if (rows.Count == 0) return 0;
+            const string sql = @"WITH Source AS (
+                    SELECT EventKey,PersonId,AliasId,PlaceId,DeviceId,CheckTime,EventType,PayloadJson
+                    FROM OPENJSON(@Json) WITH (
+                        EventKey NVARCHAR(200), PersonId NVARCHAR(100), AliasId NVARCHAR(100), PlaceId NVARCHAR(100),
+                        DeviceId NVARCHAR(100), CheckTime DATETIME2, EventType NVARCHAR(50), PayloadJson NVARCHAR(MAX))
+                )
+                INSERT dbo.HrmAttendanceEvent(EventKey,UserId,PersonId,AliasId,PlaceId,DeviceId,CheckTime,EventType,PayloadJson)
+                SELECT s.EventKey,m.UserId,s.PersonId,s.AliasId,s.PlaceId,s.DeviceId,s.CheckTime,s.EventType,s.PayloadJson
+                FROM Source s
+                OUTER APPLY (SELECT TOP 1 UserId FROM dbo.HrmHanetPersonMap
+                    WHERE IsActive=1 AND ((s.PersonId IS NOT NULL AND PersonId=s.PersonId) OR (s.AliasId IS NOT NULL AND AliasId=s.AliasId))) m
+                WHERE NOT EXISTS(SELECT 1 FROM dbo.HrmAttendanceEvent e WHERE e.EventKey=s.EventKey);
+                SELECT @@ROWCOUNT;";
+            var json = System.Text.Json.JsonSerializer.Serialize(rows);
+            using var connection = OpenConnection();
+            return connection.ExecuteScalar<int>(sql, new { Json = json });
+        }
+
         private static void AddAudit(IDbConnection connection, int? userId, string action, string entityType, string entityId, string detail, string ipAddress, IDbTransaction transaction = null)
         {
             connection.Execute("INSERT dbo.HrmAuditLog(UserId, ActionCode, EntityType, EntityId, Detail, IpAddress) VALUES(@UserId,@Action,@EntityType,@EntityId,@Detail,@IpAddress)", new { UserId = userId, Action = action, EntityType = entityType, EntityId = entityId, Detail = detail, IpAddress = ipAddress }, transaction);

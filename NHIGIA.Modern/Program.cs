@@ -50,7 +50,10 @@ else
         .Configure<SqlDataProtectionKeyRepository>((options, repository) => options.XmlRepository = repository);
 }
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<HrmDataStore>();
+builder.Services.AddSingleton<HanetAttendanceSyncService>();
+builder.Services.AddHostedService(provider => provider.GetRequiredService<HanetAttendanceSyncService>());
 
 builder.Services.AddScoped<WorkItemStore>();
 builder.Services.AddScoped<HrmUserAccessor>();
@@ -59,6 +62,14 @@ builder.Services.AddHttpClient<GeminiAssistantClient>(client =>
 {
     client.BaseAddress = new Uri("https://generativelanguage.googleapis.com/");
     client.Timeout = TimeSpan.FromSeconds(20);
+});
+builder.Services.AddHttpClient("Hanet", client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(30);
+    client.DefaultRequestHeaders.UserAgent.ParseAdd("NHIGIA-HRM/1.0");
+}).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+{
+    AutomaticDecompression = System.Net.DecompressionMethods.GZip | System.Net.DecompressionMethods.Deflate
 });
 
 var app = builder.Build();
