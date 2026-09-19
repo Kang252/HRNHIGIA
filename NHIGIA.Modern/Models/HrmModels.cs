@@ -159,6 +159,7 @@ namespace NHIGIA.Modern.Models
         public TimeSpan EndTime { get; set; }
         public int BreakMinutes { get; set; }
         public int GraceMinutes { get; set; }
+        public int WorkDaysMask { get; set; }
         public DateTime EffectiveFrom { get; set; }
         public DateTime? EffectiveTo { get; set; }
         public string StatusCode { get; set; }
@@ -174,6 +175,7 @@ namespace NHIGIA.Modern.Models
         public string EndTime { get; set; }
         public int BreakMinutes { get; set; }
         public int GraceMinutes { get; set; }
+        public int WorkDaysMask { get; set; } = 62;
         public DateTime EffectiveFrom { get; set; }
         public DateTime? EffectiveTo { get; set; }
     }

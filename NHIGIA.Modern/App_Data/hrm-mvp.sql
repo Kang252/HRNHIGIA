@@ -143,6 +143,7 @@ BEGIN
         EndTime TIME NOT NULL,
         BreakMinutes INT NOT NULL CONSTRAINT DF_HrmEmployeeSchedule_Break DEFAULT (60),
         GraceMinutes INT NOT NULL CONSTRAINT DF_HrmEmployeeSchedule_Grace DEFAULT (5),
+        WorkDaysMask INT NOT NULL CONSTRAINT DF_HrmEmployeeSchedule_WorkDaysMask DEFAULT (127),
         EffectiveFrom DATE NOT NULL,
         EffectiveTo DATE NULL,
         StatusCode NVARCHAR(30) NOT NULL CONSTRAINT DF_HrmEmployeeSchedule_Status DEFAULT ('ACTIVE'),
@@ -155,6 +156,11 @@ BEGIN
     );
     CREATE INDEX IX_HrmEmployeeSchedule_UserDate ON dbo.HrmEmployeeSchedule(UserId, EffectiveFrom, EffectiveTo);
 END;
+GO
+
+IF COL_LENGTH('dbo.HrmEmployeeSchedule', 'WorkDaysMask') IS NULL
+    ALTER TABLE dbo.HrmEmployeeSchedule ADD WorkDaysMask INT NOT NULL
+        CONSTRAINT DF_HrmEmployeeSchedule_WorkDaysMask DEFAULT (127) WITH VALUES;
 GO
 
 IF OBJECT_ID('dbo.HrmLeaveRequest', 'U') IS NULL

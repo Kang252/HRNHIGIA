@@ -220,7 +220,7 @@ namespace NHIGIA.Modern.Infrastructure
         public IList<ScheduleModel> GetSchedules(HrmUserAccountModel actor)
         {
             const string sql = @"SELECT s.Id, s.UserId, u.Username, u.DisplayName, d.Name DepartmentName, s.ShiftTemplateId,
-                s.ShiftName, s.StartTime, s.EndTime, s.BreakMinutes, s.GraceMinutes, s.EffectiveFrom, s.EffectiveTo, s.StatusCode
+                s.ShiftName, s.StartTime, s.EndTime, s.BreakMinutes, s.GraceMinutes, s.WorkDaysMask, s.EffectiveFrom, s.EffectiveTo, s.StatusCode
                 FROM dbo.HrmEmployeeSchedule s
                 INNER JOIN dbo.HrmUserAccount u ON u.Id=s.UserId
                 LEFT JOIN dbo.HrmDepartment d ON d.Id=u.DepartmentId
@@ -235,7 +235,7 @@ namespace NHIGIA.Modern.Infrastructure
             if (request.Id > 0)
             {
                 const string updateSql = @"UPDATE s SET UserId=@UserId, ShiftTemplateId=@ShiftTemplateId, ShiftName=@ShiftName,
-                    StartTime=@StartTime, EndTime=@EndTime, BreakMinutes=@BreakMinutes, GraceMinutes=@GraceMinutes,
+                    StartTime=@StartTime, EndTime=@EndTime, BreakMinutes=@BreakMinutes, GraceMinutes=@GraceMinutes, WorkDaysMask=@WorkDaysMask,
                     EffectiveFrom=@EffectiveFrom, EffectiveTo=@EffectiveTo, UpdatedAt=SYSDATETIME()
                     FROM dbo.HrmEmployeeSchedule s
                     INNER JOIN dbo.HrmUserAccount u ON u.Id=s.UserId
@@ -253,6 +253,7 @@ namespace NHIGIA.Modern.Infrastructure
                         request.EndTime,
                         request.BreakMinutes,
                         request.GraceMinutes,
+                        request.WorkDaysMask,
                         request.EffectiveFrom,
                         request.EffectiveTo,
                         CanSeeAll = canSeeAll,
@@ -264,12 +265,12 @@ namespace NHIGIA.Modern.Infrastructure
                 }
             }
 
-            const string sql = @"INSERT dbo.HrmEmployeeSchedule(UserId, ShiftTemplateId, ShiftName, StartTime, EndTime, BreakMinutes, GraceMinutes, EffectiveFrom, EffectiveTo, StatusCode, CreatedByUserId)
-                VALUES(@UserId, @ShiftTemplateId, @ShiftName, @StartTime, @EndTime, @BreakMinutes, @GraceMinutes, @EffectiveFrom, @EffectiveTo, 'ACTIVE', @ActorId);
+            const string sql = @"INSERT dbo.HrmEmployeeSchedule(UserId, ShiftTemplateId, ShiftName, StartTime, EndTime, BreakMinutes, GraceMinutes, WorkDaysMask, EffectiveFrom, EffectiveTo, StatusCode, CreatedByUserId)
+                VALUES(@UserId, @ShiftTemplateId, @ShiftName, @StartTime, @EndTime, @BreakMinutes, @GraceMinutes, @WorkDaysMask, @EffectiveFrom, @EffectiveTo, 'ACTIVE', @ActorId);
                 SELECT CAST(SCOPE_IDENTITY() AS INT);";
             using (var connection = OpenConnection())
             {
-                var id = connection.ExecuteScalar<int>(sql, new { request.UserId, request.ShiftTemplateId, request.ShiftName, request.StartTime, request.EndTime, request.BreakMinutes, request.GraceMinutes, request.EffectiveFrom, request.EffectiveTo, ActorId = actor.Id });
+                var id = connection.ExecuteScalar<int>(sql, new { request.UserId, request.ShiftTemplateId, request.ShiftName, request.StartTime, request.EndTime, request.BreakMinutes, request.GraceMinutes, request.WorkDaysMask, request.EffectiveFrom, request.EffectiveTo, ActorId = actor.Id });
                 AddAudit(connection, actor.Id, "CREATE", "HrmEmployeeSchedule", id.ToString(), "Phân lịch làm việc", ipAddress);
                 return id;
             }
@@ -713,6 +714,9 @@ namespace NHIGIA.Modern.Infrastructure
                 OUTER APPLY (SELECT TOP 1 x.ShiftName, x.StartTime, x.EndTime, x.GraceMinutes
                     FROM dbo.HrmEmployeeSchedule x WHERE x.UserId=e.UserId AND x.StatusCode='ACTIVE'
                       AND x.EffectiveFrom<=e.WorkDate AND (x.EffectiveTo IS NULL OR x.EffectiveTo>=e.WorkDate)
+                      AND (x.WorkDaysMask & CASE ((DATEDIFF(DAY, CONVERT(date,'19000107'), e.WorkDate) % 7 + 7) % 7)
+                          WHEN 0 THEN 1 WHEN 1 THEN 2 WHEN 2 THEN 4 WHEN 3 THEN 8
+                          WHEN 4 THEN 16 WHEN 5 THEN 32 WHEN 6 THEN 64 END) <> 0
                     ORDER BY x.EffectiveFrom DESC, x.Id DESC) s
                 WHERE (@CanSeeAll=1 OR e.UserId=@ActorId OR (@IsManager=1 AND u.DepartmentId=@DepartmentId))
                 ORDER BY e.WorkDate DESC, u.DisplayName";
