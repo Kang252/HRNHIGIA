@@ -163,6 +163,12 @@ IF COL_LENGTH('dbo.HrmEmployeeSchedule', 'WorkDaysMask') IS NULL
         CONSTRAINT DF_HrmEmployeeSchedule_WorkDaysMask DEFAULT (127) WITH VALUES;
 GO
 
+UPDATE dbo.HrmShiftTemplate SET GraceMinutes=0 WHERE GraceMinutes<>0;
+UPDATE dbo.HrmEmployeeSchedule SET GraceMinutes=0 WHERE GraceMinutes<>0;
+UPDATE dbo.HrmEmployeeSchedule SET ShiftName=N'Ca Thứ 7 buổi sáng'
+WHERE WorkDaysMask=64 AND ShiftName=N'Ca nửa ngày Thứ 7';
+GO
+
 IF OBJECT_ID('dbo.HrmLeaveRequest', 'U') IS NULL
 BEGIN
     CREATE TABLE dbo.HrmLeaveRequest (
@@ -370,9 +376,9 @@ IF NOT EXISTS (SELECT 1 FROM dbo.HrmEmployeeProfile p INNER JOIN dbo.HrmUserAcco
     SELECT Id, 'NG000', N'Quản trị hệ thống', N'Đang làm việc', 'admin@nhigia.local', 'NG000', 12 FROM dbo.HrmUserAccount WHERE Username='admin';
 GO
 
-IF NOT EXISTS (SELECT 1 FROM dbo.HrmShiftTemplate WHERE Code='HC') INSERT dbo.HrmShiftTemplate(Code, Name, StartTime, EndTime, BreakMinutes, GraceMinutes, IsOvernight) VALUES ('HC', N'Ca hành chính', '08:00', '17:00', 60, 5, 0);
-IF NOT EXISTS (SELECT 1 FROM dbo.HrmShiftTemplate WHERE Code='SANG') INSERT dbo.HrmShiftTemplate(Code, Name, StartTime, EndTime, BreakMinutes, GraceMinutes, IsOvernight) VALUES ('SANG', N'Ca sáng', '06:00', '14:00', 30, 5, 0);
-IF NOT EXISTS (SELECT 1 FROM dbo.HrmShiftTemplate WHERE Code='DEM') INSERT dbo.HrmShiftTemplate(Code, Name, StartTime, EndTime, BreakMinutes, GraceMinutes, IsOvernight) VALUES ('DEM', N'Ca qua đêm', '20:00', '05:00', 60, 10, 1);
+IF NOT EXISTS (SELECT 1 FROM dbo.HrmShiftTemplate WHERE Code='HC') INSERT dbo.HrmShiftTemplate(Code, Name, StartTime, EndTime, BreakMinutes, GraceMinutes, IsOvernight) VALUES ('HC', N'Ca hành chính', '08:00', '17:30', 60, 0, 0);
+IF NOT EXISTS (SELECT 1 FROM dbo.HrmShiftTemplate WHERE Code='SANG') INSERT dbo.HrmShiftTemplate(Code, Name, StartTime, EndTime, BreakMinutes, GraceMinutes, IsOvernight) VALUES ('SANG', N'Ca Thứ 7 buổi sáng', '08:00', '12:00', 0, 0, 0);
+IF NOT EXISTS (SELECT 1 FROM dbo.HrmShiftTemplate WHERE Code='DEM') INSERT dbo.HrmShiftTemplate(Code, Name, StartTime, EndTime, BreakMinutes, GraceMinutes, IsOvernight) VALUES ('DEM', N'Ca Thứ 7 buổi chiều', '13:30', '17:30', 0, 0, 0);
 GO
 
 IF NOT EXISTS (SELECT 1 FROM dbo.HrmHanetSettings WHERE Id=1) INSERT dbo.HrmHanetSettings(Id, ApiBaseUrl, OAuthTokenUrl, IsEnabled, LastSyncStatus, LastSyncMessage) VALUES (1, 'https://partner.hanet.ai', 'https://oauth.hanet.com/token', 0, 'NOT_CONFIGURED', N'Chưa cấu hình thông tin ứng dụng HANET');
@@ -418,11 +424,15 @@ WHERE u.Username IN ('admin', 'hradmin', 'thedt', 'huongtm', 'anhvt')
 UPDATE dbo.HrmShiftTemplate
 SET Name = CASE Code
     WHEN 'HC' THEN N'Ca hành chính'
-    WHEN 'SANG' THEN N'Ca sáng'
-    WHEN 'DEM' THEN N'Ca qua đêm'
-END
-WHERE Code IN ('HC', 'SANG', 'DEM')
-  AND (Name LIKE N'%Ã%' OR Name LIKE N'%Æ%' OR Name LIKE N'%Ä%' OR Name LIKE N'%º%' OR Name LIKE N'%»%');
+    WHEN 'SANG' THEN N'Ca Thứ 7 buổi sáng'
+    WHEN 'DEM' THEN N'Ca Thứ 7 buổi chiều'
+END,
+StartTime = CASE Code WHEN 'HC' THEN '08:00' WHEN 'SANG' THEN '08:00' WHEN 'DEM' THEN '13:30' END,
+EndTime = CASE Code WHEN 'HC' THEN '17:30' WHEN 'SANG' THEN '12:00' WHEN 'DEM' THEN '17:30' END,
+BreakMinutes = CASE Code WHEN 'HC' THEN 60 ELSE 0 END,
+GraceMinutes = 0,
+IsOvernight = 0
+WHERE Code IN ('HC', 'SANG', 'DEM');
 
 UPDATE dbo.HrmHanetSettings
 SET LastSyncMessage = N'Chưa cấu hình thông tin ứng dụng HANET'

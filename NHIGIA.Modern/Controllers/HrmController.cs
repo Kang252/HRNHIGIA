@@ -65,7 +65,7 @@ public sealed class HrmController : BaseController
         if (request.EffectiveFrom == default) throw new InvalidOperationException("Vui lòng chọn ngày áp dụng.");
         if (request.EffectiveTo.HasValue && request.EffectiveTo.Value.Date < request.EffectiveFrom.Date) throw new InvalidOperationException("Ngày kết thúc phải sau ngày bắt đầu.");
         if (request.BreakMinutes < 0 || request.BreakMinutes > 480) throw new InvalidOperationException("Thời gian nghỉ phải từ 0 đến 480 phút.");
-        if (request.GraceMinutes < 0 || request.GraceMinutes > 120) throw new InvalidOperationException("Thời gian cho phép đi muộn phải từ 0 đến 120 phút.");
+        request.GraceMinutes = 0;
         if (request.WorkDaysMask < 1 || request.WorkDaysMask > 127) throw new InvalidOperationException("Vui lòng chọn ít nhất một ngày làm việc hợp lệ.");
         request.ShiftName = string.IsNullOrWhiteSpace(request.ShiftName) ? "Ca cá nhân" : request.ShiftName.Trim();
         if (request.ShiftName.Length > 100) throw new InvalidOperationException("Tên ca không được vượt quá 100 ký tự.");
