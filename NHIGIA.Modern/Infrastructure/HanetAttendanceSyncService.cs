@@ -11,6 +11,7 @@ public sealed class HanetAttendanceSyncService : BackgroundService
     private readonly HrmDataStore _store;
     private readonly IHttpClientFactory _clients;
     private readonly ILogger<HanetAttendanceSyncService> _logger;
+    private readonly SemaphoreSlim _syncLock = new(1, 1);
 
     public HanetAttendanceSyncService(HrmDataStore store, IHttpClientFactory clients, ILogger<HanetAttendanceSyncService> logger)
     {
@@ -36,6 +37,19 @@ public sealed class HanetAttendanceSyncService : BackgroundService
     }
 
     public async Task<HanetAttendanceSyncResult> SynchronizeToday(CancellationToken stoppingToken)
+    {
+        await _syncLock.WaitAsync(stoppingToken);
+        try
+        {
+            return await SynchronizeTodayCore(stoppingToken);
+        }
+        finally
+        {
+            _syncLock.Release();
+        }
+    }
+
+    private async Task<HanetAttendanceSyncResult> SynchronizeTodayCore(CancellationToken stoppingToken)
     {
         var settings = _store.GetHanetSettings(true);
         if (!settings.IsEnabled) throw new InvalidOperationException("Tích hợp HANET đang tắt.");
