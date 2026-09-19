@@ -305,6 +305,7 @@ namespace NHIGIA.Modern.Models
 
     public class CreateCommunicationRequest
     {
+        public int Id { get; set; }
         public string Category { get; set; }
         public string ScopeCode { get; set; }
         public string Title { get; set; }
@@ -312,6 +313,7 @@ namespace NHIGIA.Modern.Models
         public string AttachmentName { get; set; }
         public string AttachmentContentType { get; set; }
         public byte[] AttachmentContent { get; set; }
+        public bool RemoveAttachment { get; set; }
         public bool IsPinned { get; set; }
     }
 

@@ -559,6 +559,55 @@ public sealed class HrmController : BaseController
     }
 
     [HttpPost, ValidateAntiForgeryToken]
+    [RequestSizeLimit(12 * 1024 * 1024)]
+    public async Task<IActionResult> UpdateCommunication(CreateCommunicationRequest request, IFormFile attachment)
+    {
+        try
+        {
+            if (request == null || request.Id <= 0) throw new InvalidOperationException("Bài đăng không hợp lệ.");
+            if (string.IsNullOrWhiteSpace(request.Title) || string.IsNullOrWhiteSpace(request.Body)) throw new InvalidOperationException("Vui lòng nhập tiêu đề và nội dung.");
+            request.ScopeCode = (request.ScopeCode ?? "DEPARTMENT").ToUpperInvariant();
+            if (!new[] { "ALL", "DEPARTMENT", "MANAGER" }.Contains(request.ScopeCode)) throw new InvalidOperationException("Phạm vi đăng tin không hợp lệ.");
+            var canPublishCompanyWide = HrmRoles.CanPublishCompanyWide(CurrentHrmUser.RoleCode);
+            var isManager = CurrentHrmUser.RoleCode == HrmRoles.Manager;
+            if (request.ScopeCode == "ALL" && !canPublishCompanyWide) throw new InvalidOperationException("Bạn chỉ được gửi bài trong phạm vi phòng ban.");
+            if (request.ScopeCode == "MANAGER" && !isManager && !canPublishCompanyWide) throw new InvalidOperationException("Bạn không có quyền gửi bài cho nhóm quản lý.");
+            request.Category = string.IsNullOrWhiteSpace(request.Category) ? "Thông báo" : request.Category.Trim();
+            if (attachment != null && attachment.Length > 0)
+            {
+                if (attachment.Length > 10 * 1024 * 1024) throw new InvalidOperationException("Tệp đính kèm không được vượt quá 10 MB.");
+                var extension = Path.GetExtension(attachment.FileName).ToLowerInvariant();
+                await using var stream = new MemoryStream();
+                await attachment.CopyToAsync(stream);
+                var content = stream.ToArray();
+                var contentType = ResolveCommunicationContentType(content, extension);
+                if (contentType == null) throw new InvalidOperationException("Chỉ hỗ trợ JPG, PNG, GIF, WebP, PDF, Word, Excel, CSV hoặc TXT.");
+                var safeName = Path.GetFileName(attachment.FileName);
+                if (string.IsNullOrWhiteSpace(safeName) || safeName.Length > 255) throw new InvalidOperationException("Tên tệp đính kèm không hợp lệ.");
+                request.AttachmentName = safeName;
+                request.AttachmentContentType = contentType;
+                request.AttachmentContent = content;
+                request.RemoveAttachment = false;
+            }
+            if (!Store.UpdateCommunication(request, CurrentHrmUser, ClientIp)) throw new InvalidOperationException("Không tìm thấy bài đăng hoặc bạn không có quyền sửa.");
+            return Json(ApiResponse.Ok(new { request.Id }));
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(exception, "Cannot update internal communication");
+            return BadRequest(ApiResponse.Fail(exception.Message));
+        }
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public IActionResult DeleteCommunication(int id) => Execute(() =>
+    {
+        if (id <= 0) throw new InvalidOperationException("Bài đăng không hợp lệ.");
+        if (!Store.DeleteCommunication(id, CurrentHrmUser, ClientIp)) throw new InvalidOperationException("Không tìm thấy bài đăng hoặc bạn không có quyền xóa.");
+        return new { Id = id };
+    });
+
+    [HttpPost, ValidateAntiForgeryToken]
     [HrmAuthorize(HrmRoles.Admin)]
     public async Task<IActionResult> HanetPersons(bool refresh = false)
     {

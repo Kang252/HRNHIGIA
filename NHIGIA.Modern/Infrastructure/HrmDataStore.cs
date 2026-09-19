@@ -606,6 +606,61 @@ namespace NHIGIA.Modern.Infrastructure
             }
         }
 
+        public bool UpdateCommunication(CreateCommunicationRequest request, HrmUserAccountModel actor, string ipAddress)
+        {
+            var canModerate = actor.RoleCode is HrmRoles.Admin or HrmRoles.Hr or HrmRoles.Director;
+            var scope = (request.ScopeCode ?? "DEPARTMENT").ToUpperInvariant();
+            using var connection = OpenConnection();
+            using var transaction = connection.BeginTransaction();
+            var current = connection.QuerySingleOrDefault<(int AuthorUserId, int? DepartmentId, string Title)>(
+                "SELECT AuthorUserId,DepartmentId,Title FROM dbo.HrmCommunication WHERE Id=@Id AND (AuthorUserId=@ActorId OR @CanModerate=1)",
+                new { request.Id, ActorId = actor.Id, CanModerate = canModerate }, transaction);
+            if (current.AuthorUserId == 0) return false;
+            var departmentId = scope == "DEPARTMENT"
+                ? (current.AuthorUserId == actor.Id ? actor.DepartmentId : current.DepartmentId)
+                : null;
+            const string sql = @"UPDATE dbo.HrmCommunication SET Category=@Category,ScopeCode=@ScopeCode,DepartmentId=@DepartmentId,
+                    Title=@Title,Body=@Body,
+                    AttachmentName=CASE WHEN @HasAttachment=1 THEN @AttachmentName WHEN @RemoveAttachment=1 THEN NULL ELSE AttachmentName END,
+                    AttachmentContentType=CASE WHEN @HasAttachment=1 THEN @AttachmentContentType WHEN @RemoveAttachment=1 THEN NULL ELSE AttachmentContentType END,
+                    AttachmentContent=CASE WHEN @HasAttachment=1 THEN @AttachmentContent WHEN @RemoveAttachment=1 THEN NULL ELSE AttachmentContent END,
+                    IsPinned=CASE WHEN @CanModerate=1 THEN @IsPinned ELSE IsPinned END,
+                    IsPublished=CASE WHEN @CanModerate=1 THEN IsPublished ELSE 0 END,
+                    StatusCode=CASE WHEN @CanModerate=1 THEN StatusCode ELSE 'PENDING' END,
+                    SubmittedAt=CASE WHEN @CanModerate=1 THEN SubmittedAt ELSE SYSDATETIME() END,
+                    ApprovedByUserId=CASE WHEN @CanModerate=1 THEN ApprovedByUserId ELSE NULL END,
+                    ReviewedAt=CASE WHEN @CanModerate=1 THEN ReviewedAt ELSE NULL END,
+                    ReviewNote=CASE WHEN @CanModerate=1 THEN ReviewNote ELSE NULL END
+                WHERE Id=@Id AND (AuthorUserId=@ActorId OR @CanModerate=1);";
+            var changed = connection.Execute(sql, new
+            {
+                request.Id, request.Category, ScopeCode = scope, DepartmentId = departmentId, request.Title, request.Body,
+                request.AttachmentName, request.AttachmentContentType, request.AttachmentContent,
+                HasAttachment = request.AttachmentContent?.Length > 0, request.RemoveAttachment,
+                IsPinned = canModerate && request.IsPinned, CanModerate = canModerate, ActorId = actor.Id
+            }, transaction) == 1;
+            if (changed) AddAudit(connection, actor.Id, "UPDATE", "HrmCommunication", request.Id.ToString(), request.Title, ipAddress, transaction);
+            if (changed && !canModerate) NotifyCommunication(connection, transaction, request.Id, "Bài đăng đã sửa, chờ duyệt", "Bài đăng vừa được tác giả cập nhật và cần duyệt lại.", actor.Id, true);
+            transaction.Commit();
+            return changed;
+        }
+
+        public bool DeleteCommunication(int id, HrmUserAccountModel actor, string ipAddress)
+        {
+            var canModerate = actor.RoleCode is HrmRoles.Admin or HrmRoles.Hr or HrmRoles.Director;
+            using var connection = OpenConnection();
+            using var transaction = connection.BeginTransaction();
+            var post = connection.QuerySingleOrDefault<(int AuthorUserId, string Title)>(
+                "SELECT AuthorUserId,Title FROM dbo.HrmCommunication WHERE Id=@Id AND (AuthorUserId=@ActorId OR @CanModerate=1)",
+                new { Id = id, ActorId = actor.Id, CanModerate = canModerate }, transaction);
+            if (post.AuthorUserId == 0) return false;
+            connection.Execute("DELETE dbo.HrmCommunicationReaction WHERE CommunicationId=@Id; DELETE dbo.HrmCommunicationComment WHERE CommunicationId=@Id;", new { Id = id }, transaction);
+            var changed = connection.Execute("DELETE dbo.HrmCommunication WHERE Id=@Id AND (AuthorUserId=@ActorId OR @CanModerate=1)", new { Id = id, ActorId = actor.Id, CanModerate = canModerate }, transaction) == 1;
+            if (changed) AddAudit(connection, actor.Id, "DELETE", "HrmCommunication", id.ToString(), post.Title, ipAddress, transaction);
+            transaction.Commit();
+            return changed;
+        }
+
         public bool ModerateCommunication(ModerateCommunicationRequest request, HrmUserAccountModel actor, string ipAddress)
         {
             if (actor.RoleCode is not (HrmRoles.Admin or HrmRoles.Hr or HrmRoles.Director)) return false;
