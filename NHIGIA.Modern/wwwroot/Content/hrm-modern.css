@@ -30,8 +30,9 @@ body.theme-red {
 
 .theme-red .navbar {
     min-height: 64px;
-    background: linear-gradient(100deg, #115fcf 0%, #2378e9 100%);
-    box-shadow: 0 2px 12px rgba(20, 76, 148, .18);
+    background: #ffffff;
+    border-bottom: 1px solid #e2e8f0;
+    box-shadow: 0 2px 10px rgba(15, 23, 42, .08);
 }
 
 .navbar .navbar-brand {
