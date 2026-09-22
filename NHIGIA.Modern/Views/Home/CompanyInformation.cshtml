@@ -5,7 +5,7 @@
     var isBrand = section == "brand";
     var brand = (ViewBag.CompanyBrand as string) ?? "nhigia";
     var brandName = brand switch { "gotravel" => "GoTravel", "ttp" => "TTP", _ => "Nhị Gia" };
-    var brandLogo = brand switch { "gotravel" => "/images/gotravel-logo.png", "ttp" => "/images/ttp-logo.png", _ => "/images/nhigia-logo.png" };
+    var brandLogo = brand switch { "gotravel" => "/images/gotravel-logo.png", "ttp" => "/images/ttp-logo.png", _ => "/images/nhigia-symbol-logo.png" };
 }
 
 <div class="container-fluid company-info-page">
@@ -20,7 +20,7 @@
     @if (isBrand)
     {
         <nav class="company-info-tabs company-brand-tabs" aria-label="Logo các thương hiệu">
-            @foreach (var item in new[] { (Key: "gotravel", Name: "GoTravel", Logo: "/images/gotravel-logo.png"), (Key: "ttp", Name: "TTP", Logo: "/images/ttp-logo.png"), (Key: "nhigia", Name: "Nhị Gia", Logo: "/images/nhigia-logo.png") })
+            @foreach (var item in new[] { (Key: "gotravel", Name: "GoTravel", Logo: "/images/gotravel-logo.png"), (Key: "ttp", Name: "TTP", Logo: "/images/ttp-logo.png"), (Key: "nhigia", Name: "Nhị Gia", Logo: "/images/nhigia-symbol-logo.png") })
             {
                 <a class="@(brand == item.Key ? "active" : "")" asp-action="CompanyInformation" asp-route-section="brand" asp-route-brand="@item.Key" aria-current="@(brand == item.Key ? "page" : null)"><img src="@item.Logo" alt="" asp-append-version="true" />@item.Name</a>
             }
@@ -35,7 +35,7 @@
                 <h2>Chung một định hướng, cùng tạo giá trị</h2>
                 <p>Đây là không gian giới thiệu tổng thể về công ty, văn hóa làm việc và những giá trị mà mỗi thành viên cùng xây dựng.</p>
             </div>
-            <div class="company-logo-stage"><img src="~/images/nhigia-logo.png" asp-append-version="true" alt="Logo Nhị Gia" /></div>
+            <div class="company-logo-stage"><img src="~/images/nhigia-symbol-logo.png" asp-append-version="true" alt="Logo Nhị Gia" /></div>
         </section>
         <div class="hrm-grid hrm-grid-3 company-value-grid">
             <article class="hrm-card company-info-card"><span class="company-info-icon"><i class="material-icons">groups</i></span><h3>Con người</h3><p>Tôn trọng, phối hợp và chủ động hỗ trợ đồng nghiệp trong công việc hằng ngày.</p></article>
