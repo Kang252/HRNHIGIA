@@ -57,6 +57,8 @@ public sealed class RecruitmentWebhookController : ControllerBase
         if (string.IsNullOrWhiteSpace(expected)) return false;
         var authorization = Request.Headers.Authorization.FirstOrDefault();
         var supplied = Request.Headers["X-Recruitment-Secret"].FirstOrDefault()
+            ?? Request.Headers["X-API-Key"].FirstOrDefault()
+            ?? Request.Headers["Api-Key"].FirstOrDefault()
             ?? (authorization?.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase) == true ? authorization[7..].Trim() : null)
             ?? Request.Query["secret"].FirstOrDefault();
         if (string.IsNullOrWhiteSpace(supplied)) return false;

@@ -269,7 +269,7 @@
                 <label>API URL do đối tác cấp<input class="form-control" type="url" name="ApiBaseUrl" value="@integration.ApiBaseUrl" placeholder="https://..." /></label>
                 <label>Mã tài khoản / Client ID<input class="form-control" name="AccountId" value="@integration.AccountId" autocomplete="off" /></label>
                 <label>API Key / Access Token<input class="form-control" type="password" name="ApiKey" value="@integration.ApiKey" autocomplete="new-password" /></label>
-                <label>Webhook secret<input class="form-control" name="WebhookSecret" value="@integration.WebhookSecret" autocomplete="off" /></label>
+                <label>Webhook secret / API Key nhập tại đối tác<input class="form-control" name="WebhookSecret" value="@integration.WebhookSecret" autocomplete="off" /></label>
                 <label>Webhook nhận CV<div class="webhook-copy-row"><input class="form-control" readonly value="@webhookUrl" /><button class="hrm-btn copy-webhook" type="button" data-value="@webhookUrl"><i class="material-icons">content_copy</i></button></div></label>
                 <label class="integration-toggle"><input type="checkbox" name="IsEnabled" value="true" checked="@integration.IsEnabled" /> Cho phép nhận CV từ @integration.ProviderName</label>
                 <div class="integration-message"><strong>@(integration.LastStatus == "SUCCESS" ? "Kết nối đã nhận dữ liệu" : "Trạng thái kết nối")</strong><span>@(integration.LastMessage ?? "Chưa có dữ liệu.")</span>@if (integration.LastReceivedAt.HasValue) { <small>Lần cuối: @integration.LastReceivedAt.Value.ToString("dd/MM/yyyy HH:mm")</small> }</div>
@@ -277,7 +277,7 @@
             </form>
         }
         </div>
-        <div class="integration-note"><i class="material-icons">info</i><span>TopCV và CareerViet cấp API theo hợp đồng riêng. Sau khi nhận sandbox/API key, nhập thông tin tại đây và cung cấp URL webhook cùng secret cho đội tích hợp của đối tác.</span></div>
+        <div class="integration-note"><i class="material-icons">info</i><span>Trên TopCV, chọn Webhook → API Key; dùng URL webhook và giá trị “Webhook secret / API Key” ở trên. HRM chấp nhận khóa qua X-API-Key, Api-Key, X-Recruitment-Secret hoặc Bearer token.</span></div>
     </section>
 </div>
 
