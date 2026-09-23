@@ -12,6 +12,7 @@ public sealed class HanetAttendanceSyncService : BackgroundService
     private readonly IHttpClientFactory _clients;
     private readonly ILogger<HanetAttendanceSyncService> _logger;
     private readonly SemaphoreSlim _syncLock = new(1, 1);
+    private DateTime _lastPreviousDaySyncAttempt = DateTime.MinValue;
 
     public HanetAttendanceSyncService(HrmDataStore store, IHttpClientFactory clients, ILogger<HanetAttendanceSyncService> logger)
     {
@@ -25,14 +26,36 @@ public sealed class HanetAttendanceSyncService : BackgroundService
         await Task.Delay(TimeSpan.FromSeconds(10), stoppingToken);
         while (!stoppingToken.IsCancellationRequested)
         {
-            try { await SynchronizeToday(stoppingToken); }
-            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { break; }
-            catch (Exception exception)
+            var now = HrmDataStore.CurrentVietnamTime();
+            var shouldRefreshPreviousDay = _lastPreviousDaySyncAttempt.Date != now.Date
+                || (now.Hour < 12 && now - _lastPreviousDaySyncAttempt >= TimeSpan.FromHours(1));
+            if (shouldRefreshPreviousDay)
             {
-                _logger.LogWarning(exception, "Background HANET attendance synchronization failed");
-                try { _store.UpdateHanetSyncStatus("FAILED", "Đồng bộ nền HANET lỗi: " + exception.Message); } catch { }
+                _lastPreviousDaySyncAttempt = now;
+                if (!await TrySynchronizeBackgroundDate(now.Date.AddDays(-1), stoppingToken)) break;
             }
+
+            if (!await TrySynchronizeBackgroundDate(now.Date, stoppingToken)) break;
             await Task.Delay(TimeSpan.FromMinutes(10), stoppingToken);
+        }
+    }
+
+    private async Task<bool> TrySynchronizeBackgroundDate(DateTime date, CancellationToken stoppingToken)
+    {
+        try
+        {
+            await SynchronizeDate(date, stoppingToken);
+            return true;
+        }
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+        {
+            return false;
+        }
+        catch (Exception exception)
+        {
+            _logger.LogWarning(exception, "Background HANET attendance synchronization failed for {Date}", date);
+            try { _store.UpdateHanetSyncStatus("FAILED", $"Đồng bộ nền HANET ngày {date:dd/MM/yyyy} lỗi: {exception.Message}"); } catch { }
+            return true;
         }
     }
 
