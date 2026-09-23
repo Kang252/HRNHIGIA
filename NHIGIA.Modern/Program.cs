@@ -56,6 +56,7 @@ builder.Services.AddSingleton<HanetAttendanceSyncService>();
 builder.Services.AddHostedService(provider => provider.GetRequiredService<HanetAttendanceSyncService>());
 
 builder.Services.AddScoped<WorkItemStore>();
+builder.Services.AddScoped<RecruitmentIntegrationStore>();
 builder.Services.AddScoped<HrmUserAccessor>();
 builder.Services.AddScoped<HrmAssistantService>();
 builder.Services.AddHttpClient<GeminiAssistantClient>(client =>

@@ -624,3 +624,75 @@ BEGIN
  IsActive BIT NOT NULL DEFAULT 1, UpdatedAt DATETIME2 NOT NULL DEFAULT SYSDATETIME());
 END;
 GO
+
+IF OBJECT_ID('dbo.HrmRecruitmentIntegration','U') IS NULL
+BEGIN
+    CREATE TABLE dbo.HrmRecruitmentIntegration (
+        ProviderCode NVARCHAR(30) NOT NULL CONSTRAINT PK_HrmRecruitmentIntegration PRIMARY KEY,
+        ProviderName NVARCHAR(100) NOT NULL,
+        ApiBaseUrl NVARCHAR(500) NULL,
+        AccountId NVARCHAR(200) NULL,
+        ProtectedApiKey NVARCHAR(MAX) NULL,
+        WebhookSecret NVARCHAR(200) NOT NULL,
+        IsEnabled BIT NOT NULL CONSTRAINT DF_HrmRecruitmentIntegration_Enabled DEFAULT (0),
+        LastReceivedAt DATETIME2 NULL,
+        LastStatus NVARCHAR(30) NULL,
+        LastMessage NVARCHAR(1000) NULL,
+        UpdatedAt DATETIME2 NOT NULL CONSTRAINT DF_HrmRecruitmentIntegration_UpdatedAt DEFAULT (SYSDATETIME()),
+        UpdatedByUserId INT NULL,
+        CONSTRAINT FK_HrmRecruitmentIntegration_User FOREIGN KEY (UpdatedByUserId) REFERENCES dbo.HrmUserAccount(Id)
+    );
+END;
+GO
+
+IF NOT EXISTS (SELECT 1 FROM dbo.HrmRecruitmentIntegration WHERE ProviderCode='TOPCV')
+    INSERT dbo.HrmRecruitmentIntegration(ProviderCode,ProviderName,WebhookSecret,LastStatus,LastMessage)
+    VALUES('TOPCV',N'TopCV',LOWER(REPLACE(CONVERT(varchar(36),NEWID()),'-','')),'NOT_CONFIGURED',N'Chưa kích hoạt kết nối TopCV.');
+IF NOT EXISTS (SELECT 1 FROM dbo.HrmRecruitmentIntegration WHERE ProviderCode='CAREERVIET')
+    INSERT dbo.HrmRecruitmentIntegration(ProviderCode,ProviderName,WebhookSecret,LastStatus,LastMessage)
+    VALUES('CAREERVIET',N'CareerViet',LOWER(REPLACE(CONVERT(varchar(36),NEWID()),'-','')),'NOT_CONFIGURED',N'Chưa kích hoạt kết nối CareerViet.');
+GO
+
+IF OBJECT_ID('dbo.HrmRecruitmentJobMap','U') IS NULL
+BEGIN
+    CREATE TABLE dbo.HrmRecruitmentJobMap (
+        Id INT IDENTITY(1,1) NOT NULL CONSTRAINT PK_HrmRecruitmentJobMap PRIMARY KEY,
+        ProviderCode NVARCHAR(30) NOT NULL,
+        ExternalJobId NVARCHAR(200) NOT NULL,
+        RecruitmentWorkItemId INT NOT NULL,
+        CreatedAt DATETIME2 NOT NULL CONSTRAINT DF_HrmRecruitmentJobMap_CreatedAt DEFAULT (SYSDATETIME()),
+        CONSTRAINT UQ_HrmRecruitmentJobMap_ProviderJob UNIQUE (ProviderCode,ExternalJobId),
+        CONSTRAINT FK_HrmRecruitmentJobMap_Provider FOREIGN KEY (ProviderCode) REFERENCES dbo.HrmRecruitmentIntegration(ProviderCode),
+        CONSTRAINT FK_HrmRecruitmentJobMap_WorkItem FOREIGN KEY (RecruitmentWorkItemId) REFERENCES dbo.HrmWorkItem(Id) ON DELETE CASCADE
+    );
+END;
+GO
+
+IF OBJECT_ID('dbo.HrmRecruitmentCandidate','U') IS NULL
+BEGIN
+    CREATE TABLE dbo.HrmRecruitmentCandidate (
+        Id BIGINT IDENTITY(1,1) NOT NULL CONSTRAINT PK_HrmRecruitmentCandidate PRIMARY KEY,
+        ProviderCode NVARCHAR(30) NOT NULL,
+        ExternalApplicationId NVARCHAR(200) NOT NULL,
+        ExternalJobId NVARCHAR(200) NULL,
+        RecruitmentWorkItemId INT NULL,
+        FullName NVARCHAR(200) NULL,
+        Email NVARCHAR(200) NULL,
+        Phone NVARCHAR(50) NULL,
+        AppliedAt DATETIME2 NULL,
+        StatusCode NVARCHAR(50) NOT NULL CONSTRAINT DF_HrmRecruitmentCandidate_Status DEFAULT ('NEW'),
+        CvFileName NVARCHAR(255) NULL,
+        CvContentType NVARCHAR(150) NULL,
+        CvContent VARBINARY(MAX) NULL,
+        CvUrl NVARCHAR(2000) NULL,
+        RawPayload NVARCHAR(MAX) NULL,
+        ReceivedAt DATETIME2 NOT NULL CONSTRAINT DF_HrmRecruitmentCandidate_ReceivedAt DEFAULT (SYSDATETIME()),
+        UpdatedAt DATETIME2 NULL,
+        CONSTRAINT UQ_HrmRecruitmentCandidate_ProviderApplication UNIQUE (ProviderCode,ExternalApplicationId),
+        CONSTRAINT FK_HrmRecruitmentCandidate_Provider FOREIGN KEY (ProviderCode) REFERENCES dbo.HrmRecruitmentIntegration(ProviderCode),
+        CONSTRAINT FK_HrmRecruitmentCandidate_WorkItem FOREIGN KEY (RecruitmentWorkItemId) REFERENCES dbo.HrmWorkItem(Id) ON DELETE SET NULL
+    );
+    CREATE INDEX IX_HrmRecruitmentCandidate_WorkItem ON dbo.HrmRecruitmentCandidate(RecruitmentWorkItemId,AppliedAt DESC);
+    CREATE INDEX IX_HrmRecruitmentCandidate_Received ON dbo.HrmRecruitmentCandidate(ReceivedAt DESC);
+END;
+GO

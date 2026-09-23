@@ -138,6 +138,10 @@ public sealed class WorkPage
     public List<WorkItem> AssetItems { get; set; } = new();
     public List<WorkItem> AssetHandovers { get; set; } = new();
 
+    // Recruitment integrations and candidate inbox
+    public List<RecruitmentIntegrationSettingsModel> RecruitmentIntegrations { get; set; } = new();
+    public List<RecruitmentCandidateModel> RecruitmentCandidates { get; set; } = new();
+
     // Payroll Management (Slide 6 & 7)
     public string PayrollTab { get; set; } = "dashboard";
     public string PayrollPeriod { get; set; } = "2026-02";

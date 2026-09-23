@@ -11,10 +11,11 @@ public sealed class WorkController : Controller
     private static readonly string[] MeetingRooms = ["Phòng họp 1 · 8 người", "Phòng họp 2 · 16 người", "Phòng đào tạo · 30 người"];
     private static readonly string[] VehicleTypes = ["Xe 4 chỗ", "Xe 7 chỗ", "Xe 16 chỗ", "Xe tải", "Khác"];
     private readonly WorkItemStore _store;
+    private readonly RecruitmentIntegrationStore _recruitmentIntegrations;
     private readonly HrmUserAccessor _user;
     private readonly ILogger<WorkController> _logger;
-    public WorkController(WorkItemStore store, HrmUserAccessor user, ILogger<WorkController> logger)
-    { _store = store; _user = user; _logger = logger; }
+    public WorkController(WorkItemStore store, RecruitmentIntegrationStore recruitmentIntegrations, HrmUserAccessor user, ILogger<WorkController> logger)
+    { _store = store; _recruitmentIntegrations = recruitmentIntegrations; _user = user; _logger = logger; }
 
     private string ClientIp => HttpContext.Connection.RemoteIpAddress?.ToString();
 
@@ -88,7 +89,11 @@ public sealed class WorkController : Controller
     private void Load(WorkPage page)
     {
         ViewBag.Title = page.Title;
-        try { _store.Load(page, _user.Current); }
+        try
+        {
+            _store.Load(page, _user.Current);
+            if (page.Kind == "recruitment") _recruitmentIntegrations.Load(page);
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Cannot load work module {Kind}", page.Kind);
@@ -422,6 +427,58 @@ public sealed class WorkController : Controller
         if (changed) TempData["WorkSuccess"] = $"Đã xóa vị trí tuyển dụng #{id:D5}.";
         else TempData["WorkError"] = "Không thể xóa vị trí tuyển dụng.";
         return RedirectToAction("Index", new { kind = "recruitment" });
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public IActionResult SaveRecruitmentIntegration(RecruitmentIntegrationSettingsModel settings)
+    {
+        var page = Page("recruitment");
+        if (page == null || !page.CanManage) return Forbid();
+        try
+        {
+            _recruitmentIntegrations.SaveSettings(settings, _user.Current.Id, ClientIp);
+            TempData["WorkSuccess"] = $"Đã lưu kết nối {RecruitmentIntegrationStore.NormalizeProvider(settings.ProviderCode)}.";
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(exception, "Cannot save recruitment integration {Provider}", settings.ProviderCode);
+            TempData["WorkError"] = exception.Message;
+        }
+        return Redirect(Url.Action("Index", new { kind = "recruitment" }) + "#candidate-integrations");
+    }
+
+    [HttpGet]
+    public IActionResult RecruitmentCandidateCv(long id)
+    {
+        var page = Page("recruitment");
+        if (page == null || !page.CanManage) return Forbid();
+        var file = _recruitmentIntegrations.GetCandidateFile(id);
+        if (file == null) return NotFound();
+        if (file.Content?.Length > 0)
+            return File(file.Content, string.IsNullOrWhiteSpace(file.ContentType) ? "application/octet-stream" : file.ContentType,
+                string.IsNullOrWhiteSpace(file.FileName) ? $"CV-{id}.pdf" : file.FileName);
+        if (Uri.TryCreate(file.Url, UriKind.Absolute, out var uri) && uri.Scheme == Uri.UriSchemeHttps)
+            return Redirect(uri.ToString());
+        return NotFound();
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public IActionResult AssignRecruitmentCandidate(long candidateId, int workItemId)
+    {
+        var page = Page("recruitment");
+        if (page == null || !page.CanManage) return Forbid();
+        try
+        {
+            if (_recruitmentIntegrations.AssignCandidate(candidateId, workItemId, _user.Current.Id, ClientIp))
+                TempData["WorkSuccess"] = "Đã ghép ứng viên vào vị trí tuyển dụng.";
+            else TempData["WorkError"] = "Hồ sơ ứng viên không còn tồn tại.";
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(exception, "Cannot assign recruitment candidate {CandidateId}", candidateId);
+            TempData["WorkError"] = exception.Message;
+        }
+        return Redirect(Url.Action("Index", new { kind = "recruitment" }) + "#candidate-inbox");
     }
 
     [HttpGet]

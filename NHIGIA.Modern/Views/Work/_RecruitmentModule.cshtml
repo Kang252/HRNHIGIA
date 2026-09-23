@@ -2,7 +2,9 @@
 @{
     var items = Model.Items ?? new List<WorkItem>();
     var totalPositions = items.Count;
-    var totalApplicants = items.Sum(x => x.Actual ?? 0);
+    var candidates = Model.RecruitmentCandidates ?? new List<RecruitmentCandidateModel>();
+    var integrations = Model.RecruitmentIntegrations ?? new List<RecruitmentIntegrationSettingsModel>();
+    var totalApplicants = candidates.Count > 0 ? candidates.Count : items.Sum(x => x.Actual ?? 0);
     var totalTarget = items.Sum(x => x.Target ?? 0);
 }
 
@@ -194,6 +196,89 @@
             </table>
         </div>
     </div>
+
+    <section id="candidate-inbox" class="recruitment-source-section">
+        <div class="recruitment-section-heading">
+            <div><h3>Hồ sơ ứng viên</h3><p>CV nhận tự động từ TopCV và CareerViet, sắp xếp theo thời gian mới nhất.</p></div>
+            <span class="recruitment-count">@candidates.Count hồ sơ</span>
+        </div>
+        <div class="table-responsive recruitment-table-card">
+            <table class="table table-hover recruitment-main-table candidate-table">
+                <thead><tr><th>Ứng viên</th><th>Nguồn</th><th>Vị trí</th><th>Ngày ứng tuyển</th><th>Trạng thái</th><th>CV</th></tr></thead>
+                <tbody>
+                @if (candidates.Count == 0)
+                {
+                    <tr><td colspan="6"><div class="recruitment-source-empty"><i class="material-icons">inbox</i><strong>Chưa nhận CV từ nguồn tuyển dụng</strong><span>Kích hoạt kết nối bên dưới và cung cấp webhook cho đối tác.</span></div></td></tr>
+                }
+                else
+                {
+                    foreach (var candidate in candidates)
+                    {
+                        <tr>
+                            <td><strong>@(candidate.FullName ?? "Chưa có tên")</strong><small>@(candidate.Email ?? candidate.Phone ?? "Chưa có thông tin liên hệ")</small></td>
+                            <td><span class="provider-chip provider-@candidate.ProviderCode.ToLowerInvariant()">@(candidate.ProviderCode == "TOPCV" ? "TopCV" : "CareerViet")</span></td>
+                            <td>
+                                @if (candidate.RecruitmentWorkItemId.HasValue)
+                                {
+                                    <strong>@candidate.PositionTitle</strong><small>@(candidate.PositionReference ?? candidate.ExternalJobId ?? "—")</small>
+                                }
+                                else
+                                {
+                                    <form method="post" asp-controller="Work" asp-action="AssignRecruitmentCandidate" class="candidate-assign-form">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="candidateId" value="@candidate.Id" />
+                                        <select name="workItemId" class="form-control" required><option value="">Chọn vị trí…</option>@foreach (var position in items) { <option value="@position.Id">@(position.Reference ?? $"TD-{position.Id:D3}") · @position.Title</option> }</select>
+                                        <button class="hrm-btn" type="submit">Ghép</button>
+                                    </form>
+                                    <small>Mã nguồn: @(candidate.ExternalJobId ?? "—")</small>
+                                }
+                            </td>
+                            <td>@(candidate.AppliedAt?.ToString("dd/MM/yyyy HH:mm") ?? candidate.ReceivedAt.ToString("dd/MM/yyyy HH:mm"))</td>
+                            <td><span class="rec-status-badge @(candidate.RecruitmentWorkItemId.HasValue ? "status-active" : "status-unmapped")">@(candidate.RecruitmentWorkItemId.HasValue ? "Đã tiếp nhận" : "Cần ghép vị trí")</span></td>
+                            <td>
+                                @if (candidate.HasCvContent || !string.IsNullOrWhiteSpace(candidate.CvUrl))
+                                {
+                                    <a class="hrm-btn candidate-cv" asp-controller="Work" asp-action="RecruitmentCandidateCv" asp-route-id="@candidate.Id"><i class="material-icons">download</i> Tải CV</a>
+                                }
+                                else { <span class="text-muted">Chưa có tệp</span> }
+                            </td>
+                        </tr>
+                    }
+                }
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section id="candidate-integrations" class="recruitment-source-section">
+        <div class="recruitment-section-heading">
+            <div><h3>Kết nối nguồn CV</h3><p>Nhập thông tin do đối tác cấp, bật kết nối và đăng ký URL webhook tương ứng.</p></div>
+        </div>
+        <div class="recruitment-integration-grid">
+        @foreach (var integration in integrations)
+        {
+            var providerSlug = integration.ProviderCode.ToLowerInvariant();
+            var webhookUrl = $"{Context.Request.Scheme}://{Context.Request.Host}/api/recruitment/{providerSlug}/applications";
+            <form method="post" asp-controller="Work" asp-action="SaveRecruitmentIntegration" class="recruitment-integration-card">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="ProviderCode" value="@integration.ProviderCode" />
+                <div class="integration-card-head">
+                    <div class="provider-mark provider-@providerSlug">@(integration.ProviderCode == "TOPCV" ? "T" : "CV")</div>
+                    <div><h4>@integration.ProviderName</h4><span class="integration-state @(integration.IsEnabled ? "is-on" : "")">@(integration.IsEnabled ? "Đang bật" : "Chưa bật")</span></div>
+                </div>
+                <label>API URL do đối tác cấp<input class="form-control" type="url" name="ApiBaseUrl" value="@integration.ApiBaseUrl" placeholder="https://..." /></label>
+                <label>Mã tài khoản / Client ID<input class="form-control" name="AccountId" value="@integration.AccountId" autocomplete="off" /></label>
+                <label>API Key / Access Token<input class="form-control" type="password" name="ApiKey" value="@integration.ApiKey" autocomplete="new-password" /></label>
+                <label>Webhook secret<input class="form-control" name="WebhookSecret" value="@integration.WebhookSecret" autocomplete="off" /></label>
+                <label>Webhook nhận CV<div class="webhook-copy-row"><input class="form-control" readonly value="@webhookUrl" /><button class="hrm-btn copy-webhook" type="button" data-value="@webhookUrl"><i class="material-icons">content_copy</i></button></div></label>
+                <label class="integration-toggle"><input type="checkbox" name="IsEnabled" value="true" checked="@integration.IsEnabled" /> Cho phép nhận CV từ @integration.ProviderName</label>
+                <div class="integration-message"><strong>@(integration.LastStatus == "SUCCESS" ? "Kết nối đã nhận dữ liệu" : "Trạng thái kết nối")</strong><span>@(integration.LastMessage ?? "Chưa có dữ liệu.")</span>@if (integration.LastReceivedAt.HasValue) { <small>Lần cuối: @integration.LastReceivedAt.Value.ToString("dd/MM/yyyy HH:mm")</small> }</div>
+                <button class="hrm-btn hrm-btn-primary" type="submit"><i class="material-icons">save</i> Lưu cấu hình</button>
+            </form>
+        }
+        </div>
+        <div class="integration-note"><i class="material-icons">info</i><span>TopCV và CareerViet cấp API theo hợp đồng riêng. Sau khi nhận sandbox/API key, nhập thông tin tại đây và cung cấp URL webhook cùng secret cho đội tích hợp của đối tác.</span></div>
+    </section>
 </div>
 
 <!-- MODAL: CHI TIẾT VỊ TRÍ TUYỂN DỤNG -->
@@ -300,6 +385,41 @@
         display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 12px; font-weight: 600;
     }
     .status-active { background: #dbeafe; color: #1e40af; }
+    .status-unmapped { background:#fff7ed; color:#c2410c; }
+    .recruitment-source-section { margin-top:24px; scroll-margin-top:90px; }
+    .recruitment-section-heading { display:flex; justify-content:space-between; align-items:center; gap:16px; margin-bottom:12px; }
+    .recruitment-section-heading h3 { margin:0 0 4px; color:#0f172a; font-size:20px; font-weight:750; }
+    .recruitment-section-heading p { margin:0; color:#64748b; }
+    .recruitment-count { padding:6px 12px; border-radius:999px; background:#eaf2ff; color:#1769e0; font-weight:700; }
+    .candidate-table td { vertical-align:middle!important; }
+    .candidate-table td strong,.candidate-table td small { display:block; }
+    .candidate-table td small { margin-top:3px; color:#64748b; }
+    .candidate-assign-form { display:flex; align-items:center; gap:6px; min-width:260px; }
+    .candidate-assign-form select { min-width:180px; height:34px; font-size:12px; }.candidate-assign-form button { padding:6px 9px; }
+    .provider-chip { display:inline-flex; padding:5px 10px; border-radius:999px; font-size:12px; font-weight:700; }
+    .provider-chip.provider-topcv { background:#e8f7ef; color:#16834c; }
+    .provider-chip.provider-careerviet { background:#fff1e8; color:#c65a13; }
+    .candidate-cv { display:inline-flex; align-items:center; gap:5px; padding:6px 10px; }
+    .candidate-cv i { font-size:17px; }
+    .recruitment-source-empty { min-height:170px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; color:#64748b; }
+    .recruitment-source-empty i { font-size:40px; color:#cbd5e1; }
+    .recruitment-integration-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px; }
+    .recruitment-integration-card { padding:20px; border:1px solid #e2e8f0; border-radius:14px; background:#fff; box-shadow:0 1px 3px rgba(15,23,42,.05); }
+    .integration-card-head { display:flex; align-items:center; gap:12px; margin-bottom:18px; }
+    .integration-card-head h4 { margin:0 0 3px; font-size:18px; font-weight:750; }
+    .provider-mark { width:44px; height:44px; display:grid; place-items:center; border-radius:12px; color:#fff; font-weight:800; }
+    .provider-mark.provider-topcv { background:#16a05d; }.provider-mark.provider-careerviet { background:#ef6c22; }
+    .integration-state { color:#94a3b8; font-size:12px; }.integration-state.is-on { color:#16834c; }
+    .recruitment-integration-card>label { display:block; margin-bottom:13px; color:#334155; font-size:12px; font-weight:650; }
+    .recruitment-integration-card>label .form-control { margin-top:6px; font-size:13px; font-weight:400; }
+    .webhook-copy-row { display:flex; gap:8px; align-items:center; }.webhook-copy-row .form-control { min-width:0; }
+    .webhook-copy-row button { margin-top:6px; padding:8px 10px; }.webhook-copy-row i { font-size:18px; }
+    .integration-toggle { display:flex!important; align-items:center; gap:8px; font-size:13px!important; }
+    .integration-message { display:flex; flex-direction:column; gap:3px; padding:12px; margin:4px 0 14px; border-radius:9px; background:#f8fafc; color:#64748b; font-size:12px; }
+    .integration-message strong { color:#334155; }.integration-message small { color:#94a3b8; }
+    .integration-note { display:flex; gap:10px; align-items:flex-start; padding:14px 16px; margin-top:16px; border:1px solid #bfdbfe; border-radius:10px; background:#eff6ff; color:#36577a; }
+    .integration-note i { color:#1769e0; }
+    @@media(max-width:800px){.recruitment-integration-grid{grid-template-columns:1fr}.recruitment-section-heading{align-items:flex-start}.candidate-table{min-width:760px}}
     .rec-modal-grid {
         display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;
         background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px;
@@ -338,6 +458,13 @@
             $('#recDetailEmail').text('Email: ' + (email || 'tuyendung@nhigia.vn'));
 
             $('#modalRecruitmentDetail').modal('show');
+        });
+        $(document).on('click', '.copy-webhook', function() {
+            var button = $(this), value = button.attr('data-value');
+            navigator.clipboard.writeText(value).then(function(){
+                button.find('i').text('check');
+                setTimeout(function(){ button.find('i').text('content_copy'); }, 1500);
+            });
         });
     });
 </script>
