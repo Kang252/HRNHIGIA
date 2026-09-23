@@ -34,7 +34,12 @@ public sealed class RecruitmentWebhookController : ControllerBase
         {
             var settings = _store.GetSettings(provider, true);
             if (settings == null || !settings.IsEnabled) return StatusCode(StatusCodes.Status503ServiceUnavailable, new { success = false, message = "Kết nối đang tắt." });
-            if (!ValidSecret(settings.WebhookSecret)) return Unauthorized(new { success = false, message = "Webhook secret không hợp lệ." });
+            if (!ValidSecret(settings.WebhookSecret))
+            {
+                var headerNames = string.Join(", ", Request.Headers.Keys.OrderBy(x => x, StringComparer.OrdinalIgnoreCase));
+                try { _store.UpdateProviderFailure(provider, $"Webhook bị từ chối. Header nhận được: {headerNames}"); } catch { }
+                return Unauthorized(new { success = false, message = "Webhook secret không hợp lệ." });
+            }
 
             var payload = await ReadPayload(provider, cancellationToken);
             var saved = _store.SaveCandidate(payload);
@@ -59,10 +64,23 @@ public sealed class RecruitmentWebhookController : ControllerBase
         var supplied = Request.Headers["X-Recruitment-Secret"].FirstOrDefault()
             ?? Request.Headers["X-API-Key"].FirstOrDefault()
             ?? Request.Headers["Api-Key"].FirstOrDefault()
-            ?? (authorization?.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase) == true ? authorization[7..].Trim() : null)
+            ?? Request.Headers["api_key"].FirstOrDefault()
+            ?? Request.Headers["Secret-Key"].FirstOrDefault()
+            ?? Request.Headers["X-Secret-Key"].FirstOrDefault()
+            ?? Request.Headers["X-Webhook-Secret"].FirstOrDefault()
+            ?? Request.Headers["X-TopCV-Secret-Key"].FirstOrDefault()
+            ?? AuthorizationValue(authorization)
             ?? Request.Query["secret"].FirstOrDefault();
         if (string.IsNullOrWhiteSpace(supplied)) return false;
         return CryptographicOperations.FixedTimeEquals(Encoding.UTF8.GetBytes(expected), Encoding.UTF8.GetBytes(supplied));
+    }
+
+    private static string AuthorizationValue(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+        foreach (var prefix in new[] { "Bearer ", "ApiKey ", "Api-Key ", "Token " })
+            if (value.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) return value[prefix.Length..].Trim();
+        return value.Trim();
     }
 
     private async Task<RecruitmentCandidatePayload> ReadPayload(string provider, CancellationToken cancellationToken)
