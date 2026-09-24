@@ -60,6 +60,23 @@ Without a working database the new pages display a connection error and disable 
 Run `dotnet build NHIGIA.Modern -c Release`, then `dotnet run --project tests/WorkModules.Smoke` from the repository root.
 The smoke check uses loopback and synthetic local authentication to verify page rendering, role restrictions, missing-database handling and anti-forgery enforcement; it does not verify SQL writes.
 
+## Approved leave and attendance
+
+Approved leave is read as a dated exception to the employee's recurring schedule. `/Hrm/ScheduleLeaves`
+lists these exceptions with the same employee/department visibility as schedules. Attendance includes
+approved leave on assigned working days even when there are no HANET scans. Pending/rejected requests,
+unassigned weekends and non-leave request types do not create leave attendance rows.
+
+For day shifts, morning leave removes the requirement before 13:30; afternoon leave ends the required
+shift at 12:00. Saturday half shifts are excused only by the matching session. Full-day leave is marked
+`ON_LEAVE`; partial leave keeps attendance checks for the remaining shift. The raw HANET events and
+recurring schedule records are unchanged. Deleting an approval removes its exception on the next read.
+The attendance pages and CSV/XLSX exports show approved leave separately from camera scans.
+
+Run `dotnet run --project tests/AttendanceLeave.Tests -c Release` for the leave projection regressions,
+and `dotnet run --project tests/WorkModules.Smoke -c Release -- NHIGIA.Modern --attendance-only`
+for authenticated page rendering and endpoint access checks.
+
 ## Render deployment
 
 The root `render.yaml` deploys the root Dockerfile with `/Health` as its liveness check.

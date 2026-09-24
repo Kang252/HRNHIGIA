@@ -72,7 +72,11 @@ try
     }
     if (attendanceOnly)
     {
-        await Check("/Home/Attendance", "ADMIN", HttpStatusCode.OK, "Đang cập nhật", "Lần quét gần nhất", "Chờ kết thúc ca", "IsProvisional", "Đồng bộ hôm nay", "SyncHanetAttendanceToday");
+        await Check("/Home/Attendance", "ADMIN", HttpStatusCode.OK, "Đang cập nhật", "Lần quét gần nhất", "Chờ kết thúc ca", "IsProvisional", "Đồng bộ hôm nay", "SyncHanetAttendanceToday", "Nghỉ đã duyệt", "ExpectedStartAt");
+        await Check("/Home/Attendance", "EMPLOYEE", HttpStatusCode.OK, "Nghỉ đã duyệt", "APPROVED_LEAVE");
+        await Check("/Home/WorkSchedules", "EMPLOYEE", HttpStatusCode.OK, "Lịch nghỉ đã duyệt", "scheduleLeaveMonth", "/Hrm/ScheduleLeaves");
+        await Check("/Hrm/ScheduleLeaves", null, HttpStatusCode.Redirect);
+        await Check("/Hrm/ScheduleLeaves?fromDate=2026-10-10&toDate=2026-09-01", "EMPLOYEE", HttpStatusCode.BadRequest, "366");
         return;
     }
     await Check("/Work?kind=kpi", null, HttpStatusCode.Redirect);

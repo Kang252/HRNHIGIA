@@ -195,6 +195,7 @@ namespace NHIGIA.Modern.Models
     public class LeaveRequestModel
     {
         public int Id { get; set; }
+        public string PersonId { get; set; }
         public string RequestCode { get; set; }
         public int UserId { get; set; }
         public string Username { get; set; }
@@ -362,6 +363,13 @@ namespace NHIGIA.Modern.Models
         public string ShiftName { get; set; }
         public TimeSpan? ScheduledStart { get; set; }
         public TimeSpan? ScheduledEnd { get; set; }
+        public int GraceMinutes { get; set; }
+        public int BreakMinutes { get; set; }
+        public bool ApprovedLeave { get; set; }
+        public string LeaveSession { get; set; }
+        public string LeaveDescription { get; set; }
+        public DateTime? ExpectedStartAt { get; set; }
+        public DateTime? ExpectedEndAt { get; set; }
         public DateTime? CheckIn { get; set; }
         public DateTime? CheckOut { get; set; }
         public DateTime? LastSeen { get; set; }
@@ -413,6 +421,7 @@ namespace NHIGIA.Modern.Models
     {
         public int TotalEmployees { get; set; }
         public int PresentToday { get; set; }
+        public int OnLeaveToday { get; set; }
         public int LateOrEarlyToday { get; set; }
         public int PendingApprovals { get; set; }
         public int UnmappedHanetUsers { get; set; }

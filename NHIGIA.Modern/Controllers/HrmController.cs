@@ -55,6 +55,21 @@ public sealed class HrmController : BaseController
     [HttpGet]
     public IActionResult Schedules() => Execute(() => Store.GetSchedules(CurrentHrmUser));
 
+    [HttpGet]
+    public IActionResult ScheduleLeaves(DateTime? fromDate, DateTime? toDate) => Execute(() =>
+    {
+        var today = HrmDataStore.CurrentVietnamTime().Date;
+        var from = (fromDate ?? new DateTime(today.Year, today.Month, 1)).Date;
+        var to = (toDate ?? from.AddMonths(1).AddDays(-1)).Date;
+        if (to < from || (to - from).TotalDays > 366)
+            throw new InvalidOperationException("Khoảng lọc tối đa là 366 ngày.");
+        return Store.GetApprovedScheduleLeaves(CurrentHrmUser, from, to).Select(x => new
+        {
+            x.Id, x.RequestCode, x.UserId, x.Username, x.DisplayName, x.DepartmentName,
+            x.StartDate, x.EndDate, x.LeaveType, x.SessionCode, x.StatusCode
+        });
+    });
+
     [HttpPost, ValidateAntiForgeryToken]
     [HrmAuthorize(HrmRoles.Admin, HrmRoles.Hr, HrmRoles.Director, HrmRoles.Manager)]
     public IActionResult SaveSchedule(SaveScheduleRequest request) => Execute(() =>
@@ -708,11 +723,11 @@ public sealed class HrmController : BaseController
         var to = (toDate ?? HrmDataStore.CurrentVietnamTime()).Date;
         var from = (fromDate ?? to.AddDays(-30)).Date;
         var rows = Store.GetAttendance(CurrentHrmUser, from, to);
-        var csv = new StringBuilder("Ngay,Nhan vien,Phong ban,Ca,Check-in,Check-out,Phut cong,Di muon,Ve som,Trang thai\r\n");
+        var csv = new StringBuilder("Ngay,Nhan vien,Phong ban,Ca,Check-in,Check-out,Phut cong,Di muon,Ve som,Trang thai,Nghi da duyet,Buoi nghi\r\n");
         foreach (var row in rows)
         {
             static string Q(string value) => "\"" + (value ?? string.Empty).Replace("\"", "\"\"") + "\"";
-            csv.AppendLine(string.Join(",", Q(row.WorkDate.ToString("dd/MM/yyyy")), Q(row.DisplayName), Q(row.DepartmentName), Q(row.ShiftName), Q(row.CheckIn?.ToString("HH:mm")), Q(row.IsProvisional ? "Tạm tính" : row.CheckOut?.ToString("HH:mm")), row.WorkedMinutes, row.LateMinutes, row.EarlyMinutes, Q(row.StatusCode)));
+            csv.AppendLine(string.Join(",", Q(row.WorkDate.ToString("dd/MM/yyyy")), Q(row.DisplayName), Q(row.DepartmentName), Q(row.ShiftName), Q(row.CheckIn?.ToString("HH:mm")), Q(row.IsProvisional ? "Tạm tính" : row.CheckOut?.ToString("HH:mm")), row.WorkedMinutes, row.LateMinutes, row.EarlyMinutes, Q(row.StatusCode), Q(row.LeaveDescription), Q(row.LeaveSession)));
         }
         return File(Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(csv.ToString())).ToArray(), "text/csv", "cham-cong.csv");
     }
@@ -744,6 +759,7 @@ public sealed class HrmController : BaseController
             sheet.Cell("B6").Value = $"{from:yyyy-MM-dd} đến {to:yyyy-MM-dd}";
             sheet.Cell("A7").Value = "Số lượng nhân viên";
             sheet.Cell("B7").Value = employees.Count;
+            sheet.Cell("A8").Value = "Nghỉ đã duyệt: xem ghi chú ô ngày công; giờ quét thiết bị được giữ nguyên.";
 
             var headers = new[] { "ID", "Tên", "Chức vụ", "Phòng ban", "MSNV" };
             for (var index = 0; index < headers.Length; index++) sheet.Cell(11, index + 1).Value = headers[index];
@@ -782,6 +798,24 @@ public sealed class HrmController : BaseController
                     }
                     sheet.Cell(rowNumber, column).Value = attendance.CheckIn?.ToString("HH:mm") ?? "-";
                     sheet.Cell(rowNumber, column + 1).Value = attendance.IsProvisional ? "Tạm tính" : attendance.CheckOut?.ToString("HH:mm") ?? "-";
+                    if (attendance.ApprovedLeave)
+                    {
+                        var leaveNote = $"Nghỉ đã duyệt · {attendance.LeaveSession}: {attendance.LeaveDescription}";
+                        if (attendance.ExpectedStartAt.HasValue && attendance.ExpectedEndAt.HasValue)
+                            leaveNote += $". Ca còn phải làm: {attendance.ExpectedStartAt:HH:mm}–{attendance.ExpectedEndAt:HH:mm}.";
+                        sheet.Cell(rowNumber, column).CreateComment().AddText(leaveNote);
+                        sheet.Cell(rowNumber, column + 1).CreateComment().AddText(leaveNote);
+                        if (attendance.EventCount == 0)
+                        {
+                            if (attendance.StatusCode == "ON_LEAVE")
+                            {
+                                sheet.Cell(rowNumber, column).Value = "Nghỉ";
+                                sheet.Cell(rowNumber, column + 1).Value = "Đã duyệt";
+                            }
+                            else if (attendance.LeaveSession == "Buổi sáng") sheet.Cell(rowNumber, column).Value = "Nghỉ sáng";
+                            else if (attendance.LeaveSession == "Buổi chiều") sheet.Cell(rowNumber, column + 1).Value = "Nghỉ chiều";
+                        }
+                    }
                     if (attendance.LateMinutes > 0) sheet.Cell(rowNumber, column).Style.Font.SetFontColor(XLColor.Red);
                     if (attendance.IsProvisional) sheet.Cell(rowNumber, column + 1).Style.Font.SetFontColor(XLColor.Blue);
                     if (attendance.EarlyMinutes > 0 || attendance.StatusCode == "MISSING_CHECK") sheet.Cell(rowNumber, column + 1).Style.Font.SetFontColor(XLColor.Red);

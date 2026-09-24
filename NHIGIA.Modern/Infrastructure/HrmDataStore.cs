@@ -230,6 +230,29 @@ namespace NHIGIA.Modern.Infrastructure
             using (var connection = OpenConnection()) return connection.Query<ScheduleModel>(sql, new { CanSeeAll = canSeeAll, IsManager = actor.RoleCode == HrmRoles.Manager, ActorId = actor.Id, DepartmentId = actor.DepartmentId }).ToList();
         }
 
+        public IList<LeaveRequestModel> GetApprovedScheduleLeaves(HrmUserAccountModel actor, DateTime fromDate, DateTime toDate)
+        {
+            const string sql = @"SELECT r.Id,r.RequestCode,r.UserId,u.Username,u.DisplayName,hm.PersonId,
+                    d.Name DepartmentName,p.EmployeeCode,p.JobTitle,r.LeaveType,r.StartDate,r.EndDate,r.SessionCode,r.StatusCode
+                FROM dbo.HrmLeaveRequest r
+                INNER JOIN dbo.HrmUserAccount u ON u.Id=r.UserId
+                LEFT JOIN dbo.HrmDepartment d ON d.Id=u.DepartmentId
+                LEFT JOIN dbo.HrmEmployeeProfile p ON p.UserId=u.Id
+                OUTER APPLY (SELECT TOP 1 m.PersonId FROM dbo.HrmHanetPersonMap m
+                    WHERE m.UserId=u.Id AND m.IsActive=1 ORDER BY m.Id DESC) hm
+                WHERE r.StatusCode='APPROVED' AND r.StartDate<=@ToDate AND r.EndDate>=@FromDate
+                    AND r.LeaveType IN @LeaveTypes
+                    AND (@CanSeeAll=1 OR r.UserId=@ActorId OR (@IsManager=1 AND u.DepartmentId=@DepartmentId))
+                ORDER BY r.StartDate,u.DisplayName,r.Id";
+            using var connection = OpenConnection();
+            return connection.Query<LeaveRequestModel>(sql, new
+            {
+                FromDate = fromDate.Date, ToDate = toDate.Date, AttendanceLeavePolicy.LeaveTypes,
+                CanSeeAll = actor.RoleCode is HrmRoles.Admin or HrmRoles.Hr or HrmRoles.Director,
+                ActorId = actor.Id, IsManager = actor.RoleCode == HrmRoles.Manager, actor.DepartmentId
+            }).Where(AttendanceLeavePolicy.IsApprovedLeave).ToList();
+        }
+
         public int SaveSchedule(SaveScheduleRequest request, HrmUserAccountModel actor, string ipAddress)
         {
             if (request.Id > 0)
@@ -739,11 +762,6 @@ namespace NHIGIA.Modern.Infrastructure
                 new { Id = id, actor.DepartmentId, IsManager = isManager, CanModerate = canModerate, ActorId = actor.Id });
         }
 
-        private class AttendanceProjection : AttendanceRecordModel
-        {
-            public int GraceMinutes { get; set; }
-        }
-
         public static DateTime CurrentVietnamTime()
         {
             var zone = TimeZoneInfo.FindSystemTimeZoneById(OperatingSystem.IsWindows() ? "SE Asia Standard Time" : "Asia/Bangkok");
@@ -752,6 +770,8 @@ namespace NHIGIA.Modern.Infrastructure
 
         public IList<AttendanceRecordModel> GetAttendance(HrmUserAccountModel actor, DateTime fromDate, DateTime toDate)
         {
+            if (toDate.Date < fromDate.Date || (toDate.Date - fromDate.Date).TotalDays > 366)
+                throw new InvalidOperationException("Khoảng lọc tối đa là 366 ngày.");
             const string sql = @"WITH Events AS (
                     SELECT e.UserId, CAST(e.CheckTime AS DATE) WorkDate, MIN(e.CheckTime) CheckIn,
                         MAX(e.CheckTime) LastSeen, COUNT(1) EventCount
@@ -759,14 +779,14 @@ namespace NHIGIA.Modern.Infrastructure
                     GROUP BY e.UserId, CAST(e.CheckTime AS DATE)
                 )
                 SELECT e.UserId, hm.PersonId, p.EmployeeCode, u.DisplayName, p.JobTitle, d.Name DepartmentName, e.WorkDate, s.ShiftName,
-                    s.StartTime ScheduledStart, s.EndTime ScheduledEnd, s.GraceMinutes, e.CheckIn,
+                    s.StartTime ScheduledStart, s.EndTime ScheduledEnd, s.GraceMinutes, s.BreakMinutes, e.CheckIn,
                     CASE WHEN e.EventCount>1 AND e.LastSeen<>e.CheckIn THEN e.LastSeen END CheckOut,
                     e.LastSeen, e.EventCount, 'HANET' Source
                 FROM Events e INNER JOIN dbo.HrmUserAccount u ON u.Id=e.UserId
                 LEFT JOIN dbo.HrmEmployeeProfile p ON p.UserId=u.Id
                 LEFT JOIN dbo.HrmHanetPersonMap hm ON hm.UserId=u.Id AND hm.IsActive=1
                 LEFT JOIN dbo.HrmDepartment d ON d.Id=u.DepartmentId
-                OUTER APPLY (SELECT TOP 1 x.ShiftName, x.StartTime, x.EndTime, x.GraceMinutes
+                OUTER APPLY (SELECT TOP 1 x.ShiftName, x.StartTime, x.EndTime, x.GraceMinutes, x.BreakMinutes
                     FROM dbo.HrmEmployeeSchedule x WHERE x.UserId=e.UserId AND x.StatusCode='ACTIVE'
                       AND x.EffectiveFrom<=e.WorkDate AND (x.EffectiveTo IS NULL OR x.EffectiveTo>=e.WorkDate)
                       AND (x.WorkDaysMask & CASE ((DATEDIFF(DAY, CONVERT(date,'19000107'), e.WorkDate) % 7 + 7) % 7)
@@ -778,37 +798,9 @@ namespace NHIGIA.Modern.Infrastructure
             var canSeeAll = actor.RoleCode == HrmRoles.Admin || actor.RoleCode == HrmRoles.Hr || actor.RoleCode == HrmRoles.Director;
             using (var connection = OpenConnection())
             {
-                var rows = connection.Query<AttendanceProjection>(sql, new { FromDate = fromDate.Date, ToDate = toDate.Date, CanSeeAll = canSeeAll, IsManager = actor.RoleCode == HrmRoles.Manager, ActorId = actor.Id, actor.DepartmentId }).ToList();
-                var currentTime = CurrentVietnamTime();
-                foreach (var row in rows)
-                {
-                    if (!row.ScheduledStart.HasValue || !row.ScheduledEnd.HasValue)
-                    {
-                        row.StatusCode = "MISSING_SCHEDULE";
-                        continue;
-                    }
-                    var scheduledStart = row.WorkDate.Date.Add(row.ScheduledStart.Value);
-                    var scheduledEnd = row.WorkDate.Date.Add(row.ScheduledEnd.Value);
-                    if (scheduledEnd <= scheduledStart) scheduledEnd = scheduledEnd.AddDays(1);
-                    row.LateMinutes = row.CheckIn.HasValue ? Math.Max(0, (int)(row.CheckIn.Value - scheduledStart.AddMinutes(row.GraceMinutes)).TotalMinutes) : 0;
-                    if (currentTime < scheduledEnd)
-                    {
-                        row.IsProvisional = true;
-                        row.CheckOut = null;
-                        row.WorkedMinutes = 0;
-                        row.EarlyMinutes = 0;
-                        row.StatusCode = "IN_PROGRESS";
-                        continue;
-                    }
-                    row.WorkedMinutes = row.CheckIn.HasValue && row.CheckOut.HasValue ? Math.Max(0, (int)(row.CheckOut.Value - row.CheckIn.Value).TotalMinutes) : 0;
-                    row.EarlyMinutes = row.CheckOut.HasValue ? Math.Max(0, (int)(scheduledEnd - row.CheckOut.Value).TotalMinutes) : 0;
-                    if (!row.CheckIn.HasValue || !row.CheckOut.HasValue) row.StatusCode = "MISSING_CHECK";
-                    else if (row.LateMinutes > 0 && row.EarlyMinutes > 0) row.StatusCode = "LATE_EARLY";
-                    else if (row.LateMinutes > 0) row.StatusCode = "LATE";
-                    else if (row.EarlyMinutes > 0) row.StatusCode = "EARLY";
-                    else row.StatusCode = "ON_TIME";
-                }
-                return rows.Cast<AttendanceRecordModel>().ToList();
+                var rows = connection.Query<AttendanceRecordModel>(sql, new { FromDate = fromDate.Date, ToDate = toDate.Date, CanSeeAll = canSeeAll, IsManager = actor.RoleCode == HrmRoles.Manager, ActorId = actor.Id, actor.DepartmentId }).ToList();
+                return AttendanceLeavePolicy.Project(rows, GetSchedules(actor).ToList(),
+                    GetApprovedScheduleLeaves(actor, fromDate, toDate).ToList(), fromDate, toDate, CurrentVietnamTime());
             }
         }
 
@@ -833,7 +825,8 @@ namespace NHIGIA.Modern.Infrastructure
                 return new DashboardModel
                 {
                     TotalEmployees = connection.ExecuteScalar<int>(employeeSql, args),
-                    PresentToday = attendance.Select(x => x.UserId).Distinct().Count(),
+                    PresentToday = attendance.Where(x => x.EventCount > 0).Select(x => x.UserId).Distinct().Count(),
+                    OnLeaveToday = attendance.Where(x => x.StatusCode == "ON_LEAVE" && x.EventCount == 0).Select(x => x.UserId).Distinct().Count(),
                     LateOrEarlyToday = attendance.Count(x => x.LateMinutes > 0 || x.EarlyMinutes > 0),
                     PendingApprovals = connection.ExecuteScalar<int>(pendingSql, args),
                     UnmappedHanetUsers = connection.ExecuteScalar<int>(unmappedSql, args),

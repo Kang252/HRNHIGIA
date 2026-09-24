@@ -60,7 +60,7 @@ public sealed class HrmAssistantService
                     : $"Chấm công hôm nay: vào {Time(row.CheckIn)}, ra {Time(row.CheckOut)}, trạng thái {AttendanceStatus(row.StatusCode)}. Đi muộn {row.LateMinutes} phút, về sớm {row.EarlyMinutes} phút.";
                 return Reply(detail, scope, "/Home/Attendance", "Xem chi tiết", suggestions);
             }
-            var present = rows.Select(x => x.UserId).Distinct().Count();
+            var present = rows.Where(x => x.EventCount > 0).Select(x => x.UserId).Distinct().Count();
             var exceptions = rows.Count(x => x.LateMinutes > 0 || x.EarlyMinutes > 0 || x.StatusCode == "MISSING_CHECK");
             return Reply($"Hôm nay có {present} nhân viên trong phạm vi của bạn có dữ liệu chấm công; {exceptions} bản ghi cần chú ý vì đi muộn, về sớm hoặc thiếu lượt chấm.", scope, "/Home/Attendance", "Xem bảng chấm công", suggestions);
         }
@@ -228,7 +228,7 @@ public sealed class HrmAssistantService
     private static string AttendanceStatus(string status) => status switch
     {
         "IN_PROGRESS" => "đang cập nhật đến khi kết thúc ca", "ON_TIME" => "đúng giờ", "LATE" => "đi muộn", "EARLY" => "về sớm", "LATE_EARLY" => "đi muộn và về sớm",
-        "MISSING_CHECK" => "thiếu lượt chấm", "MISSING_SCHEDULE" => "chưa có ca làm", _ => "chưa xác định"
+        "ON_LEAVE" => "nghỉ đã duyệt", "MISSING_CHECK" => "thiếu lượt chấm", "MISSING_SCHEDULE" => "chưa có ca làm", _ => "chưa xác định"
     };
 
     private static string Time(DateTime? value) => value?.ToString("HH:mm") ?? "chưa có";
