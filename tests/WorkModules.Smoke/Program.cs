@@ -77,7 +77,7 @@ try
     }
     await Check("/Work?kind=kpi", null, HttpStatusCode.Redirect);
     await Check("/Hrm/LeaveAttachment?id=1", null, HttpStatusCode.Redirect);
-    await Check("/Account/Login", null, HttpStatusCode.OK, "images/nhigia-logo.png", "hrm-login-logo");
+    await Check("/Account/Login", null, HttpStatusCode.OK, "images/nhigia-header-logo.png", "hrm-login-logo");
     using (var antiforgeryClient = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false, UseCookies = false }) { BaseAddress = client.BaseAddress })
     using (var antiforgeryPage = await antiforgeryClient.GetAsync("/Account/Login"))
     {
@@ -85,7 +85,8 @@ try
         if (!cookies.Contains("NHIGIA.Antiforgery.v2=")) throw new Exception("Stable antiforgery cookie was not issued.");
         Console.WriteLine("PASS stable antiforgery cookie");
     }
-    await Check("/", "ADMIN", HttpStatusCode.OK, "Tổng quan hệ thống", "Tài khoản nhân sự", "Helpdesk IT", "images/nhigia-logo.png", "Mở thông báo", "/Work/Notifications", "hrmNotificationBadge", "hrmRowPreview", "Trợ lý Nhị Gia", "Trò chuyện tự do", "Chỉ dữ liệu SQL bị giới hạn", "/Assistant/Ask", "hrm-assistant.js");
+    await Check("/", "ADMIN", HttpStatusCode.OK, "Tổng quan hệ thống", "Tài khoản nhân sự", "Helpdesk IT", "images/nhigia-header-logo.png", "Mở thông báo", "/Work/Notifications", "hrmNotificationBadge", "hrmRowPreview", "Trợ lý Nhị Gia", "Trò chuyện tự do", "Chỉ dữ liệu SQL bị giới hạn", "/Assistant/Ask", "hrm-assistant.js");
+    await Check("/js/hrm-assistant.js", null, HttpStatusCode.OK, "readJsonResponse", "response.text()", "trang lỗi thay vì dữ liệu trợ lý");
     await CheckMissing("/", "ADMIN", "Ứng dụng eHRM", "hrm-app-grid", "inventory_2");
     await Check("/", "EMPLOYEE", HttpStatusCode.OK, "Tổng quan của tôi", "KPI của tôi", "Phiếu lương", "Yêu cầu IT");
     await CheckMissing("/", "EMPLOYEE", "Quản lý nhân sự", "Tuyển dụng", "Điều chuyển nhân sự");
@@ -99,6 +100,15 @@ try
         assistantPost.Content = new StringContent("{\"Question\":\"Chấm công hôm nay\"}", System.Text.Encoding.UTF8, "application/json");
         if ((await client.SendAsync(assistantPost)).StatusCode != HttpStatusCode.BadRequest) throw new Exception("Assistant accepted a request without anti-forgery token.");
         Console.WriteLine("PASS assistant anti-forgery protection");
+    }
+    using (var anonymousAssistantPost = new HttpRequestMessage(HttpMethod.Post, "/Assistant/Ask"))
+    {
+        anonymousAssistantPost.Content = new StringContent("{\"Question\":\"Xin chào\"}", System.Text.Encoding.UTF8, "application/json");
+        var anonymousResponse = await client.SendAsync(anonymousAssistantPost);
+        var anonymousBody = await anonymousResponse.Content.ReadAsStringAsync();
+        if (anonymousResponse.StatusCode != HttpStatusCode.Unauthorized || !anonymousBody.Contains("Phiên đăng nhập đã hết hạn"))
+            throw new Exception("Assistant did not return a JSON 401 when the login session was missing.");
+        Console.WriteLine("PASS assistant JSON unauthorized response");
     }
     foreach (var role in new[] { "EMPLOYEE", "MANAGER", "HR", "DIRECTOR" })
         await Check("/Hrm/HanetDevices", role, HttpStatusCode.Redirect);

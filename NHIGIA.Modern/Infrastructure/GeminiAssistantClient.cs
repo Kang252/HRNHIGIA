@@ -6,6 +6,13 @@ namespace NHIGIA.Modern.Infrastructure;
 
 public sealed class GeminiAssistantClient
 {
+    private static readonly string[] DefaultModels =
+    [
+        "gemini-3.8-flash",
+        "gemini-3.5-flash-lite",
+        "gemini-3.1-flash-lite"
+    ];
+
     private readonly HttpClient _httpClient;
     private readonly IConfiguration _configuration;
     private readonly ILogger<GeminiAssistantClient> _logger;
@@ -23,7 +30,7 @@ public sealed class GeminiAssistantClient
     {
         if (!IsConfigured) return null;
 
-        var model = ResolveModelId();
+        var models = ResolveModelIds();
         var systemInstruction = """
             Bạn là Trợ lý Nhị Gia. Trả lời bằng tiếng Việt, rõ ràng, hữu ích và thân thiện.
             Người dùng có thể trò chuyện và hỏi kiến thức phổ thông về mọi chủ đề; không giới hạn cuộc hội thoại trong HRM.
@@ -68,8 +75,9 @@ public sealed class GeminiAssistantClient
             generationConfig = new { temperature = grounded.HasGroundedData ? 0.15 : 0.55, maxOutputTokens = 500 }
         };
 
-        for (var attempt = 0; attempt < 3; attempt++)
+        for (var modelIndex = 0; modelIndex < models.Count; modelIndex++)
         {
+            var model = models[modelIndex];
             try
             {
                 using var request = new HttpRequestMessage(HttpMethod.Post, $"v1beta/models/{Uri.EscapeDataString(model)}:generateContent")
@@ -80,11 +88,16 @@ public sealed class GeminiAssistantClient
                 using var response = await _httpClient.SendAsync(request, cancellationToken);
                 if (!response.IsSuccessStatusCode)
                 {
-                    var transient = (int)response.StatusCode == 429 || (int)response.StatusCode >= 500;
-                    _logger.LogWarning("Gemini returned HTTP {StatusCode} for HRM assistant (attempt {Attempt})", (int)response.StatusCode, attempt + 1);
-                    if (transient && attempt < 2)
+                    var statusCode = (int)response.StatusCode;
+                    _logger.LogWarning(
+                        "Gemini model {ModelId} returned HTTP {StatusCode} for HRM assistant ({ModelNumber}/{ModelCount})",
+                        model, statusCode, modelIndex + 1, models.Count);
+
+                    // Authentication and permission failures apply to every model using this API key.
+                    if (statusCode is 401 or 403) return null;
+                    if (modelIndex < models.Count - 1)
                     {
-                        await Task.Delay(400 + attempt * 500, cancellationToken);
+                        await Task.Delay(250, cancellationToken);
                         continue;
                     }
                     return null;
@@ -94,10 +107,10 @@ public sealed class GeminiAssistantClient
                 if (!json.RootElement.TryGetProperty("candidates", out var candidates) || candidates.GetArrayLength() == 0 ||
                     !candidates[0].TryGetProperty("content", out var content) || !content.TryGetProperty("parts", out var parts))
                 {
-                    _logger.LogWarning("Gemini returned no answer content on attempt {Attempt}", attempt + 1);
-                    if (attempt < 2)
+                    _logger.LogWarning("Gemini model {ModelId} returned no answer content", model);
+                    if (modelIndex < models.Count - 1)
                     {
-                        await Task.Delay(400 + attempt * 500, cancellationToken);
+                        await Task.Delay(250, cancellationToken);
                         continue;
                     }
                     return null;
@@ -106,27 +119,51 @@ public sealed class GeminiAssistantClient
                     .Where(x => x.TryGetProperty("text", out _))
                     .Select(x => x.GetProperty("text").GetString())
                     .Where(x => !string.IsNullOrWhiteSpace(x))).Trim();
-                if (string.IsNullOrWhiteSpace(answer) && attempt < 2)
+                if (string.IsNullOrWhiteSpace(answer) && modelIndex < models.Count - 1)
                 {
-                    await Task.Delay(400 + attempt * 500, cancellationToken);
+                    await Task.Delay(250, cancellationToken);
                     continue;
                 }
+                _logger.LogInformation("Gemini model {ModelId} answered the HRM assistant request", model);
                 return answer.Length > 2000 ? answer[..2000] : answer;
             }
             catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or JsonException)
             {
-                _logger.LogWarning(exception, "Gemini was unavailable on attempt {Attempt}", attempt + 1);
-                if (attempt >= 2 || cancellationToken.IsCancellationRequested) return null;
-                await Task.Delay(400 + attempt * 500, cancellationToken);
+                _logger.LogWarning(exception, "Gemini model {ModelId} was unavailable", model);
+                if (modelIndex >= models.Count - 1 || cancellationToken.IsCancellationRequested) return null;
+                await Task.Delay(250, cancellationToken);
             }
         }
 
         return null;
     }
 
-    private string ResolveModelId()
+    private IReadOnlyList<string> ResolveModelIds()
     {
-        var configured = (_configuration["GEMINI_MODEL"] ?? _configuration["Gemini:Model"] ?? "gemini-3.8-flash").Trim();
+        var configuredModels = _configuration["GEMINI_MODELS"] ?? _configuration["Gemini:Models"];
+        var configuredPrimary = _configuration["GEMINI_MODEL"] ?? _configuration["Gemini:Model"];
+        var candidates = new List<string>();
+
+        if (!string.IsNullOrWhiteSpace(configuredModels))
+            candidates.AddRange(configuredModels.Split([',', ';', '|', '\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+        if (!string.IsNullOrWhiteSpace(configuredPrimary))
+            candidates.Insert(0, configuredPrimary);
+        candidates.AddRange(DefaultModels);
+
+        var models = candidates
+            .Select(NormalizeModelId)
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(5)
+            .ToList();
+
+        _logger.LogInformation("Gemini assistant model chain: {Models}", string.Join(" -> ", models));
+        return models;
+    }
+
+    private string NormalizeModelId(string configured)
+    {
+        configured = configured?.Trim() ?? string.Empty;
         if (configured.StartsWith("models/", StringComparison.OrdinalIgnoreCase)) configured = configured[7..];
 
         var normalized = string.Join('-', configured
@@ -138,8 +175,8 @@ public sealed class GeminiAssistantClient
         if (!normalized.StartsWith("gemini-", StringComparison.Ordinal) ||
             normalized.Any(character => !(char.IsLetterOrDigit(character) || character is '-' or '.')))
         {
-            _logger.LogWarning("Invalid GEMINI_MODEL value {ConfiguredModel}; using gemini-3.8-flash", configured);
-            return "gemini-3.8-flash";
+            _logger.LogWarning("Ignoring invalid Gemini model value {ConfiguredModel}", configured);
+            return null;
         }
 
         if (!string.Equals(configured, normalized, StringComparison.Ordinal))

@@ -129,6 +129,29 @@
         });
     }
 
+    async function readJsonResponse(response) {
+        var contentType = (response.headers.get('content-type') || '').toLowerCase();
+        var body = await response.text();
+
+        if (response.status === 401 || response.redirected) {
+            throw new Error('Phiên đăng nhập đã hết hạn. Vui lòng tải lại trang và đăng nhập lại.');
+        }
+
+        if (contentType.indexOf('text/html') >= 0 || /^\s*<!doctype\s+html/i.test(body)) {
+            throw new Error('Máy chủ đang trả về trang lỗi thay vì dữ liệu trợ lý. Vui lòng thử lại sau ít phút.');
+        }
+
+        if (!body) {
+            throw new Error(response.ok ? 'Máy chủ không trả về dữ liệu.' : 'Không thể kết nối trợ lý lúc này.');
+        }
+
+        try {
+            return JSON.parse(body);
+        } catch (_) {
+            throw new Error('Phản hồi từ máy chủ không đúng định dạng. Vui lòng thử lại.');
+        }
+    }
+
     async function ask(question) {
         if (isAsking || !question) return;
 
@@ -147,7 +170,7 @@
                 headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': token },
                 body: JSON.stringify({ Question: question, History: requestHistory })
             });
-            var result = await response.json();
+            var result = await readJsonResponse(response);
             var remainingDelay = Math.max(0, 450 - (Date.now() - loadingStartedAt));
             if (remainingDelay) await new Promise(function (resolve) { window.setTimeout(resolve, remainingDelay); });
             typingMessage.remove();
