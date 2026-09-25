@@ -2,12 +2,12 @@
 <div class="container-fluid">
     <div class="hrm-page-header">
         <div>
-            <h1 class="hrm-page-title">Yêu cầu của tôi</h1>
-            <p class="hrm-page-subtitle">Tạo yêu cầu nhân sự và theo dõi trạng thái phê duyệt</p>
+            <h1 class="hrm-page-title">Thủ tục của tôi</h1>
+            <p class="hrm-page-subtitle">Tạo thủ tục, đề xuất nội bộ và theo dõi trạng thái phê duyệt</p>
         </div>
         <div class="hrm-header-actions">
             <a class="hrm-btn" href="@Url.Action("Attendance", "Home")"><i class="material-icons">alarm_on</i> Xem chấm công</a>
-            <button id="btnOpenCreateRequest" class="hrm-btn hrm-btn-primary" type="button" title="Tạo yêu cầu mới (24 danh mục)"><i class="material-icons">add</i> Tạo yêu cầu</button>
+            <button id="btnOpenCreateRequest" class="hrm-btn hrm-btn-primary" type="button" title="Tạo thủ tục mới (25 danh mục)"><i class="material-icons">add</i> Tạo thủ tục</button>
         </div>
     </div>
 
@@ -21,14 +21,14 @@
     <div class="hrm-content-grid">
         <div class="hrm-card">
             <div class="hrm-card-header">
-                <div><h2 class="hrm-card-title">Danh sách yêu cầu</h2><p class="hrm-card-subtitle">Theo dõi trạng thái duyệt trực tiếp từ hệ thống</p></div>
+                <div><h2 class="hrm-card-title">Danh sách thủ tục</h2><p class="hrm-card-subtitle">Theo dõi trạng thái duyệt trực tiếp từ hệ thống</p></div>
                 <span class="hrm-badge hrm-badge-blue">Nhân viên</span>
             </div>
             <div class="hrm-table-wrap">
                 <table class="hrm-table">
                     <thead><tr><th>Mã yêu cầu</th><th>Loại yêu cầu</th><th>Thời gian</th><th>Lý do</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>
                     <tbody id="leaveRequestRows">
-                        <tr id="leaveRequestEmpty"><td colspan="6"><div class="hrm-empty"><i class="material-icons">event_note</i><strong>Chưa có yêu cầu</strong><br /><span>Chọn “Tạo yêu cầu” để bắt đầu.</span></div></td></tr>
+                        <tr id="leaveRequestEmpty"><td colspan="6"><div class="hrm-empty"><i class="material-icons">event_note</i><strong>Chưa có thủ tục</strong><br /><span>Chọn “Tạo thủ tục” để bắt đầu.</span></div></td></tr>
                     </tbody>
                 </table>
             </div>
