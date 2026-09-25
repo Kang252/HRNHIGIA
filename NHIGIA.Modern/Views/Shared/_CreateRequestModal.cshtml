@@ -851,7 +851,7 @@
             <div class="tc-create-cat">
                 <div class="tc-category-header">
                     <span class="tc-category-badge cat-hr">
-                        <i class="material-icons">badge</i> Nhân sự & Quản lý (6)
+                        <i class="material-icons">badge</i> Nhân sự & Quản lý (7)
                     </span>
                 </div>
                 <div class="tc-create-grid">
@@ -920,13 +920,20 @@
                         <div class="tc-item-text"><span class="tc-item-title">Kỷ luật</span></div>
                         <i class="material-icons tc-item-arrow">chevron_right</i>
                     </div>
+                    <div class="tc-create-item" data-type="Yêu cầu hỗ trợ" data-cat="Nhân sự">
+                        <span class="tc-item-icon" style="background:#e0f2fe;color:#0369a1;" title="Yêu cầu hỗ trợ">
+                            <i class="material-icons">support_agent</i>
+                        </span>
+                        <div class="tc-item-text"><span class="tc-item-title">Yêu cầu hỗ trợ</span></div>
+                        <i class="material-icons tc-item-arrow">chevron_right</i>
+                    </div>
                 </div>
             </div>
         </div>
 
         <div class="tc-modal-footer">
             <div class="tc-modal-summary">
-                Có tổng cộng <strong>24</strong> loại yêu cầu đề xuất
+                Có tổng cộng <strong>25</strong> loại yêu cầu đề xuất
             </div>
             <div>
                 <button id="tcCreateModalCancel" type="button" class="tc-btn-modal-cancel">Đóng</button>
@@ -1066,6 +1073,9 @@
         }
         if (t.indexOf('khen thưởng') !== -1 || t.indexOf('kỷ luật') !== -1) {
             return 'REWARD_DISCIPLINE';
+        }
+        if (t.indexOf('hỗ trợ') !== -1) {
+            return 'SUPPORT';
         }
         return 'LEAVE';
     }
@@ -1234,8 +1244,15 @@
         html += '</select></div>';
         if (isTrip) {
             html += '<div class="tc-tanca-row">';
-            html += '<label>Địa điểm công tác</label>';
-            html += '<input type="text" id="dynLocation" class="tc-tanca-input" placeholder="Nhập điểm đến, văn phòng đối tác..." />';
+            html += '<label>Địa điểm công tác <span class="req">*</span></label>';
+            html += '<input type="text" id="dynLocation" class="tc-tanca-input" placeholder="Tỉnh/thành, địa chỉ hoặc văn phòng đối tác" required />';
+            html += '</div>';
+            html += '<div class="tc-tanca-row"><label>Đối tác / người liên hệ</label><input type="text" id="dynTripContact" class="tc-tanca-input" placeholder="Tên đơn vị, người liên hệ và số điện thoại" /></div>';
+            html += '<div class="tc-tanca-row"><label>Phương tiện</label><select id="dynTransport" class="tc-tanca-select"><option>Xe công ty</option><option>Máy bay</option><option>Tàu hỏa</option><option>Xe khách</option><option>Taxi / xe công nghệ</option><option>Phương tiện cá nhân</option><option>Khác</option></select></div>';
+            html += '<div class="tc-tanca-row"><label>Lưu trú</label><select id="dynLodging" class="tc-tanca-select"><option value="Không yêu cầu">Không yêu cầu</option><option value="Cần đặt phòng">Cần đặt phòng</option><option value="Tự túc">Tự túc</option></select></div>';
+            html += '<div class="tc-tanca-row"><label>Tiền tạm ứng</label><div class="tc-inline-grid-2"><input type="number" id="dynAdvanceAmount" class="tc-tanca-input" min="0" step="1000" placeholder="Số tiền (VNĐ)" /><select id="dynAdvanceMethod" class="tc-tanca-select"><option>Chuyển khoản</option><option>Tiền mặt</option><option>Không tạm ứng</option></select></div></div>';
+            html += '<div class="tc-tanca-row"><label>Dự toán chi phí</label><textarea id="dynTripBudget" class="tc-tanca-textarea" placeholder="Di chuyển, lưu trú, tiếp khách và các chi phí dự kiến..."></textarea></div>';
+            html += '<div class="tc-tanca-row"><label>Người cùng công tác</label><input type="text" id="dynTripCompanions" class="tc-tanca-input" placeholder="Họ tên hoặc mã nhân viên, phân cách bằng dấu phẩy" />';
             html += '</div>';
         }
         html += '<div class="tc-tanca-row">';
@@ -1594,6 +1611,28 @@
         return html;
     }
 
+    /* Template 11: Support request */
+    function renderSupportForm(type, cat) {
+        var target = moment().add(1, 'days').format('YYYY-MM-DD');
+        var html = '<div class="tc-tanca-form" data-template="SUPPORT">';
+        html += '<input type="hidden" id="dynReqType" value="' + esc(type) + '" />';
+        html += '<input type="hidden" id="dynReqCategory" value="' + esc(cat) + '" />';
+        html += renderEmployeeRow('Người yêu cầu', 'dynEmployeeId');
+        html += '<div class="tc-tanca-row"><label>Tiêu đề <span class="req">*</span></label><input type="text" id="dynTitle" class="tc-tanca-input" value="Yêu cầu hỗ trợ" required /></div>';
+        html += '<div class="tc-tanca-row"><label>Nhóm hỗ trợ <span class="req">*</span></label><select id="dynSupportGroup" class="tc-tanca-select"><option>Công nghệ thông tin (IT)</option><option>Nhân sự</option><option>Hành chính</option><option>Kế toán - tài chính</option><option>Cơ sở vật chất</option><option>Pháp chế</option><option>Khác</option></select></div>';
+        html += '<div class="tc-tanca-row"><label>Loại yêu cầu</label><select id="dynSupportType" class="tc-tanca-select"><option>Xử lý sự cố</option><option>Cấp quyền / tài khoản</option><option>Cấp phát thiết bị</option><option>Tư vấn nghiệp vụ</option><option>Cung cấp thông tin / hồ sơ</option><option>Sửa chữa / bảo trì</option><option>Yêu cầu khác</option></select></div>';
+        html += '<div class="tc-tanca-row"><label>Mức ưu tiên</label><select id="dynPriority" class="tc-tanca-select"><option value="Bình thường">Bình thường</option><option value="Cao">Cao - ảnh hưởng công việc</option><option value="Khẩn cấp">Khẩn cấp - ngừng hoạt động</option></select></div>';
+        html += '<div class="tc-tanca-row"><label>Hạn mong muốn</label><input type="date" id="dynTargetDate" class="tc-tanca-input" value="' + target + '" /></div>';
+        html += '<div class="tc-tanca-row"><label>Địa điểm / phòng ban</label><input type="text" id="dynSupportLocation" class="tc-tanca-input" placeholder="Vị trí cần hỗ trợ" /></div>';
+        html += '<div class="tc-tanca-row"><label>Thiết bị / mã tài sản</label><input type="text" id="dynAssetCode" class="tc-tanca-input" placeholder="Nếu yêu cầu liên quan thiết bị" /></div>';
+        html += '<div class="tc-tanca-row"><label>Liên hệ</label><input type="text" id="dynContactInfo" class="tc-tanca-input" placeholder="Số điện thoại hoặc email nhận phản hồi" /></div>';
+        html += '<div class="tc-tanca-row align-top"><label>Mô tả chi tiết <span class="req">*</span></label><textarea id="dynReason" class="tc-tanca-textarea" placeholder="Hiện trạng, lỗi gặp phải, kết quả mong muốn và mức độ ảnh hưởng"></textarea></div>';
+        html += renderAttachmentRow();
+        html += renderFlowPreviewRow('Người yêu cầu', 'Bộ phận phụ trách', 'Xác nhận hoàn tất');
+        html += '</div>';
+        return html;
+    }
+
     /* Master Dynamic Form Renderer */
     function renderDynamicCreateForm(type, cat) {
         var tpl = getRequestCategoryTemplate(type, cat);
@@ -1609,6 +1648,7 @@
             case 'RESIGNATION': html = renderResignationForm(type, cat); break;
             case 'APPOINTMENT': html = renderAppointmentForm(type, cat); break;
             case 'REWARD_DISCIPLINE': html = renderRewardDisciplineForm(type, cat); break;
+            case 'SUPPORT': html = renderSupportForm(type, cat); break;
             default: html = renderLeaveForm(type, cat); break;
         }
         container.html(html);
@@ -1907,6 +1947,7 @@
             var ho = ($('#dynHandover').val() || '').trim();
             var loc = ($('#dynLocation').val() || '').trim();
             var r = ($('#dynReason').val() || '').trim();
+            var isTrip = type.indexOf('Công tác') !== -1;
 
             if (!sDate || !eDate) {
                 alert('Vui lòng chọn từ ngày và đến ngày.');
@@ -1921,6 +1962,11 @@
                 $('#dynReason').focus();
                 return;
             }
+            if (isTrip && !loc) {
+                alert('Vui lòng nhập địa điểm công tác.');
+                $('#dynLocation').focus();
+                return;
+            }
 
             startDate = sDate;
             endDate = eDate;
@@ -1929,8 +1975,38 @@
             var days = calcDays(sDate, eDate);
 
             reason = 'Tiêu đề: ' + title + '\n' +
-                     'Loại: ' + leaveSubtype + (loc ? ' | Địa điểm: ' + loc : '') + ' | Thời gian: ' + days + ' ngày (' + sess + ')\n' +
-                     'Lý do: ' + r;
+                     'Loại: ' + leaveSubtype + (loc ? ' | Địa điểm: ' + loc : '') + ' | Thời gian: ' + days + ' ngày (' + sess + ')\n';
+            if (isTrip) {
+                var advance = parseFloat($('#dynAdvanceAmount').val()) || 0;
+                reason += 'Đối tác / liên hệ: ' + (($('#dynTripContact').val() || '').trim() || 'Chưa cung cấp') + '\n' +
+                          'Phương tiện: ' + $('#dynTransport').val() + ' | Lưu trú: ' + $('#dynLodging').val() + '\n' +
+                          'Tạm ứng: ' + (advance ? fmtMoney(advance) + ' VNĐ - ' + $('#dynAdvanceMethod').val() : 'Không tạm ứng') + '\n' +
+                          'Dự toán: ' + (($('#dynTripBudget').val() || '').trim() || 'Chưa cung cấp') + '\n' +
+                          'Người cùng công tác: ' + (($('#dynTripCompanions').val() || '').trim() || 'Không có') + '\n';
+            }
+            reason += 'Lý do / nội dung công việc: ' + r;
+        } else if (tpl === 'SUPPORT') {
+            var targetDate = $('#dynTargetDate').val();
+            var supportGroup = $('#dynSupportGroup').val();
+            var supportType = $('#dynSupportType').val();
+            var priority = $('#dynPriority').val();
+            var detail = ($('#dynReason').val() || '').trim();
+            if (!detail) {
+                alert('Vui lòng mô tả chi tiết yêu cầu hỗ trợ.');
+                $('#dynReason').focus();
+                return;
+            }
+            startDate = moment().format('YYYY-MM-DD');
+            endDate = targetDate || startDate;
+            sessionCode = priority;
+            handoverTo = supportGroup;
+            reason = 'Tiêu đề: ' + title + '\n' +
+                     'Nhóm hỗ trợ: ' + supportGroup + ' | Loại: ' + supportType + ' | Ưu tiên: ' + priority + '\n' +
+                     'Hạn mong muốn: ' + fmtDate(endDate) + '\n' +
+                     'Địa điểm / phòng ban: ' + (($('#dynSupportLocation').val() || '').trim() || 'Chưa cung cấp') + '\n' +
+                     'Thiết bị / mã tài sản: ' + (($('#dynAssetCode').val() || '').trim() || 'Không có') + '\n' +
+                     'Liên hệ: ' + (($('#dynContactInfo').val() || '').trim() || 'Theo hồ sơ nhân viên') + '\n' +
+                     'Mô tả: ' + detail;
         } else if (tpl === 'ATTENDANCE') {
             var aDate = $('#dynDate').val();
             var adjType = $('#dynAdjustType').val();
@@ -2156,16 +2232,23 @@
         var btn = $(this);
         btn.prop('disabled', true).html('<i class="material-icons" style="font-size:16px;vertical-align:middle;">sync</i> Đang gửi...');
 
-        $.post('@Url.Action("CreateLeave", "Hrm")', {
-            __RequestVerificationToken: token,
-            EmployeeId: empId ? +empId : null,
-            LeaveType: type,
-            StartDate: startDate,
-            EndDate: endDate,
-            SessionCode: sessionCode,
-            HandoverTo: handoverTo,
-            Reason: reason,
-            AttachmentName: file ? file.name : ''
+        var payload = new FormData();
+        payload.append('__RequestVerificationToken', token || '');
+        if (empId) payload.append('EmployeeId', +empId);
+        payload.append('LeaveType', type);
+        payload.append('StartDate', startDate);
+        payload.append('EndDate', endDate);
+        payload.append('SessionCode', sessionCode);
+        payload.append('HandoverTo', handoverTo);
+        payload.append('Reason', reason);
+        if (file) payload.append('attachment', file, file.name);
+
+        $.ajax({
+            url: '@Url.Action("CreateLeave", "Hrm")',
+            method: 'POST',
+            data: payload,
+            processData: false,
+            contentType: false
         }).done(function (res) {
             var reqCode = (res.Data && res.Data.RequestCode) || '';
             showToast('Đã tạo đề xuất ' + (reqCode ? '#' + reqCode : '') + ' thành công!', 'success');

@@ -109,9 +109,9 @@ public sealed class HrmController : BaseController
     {
         try
         {
-            if (request == null || string.IsNullOrWhiteSpace(request.LeaveType)) throw new InvalidOperationException("Vui lòng chọn loại nghỉ.");
-            if (request.StartDate == default || request.EndDate == default || request.EndDate.Date < request.StartDate.Date) throw new InvalidOperationException("Khoảng ngày nghỉ không hợp lệ.");
-            if (string.IsNullOrWhiteSpace(request.Reason)) throw new InvalidOperationException("Vui lòng nhập lý do nghỉ.");
+            if (request == null || string.IsNullOrWhiteSpace(request.LeaveType)) throw new InvalidOperationException("Vui lòng chọn loại yêu cầu.");
+            if (request.StartDate == default || request.EndDate == default || request.EndDate.Date < request.StartDate.Date) throw new InvalidOperationException("Khoảng thời gian yêu cầu không hợp lệ.");
+            if (string.IsNullOrWhiteSpace(request.Reason)) throw new InvalidOperationException("Vui lòng nhập nội dung yêu cầu.");
             if (attachment != null && attachment.Length > 0)
             {
                 if (attachment.Length > 10 * 1024 * 1024) throw new InvalidOperationException("Tệp đính kèm không được vượt quá 10 MB.");
@@ -122,7 +122,8 @@ public sealed class HrmController : BaseController
                 {
                     ".pdf" => "application/pdf", ".jpg" or ".jpeg" => "image/jpeg", ".png" => "image/png",
                     ".doc" => "application/msword", ".docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                    _ => throw new InvalidOperationException("Chỉ hỗ trợ tệp PDF, JPG, PNG, DOC hoặc DOCX.")
+                    ".xls" => "application/vnd.ms-excel", ".xlsx" => "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    _ => throw new InvalidOperationException("Chỉ hỗ trợ tệp PDF, JPG, PNG, DOC, DOCX, XLS hoặc XLSX.")
                 };
                 await using var stream = new MemoryStream();
                 await attachment.CopyToAsync(stream);
@@ -400,7 +401,8 @@ public sealed class HrmController : BaseController
             ".jpg" or ".jpeg" => content[0] == 0xff && content[1] == 0xd8 && content[2] == 0xff,
             ".png" => content.Length >= 8 && content.Take(8).SequenceEqual(new byte[] { 0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a }),
             ".doc" => content.Length >= 8 && content.Take(8).SequenceEqual(new byte[] { 0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1 }),
-            ".docx" => content[0] == 0x50 && content[1] == 0x4b && content[2] == 0x03 && content[3] == 0x04,
+            ".docx" or ".xlsx" => content[0] == 0x50 && content[1] == 0x4b && content[2] == 0x03 && content[3] == 0x04,
+            ".xls" => content.Length >= 8 && content.Take(8).SequenceEqual(new byte[] { 0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1 }),
             _ => false
         };
     }
