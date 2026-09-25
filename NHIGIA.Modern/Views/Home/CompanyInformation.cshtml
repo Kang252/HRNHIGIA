@@ -3,6 +3,7 @@
     var isIntroduction = section == "introduction";
     var isRules = section == "rules";
     var isBrand = section == "brand";
+    var isDepartment = section is "human-resources" or "finance-accounting" or "marketing" or "technology" or "business";
     var brand = (ViewBag.CompanyBrand as string) ?? "nhigia";
     var brandName = brand switch { "gotravel" => "GoTravel", "ttp" => "TTP", _ => "Nhị Gia" };
     var brandLogo = brand switch { "gotravel" => "/images/gotravel-logo.png", "ttp" => "/images/ttp-logo.png", _ => "/images/nhigia-symbol-logo.png" };
@@ -57,7 +58,7 @@
             </div>
         </section>
     }
-    else
+    else if (isBrand)
     {
         <section class="hrm-card company-brand-card">
             <div class="company-brand-preview"><span>LOGO CHÍNH THỨC</span><img src="@brandLogo" asp-append-version="true" alt="Logo @brandName" /></div>
@@ -70,6 +71,27 @@
             </div>
         </section>
     }
+    else if (isDepartment)
+    {
+        var department = section switch
+        {
+            "human-resources" => (Name: "Nhân sự", Icon: "groups", Color: "#2563eb", Intro: "Thông tin nhân sự, chính sách lao động và các đầu mối hỗ trợ dành cho toàn thể nhân viên.", Items: new[] { ("Chính sách nhân sự", "Quy định về hồ sơ, hợp đồng, phép năm và quyền lợi người lao động."), ("Thủ tục nội bộ", "Hướng dẫn tạo và theo dõi các thủ tục, đề xuất cần phê duyệt."), ("Đầu mối hỗ trợ", "Liên hệ bộ phận Nhân sự khi cần cập nhật hồ sơ hoặc tư vấn chế độ.") }),
+            "finance-accounting" => (Name: "Tài chính - Kế toán", Icon: "account_balance", Color: "#059669", Intro: "Quy trình thanh toán, tạm ứng, hoàn ứng và các hướng dẫn chứng từ trong công ty.", Items: new[] { ("Thanh toán & hoàn ứng", "Chuẩn bị đầy đủ hóa đơn, chứng từ và nội dung chi phí trước khi gửi duyệt."), ("Tạm ứng", "Khai báo mục đích, số tiền, phương thức nhận và thời hạn hoàn ứng."), ("Hỗ trợ chứng từ", "Liên hệ Kế toán khi cần hướng dẫn hóa đơn, biểu mẫu hoặc đối soát.") }),
+            "marketing" => (Name: "Marketing", Icon: "campaign", Color: "#db2777", Intro: "Thông tin thương hiệu, nội dung truyền thông và quy trình phối hợp Marketing.", Items: new[] { ("Nhận diện thương hiệu", "Sử dụng đúng logo, màu sắc và tài sản thương hiệu đã được phê duyệt."), ("Yêu cầu truyền thông", "Cung cấp mục tiêu, đối tượng, thời gian và kênh triển khai khi gửi yêu cầu."), ("Kho nội dung", "Theo dõi thông báo, tài liệu và các chương trình truyền thông nội bộ.") }),
+            "technology" => (Name: "Công nghệ", Icon: "devices", Color: "#7c3aed", Intro: "Hướng dẫn sử dụng hệ thống, bảo mật tài khoản và kênh yêu cầu hỗ trợ kỹ thuật.", Items: new[] { ("Tài khoản & phân quyền", "Yêu cầu cấp mới hoặc điều chỉnh quyền theo đúng phạm vi công việc."), ("An toàn thông tin", "Không chia sẻ mật khẩu, mã xác thực hoặc dữ liệu nội bộ ra bên ngoài."), ("Hỗ trợ kỹ thuật", "Gửi yêu cầu kèm mô tả lỗi, thiết bị, vị trí và hình ảnh để xử lý nhanh hơn.") }),
+            _ => (Name: "Kinh doanh", Icon: "trending_up", Color: "#ea580c", Intro: "Thông tin phối hợp bán hàng, chăm sóc khách hàng và quản lý cơ hội kinh doanh.", Items: new[] { ("Quy trình kinh doanh", "Cập nhật đầy đủ thông tin khách hàng, nhu cầu và trạng thái xử lý."), ("Phối hợp thực hiện", "Xác định người phụ trách, thời hạn và các bộ phận tham gia hỗ trợ."), ("Báo cáo kết quả", "Theo dõi doanh số, tiến độ và các vấn đề cần hỗ trợ theo định kỳ.") })
+        };
+        <section class="hrm-card company-department-hero" style="--department-color:@department.Color">
+            <span class="company-department-icon"><i class="material-icons">@department.Icon</i></span>
+            <div><span class="company-info-eyebrow">THÔNG TIN PHÒNG BAN</span><h2>@department.Name</h2><p>@department.Intro</p></div>
+        </section>
+        <div class="hrm-grid hrm-grid-3 company-department-grid">
+            @foreach (var item in department.Items)
+            {
+                <article class="hrm-card company-info-card"><span class="company-info-icon"><i class="material-icons">check_circle</i></span><h3>@item.Item1</h3><p>@item.Item2</p></article>
+            }
+        </div>
+    }
 </div>
 
 <style>
@@ -77,5 +99,10 @@
 .company-brand-tabs a{display:flex;align-items:center;gap:12px;min-height:60px}
 .company-brand-tabs a img{width:36px;height:36px;object-fit:contain;border-radius:6px;background:white}
 .company-brand-preview img{object-fit:contain;max-width:100%;height:auto}
+.company-department-hero{display:flex;align-items:center;gap:24px;padding:30px;border-left:5px solid var(--department-color)}
+.company-department-hero h2{margin:4px 0 8px;font-size:28px}.company-department-hero p{margin:0;color:#64748b;max-width:850px;line-height:1.7}
+.company-department-icon{display:inline-flex;align-items:center;justify-content:center;flex:0 0 72px;width:72px;height:72px;border-radius:20px;background:color-mix(in srgb,var(--department-color) 12%,white);color:var(--department-color)}
+.company-department-icon i{font-size:36px}.company-department-grid{margin-top:18px}
 @@media(max-width:600px){.company-brand-tabs{gap:6px}.company-brand-tabs a{flex:1;justify-content:center;min-width:90px;padding:10px 8px;flex-direction:column;gap:6px}}
+@@media(max-width:600px){.company-department-hero{align-items:flex-start;padding:22px;gap:16px}.company-department-icon{flex-basis:52px;width:52px;height:52px;border-radius:14px}.company-department-icon i{font-size:28px}.company-department-hero h2{font-size:23px}}
 </style>

@@ -20,6 +20,11 @@ public sealed class HomeController : BaseController
         {
             "rules" => "rules",
             "brand" => "brand",
+            "human-resources" => "human-resources",
+            "finance-accounting" => "finance-accounting",
+            "marketing" => "marketing",
+            "technology" => "technology",
+            "business" => "business",
             _ => "introduction"
         };
 
@@ -34,6 +39,11 @@ public sealed class HomeController : BaseController
         {
             "rules" => "Nội quy công ty",
             "brand" => "Logo mẫu",
+            "human-resources" => "Thông tin Nhân sự",
+            "finance-accounting" => "Tài chính - Kế toán",
+            "marketing" => "Thông tin Marketing",
+            "technology" => "Thông tin Công nghệ",
+            "business" => "Thông tin Kinh doanh",
             _ => "Giới thiệu công ty"
         };
         return View();
