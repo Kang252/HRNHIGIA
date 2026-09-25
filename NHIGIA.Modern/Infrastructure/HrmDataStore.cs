@@ -337,13 +337,21 @@ namespace NHIGIA.Modern.Infrastructure
 
         public LeaveStatsModel GetLeaveStats(HrmUserAccountModel actor)
         {
-            const string sql = @"SELECT
-                CAST(COALESCE((SELECT AnnualLeaveDays FROM dbo.HrmEmployeeProfile WHERE UserId=@UserId), 12) AS DECIMAL(10,1)) AnnualAllowance,
-                CAST(COALESCE(SUM(CASE WHEN StatusCode='APPROVED' THEN DATEDIFF(DAY, StartDate, EndDate)+1 ELSE 0 END),0) AS DECIMAL(10,1)) UsedDays,
-                COALESCE(SUM(CASE WHEN StatusCode IN ('PENDING_MANAGER','PENDING_HR') THEN 1 ELSE 0 END),0) PendingCount,
-                COALESCE(SUM(CASE WHEN StatusCode='APPROVED' THEN 1 ELSE 0 END),0) ApprovedCount
-                FROM dbo.HrmLeaveRequest WHERE UserId=@UserId AND YEAR(StartDate)=YEAR(GETDATE())";
-            using (var connection = OpenConnection()) return connection.QuerySingle<LeaveStatsModel>(sql, new { UserId = actor.Id });
+            var year = CurrentVietnamTime().Year;
+            using var connection = OpenConnection();
+            var allowance = connection.QuerySingle<decimal>(@"SELECT CAST(COALESCE(
+                (SELECT AnnualLeaveDays FROM dbo.HrmEmployeeProfile WHERE UserId=@Id),12) AS DECIMAL(10,1))", new { actor.Id });
+            var requests = connection.Query<LeaveRequestModel>(@"SELECT UserId,LeaveType,Reason,StartDate,EndDate,SessionCode,StatusCode
+                FROM dbo.HrmLeaveRequest WHERE UserId=@Id AND StartDate<=@To AND EndDate>=@From",
+                new { actor.Id, From = new DateTime(year, 1, 1), To = new DateTime(year, 12, 31) }).ToList();
+            var schedules = connection.Query<ScheduleModel>("SELECT * FROM dbo.HrmEmployeeSchedule WHERE UserId=@Id AND StatusCode='ACTIVE'", new { actor.Id });
+            return new LeaveStatsModel
+            {
+                AnnualAllowance = allowance,
+                UsedDays = LeaveRequestPolicy.UsedAnnualDays(requests, schedules, year),
+                PendingCount = requests.Count(x => x.StatusCode is "PENDING_MANAGER" or "PENDING_HR"),
+                ApprovedCount = requests.Count(x => x.StatusCode == "APPROVED")
+            };
         }
 
         private static void NotifyLeave(SqlConnection connection, SqlTransaction transaction, int id, string label, string note, bool pending = false)
@@ -363,9 +371,12 @@ namespace NHIGIA.Modern.Infrastructure
 
         public LeaveRequestModel CreateLeave(CreateLeaveRequest request, HrmUserAccountModel actor, string ipAddress)
         {
-            var targetUserId = (actor != null && HrmRoles.CanManagePeople(actor.RoleCode) && request.EmployeeId.HasValue && request.EmployeeId.Value > 0)
-                ? request.EmployeeId.Value
-                : actor.Id;
+            var error = LeaveRequestPolicy.Validate(request);
+            if (error != null) throw new InvalidOperationException(error);
+            var targetUserId = request.EmployeeId ?? actor.Id;
+            var target = FindUser(targetUserId);
+            if (!LeaveRequestPolicy.CanCreateFor(actor, target))
+                throw new InvalidOperationException("Nhân viên không còn hoạt động hoặc không thuộc phạm vi của bạn.");
             const string sql = @"INSERT dbo.HrmLeaveRequest(UserId, LeaveType, StartDate, EndDate, SessionCode, HandoverTo, Reason, AttachmentName, AttachmentContentType, AttachmentContent, StatusCode)
                 VALUES(@UserId, @LeaveType, @StartDate, @EndDate, @SessionCode, @HandoverTo, @Reason, @AttachmentName, @AttachmentContentType, @AttachmentContent, 'PENDING_MANAGER');
                 DECLARE @Id INT=CAST(SCOPE_IDENTITY() AS INT);
@@ -403,39 +414,14 @@ namespace NHIGIA.Modern.Infrastructure
             if (actor == null || !HrmRoles.CanManagePeople(actor.RoleCode)) return false;
             using (var connection = OpenConnection())
             {
-                var changed = connection.Execute("DELETE FROM dbo.HrmLeaveRequest WHERE Id=@Id", new { Id = id }) > 0;
-                if (changed) AddAudit(connection, actor.Id, "DELETE", "HrmLeaveRequest", id.ToString(), "Xóa yêu cầu", ipAddress);
+                using var transaction = connection.BeginTransaction();
+                var changed = connection.Execute(@"DELETE r FROM dbo.HrmLeaveRequest r
+                    INNER JOIN dbo.HrmUserAccount u ON u.Id=r.UserId
+                    WHERE r.Id=@Id AND (@CanSeeAll=1 OR (@IsManager=1 AND u.DepartmentId=@DepartmentId))",
+                    new { Id=id, CanSeeAll=HrmRoles.CanPublishCompanyWide(actor.RoleCode), IsManager=actor.RoleCode==HrmRoles.Manager, actor.DepartmentId }, transaction) > 0;
+                if (changed) AddAudit(connection, actor.Id, "DELETE", "HrmLeaveRequest", id.ToString(), "Xóa yêu cầu", ipAddress, transaction);
+                transaction.Commit();
                 return changed;
-            }
-        }
-
-        public void EnsureSampleLeaveRequests()
-        {
-            const string sql = @"
-                SET QUOTED_IDENTIFIER ON;
-                SET ANSI_NULLS ON;
-                DELETE FROM dbo.HrmLeaveRequest WHERE Id > 5;
-                IF EXISTS (SELECT 1 FROM dbo.HrmLeaveRequest WHERE Id=1)
-                BEGIN
-                    UPDATE dbo.HrmLeaveRequest SET UserId=4, StatusCode='PENDING_MANAGER', LeaveType=N'Nghỉ phép', Reason=N'Trưởng phòng xin nghỉ phép thường niên', ManagerNote=NULL, HrNote=NULL, ApprovedByManagerId=NULL, ApprovedByHrId=NULL WHERE Id=1;
-                    UPDATE dbo.HrmLeaveRequest SET UserId=5, StatusCode='PENDING_MANAGER', LeaveType=N'Công tác/Ra ngoài', Reason=N'Gặp đối tác tại văn phòng chi nhánh', ApprovedByManagerId=NULL, ManagerNote=NULL, HrNote=NULL, ApprovedByHrId=NULL WHERE Id=2;
-                    UPDATE dbo.HrmLeaveRequest SET UserId=5, StatusCode='PENDING_MANAGER', LeaveType=N'Đi muộn về sớm', Reason=N'Đi khám sức khỏe định kỳ buổi sáng tại bệnh viện', ManagerNote=NULL, HrNote=NULL, ApprovedByManagerId=NULL, ApprovedByHrId=NULL WHERE Id=3;
-                    UPDATE dbo.HrmLeaveRequest SET UserId=5, StatusCode='PENDING_MANAGER', LeaveType=N'Làm thêm giờ', Reason=N'OT triển khai hệ thống server và bảo trì định kỳ cho công ty', ManagerNote=NULL, HrNote=NULL, ApprovedByManagerId=NULL, ApprovedByHrId=NULL WHERE Id=4;
-                    UPDATE dbo.HrmLeaveRequest SET UserId=5, StatusCode='PENDING_MANAGER', LeaveType=N'Tạm ứng lương', Reason=N'Đề nghị tạm ứng chi tiêu gia đình đầu tháng', ApprovedByManagerId=NULL, ManagerNote=NULL, HrNote=NULL, ApprovedByHrId=NULL WHERE Id=5;
-                END
-                ELSE
-                BEGIN
-                    INSERT INTO dbo.HrmLeaveRequest(UserId, LeaveType, StartDate, EndDate, SessionCode, HandoverTo, Reason, StatusCode, CreatedAt)
-                    VALUES
-                    (4, N'Nghỉ phép', DATEADD(DAY, 4, GETDATE()), DATEADD(DAY, 5, GETDATE()), N'Cả ngày', N'Nguyễn Văn A', N'Trưởng phòng xin nghỉ phép thường niên', 'PENDING_MANAGER', DATEADD(HOUR, -2, GETDATE())),
-                    (5, N'Công tác/Ra ngoài', DATEADD(DAY, 7, GETDATE()), DATEADD(DAY, 8, GETDATE()), N'Cả ngày', N'Nguyễn Văn A', N'Gặp đối tác tại văn phòng chi nhánh', 'PENDING_MANAGER', DATEADD(HOUR, -4, GETDATE())),
-                    (5, N'Đi muộn về sớm', DATEADD(DAY, 2, GETDATE()), DATEADD(DAY, 2, GETDATE()), N'Buổi sáng', N'Trần Thị B', N'Đi khám sức khỏe định kỳ buổi sáng tại bệnh viện', 'PENDING_MANAGER', DATEADD(HOUR, -6, GETDATE())),
-                    (5, N'Làm thêm giờ', DATEADD(DAY, 1, GETDATE()), DATEADD(DAY, 1, GETDATE()), N'Tối', N'Nguyễn Văn A', N'OT triển khai hệ thống server và bảo trì định kỳ cho công ty', 'PENDING_MANAGER', DATEADD(HOUR, -8, GETDATE())),
-                    (5, N'Tạm ứng lương', GETDATE(), GETDATE(), N'Cả ngày', NULL, N'Đề nghị tạm ứng chi tiêu gia đình đầu tháng', 'PENDING_MANAGER', DATEADD(HOUR, -12, GETDATE()));
-                END";
-            using (var connection = OpenConnection())
-            {
-                connection.Execute(sql);
             }
         }
 
@@ -463,20 +449,16 @@ namespace NHIGIA.Modern.Infrastructure
                     FROM dbo.HrmLeaveRequest r
                     INNER JOIN dbo.HrmUserAccount u ON u.Id=r.UserId
                     WHERE r.Id=@Id", new { request.Id }, transaction);
-                if (target == null) return false;
-
-                // Không được tự phê duyệt đơn của chính mình
-                if (target.UserId == actor.Id) return false;
-
-                // Đơn của Trưởng phòng: chỉ Giám đốc hoặc Quản trị hệ thống mới được duyệt
-                if (target.RoleCode == HrmRoles.Manager && actor.RoleCode == HrmRoles.Manager)
-                {
-                    return false;
-                }
-
-                var sql = @"UPDATE dbo.HrmLeaveRequest SET StatusCode=@Status, ManagerNote=@Note, ApprovedByManagerId=@ActorId, UpdatedAt=SYSDATETIME()
-                    WHERE Id=@Id AND StatusCode IN ('PENDING_MANAGER','PENDING_HR')";
-                var param = new { Status = request.Approve ? "APPROVED" : "REJECTED", request.Note, ActorId = actor.Id, request.Id };
+                if (!LeaveRequestPolicy.CanApprove(actor, target)) return false;
+                if (request.Note?.Length > 1000) throw new InvalidOperationException("Ghi chú duyệt tối đa 1.000 ký tự.");
+                var sql = @"UPDATE dbo.HrmLeaveRequest SET StatusCode=@Status,
+                    ManagerNote=CASE WHEN @IsManager=1 THEN @Note ELSE ManagerNote END,
+                    ApprovedByManagerId=CASE WHEN @IsManager=1 THEN @ActorId ELSE ApprovedByManagerId END,
+                    HrNote=CASE WHEN @IsManager=0 THEN @Note ELSE HrNote END,
+                    ApprovedByHrId=CASE WHEN @IsManager=0 THEN @ActorId ELSE ApprovedByHrId END,
+                    UpdatedAt=SYSDATETIME() WHERE Id=@Id AND StatusCode=@ExpectedStatus";
+                var param = new { Status = request.Approve ? "APPROVED" : "REJECTED", request.Note,
+                    IsManager=actor.RoleCode==HrmRoles.Manager, ActorId = actor.Id, request.Id, ExpectedStatus=target.StatusCode };
 
                 var changed = connection.Execute(sql, param, transaction) > 0;
                 if (changed) AddAudit(connection, actor.Id, request.Approve ? "APPROVE" : "REJECT", "HrmLeaveRequest", request.Id.ToString(), request.Note, ipAddress, transaction);
@@ -502,34 +484,8 @@ namespace NHIGIA.Modern.Infrastructure
 
         public int ApproveAllLeaves(HrmUserAccountModel actor, string note, string ipAddress)
         {
-            using var connection = OpenConnection();
-            using var transaction = connection.BeginTransaction();
-            string sql;
-            object parameters;
-            if (actor.RoleCode == HrmRoles.Manager)
-            {
-                sql = @"UPDATE r SET StatusCode='PENDING_HR', ManagerNote=@Note,
-                        ApprovedByManagerId=@ActorId, UpdatedAt=SYSDATETIME()
-                    OUTPUT INSERTED.Id
-                    FROM dbo.HrmLeaveRequest r
-                    INNER JOIN dbo.HrmUserAccount u ON u.Id=r.UserId
-                    WHERE r.StatusCode='PENDING_MANAGER' AND u.DepartmentId=@DepartmentId";
-                parameters = new { Note = string.IsNullOrWhiteSpace(note) ? null : note.Trim(), ActorId = actor.Id, actor.DepartmentId };
-            }
-            else
-            {
-                sql = @"UPDATE dbo.HrmLeaveRequest SET StatusCode='APPROVED', HrNote=@Note,
-                        ApprovedByHrId=@ActorId, UpdatedAt=SYSDATETIME()
-                    OUTPUT INSERTED.Id
-                    WHERE StatusCode IN ('PENDING_HR','PENDING_MANAGER')";
-                parameters = new { Note = string.IsNullOrWhiteSpace(note) ? null : note.Trim(), ActorId = actor.Id };
-            }
-            var ids = connection.Query<int>(sql, parameters, transaction).ToList();
-            if (ids.Count > 0)
-                AddAudit(connection, actor.Id, "APPROVE_ALL", "HrmLeaveRequest", string.Join(",", ids.Take(5)), $"Phê duyệt hàng loạt {ids.Count} đơn nghỉ phép", ipAddress, transaction);
-            foreach (var id in ids) NotifyLeave(connection, transaction, id, actor.RoleCode == HrmRoles.Manager ? "Trưởng phòng đã duyệt, chờ HR" : "Đã phê duyệt", note, actor.RoleCode == HrmRoles.Manager);
-            transaction.Commit();
-            return ids.Count;
+            var ids = GetLeaveRequests(actor).Where(x => LeaveRequestPolicy.CanApprove(actor, x)).Select(x => x.Id).ToList();
+            return BulkApproveLeave(new BulkApprovalRequest { Ids=ids, Approve=true, Note=note }, actor, ipAddress);
         }
 
         public IList<CommunicationModel> GetCommunications(HrmUserAccountModel actor, string keyword, string category, string status = "", int take = 100)

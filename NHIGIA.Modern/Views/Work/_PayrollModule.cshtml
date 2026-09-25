@@ -2,7 +2,7 @@
 @using NHIGIA.Modern.Models
 @{
     var currentUser = HrmUser.Current;
-    var currentPeriod = Model.PayrollPeriod ?? "2026-02";
+    var currentPeriod = Model.PayrollPeriod ?? DateTime.UtcNow.AddHours(7).ToString("yyyy-MM");
     var activeTab = Model.PayrollTab ?? "dashboard";
     var periodItems = Model.PayrollItems ?? new List<PayrollItemDetail>();
     var deptStats = Model.PayrollDepartmentStats ?? new List<PayrollDepartmentStat>();
@@ -12,6 +12,7 @@
     var isHr = currentUser?.RoleCode == HrmRoles.Hr;
     var isHrOrAdm = isAdmin || isHr;
     var canApprove = isDir || isAdmin;
+    string StoredAmount(decimal? value) => value?.ToString("N0") ?? "Chưa có dữ liệu";
 
     // Xác định trạng thái của kỳ lương hiện tại
     var batchStatus = "DRAFT";
@@ -624,7 +625,7 @@
                 }
                 else
                 {
-                    <span>Tổng hợp bảng lương định kỳ, tự động trích nộp BHXH & tính thuế TNCN lũy tiến, lập báo cáo phân bổ phòng ban và phát hành phiếu lương đến nhân sự.</span>
+                    <span>Tổng hợp bảng lương định kỳ, đối chiếu các khoản bảo hiểm và thuế đã lưu, lập báo cáo phòng ban và phát hành phiếu lương đến nhân sự.</span>
                 }
             </p>
         </div>
@@ -636,13 +637,8 @@
                 <input type="hidden" name="pyTab" value="@activeTab" />
                 <input type="hidden" name="pyDept" value="@Model.PayrollDeptFilter" />
                 <input type="hidden" name="pyStatus" value="@Model.PayrollStatusFilter" />
-                <label style="font-size:12.5px; font-weight:600; color:#e2e8f0; margin:0;">Kỳ lương:</label>
-                <select name="pyPeriod" class="payroll-period-select" onchange="this.form.submit()">
-                    <option value="2026-02" selected="@(currentPeriod == "2026-02")">Tháng 02/2026 (Hiện tại)</option>
-                    <option value="2026-01" selected="@(currentPeriod == "2026-01")">Tháng 01/2026</option>
-                    <option value="2024-11" selected="@(currentPeriod == "2024-11")">Tháng 11/2024</option>
-                    <option value="2024-10" selected="@(currentPeriod == "2024-10")">Tháng 10/2024</option>
-                </select>
+                <label for="payrollPeriod" style="font-size:12.5px; font-weight:600; color:#e2e8f0; margin:0;">Kỳ lương:</label>
+                <input type="month" id="payrollPeriod" name="pyPeriod" class="payroll-period-select" value="@currentPeriod" required onchange="if(this.validity.valid) this.form.submit()" />
             </form>
 
             <!-- Nút Xuất Excel -->
@@ -1213,7 +1209,7 @@
                     <span>Chi tiết trích nộp bảo hiểm nhân viên & doanh nghiệp (Kỳ @currentPeriod)</span>
                 </div>
                 <div style="font-size:12.5px; color:#475569;">
-                    Tỷ lệ trích: <strong>NLĐ 10.5%</strong> (BHXH 8%, BHYT 1.5%, BHTN 1%) · <strong>Doanh nghiệp 21.5%</strong> · <strong>Tổng 32%</strong>
+                    Hiển thị số tiền đã lưu cho kỳ lương. Khoản chưa nhập được ghi là “Chưa có dữ liệu”.
                 </div>
             </div>
             <div class="table-responsive">
@@ -1223,15 +1219,15 @@
                             <th class="th-left">Nhân viên</th>
                             <th class="th-left">Phòng ban</th>
                             <th>Lương đóng BH</th>
-                            <th>BHXH NLĐ (8%)</th>
-                            <th>BHYT NLĐ (1.5%)</th>
-                            <th>BHTN NLĐ (1%)</th>
-                            <th style="color:#7c3aed;">Tổng trích NLĐ (10.5%)</th>
-                            <th>BHXH DN (17.5%)</th>
-                            <th>BHYT DN (3%)</th>
-                            <th>BHTN DN (1%)</th>
-                            <th style="color:#0284c7;">Tổng trích DN (21.5%)</th>
-                            <th style="color:#059669;">Tổng nộp (32%)</th>
+                            <th>BHXH NLĐ</th>
+                            <th>BHYT NLĐ</th>
+                            <th>BHTN NLĐ</th>
+                            <th style="color:#7c3aed;">Tổng trích NLĐ</th>
+                            <th>BHXH DN</th>
+                            <th>BHYT DN</th>
+                            <th>BHTN DN</th>
+                            <th style="color:#0284c7;">Tổng trích DN</th>
+                            <th style="color:#059669;">Tổng nộp</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -1240,16 +1236,16 @@
                             <tr>
                                 <td class="td-left" style="font-weight:700; color:#0f172a;">@ins.EmployeeName</td>
                                 <td class="td-left" style="color:#475569;">@ins.DepartmentName</td>
-                                <td style="font-weight:600;">@ins.InsuranceSalary.ToString("N0")</td>
-                                <td>@ins.BhxhEmp.ToString("N0")</td>
-                                <td>@ins.BhytEmp.ToString("N0")</td>
-                                <td>@ins.BhtnEmp.ToString("N0")</td>
-                                <td style="font-weight:700; color:#7c3aed; background:#faf5ff;">@ins.TotalEmp.ToString("N0")</td>
-                                <td>@ins.BhxhComp.ToString("N0")</td>
-                                <td>@ins.BhytComp.ToString("N0")</td>
-                                <td>@ins.BhtnComp.ToString("N0")</td>
-                                <td style="font-weight:700; color:#0284c7; background:#f0f9ff;">@ins.TotalComp.ToString("N0")</td>
-                                <td style="font-weight:800; color:#059669; background:#ecfdf5;">@ins.TotalContribution.ToString("N0")</td>
+                                <td style="font-weight:600;">@StoredAmount(ins.InsuranceSalary)</td>
+                                <td>@StoredAmount(ins.BhxhEmp)</td>
+                                <td>@StoredAmount(ins.BhytEmp)</td>
+                                <td>@StoredAmount(ins.BhtnEmp)</td>
+                                <td style="font-weight:700; color:#7c3aed; background:#faf5ff;">@StoredAmount(ins.TotalEmp)</td>
+                                <td>@StoredAmount(ins.BhxhComp)</td>
+                                <td>@StoredAmount(ins.BhytComp)</td>
+                                <td>@StoredAmount(ins.BhtnComp)</td>
+                                <td style="font-weight:700; color:#0284c7; background:#f0f9ff;">@StoredAmount(ins.TotalComp)</td>
+                                <td style="font-weight:800; color:#059669; background:#ecfdf5;">@StoredAmount(ins.TotalContribution)</td>
                             </tr>
                         }
                     </tbody>
@@ -1264,10 +1260,10 @@
             <div class="payroll-table-toolbar">
                 <div style="font-size:15px; font-weight:700; color:#1e293b; display:flex; align-items:center; gap:8px;">
                     <i class="material-icons" style="color:#d97706;">calculate</i>
-                    <span>Chi tiết tính thuế thu nhập cá nhân theo biểu lũy tiến (Kỳ @currentPeriod)</span>
+                    <span>Chi tiết thuế thu nhập cá nhân (Kỳ @currentPeriod)</span>
                 </div>
                 <div style="font-size:12.5px; color:#475569;">
-                    Mức giảm trừ: <strong>Bản thân 11.000.000 đ/tháng</strong> · <strong>Người phụ thuộc 4.400.000 đ/người/tháng</strong>
+                    Số liệu theo hồ sơ kỳ lương đã lưu; các khoản chưa nhập cần được bổ sung trước khi đối chiếu.
                 </div>
             </div>
             <div class="table-responsive">
@@ -1293,13 +1289,13 @@
                                 <td class="td-left" style="font-weight:700; color:#0f172a;">@tax.EmployeeName</td>
                                 <td class="td-left" style="color:#475569;">@tax.DepartmentName</td>
                                 <td style="font-weight:600;">@tax.TotalIncome.ToString("N0")</td>
-                                <td>@tax.NonTaxableIncome.ToString("N0")</td>
-                                <td>@tax.PersonalDeduction.ToString("N0")</td>
-                                <td>@(tax.DependentDeduction > 0 ? tax.DependentDeduction.ToString("N0") : "0")</td>
-                                <td>@tax.InsuranceDeduction.ToString("N0")</td>
-                                <td style="font-weight:700; color:#2563eb;">@tax.AssessedIncome.ToString("N0")</td>
-                                <td class="td-center"><span class="label label-default">@tax.TaxRate</span></td>
-                                <td style="font-weight:800; color:#d97706; background:#fffbeb; font-size:13px;">@tax.TaxAmount.ToString("N0") đ</td>
+                                <td>@StoredAmount(tax.NonTaxableIncome)</td>
+                                <td>@StoredAmount(tax.PersonalDeduction)</td>
+                                <td>@StoredAmount(tax.DependentDeduction)</td>
+                                <td>@StoredAmount(tax.InsuranceDeduction)</td>
+                                <td style="font-weight:700; color:#2563eb;">@StoredAmount(tax.AssessedIncome)</td>
+                                <td class="td-center"><span class="label label-default">@(tax.TaxRate ?? "Chưa có dữ liệu")</span></td>
+                                <td style="font-weight:800; color:#d97706; background:#fffbeb; font-size:13px;">@StoredAmount(tax.TaxAmount)</td>
                             </tr>
                         }
                     </tbody>

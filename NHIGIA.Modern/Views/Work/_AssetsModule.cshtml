@@ -337,7 +337,7 @@
             <div class="ast-hero-actions">
                 @if (canManageAst)
                 {
-                    <button type="button" class="ast-btn-light" data-toggle="modal" data-target="#modalCreateAssetItem">
+                    <button type="button" class="ast-btn-light" onclick="openEditAssetModal(0)">
                         <i class="material-icons">add_circle</i> Tạo tài sản mới
                     </button>
                     <button type="button" class="ast-btn-light" data-toggle="modal" data-target="#modalAllocateAsset" style="background:#e0f2fe; color:#0369a1;">
@@ -544,7 +544,7 @@
                 @if (canManageAst)
                 {
                     <div>
-                        <button type="button" class="ast-btn-light" data-toggle="modal" data-target="#modalCreateAssetItem" style="background:#0284c7; color:#ffffff;">
+                        <button type="button" class="ast-btn-light" onclick="openEditAssetModal(0)" style="background:#0284c7; color:#ffffff;">
                             <i class="material-icons">add</i> Thêm tài sản mới
                         </button>
                     </div>
@@ -663,7 +663,7 @@
                                             {
                                                 <!-- Nút Sửa thông tin tài sản -->
                                                 <button type="button" class="btn btn-default btn-xs" style="border-radius:6px;" title="Sửa tài sản"
-                                                        onclick="openEditAssetModal(@item.Id, '@(item.Reference ?? "")', '@Html.Raw(item.Title?.Replace("'", "\\'"))', '@Html.Raw(item.WorkLocation?.Replace("'", "\\'"))', '@Html.Raw(item.Category?.Replace("'", "\\'"))', '@Html.Raw(item.JobLevel?.Replace("'", "\\'"))', '@Html.Raw(item.ExperienceRequired?.Replace("'", "\\'"))', '@Html.Raw(item.EducationRequired?.Replace("'", "\\'"))', @(item.Target ?? 0), '@(item.Status ?? "IN_STOCK")', '@(item.SalaryRange ?? "NORMAL")', '@(item.StartDate?.ToString("yyyy-MM-dd") ?? "")', '@Html.Raw(item.Description?.Replace("'", "\\'"))')">
+                                                        onclick="openEditAssetModal(@item.Id, @System.Text.Json.JsonSerializer.Serialize(item.Reference), @System.Text.Json.JsonSerializer.Serialize(item.Title), @System.Text.Json.JsonSerializer.Serialize(item.WorkLocation), @System.Text.Json.JsonSerializer.Serialize(item.Category), @System.Text.Json.JsonSerializer.Serialize(item.JobLevel), @System.Text.Json.JsonSerializer.Serialize(item.ExperienceRequired), @System.Text.Json.JsonSerializer.Serialize(item.EducationRequired), @((item.Target ?? 0).ToString(System.Globalization.CultureInfo.InvariantCulture)), @System.Text.Json.JsonSerializer.Serialize(item.Status), @System.Text.Json.JsonSerializer.Serialize(item.SalaryRange), @System.Text.Json.JsonSerializer.Serialize(item.StartDate?.ToString("yyyy-MM-dd")), @System.Text.Json.JsonSerializer.Serialize(item.Description))">
                                                     <i class="material-icons" style="font-size:14px;">edit</i>
                                                 </button>
 
@@ -671,7 +671,7 @@
                                                 {
                                                     <!-- Cấp phát tài sản trong kho -->
                                                     <button type="button" class="btn btn-primary btn-xs" style="background:#0284c7; border-color:#0284c7; border-radius:6px; margin-left:4px;" title="Cấp phát cho nhân sự"
-                                                            onclick="openAllocateModalForAsset(@item.Id, '@(item.Reference ?? "")', '@Html.Raw(item.Title?.Replace("'", "\\'"))')">
+                                                            onclick="openAllocateModalForAsset(@item.Id, @System.Text.Json.JsonSerializer.Serialize(item.Reference), @System.Text.Json.JsonSerializer.Serialize(item.Title))">
                                                         <i class="material-icons" style="font-size:14px;">assignment_ind</i> Cấp phát
                                                     </button>
                                                 }
@@ -679,7 +679,7 @@
                                                 {
                                                     <!-- Thu hồi tài sản đã cấp phát -->
                                                     <button type="button" class="btn btn-warning btn-xs" style="border-radius:6px; margin-left:4px;" title="Thu hồi tài sản"
-                                                            onclick="openRecoverModal(@item.Id, '@(item.Reference ?? "")', '@Html.Raw(item.Title?.Replace("'", "\\'"))', '@Html.Raw(item.EmployeeName?.Replace("'", "\\'"))')">
+                                                            onclick="openRecoverModal(@item.Id, @System.Text.Json.JsonSerializer.Serialize(item.Reference), @System.Text.Json.JsonSerializer.Serialize(item.Title), @System.Text.Json.JsonSerializer.Serialize(item.EmployeeName))">
                                                         <i class="material-icons" style="font-size:14px;">assignment_return</i> Thu hồi
                                                     </button>
                                                 }
@@ -826,7 +826,7 @@
                                         </td>
                                         <td style="text-align:right; white-space:nowrap;">
                                             <button type="button" class="btn btn-default btn-xs" style="border-radius:6px;" title="Xem & In Biên bản bàn giao"
-                                                    onclick="openPrintAssetHandoverModal('@(h.Reference ?? $"BG-{h.Id:D3}")', '@Html.Raw(h.Title?.Replace("'", "\\'"))', '@Html.Raw(h.EmployeeName?.Replace("'", "\\'"))', '@Html.Raw(h.DepartmentName?.Replace("'", "\\'"))', '@(h.DueDate?.ToString("dd/MM/yyyy") ?? h.CreatedAt.ToString("dd/MM/yyyy"))', '@(condLabel)', '@Html.Raw(h.Description?.Replace("'", "\\'"))')">
+                                                    onclick="openPrintAssetHandoverModal(@System.Text.Json.JsonSerializer.Serialize(h.Reference), @System.Text.Json.JsonSerializer.Serialize(h.Title), @System.Text.Json.JsonSerializer.Serialize(h.EmployeeName), @System.Text.Json.JsonSerializer.Serialize(h.DepartmentName), @System.Text.Json.JsonSerializer.Serialize((h.DueDate ?? h.CreatedAt).ToString("dd/MM/yyyy")), @System.Text.Json.JsonSerializer.Serialize(condLabel), @System.Text.Json.JsonSerializer.Serialize(h.Description))">
                                                 <i class="material-icons" style="font-size:15px; vertical-align:middle;">print</i> Xem / In
                                             </button>
                                         </td>
@@ -850,6 +850,7 @@
             <div class="modal-content" style="border-radius:14px; overflow:hidden;">
                 <form method="post" asp-controller="Work" asp-action="SaveAssetItem">
                     @Html.AntiForgeryToken()
+                    <input type="hidden" name="Kind" value="assets" />
                     <input type="hidden" name="Id" id="astEditId" value="0" />
 
                     <div class="modal-header" style="background:#0284c7; color:#ffffff; padding:18px 24px;">
@@ -860,10 +861,11 @@
                     </div>
 
                     <div class="modal-body" style="padding:24px;">
+                        <div asp-validation-summary="All" class="text-danger" role="alert"></div>
                         <div class="row">
                             <div class="col-md-6 form-group">
                                 <label style="font-weight:600; font-size:13px;">Mã tài sản <span style="color:#ef4444;">*</span></label>
-                                <input type="text" name="Reference" id="astRef" class="form-control" value="TS-@(Random.Shared.Next(1000, 9999))" required style="border-radius:8px;" />
+                                <input type="text" name="Reference" id="astRef" aria-label="Mã tài sản tự động" class="form-control" value="@Model.NextAssetReference" readonly style="border-radius:8px;" /><small>Hệ thống tự cấp mã kế tiếp khi lưu; không thể chỉnh sửa.</small>
                             </div>
                             <div class="col-md-6 form-group">
                                 <label style="font-weight:600; font-size:13px;">Tên tài sản <span style="color:#ef4444;">*</span></label>
@@ -922,11 +924,11 @@
                         <div class="row">
                             <div class="col-md-4 form-group">
                                 <label style="font-weight:600; font-size:13px;">Nguyên giá tài sản (VNĐ)</label>
-                                <input type="number" name="Target" id="astPrice" class="form-control" placeholder="Ví dụ: 15000000" style="border-radius:8px;" />
+                                <input type="number" name="Target" id="astPrice" min="0" class="form-control" placeholder="Ví dụ: 15000000" style="border-radius:8px;" />
                             </div>
                             <div class="col-md-4 form-group">
                                 <label style="font-weight:600; font-size:13px;">Trạng thái vòng đời</label>
-                                <select name="Status" id="astStatus" class="form-control" style="border-radius:8px;">
+                                <select name="Status" id="astStatus" disabled class="form-control" style="border-radius:8px;">
                                     <option value="IN_STOCK">Trong kho lưu trữ</option>
                                     <option value="ALLOCATED">Đã cấp phát</option>
                                     <option value="ALLOCATING">Đang cấp phát</option>
@@ -946,6 +948,7 @@
 
                         <div class="form-group">
                             <label style="font-weight:600; font-size:13px;">Thông số kỹ thuật / Ghi chú</label>
+                            <input type="hidden" name="StartDate" id="astStartDate" />
                             <textarea name="Description" id="astDesc" class="form-control" rows="3" placeholder="Chi tiết cấu hình, linh kiện đi kèm, tình trạng bảo hành..." style="border-radius:8px;"></textarea>
                         </div>
                     </div>
@@ -1176,19 +1179,20 @@
     <script>
         function openEditAssetModal(id, ref, title, group, cat, brand, model, supplier, price, status, cond, stDate, desc) {
             document.getElementById('astEditId').value = id || 0;
-            document.getElementById('astRef').value = ref || '';
+            document.getElementById('astRef').value = id > 0 ? ref : @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.NextAssetReference));
             document.getElementById('astName').value = title || '';
             document.getElementById('astGroup').value = group || '';
             document.getElementById('astCategory').value = cat || '';
             document.getElementById('astBrand').value = brand || '';
             document.getElementById('astModel').value = model || '';
             document.getElementById('astSupplier').value = supplier || '';
-            document.getElementById('astPrice').value = price || '';
+            document.getElementById('astPrice').value = price == null ? '' : price;
             document.getElementById('astStatus').value = status || 'IN_STOCK';
             document.getElementById('astCondition').value = cond || 'NORMAL';
             document.getElementById('astDesc').value = desc || '';
+            document.getElementById('astStartDate').value = stDate || '';
 
-            document.getElementById('modalAssetTitle').innerHTML = '<i class="material-icons">devices</i> ' + (id > 0 ? 'Cập nhật tài sản: ' + ref : 'Tạo mới tài sản');
+            document.getElementById('modalAssetTitle').textContent = id > 0 ? 'Cập nhật tài sản: ' + ref : 'Tạo mới tài sản';
             $('#modalCreateAssetItem').modal('show');
         }
 
@@ -1244,5 +1248,16 @@
                 iframe.contentWindow.print();
                 setTimeout(function() { document.body.removeChild(iframe); }, 1000);
             }, 250);
+        }
+        @if (ViewBag.ReopenAssetEditor == true)
+        {
+            <text>
+            $(function () {
+                var draft = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Draft));
+                openEditAssetModal(draft.Id, draft.Reference, draft.Title, draft.WorkLocation, draft.Category,
+                    draft.JobLevel, draft.ExperienceRequired, draft.EducationRequired, draft.Target,
+                    draft.Status, draft.SalaryRange, draft.StartDate, draft.Description);
+            });
+            </text>
         }
     </script>

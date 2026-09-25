@@ -1,0 +1,49 @@
+<section class="hrm-card" style="margin-bottom:24px" aria-labelledby="approvalInboxTitle">
+    <div class="hrm-card-header" style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;justify-content:space-between">
+        <div><h2 id="approvalInboxTitle" class="hrm-card-title">Chờ phê duyệt – tất cả nghiệp vụ</h2><p class="hrm-card-subtitle">Thủ tục, tăng ca, nghỉ việc, đặt xe, phòng họp, công tác và các yêu cầu thuộc quyền xử lý</p></div>
+        <div><button type="button" class="hrm-btn" id="refreshApprovalInbox">Làm mới</button>
+        <button type="button" class="hrm-btn hrm-btn-primary" id="approveAllRequests" disabled><i class="material-icons">done_all</i> Phê duyệt tất cả</button></div>
+    </div>
+    <div id="approvalInboxMessage" role="status" style="padding:12px 24px"></div>
+    <div class="hrm-table-wrap"><table class="hrm-table"><thead><tr><th>Mã / loại yêu cầu</th><th>Nhân viên</th><th>Nội dung</th><th>Thao tác</th></tr></thead><tbody id="approvalInboxRows"></tbody></table></div>
+</section>
+<script>
+(function () {
+    var items = [], busy = false;
+    var esc = HrmRequestForm.escapeHtml;
+    var rows = $('#approvalInboxRows'), message = $('#approvalInboxMessage'), all = $('#approveAllRequests');
+    function refresh() {
+        all.prop('disabled', true);
+        message.text('Đang tải các yêu cầu chờ duyệt…');
+        $.get('@Url.Action("ApprovalInbox", "Hrm")').done(function(res) {
+            items = res.Data || [];
+            rows.html(items.map(function(item, index) {
+                return '<tr><td><strong>'+esc(item.Code)+'</strong><small class="hrm-cell-note">'+esc(item.RequestType)+'</small></td><td>'+esc(item.EmployeeName||'—')+'<small class="hrm-cell-note">'+esc(item.DepartmentName||'')+'</small></td><td><strong>'+esc(item.Title)+'</strong><details><summary>Xem nội dung</summary><div style="white-space:pre-wrap;max-width:600px">'+esc(item.Description||'Không có')+'</div></details></td><td><button class="hrm-btn" data-inbox-index="'+index+'" data-decision="approve">Duyệt</button> <button class="hrm-btn" data-inbox-index="'+index+'" data-decision="reject">Từ chối</button></td></tr>';
+            }).join(''));
+            message.text(items.length ? items.length+' yêu cầu đang chờ xử lý.' : 'Không có yêu cầu chờ duyệt trong phạm vi của bạn.');
+            all.prop('disabled', busy || !items.length);
+        }).fail(function(xhr) { rows.empty(); message.text(xhr.responseJSON?.Message || 'Không tải được danh sách phê duyệt. Vui lòng thử lại.'); });
+    }
+    function decide(url, data) {
+        if (busy) return;
+        busy = true; rows.find('button').prop('disabled', true); all.prop('disabled', true);
+        data.__RequestVerificationToken = $('input[name="__RequestVerificationToken"]').first().val();
+        $.post(url, data).done(function() { window.dispatchEvent(new Event('hrm-approvals-changed')); })
+            .fail(function(xhr) { alert(xhr.responseJSON?.Message || 'Chưa thể xử lý yêu cầu. Hãy tải lại để kiểm tra trạng thái.'); })
+            .always(function() { busy=false; refresh(); });
+    }
+    rows.on('click', '[data-inbox-index]', function() {
+        var item = items[Number(this.dataset.inboxIndex)], approve = this.dataset.decision === 'approve';
+        var note = approve ? '' : prompt('Nhập lý do từ chối:');
+        if (!approve && !note?.trim()) return;
+        decide('@Url.Action("DecideApproval", "Hrm")', {Source:item.Source,Kind:item.Kind,Id:item.Id,Approve:approve,Note:note});
+    });
+    all.on('click', function() {
+        if (confirm('Phê duyệt tất cả yêu cầu đang chờ thuộc quyền xử lý của bạn?'))
+            decide('@Url.Action("ApproveAllRequests", "Hrm")', {});
+    });
+    $('#refreshApprovalInbox').on('click', refresh);
+    window.addEventListener('hrm-procedures-changed', refresh);
+    refresh();
+})();
+</script>

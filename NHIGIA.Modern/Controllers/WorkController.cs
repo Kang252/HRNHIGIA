@@ -104,6 +104,7 @@ public sealed class WorkController : Controller
     [HttpGet]
     public IActionResult Index(string kind = "kpi", string q = null, int? editId = null, string periodType = null, string fromQuarter = null, string toQuarter = null, string kpiType = null, string trainingTab = null, string trainingMonth = null, string otTab = null, int? otYear = null, string otMonth = null, string trTab = null, int? trMonth = null, int? trYear = null, string trStatus = null, string asTab = null, string asGroup = null, string asCat = null, string asStatus = null, string asCondition = null, string pyTab = null, string pyPeriod = null, string pyDept = null, string pyStatus = null)
     {
+        if (kind == "offboarding") return RedirectToAction(nameof(Index), new { kind = "resignation" });
         var page = Page(kind, q);
         if (page == null) return NotFound();
         if (kind is "recruitment" or "transfer" && !page.CanManage) return Forbid();
@@ -111,7 +112,7 @@ public sealed class WorkController : Controller
         if (kind == "payroll")
         {
             page.PayrollTab = string.IsNullOrWhiteSpace(pyTab) ? "dashboard" : pyTab.ToLowerInvariant();
-            page.PayrollPeriod = string.IsNullOrWhiteSpace(pyPeriod) ? "2026-02" : pyPeriod;
+            page.PayrollPeriod = string.IsNullOrWhiteSpace(pyPeriod) ? HrmDataStore.CurrentVietnamTime().ToString("yyyy-MM") : pyPeriod;
             page.PayrollDeptFilter = string.IsNullOrWhiteSpace(pyDept) ? "ALL" : pyDept;
             page.PayrollStatusFilter = string.IsNullOrWhiteSpace(pyStatus) ? "ALL" : pyStatus.ToUpperInvariant();
         }
@@ -119,7 +120,7 @@ public sealed class WorkController : Controller
         {
             page.TransferTab = string.IsNullOrWhiteSpace(trTab) ? "dashboard" : trTab.ToLowerInvariant();
             page.TransferMonth = trMonth ?? 0;
-            page.TransferYear = trYear ?? 2026;
+            page.TransferYear = trYear ?? HrmDataStore.CurrentVietnamTime().Year;
             page.TransferStatusFilter = string.IsNullOrWhiteSpace(trStatus) ? "ALL" : trStatus.ToUpperInvariant();
         }
         if (kind == "assets")
@@ -153,13 +154,13 @@ public sealed class WorkController : Controller
         else if (kind == "training")
         {
             page.TrainingTab = string.IsNullOrWhiteSpace(trainingTab) ? "ALL" : trainingTab.ToUpperInvariant();
-            page.TrainingMonth = string.IsNullOrWhiteSpace(trainingMonth) || trainingMonth.Contains("2025") ? "2026-01" : trainingMonth;
+            page.TrainingMonth = string.IsNullOrWhiteSpace(trainingMonth) ? HrmDataStore.CurrentVietnamTime().ToString("yyyy-MM") : trainingMonth;
         }
         else if (kind == "overtime")
         {
             page.OvertimeTab = string.IsNullOrWhiteSpace(otTab) ? "dashboard" : otTab.ToLowerInvariant();
-            page.OvertimeYear = otYear ?? 2026;
-            page.OvertimeMonth = string.IsNullOrWhiteSpace(otMonth) ? "2026-01" : otMonth;
+            page.OvertimeYear = otYear ?? HrmDataStore.CurrentVietnamTime().Year;
+            page.OvertimeMonth = string.IsNullOrWhiteSpace(otMonth) ? HrmDataStore.CurrentVietnamTime().ToString("yyyy-MM") : otMonth;
         }
         Load(page);
         if (kind == "kpi")
@@ -209,6 +210,7 @@ public sealed class WorkController : Controller
     [HttpPost, ValidateAntiForgeryToken]
     public IActionResult Create([Bind("Kind,Title,Description,Category,Reference,WorkLocation,JobLevel,ExperienceRequired,EducationRequired,GenderRequirement,AgeRange,SalaryRange,SkillRequirements,Benefits,RecruitmentProcess,RecruitmentReason,StartDate,ContractType,ProbationPeriod,RecruitmentChannel,ContactName,ContactEmail,ContactPhone,ContactAddress,Keywords,EmployeeId,DepartmentId,DueDate,StartAt,EndAt,Location,Destination,Target,Actual,Weight,Priority,KpiType,Quarter,ProofNote,Status,ParticipantIds")] WorkItem draft)
     {
+        if (draft.Kind == "assets") return SaveAssetItem(draft);
         var page = Page(draft.Kind);
         if (page == null) return NotFound();
         if (!page.CanCreate) return Forbid();
@@ -350,7 +352,7 @@ public sealed class WorkController : Controller
         catch (Exception ex)
         {
             _logger.LogError(ex, "Cannot save work item");
-            ModelState.AddModelError("", "Không thể lưu dữ liệu. Vui lòng thử lại; mã tài sản có thể đã tồn tại.");
+            ModelState.AddModelError("", ex is InvalidOperationException ? ex.Message : "Không thể lưu dữ liệu. Vui lòng thử lại.");
             return View("Index", page);
         }
     }
@@ -538,8 +540,8 @@ public sealed class WorkController : Controller
         var normalized = command?.ToLowerInvariant();
         string newStatus;
         if (normalized == "cancel" && (item.EmployeeId == _user.Current.Id || item.CreatedBy == _user.Current.Id)) newStatus = "CANCELLED";
-        else if (normalized == "approve" && page.CanManage) newStatus = "APPROVED";
-        else if (normalized == "reject" && page.CanManage && !string.IsNullOrWhiteSpace(note)) newStatus = "REJECTED";
+        else if (normalized == "approve" && page.CanManage && _store.GetPendingApprovals(_user.Current).Any(x => x.Id == id && x.Kind == kind)) newStatus = "APPROVED";
+        else if (normalized == "reject" && page.CanManage && !string.IsNullOrWhiteSpace(note) && _store.GetPendingApprovals(_user.Current).Any(x => x.Id == id && x.Kind == kind)) newStatus = "REJECTED";
         else return Forbid();
         if (!_store.TransitionBooking(id, kind, "PENDING", newStatus, note, _user.Current.Id, ClientIp))
             TempData["WorkError"] = "Bản ghi đã được xử lý hoặc không còn ở trạng thái chờ.";
@@ -576,6 +578,11 @@ public sealed class WorkController : Controller
     [HttpPost, ValidateAntiForgeryToken]
     public IActionResult SubmitKpiProof(int id, decimal actual, string proofNote)
     {
+        if (actual < 0 || string.IsNullOrWhiteSpace(proofNote))
+        {
+            TempData["WorkError"] = "Vui lòng nhập kết quả không âm và nội dung chứng minh.";
+            return RedirectToAction("Index", new { kind = "kpi" });
+        }
         if (!_store.SubmitKpiProof(id, actual, proofNote, _user.Current.Id, ClientIp))
         {
             TempData["WorkError"] = "Không thể gửi chứng minh KPI. Vui lòng kiểm tra lại.";
@@ -970,21 +977,34 @@ public sealed class WorkController : Controller
     {
         var page = Page("assets");
         if (page == null || !page.CanManage) return Forbid();
-
-        if (string.IsNullOrWhiteSpace(draft.Title))
+        // The endpoint owns the module; the asset editor does not choose a Kind.
+        draft.Kind = "assets";
+        ModelState.Remove(nameof(draft.Kind));
+        if (draft.Target < 0) ModelState.AddModelError(nameof(draft.Target), "Nguyên giá tài sản không được âm.");
+        Load(page);
+        page.AssetTab = "list";
+        page.Draft = draft;
+        if (!page.Available) ModelState.AddModelError("", "Không thể tải dữ liệu tài sản. Thông tin bạn vừa nhập được giữ lại; vui lòng thử lại khi kết nối được khôi phục.");
+        if (page.Available && draft.Id > 0 && !page.AssetItems.Any(x => x.Id == draft.Id)) return Forbid();
+        if (ModelState.IsValid)
         {
-            TempData["WorkError"] = "Vui lòng nhập tên tài sản.";
-            return RedirectToAction("Index", new { kind = "assets", asTab = "list" });
+            try
+            {
+                if (!_store.SaveAssetItem(draft, _user.Current.Id, ClientIp))
+                    ModelState.AddModelError("", "Không thể lưu thông tin tài sản. Thông tin đã nhập được giữ lại, vui lòng thử lại.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Cannot save asset {AssetId}", draft.Id);
+                ModelState.AddModelError("", "Kết nối bị gián đoạn khi lưu. Thông tin đã nhập được giữ lại, vui lòng thử lại.");
+            }
         }
-
-        if (!_store.SaveAssetItem(draft, _user.Current.Id, ClientIp))
+        if (!ModelState.IsValid)
         {
-            TempData["WorkError"] = "Không thể lưu thông tin tài sản.";
+            ViewBag.ReopenAssetEditor = true;
+            return View("Index", page);
         }
-        else
-        {
-            TempData["WorkSuccess"] = draft.Id > 0 ? "Đã cập nhật tài sản thành công." : $"Đã tạo mới tài sản {draft.Reference} thành công.";
-        }
+        TempData["WorkSuccess"] = draft.Id > 0 ? "Đã cập nhật tài sản thành công." : $"Đã tạo mới tài sản {draft.Reference} thành công.";
         return RedirectToAction("Index", new { kind = "assets", asTab = "list" });
     }
 
@@ -992,6 +1012,12 @@ public sealed class WorkController : Controller
     public IActionResult AssetHandoverAction(int assetId, string command, int? employeeId = null, int? departmentId = null, DateTime? handoverDate = null, string condition = null, string note = null)
     {
         var page = Page("assets");
+        Load(page);
+        if (!page.Available) { TempData["WorkError"]="Không thể tải dữ liệu tài sản. Vui lòng thử lại."; return RedirectToAction("Index", new {kind="assets"}); }
+        if (assetId>0 && !page.AssetItems.Any(x=>x.Id==assetId)) return Forbid();
+        if (!page.CanManage && !page.AssetItems.Any(x=>x.Id==assetId && x.EmployeeId==_user.Current.Id)) return Forbid();
+        if (command=="ALLOCATE" && (!employeeId.HasValue || !page.People.Any(x=>x.Id==employeeId))) return BadRequest();
+
         if (page == null) return Forbid();
 
         var isManagerOrAdmin = page.CanManage;
@@ -1025,6 +1051,10 @@ public sealed class WorkController : Controller
     public IActionResult DeleteAssetItem(int id)
     {
         var page = Page("assets");
+        Load(page);
+        if (!page.Available) { TempData["WorkError"]="Không thể tải dữ liệu tài sản. Vui lòng thử lại."; return RedirectToAction("Index", new {kind="assets"}); }
+        if (id>0 && !page.AssetItems.Any(x=>x.Id==id)) return Forbid();
+
         if (page == null || !page.CanManage) return Forbid();
 
         if (_store.DeleteAssetItem(id, _user.Current.Id, ClientIp))
@@ -1041,7 +1071,7 @@ public sealed class WorkController : Controller
         var page = Page("payroll");
         if (page == null) return Forbid();
 
-        period = string.IsNullOrWhiteSpace(period) ? "2026-02" : period;
+        period = string.IsNullOrWhiteSpace(period) ? HrmDataStore.CurrentVietnamTime().ToString("yyyy-MM") : period;
         var isDirector = User.IsInRole(HrmRoles.Director) || User.IsInRole(HrmRoles.Admin);
         var isHrOrAdmin = User.IsInRole(HrmRoles.Hr) || User.IsInRole(HrmRoles.Admin);
 
@@ -1080,7 +1110,7 @@ public sealed class WorkController : Controller
         if (string.IsNullOrWhiteSpace(draft.Title))
         {
             TempData["WorkError"] = "Vui lòng nhập tên khoản phụ cấp/khấu trừ/tạm ứng.";
-            return RedirectToAction("Index", new { kind = "payroll", pyPeriod = draft.Quarter ?? "2026-02" });
+            return RedirectToAction("Index", new { kind = "payroll", pyPeriod = draft.Quarter ?? HrmDataStore.CurrentVietnamTime().ToString("yyyy-MM") });
         }
 
         if (!_store.SavePayrollComponent(draft, _user.Current.Id, ClientIp))
@@ -1099,16 +1129,16 @@ public sealed class WorkController : Controller
             "payroll-advance" => "advance",
             _ => "dashboard"
         };
-        return RedirectToAction("Index", new { kind = "payroll", pyPeriod = draft.Quarter ?? "2026-02", pyTab = redirectTab });
+        return RedirectToAction("Index", new { kind = "payroll", pyPeriod = draft.Quarter ?? HrmDataStore.CurrentVietnamTime().ToString("yyyy-MM"), pyTab = redirectTab });
     }
 
     [HttpGet]
-    public IActionResult ExportPayrollExcel(string pyPeriod = "2026-02", string pyDept = "ALL", string pyStatus = "ALL")
+    public IActionResult ExportPayrollExcel(string pyPeriod = null, string pyDept = "ALL", string pyStatus = "ALL")
     {
         var page = Page("payroll");
         if (page == null) return Forbid();
 
-        page.PayrollPeriod = string.IsNullOrWhiteSpace(pyPeriod) ? "2026-02" : pyPeriod;
+        page.PayrollPeriod = string.IsNullOrWhiteSpace(pyPeriod) ? HrmDataStore.CurrentVietnamTime().ToString("yyyy-MM") : pyPeriod;
         page.PayrollDeptFilter = string.IsNullOrWhiteSpace(pyDept) ? "ALL" : pyDept;
         page.PayrollStatusFilter = string.IsNullOrWhiteSpace(pyStatus) ? "ALL" : pyStatus;
         Load(page);

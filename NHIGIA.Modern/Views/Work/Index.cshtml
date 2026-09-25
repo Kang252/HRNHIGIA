@@ -125,3 +125,16 @@ else
     </div>
 }
 
+
+@if (!Model.Available)
+{
+    <script>
+    document.querySelectorAll('section.content form[method="post"], section.content form[method="POST"]').forEach(function(form) {
+        form.querySelectorAll('input, select, textarea, button').forEach(function(field) {
+            // Keep modal close/cancel controls usable when the database is unavailable.
+            if (!field.hasAttribute('data-dismiss')) field.disabled = true;
+        });
+        form.addEventListener('submit', function(event) { event.preventDefault(); });
+    });
+    </script>
+}

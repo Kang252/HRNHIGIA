@@ -33,6 +33,11 @@ public sealed class HrmController : BaseController
     private IActionResult Execute(Func<object> action)
     {
         try { return Json(ApiResponse.Ok(action())); }
+        catch (Microsoft.Data.SqlClient.SqlException exception)
+        {
+            _logger.LogError(exception, "HRM database request failed");
+            return StatusCode(503, ApiResponse.Fail("Chưa thể truy cập dữ liệu. Vui lòng thử lại sau."));
+        }
         catch (Exception exception)
         {
             _logger.LogError(exception, "HRM request failed");
@@ -76,10 +81,15 @@ public sealed class HrmController : BaseController
     {
         if (request == null || request.UserId <= 0) throw new InvalidOperationException("Vui lòng chọn nhân viên.");
         if (!Store.GetVisibleUsers(CurrentHrmUser).Any(x => x.Id == request.UserId)) throw new InvalidOperationException("Bạn không có quyền phân lịch cho nhân viên này.");
-        if (!TimeSpan.TryParse(request.StartTime, out _) || !TimeSpan.TryParse(request.EndTime, out _)) throw new InvalidOperationException("Giờ bắt đầu hoặc kết thúc không hợp lệ.");
+        if (!TimeSpan.TryParse(request.StartTime, out var shiftStart) || !TimeSpan.TryParse(request.EndTime, out var shiftEnd) ||
+            shiftStart < TimeSpan.Zero || shiftStart >= TimeSpan.FromDays(1) || shiftEnd < TimeSpan.Zero || shiftEnd >= TimeSpan.FromDays(1) || shiftStart == shiftEnd)
+            throw new InvalidOperationException("Giờ bắt đầu hoặc kết thúc không hợp lệ.");
         if (request.EffectiveFrom == default) throw new InvalidOperationException("Vui lòng chọn ngày áp dụng.");
         if (request.EffectiveTo.HasValue && request.EffectiveTo.Value.Date < request.EffectiveFrom.Date) throw new InvalidOperationException("Ngày kết thúc phải sau ngày bắt đầu.");
         if (request.BreakMinutes < 0 || request.BreakMinutes > 480) throw new InvalidOperationException("Thời gian nghỉ phải từ 0 đến 480 phút.");
+        var shiftMinutes = (shiftEnd - shiftStart).TotalMinutes;
+        if (shiftMinutes <= 0) shiftMinutes += 1440;
+        if (request.BreakMinutes >= shiftMinutes) throw new InvalidOperationException("Thời gian nghỉ phải ngắn hơn thời gian ca làm.");
         request.GraceMinutes = 0;
         if (request.WorkDaysMask < 1 || request.WorkDaysMask > 127) throw new InvalidOperationException("Vui lòng chọn ít nhất một ngày làm việc hợp lệ.");
         request.ShiftName = string.IsNullOrWhiteSpace(request.ShiftName) ? "Ca cá nhân" : request.ShiftName.Trim();
@@ -109,9 +119,11 @@ public sealed class HrmController : BaseController
     {
         try
         {
-            if (request == null || string.IsNullOrWhiteSpace(request.LeaveType)) throw new InvalidOperationException("Vui lòng chọn loại yêu cầu.");
-            if (request.StartDate == default || request.EndDate == default || request.EndDate.Date < request.StartDate.Date) throw new InvalidOperationException("Khoảng thời gian yêu cầu không hợp lệ.");
-            if (string.IsNullOrWhiteSpace(request.Reason)) throw new InvalidOperationException("Vui lòng nhập nội dung yêu cầu.");
+            var validationError = LeaveRequestPolicy.Validate(request);
+            if (!ModelState.IsValid || validationError != null)
+                throw new InvalidOperationException(validationError ?? "Dữ liệu biểu mẫu không hợp lệ.");
+            request.AttachmentName = request.AttachmentContentType = null;
+            request.AttachmentContent = null;
             if (attachment != null && attachment.Length > 0)
             {
                 if (attachment.Length > 10 * 1024 * 1024) throw new InvalidOperationException("Tệp đính kèm không được vượt quá 10 MB.");
@@ -136,7 +148,7 @@ public sealed class HrmController : BaseController
         catch (Exception exception)
         {
             _logger.LogError(exception, "Cannot create leave request");
-            return BadRequest(ApiResponse.Fail(exception.Message));
+            return BadRequest(ApiResponse.Fail(exception is InvalidOperationException ? exception.Message : "Không thể lưu yêu cầu. Dữ liệu đã nhập vẫn được giữ để bạn thử lại."));
         }
     }
 
@@ -219,13 +231,12 @@ public sealed class HrmController : BaseController
     [HrmAuthorize(HrmRoles.Admin, HrmRoles.Hr, HrmRoles.Director, HrmRoles.Manager)]
     public IActionResult ApprovalInbox() => Execute(() =>
     {
-        var managerStage = CurrentHrmUser.RoleCode == HrmRoles.Manager;
         var leaves = Store.GetLeaveRequests(CurrentHrmUser)
-            .Where(item => managerStage ? item.StatusCode == "PENDING_MANAGER" : item.StatusCode is "PENDING_MANAGER" or "PENDING_HR")
+            .Where(item => LeaveRequestPolicy.CanApprove(CurrentHrmUser, item))
             .Select(item => new
             {
                 Source = "leave", Kind = "leave", item.Id, Code = item.RequestCode,
-                RequestType = "Nghỉ phép", Title = item.LeaveType, EmployeeName = item.DisplayName,
+                RequestType = item.LeaveType, Title = item.LeaveType, EmployeeName = item.DisplayName,
                 item.DepartmentName, StartDate = (DateTime?)item.StartDate, EndDate = (DateTime?)item.EndDate, DueDate = (DateTime?)null,
                 Description = item.Reason, item.StatusCode, item.CreatedAt
             });
@@ -295,6 +306,7 @@ public sealed class HrmController : BaseController
     {
         try
         {
+            if (request != null) { request.AttachmentName = request.AttachmentContentType = null; request.AttachmentContent = null; }
             if (request == null || string.IsNullOrWhiteSpace(request.Title) || string.IsNullOrWhiteSpace(request.Body)) throw new InvalidOperationException("Vui lòng nhập tiêu đề và nội dung.");
             request.ScopeCode = (request.ScopeCode ?? "DEPARTMENT").ToUpperInvariant();
             if (!new[] { "ALL", "DEPARTMENT", "MANAGER" }.Contains(request.ScopeCode)) throw new InvalidOperationException("Phạm vi đăng tin không hợp lệ.");

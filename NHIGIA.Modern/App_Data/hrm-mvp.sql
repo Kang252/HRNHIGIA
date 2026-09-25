@@ -204,6 +204,11 @@ IF COL_LENGTH('dbo.HrmLeaveRequest', 'AttachmentContent') IS NULL
     ALTER TABLE dbo.HrmLeaveRequest ADD AttachmentContent VARBINARY(MAX) NULL;
 GO
 
+-- Procedure forms can contain detailed expense lines; preserve existing content.
+IF COL_LENGTH('dbo.HrmLeaveRequest', 'Reason') > 0 AND COL_LENGTH('dbo.HrmLeaveRequest', 'Reason') < 32000
+    ALTER TABLE dbo.HrmLeaveRequest ALTER COLUMN Reason NVARCHAR(MAX) NOT NULL;
+GO
+
 IF OBJECT_ID('dbo.HrmCommunication', 'U') IS NULL
 BEGIN
     CREATE TABLE dbo.HrmCommunication (

@@ -27,7 +27,8 @@ public sealed class WorkItemStore
             WHERE w.Kind=@Kind
               AND (@CanSeeAll=1 OR w.EmployeeId=@UserId OR w.CreatedBy=@UserId
                    OR (w.Kind='kpi' AND w.DepartmentId=@DepartmentId)
-                   OR (w.Kind IN ('recruitment', 'resignation', 'training', 'transfer', 'transfer-decision', 'assets', 'asset-handover'))
+                   OR w.Kind='training'
+                   OR EXISTS (SELECT 1 FROM dbo.HrmWorkItemParticipant p WHERE p.WorkItemId=w.Id AND p.UserId=@UserId)
                    OR (@IsManager=1 AND (u.DepartmentId=@DepartmentId OR w.DepartmentId=@DepartmentId)))
               AND (@Kind<>'payroll' OR @CanSeeAll=1 OR w.Status IN ('PUBLISHED','PAID','DISPUTED','RESOLVED'))
             ORDER BY w.CreatedAt DESC, w.Id DESC", new
@@ -60,7 +61,9 @@ public sealed class WorkItemStore
                     INNER JOIN dbo.HrmWorkItem w ON w.Id = e.TrainingId
                     INNER JOIN dbo.HrmUserAccount u ON u.Id = e.EmployeeId
                     LEFT JOIN dbo.HrmDepartment d ON d.Id = u.DepartmentId
-                    ORDER BY e.EnrolledAt DESC").ToList();
+                    WHERE @CanSeeAll=1 OR e.EmployeeId=@UserId
+                       OR (@IsManager=1 AND u.DepartmentId=@DepartmentId)
+                    ORDER BY e.EnrolledAt DESC", new { CanSeeAll = canSeeAll, UserId = actor.Id, IsManager = canManageDepartment, actor.DepartmentId }).ToList();
                 page.MyEnrollments = page.Enrollments.Where(e => e.EmployeeId == actor.Id).ToList();
                 page.EnrolledCoursesCount = page.MyEnrollments.Count;
                 page.CompletedCoursesCount = page.MyEnrollments.Count(e => e.Status == "COMPLETED");
@@ -110,104 +113,6 @@ public sealed class WorkItemStore
                     catch { }
                 }
 
-                // Synthesize recurring monthly sessions across 2026-2040 so every month on the calendar has active sessions
-                var existingDates = new HashSet<string>(courseSessions.Select(s => s.DateStr));
-                var defaultRoom = item.Category == "Offline" ? "Hội trường đào tạo Lầu 3" : "Google Meet Online";
-                var isOnline = item.Category != "Offline";
-                var instructor = item.ContactName ?? "Giảng viên Nhị Gia";
-
-                int recurringIdx = courseSessions.Count + 1;
-                for (int y = 2026; y <= 2040; y++)
-                {
-                    for (int m = 1; m <= 12; m++)
-                    {
-                        var daysInMonth = DateTime.DaysInMonth(y, m);
-                        var targetDays = new List<(int day, string time, string sessionSuffix)>();
-
-                        var refUpper = (item.Reference ?? "").ToUpperInvariant();
-                        var titleLower = (item.Title ?? "").ToLowerInvariant();
-
-                        if (refUpper.Contains("001") || titleLower.Contains("an toàn"))
-                        {
-                            // 2nd Tuesday & 4th Tuesday
-                            int tCount = 0;
-                            for (int d = 1; d <= daysInMonth; d++)
-                            {
-                                if (new DateTime(y, m, d).DayOfWeek == DayOfWeek.Tuesday)
-                                {
-                                    tCount++;
-                                    if (tCount == 2) targetDays.Add((d, "09:00 - 11:00", "Nhận diện rủi ro & Bảo mật số"));
-                                    else if (tCount == 4) targetDays.Add((d, "14:00 - 16:00", "Thực hành phòng chống sự cố"));
-                                }
-                            }
-                        }
-                        else if (refUpper.Contains("002") || titleLower.Contains("quản lý"))
-                        {
-                            // 2nd Friday & 4th Friday
-                            int fCount = 0;
-                            for (int d = 1; d <= daysInMonth; d++)
-                            {
-                                if (new DateTime(y, m, d).DayOfWeek == DayOfWeek.Friday)
-                                {
-                                    fCount++;
-                                    if (fCount == 2) targetDays.Add((d, "08:30 - 16:30", "Quản lý mục tiêu & Hiệu suất"));
-                                    else if (fCount == 4) targetDays.Add((d, "13:30 - 17:00", "Phát triển đội ngũ kế thừa"));
-                                }
-                            }
-                        }
-                        else if (refUpper.Contains("003") || titleLower.Contains("excel"))
-                        {
-                            // 3rd Thursday
-                            int thCount = 0;
-                            for (int d = 1; d <= daysInMonth; d++)
-                            {
-                                if (new DateTime(y, m, d).DayOfWeek == DayOfWeek.Thursday)
-                                {
-                                    thCount++;
-                                    if (thCount == 3) targetDays.Add((d, "08:30 - 17:00", "Excel chuyên sâu & Tự động hóa"));
-                                }
-                            }
-                        }
-                        else
-                        {
-                            // 3rd Wednesday for any other course
-                            int wCount = 0;
-                            for (int d = 1; d <= daysInMonth; d++)
-                            {
-                                if (new DateTime(y, m, d).DayOfWeek == DayOfWeek.Wednesday)
-                                {
-                                    wCount++;
-                                    if (wCount == 3) targetDays.Add((d, "09:00 - 11:30", "Buổi đào tạo chuyên môn"));
-                                }
-                            }
-                        }
-
-                        foreach (var target in targetDays)
-                        {
-                            var dStr = $"{y:D4}-{m:D2}-{target.day:D2}";
-                            if (!existingDates.Contains(dStr))
-                            {
-                                existingDates.Add(dStr);
-                                courseSessions.Add(new TrainingSessionEvent
-                                {
-                                    Id = item.Id * 100000 + recurringIdx,
-                                    TrainingId = item.Id,
-                                    CourseTitle = item.Title,
-                                    CourseReference = item.Reference,
-                                    SessionTitle = $"{item.Title}: {target.sessionSuffix}",
-                                    DateStr = dStr,
-                                    TimeStr = target.time,
-                                    Instructor = instructor,
-                                    LocationOrUrl = defaultRoom,
-                                    IsOnline = isOnline,
-                                    Notes = item.Description
-                                });
-                                recurringIdx++;
-                            }
-                        }
-                    }
-                }
-
                 sessions.AddRange(courseSessions);
             }
             page.Sessions = sessions.OrderBy(s => s.DateStr).ThenBy(s => s.TimeStr).ToList();
@@ -254,6 +159,13 @@ public sealed class WorkItemStore
     {
         using var db = Open();
         using var transaction = db.BeginTransaction();
+        if (item.Kind == "meeting")
+        {
+            var conflict = db.ExecuteScalar<int>(@"SELECT COUNT(1) FROM dbo.HrmWorkItem WITH (UPDLOCK,HOLDLOCK)
+                WHERE Kind='meeting' AND Location=@Location AND Status IN ('PENDING','APPROVED')
+                  AND StartAt < DATEADD(MINUTE,10,@EndAt) AND EndAt > DATEADD(MINUTE,-10,@StartAt)", item, transaction);
+            if (conflict > 0) throw new InvalidOperationException("Phòng họp vừa được đặt trong khung giờ này. Vui lòng chọn thời gian cách ít nhất 10 phút.");
+        }
         var id = db.QuerySingle<int>(@"INSERT dbo.HrmWorkItem
             (Kind,Title,Description,Category,Reference,WorkLocation,JobLevel,ExperienceRequired,EducationRequired,GenderRequirement,AgeRange,SalaryRange,SkillRequirements,Benefits,RecruitmentProcess,RecruitmentReason,StartDate,ContractType,ProbationPeriod,RecruitmentChannel,ContactName,ContactEmail,ContactPhone,ContactAddress,Keywords,EmployeeId,DepartmentId,DueDate,StartAt,EndAt,Location,Destination,Target,Actual,Weight,Priority,Status,CreatedBy,KpiType,Quarter,ProofNote)
             OUTPUT INSERTED.Id VALUES
@@ -289,14 +201,30 @@ public sealed class WorkItemStore
         return changed;
     }
 
+    private const string ManageRecordScope = @" AND EXISTS (
+        SELECT 1 FROM dbo.HrmUserAccount actor
+        LEFT JOIN dbo.HrmUserAccount employee ON employee.Id=w.EmployeeId
+        WHERE actor.Id=@ActorId AND actor.IsActive=1 AND
+          (actor.RoleCode IN ('ADMIN','HR','DIRECTOR') OR
+           (actor.RoleCode='MANAGER' AND actor.DepartmentId IS NOT NULL AND
+            (employee.DepartmentId=actor.DepartmentId OR w.DepartmentId=actor.DepartmentId))))";
+
+    private const string ApproveRecordScope = @" AND COALESCE(w.EmployeeId,w.CreatedBy)<>@ActorId
+        AND EXISTS (SELECT 1 FROM dbo.HrmUserAccount actor
+            LEFT JOIN dbo.HrmUserAccount employee ON employee.Id=COALESCE(w.EmployeeId,w.CreatedBy)
+            WHERE actor.Id=@ActorId AND actor.IsActive=1 AND
+              (actor.RoleCode IN ('ADMIN','HR','DIRECTOR') OR
+               (actor.RoleCode='MANAGER' AND actor.DepartmentId IS NOT NULL
+                AND employee.RoleCode='EMPLOYEE' AND employee.DepartmentId=actor.DepartmentId)))";
+
     public bool SubmitKpiProof(int id, decimal actual, string proofNote, int actorId, string ipAddress)
     {
         using var db = Open();
         using var transaction = db.BeginTransaction();
         var changed = db.Execute(@"UPDATE dbo.HrmWorkItem SET Actual=@Actual,
                 ProofNote=@ProofNote, Status='WAITING_PROOF', UpdatedAt=SYSUTCDATETIME()
-            WHERE Id=@Id AND Kind='kpi'",
-            new { Id = id, Actual = actual, ProofNote = proofNote?.Trim() }, transaction) > 0;
+            WHERE Id=@Id AND Kind='kpi' AND EmployeeId=@ActorId AND Status NOT IN ('PROVEN','CANCELLED')",
+            new { Id = id, ActorId=actorId, Actual = actual, ProofNote = proofNote?.Trim() }, transaction) > 0;
         if (changed) AddAudit(db, transaction, actorId, "SUBMIT_PROOF", id, $"Gửi chứng minh kết quả KPI: thực hiện {actual}. {proofNote}".Trim(), ipAddress);
         if (changed) NotifyWorkChange(db, transaction, id, "WAITING_PROOF", proofNote);
         transaction.Commit();
@@ -309,10 +237,11 @@ public sealed class WorkItemStore
         using var transaction = db.BeginTransaction();
         var newStatus = approve ? "PROVEN" : "NEEDS_REVISION";
         var action = approve ? "APPROVE_PROOF" : "REJECT_PROOF";
-        var changed = db.Execute(@"UPDATE dbo.HrmWorkItem SET Status=@NewStatus,
+        var changed = db.Execute(@"UPDATE w SET Status=@NewStatus,
                 LastActionNote=@ReviewNote, UpdatedAt=SYSUTCDATETIME()
-            WHERE Id=@Id AND Status='WAITING_PROOF' AND Kind='kpi'",
-            new { Id = id, NewStatus = newStatus, ReviewNote = reviewNote?.Trim() }, transaction) > 0;
+            FROM dbo.HrmWorkItem w WHERE w.Id=@Id AND w.Status='WAITING_PROOF' AND w.Kind='kpi'
+              AND COALESCE(w.EmployeeId,0)<>@ActorId" + ApproveRecordScope,
+            new { Id = id, ActorId=actorId, NewStatus = newStatus, ReviewNote = reviewNote?.Trim() }, transaction) > 0;
         if (changed) AddAudit(db, transaction, actorId, action, id, $"Đánh giá kết quả KPI: {newStatus}. {reviewNote}".Trim(), ipAddress);
         if (changed) NotifyWorkChange(db, transaction, id, newStatus, reviewNote);
         transaction.Commit();
@@ -323,7 +252,8 @@ public sealed class WorkItemStore
     {
         using var db = Open();
         using var transaction = db.BeginTransaction();
-        var changed = db.Execute(@"DELETE FROM dbo.HrmWorkItem WHERE Id=@Id AND Kind='kpi'", new { Id = id }, transaction) > 0;
+        var changed = db.Execute(@"DELETE w FROM dbo.HrmWorkItem w WHERE w.Id=@Id AND w.Kind='kpi'" + ManageRecordScope,
+            new { Id=id, ActorId=actorId }, transaction) > 0;
         if (changed) AddAudit(db, transaction, actorId, "DELETE", id, "Xóa tiêu chí KPI", ipAddress);
         transaction.Commit();
         return changed;
@@ -414,12 +344,13 @@ public sealed class WorkItemStore
                  INNER JOIN dbo.HrmUserAccount pu ON pu.Id=wp.UserId WHERE wp.WorkItemId=w.Id
                  ORDER BY pu.DisplayName FOR XML PATH(''),TYPE).value('.','nvarchar(max)'),1,2,N'') ParticipantNames
             FROM dbo.HrmWorkItem w
-            LEFT JOIN dbo.HrmUserAccount u ON u.Id=w.EmployeeId
+            LEFT JOIN dbo.HrmUserAccount u ON u.Id=COALESCE(w.EmployeeId,w.CreatedBy)
             LEFT JOIN dbo.HrmDepartment d ON d.Id=COALESCE(w.DepartmentId,u.DepartmentId)
             WHERE ((w.Status='PENDING' AND w.Kind IN ('overtime','resignation','vehicle','meeting','business-trip','offboarding','transfer'))
                    OR (w.Status='PENDING_APPROVAL' AND w.Kind='payroll' AND @CanApprovePayroll=1))
-              AND (@CanSeeAll=1 OR (@IsManager=1 AND w.Kind<>'transfer'
-                   AND (u.DepartmentId=@DepartmentId OR w.DepartmentId=@DepartmentId OR w.CreatedBy=@ActorId)))
+              AND COALESCE(w.EmployeeId,w.CreatedBy)<>@ActorId
+              AND (@CanSeeAll=1 OR (@IsManager=1 AND w.Kind<>'transfer' AND u.RoleCode='EMPLOYEE'
+                   AND u.DepartmentId=@DepartmentId))
             ORDER BY w.CreatedAt,w.Id", new
         {
             CanSeeAll = canSeeAll,
@@ -604,9 +535,12 @@ public sealed class WorkItemStore
     {
         using var db = Open();
         using var transaction = db.BeginTransaction();
-        var changed = db.Execute(@"UPDATE dbo.HrmWorkItem 
-            SET Status=@Status, LastActionNote=@Note, UpdatedAt=SYSDATETIME() 
-            WHERE Id=@Id AND COALESCE(Status,'')<>@Status AND Kind='overtime'", new { Id = id, Status = status, Note = note }, transaction) > 0;
+        if (status is not ("APPROVED" or "REJECTED")) return false;
+        var expected = "PENDING";
+        var changed = db.Execute(@"UPDATE w SET Status=@Status, LastActionNote=@Note, UpdatedAt=SYSDATETIME()
+            FROM dbo.HrmWorkItem w WHERE w.Id=@Id AND w.Status=@Expected AND w.Kind='overtime'
+              AND COALESCE(w.EmployeeId,w.CreatedBy)<>@ActorId" + ApproveRecordScope,
+            new { Id=id, Status=status, Note=note, Expected=expected, ActorId=actorId }, transaction) > 0;
         if (changed) AddAudit(db, transaction, actorId, status == "APPROVED" ? "APPROVE" : "REJECT", id, $"{status}: {note}", ipAddress);
         if (changed) NotifyWorkChange(db, transaction, id, status, note);
         transaction.Commit();
@@ -617,7 +551,8 @@ public sealed class WorkItemStore
     {
         using var db = Open();
         using var transaction = db.BeginTransaction();
-        var changed = db.Execute(@"DELETE FROM dbo.HrmWorkItem WHERE Id=@Id AND Kind='overtime'", new { Id = id }, transaction) > 0;
+        var changed = db.Execute(@"DELETE w FROM dbo.HrmWorkItem w WHERE w.Id=@Id AND w.Kind='overtime'" + ManageRecordScope,
+            new { Id=id, ActorId=actorId }, transaction) > 0;
         if (changed) AddAudit(db, transaction, actorId, "DELETE", id, $"Xóa phiếu tăng ca #{id}", ipAddress);
         transaction.Commit();
         return changed;
@@ -627,9 +562,12 @@ public sealed class WorkItemStore
     {
         using var db = Open();
         using var transaction = db.BeginTransaction();
-        var changed = db.Execute(@"UPDATE dbo.HrmWorkItem 
-            SET Status=@Status, LastActionNote=@Note, UpdatedAt=SYSDATETIME() 
-            WHERE Id=@Id AND COALESCE(Status,'')<>@Status AND Kind='resignation'", new { Id = id, Status = status, Note = note }, transaction) > 0;
+        if (status is not ("APPROVED" or "REJECTED" or "RESOLVED")) return false;
+        var expected = status == "RESOLVED" ? "APPROVED" : "PENDING";
+        var changed = db.Execute(@"UPDATE w SET Status=@Status, LastActionNote=@Note, UpdatedAt=SYSDATETIME()
+            FROM dbo.HrmWorkItem w WHERE w.Id=@Id AND w.Status=@Expected AND w.Kind='resignation'
+              AND COALESCE(w.EmployeeId,w.CreatedBy)<>@ActorId" + ApproveRecordScope,
+            new { Id=id, Status=status, Note=note, Expected=expected, ActorId=actorId }, transaction) > 0;
         if (changed) AddAudit(db, transaction, actorId, status == "APPROVED" ? "APPROVE" : (status == "REJECTED" ? "REJECT" : "UPDATE"), id, $"{status}: {note}", ipAddress);
         if (changed) NotifyWorkChange(db, transaction, id, status, note);
         transaction.Commit();
@@ -640,7 +578,8 @@ public sealed class WorkItemStore
     {
         using var db = Open();
         using var transaction = db.BeginTransaction();
-        var changed = db.Execute(@"DELETE FROM dbo.HrmWorkItem WHERE Id=@Id AND Kind='resignation'", new { Id = id }, transaction) > 0;
+        var changed = db.Execute(@"DELETE w FROM dbo.HrmWorkItem w WHERE w.Id=@Id AND w.Kind='resignation'" + ManageRecordScope,
+            new { Id=id, ActorId=actorId }, transaction) > 0;
         if (changed) AddAudit(db, transaction, actorId, "DELETE", id, $"Xóa yêu cầu thôi việc #{id}", ipAddress);
         transaction.Commit();
         return changed;
@@ -762,12 +701,6 @@ public sealed class WorkItemStore
     {
         try
         {
-            var count = db.ExecuteScalar<int>("SELECT COUNT(1) FROM dbo.HrmWorkItem WHERE Kind IN ('transfer', 'transfer-decision')");
-            if (count == 0)
-            {
-                SeedTransferData(db);
-            }
-
             var requests = db.Query<WorkItem>(@"SELECT w.*, u.DisplayName EmployeeName, d.Name DepartmentName
                 FROM dbo.HrmWorkItem w
                 LEFT JOIN dbo.HrmUserAccount u ON u.Id=w.EmployeeId
@@ -859,7 +792,7 @@ public sealed class WorkItemStore
                 page.TransferDecisions = page.TransferDecisions.Where(x => $"{x.Title} {x.Reference} {x.ContactName} {x.Description} {x.Category}".Contains(page.Query, StringComparison.OrdinalIgnoreCase)).ToList();
             }
         }
-        catch { }
+        catch { throw; }
     }
 
     private void SeedTransferData(SqlConnection db)
@@ -966,36 +899,45 @@ public sealed class WorkItemStore
     // ASSET MANAGEMENT MODULE (SLIDE 24)
     // =========================================================================
 
+    private static string NextAssetCode(SqlConnection db, SqlTransaction transaction = null)
+    {
+        var value = db.ExecuteScalar<long>(@"SELECT COALESCE(MAX(TRY_CONVERT(BIGINT,SUBSTRING(Reference,4,40))),0)+1
+            FROM dbo.HrmWorkItem WITH (UPDLOCK,HOLDLOCK) WHERE Kind='assets' AND (Reference LIKE 'TS.%' OR Reference LIKE 'TS-%')",
+            transaction:transaction);
+        return $"TS.{value:D3}";
+    }
+
     public bool SaveAssetItem(WorkItem item, int actorId, string ipAddress)
     {
         using var db = Open();
         using var transaction = db.BeginTransaction();
         try
         {
+            var actor = db.QuerySingleOrDefault<HrmUserAccountModel>("SELECT Id,RoleCode,DepartmentId,IsActive FROM dbo.HrmUserAccount WHERE Id=@Id", new {Id=actorId},transaction);
+            if (actor?.IsActive != true || !HrmRoles.CanManagePeople(actor.RoleCode)) return false;
+            if (actor.RoleCode==HrmRoles.Manager) item.DepartmentId=actor.DepartmentId;
+
             if (item.Id > 0)
             {
-                var rows = db.Execute(@"UPDATE dbo.HrmWorkItem
-                    SET Title=@Title, Description=@Description, Category=@Category, Reference=@Reference,
+                var parameters = new DynamicParameters(item);
+                parameters.Add("ActorId", actorId);
+                var rows = db.Execute(@"UPDATE w
+                    SET Title=@Title, Description=@Description, Category=@Category,
                         WorkLocation=@WorkLocation, JobLevel=@JobLevel, ExperienceRequired=@ExperienceRequired,
                         EducationRequired=@EducationRequired, SalaryRange=@SalaryRange, Target=@Target,
-                        StartDate=@StartDate, DueDate=@DueDate, DepartmentId=@DepartmentId, EmployeeId=@EmployeeId,
-                        Status=@Status, Priority=@Priority, UpdatedAt=SYSDATETIME()
-                    WHERE Id=@Id AND Kind='assets'", item, transaction);
-                AddAudit(db, transaction, actorId, "UPDATE_ASSET", item.Id, $"Cập nhật tài sản: {item.Title} ({item.Reference})", ipAddress);
+                        StartDate=@StartDate,
+                        Priority=@Priority, UpdatedAt=SYSDATETIME()
+                    FROM dbo.HrmWorkItem w WHERE w.Id=@Id AND w.Kind='assets'" + ManageRecordScope, parameters, transaction);
+                if (rows > 0) AddAudit(db, transaction, actorId, "UPDATE_ASSET", item.Id, $"Cập nhật tài sản: {item.Title} ({item.Reference})", ipAddress);
                 transaction.Commit();
                 return rows > 0;
             }
             else
             {
                 item.Kind = "assets";
-                if (string.IsNullOrWhiteSpace(item.Reference))
-                {
-                    item.Reference = "TS-" + Random.Shared.Next(1000, 9999);
-                }
-                if (string.IsNullOrWhiteSpace(item.Status))
-                {
-                    item.Status = item.EmployeeId.HasValue ? "ALLOCATED" : "IN_STOCK";
-                }
+                item.Reference = NextAssetCode(db, transaction);
+                item.EmployeeId = null;
+                item.Status = "IN_STOCK";
                 if (string.IsNullOrWhiteSpace(item.SalaryRange))
                 {
                     item.SalaryRange = "NORMAL";
@@ -1023,8 +965,23 @@ public sealed class WorkItemStore
         using var transaction = db.BeginTransaction();
         try
         {
-            var asset = db.QueryFirstOrDefault<WorkItem>("SELECT * FROM dbo.HrmWorkItem WHERE Id=@Id AND Kind='assets'", new { Id = assetId }, transaction);
+            var asset = db.QueryFirstOrDefault<WorkItem>("SELECT * FROM dbo.HrmWorkItem WITH (UPDLOCK,HOLDLOCK) WHERE Id=@Id AND Kind='assets'", new { Id = assetId }, transaction);
             if (asset == null) return false;
+            var canManage = db.ExecuteScalar<int>("SELECT COUNT(1) FROM dbo.HrmWorkItem w WHERE w.Id=@Id" + ManageRecordScope,
+                new { Id=assetId, ActorId=actorId }, transaction) > 0;
+            if (!canManage && !(command == "UPDATE_CONDITION" && asset.EmployeeId == actorId)) return false;
+            if (command == "ALLOCATE" && (asset.Status != "IN_STOCK" || asset.EmployeeId.HasValue || !employeeId.HasValue)) return false;
+            if (command == "RECOVER" && (asset.Status != "ALLOCATED" || !asset.EmployeeId.HasValue)) return false;
+            if (command == "LIQUIDATE" && asset.EmployeeId.HasValue) return false;
+            if (command == "ALLOCATE")
+            {
+                var target = db.QuerySingleOrDefault<HrmUserAccountModel>("SELECT Id,IsActive,DepartmentId FROM dbo.HrmUserAccount WHERE Id=@Id",new {Id=employeeId},transaction);
+                if (target?.IsActive != true) return false;
+                var actor = db.QuerySingleOrDefault<HrmUserAccountModel>("SELECT Id,RoleCode,DepartmentId FROM dbo.HrmUserAccount WHERE Id=@Id",new {Id=actorId},transaction);
+                if (actor?.RoleCode==HrmRoles.Manager && (!actor.DepartmentId.HasValue || actor.DepartmentId!=target.DepartmentId)) return false;
+                departmentId = target.DepartmentId;
+            }
+
 
             if (command == "ALLOCATE")
             {
@@ -1130,8 +1087,11 @@ public sealed class WorkItemStore
         using var transaction = db.BeginTransaction();
         try
         {
-            var asset = db.QueryFirstOrDefault<WorkItem>("SELECT * FROM dbo.HrmWorkItem WHERE Id=@Id AND Kind='assets'", new { Id = id }, transaction);
-            if (asset == null) return false;
+            var asset = db.QueryFirstOrDefault<WorkItem>("SELECT * FROM dbo.HrmWorkItem WITH (UPDLOCK,HOLDLOCK) WHERE Id=@Id AND Kind='assets'", new { Id = id }, transaction);
+            if (asset == null || asset.EmployeeId.HasValue || asset.Status != "IN_STOCK") return false;
+            if (db.ExecuteScalar<int>("SELECT COUNT(1) FROM dbo.HrmWorkItem w WHERE w.Id=@Id" + ManageRecordScope,
+                    new { Id=id, ActorId=actorId }, transaction) == 0) return false;
+            if (db.ExecuteScalar<int>("SELECT COUNT(1) FROM dbo.HrmWorkItem WHERE Kind='asset-handover' AND ExperienceRequired=@Reference", new { asset.Reference }, transaction)>0) return false;
             db.Execute("DELETE FROM dbo.HrmWorkItem WHERE Id=@Id", new { Id = id }, transaction);
             AddAudit(db, transaction, actorId, "DELETE_ASSET", id, $"Xóa tài sản: {asset.Title} ({asset.Reference})", ipAddress);
             transaction.Commit();
@@ -1148,12 +1108,7 @@ public sealed class WorkItemStore
     {
         try
         {
-            var count = db.ExecuteScalar<int>("SELECT COUNT(1) FROM dbo.HrmWorkItem WHERE Kind IN ('assets', 'asset-handover')");
-            if (count == 0)
-            {
-                SeedAssetsData(db);
-            }
-
+            page.NextAssetReference = NextAssetCode(db);
             var assets = db.Query<WorkItem>(@"SELECT w.*, u.DisplayName EmployeeName, d.Name DepartmentName, cb.DisplayName CreatedByName
                 FROM dbo.HrmWorkItem w
                 LEFT JOIN dbo.HrmUserAccount u ON u.Id=w.EmployeeId
@@ -1301,7 +1256,7 @@ public sealed class WorkItemStore
                 page.AssetHandovers = page.AssetHandovers.Where(x => $"{x.Title} {x.Reference} {x.WorkLocation} {x.EmployeeName} {x.DepartmentName} {x.Description}".Contains(page.Query, StringComparison.OrdinalIgnoreCase)).ToList();
             }
         }
-        catch { }
+        catch { throw; }
     }
 
     private void SeedAssetsData(SqlConnection db)
@@ -1409,13 +1364,7 @@ public sealed class WorkItemStore
     {
         try
         {
-            var count = db.ExecuteScalar<int>("SELECT COUNT(1) FROM dbo.HrmWorkItem WHERE Kind='payroll'");
-            if (count == 0)
-            {
-                SeedPayrollData(db);
-            }
-
-            var period = string.IsNullOrWhiteSpace(page.PayrollPeriod) ? "2026-02" : page.PayrollPeriod;
+            var period = string.IsNullOrWhiteSpace(page.PayrollPeriod) ? HrmDataStore.CurrentVietnamTime().ToString("yyyy-MM") : page.PayrollPeriod;
             page.PayrollPeriod = period;
 
             // Load all payroll items for this period
@@ -1425,22 +1374,9 @@ public sealed class WorkItemStore
                 LEFT JOIN dbo.HrmDepartment d ON d.Id=COALESCE(w.DepartmentId, u.DepartmentId)
                 LEFT JOIN dbo.HrmUserAccount cb ON cb.Id=w.CreatedBy
                 WHERE w.Kind='payroll' AND (w.Quarter=@Period OR w.Quarter IS NULL)
+                  AND (@CanSeeAll=1 OR (w.EmployeeId=@UserId AND w.Status IN ('PUBLISHED','PAID','DISPUTED','RESOLVED')))
                 ORDER BY w.Reference ASC, w.Id ASC",
-                new { Period = period }).ToList();
-
-            // Fallback if period has no data
-            if (rawItems.Count == 0 && period == "2026-02")
-            {
-                SeedPayrollData(db);
-                rawItems = db.Query<WorkItem>(@"SELECT w.*, u.DisplayName EmployeeName, COALESCE(w.ContactEmail, u.Username + '@nhigia.vn') ContactEmail, d.Name DepartmentName, cb.DisplayName CreatedByName
-                    FROM dbo.HrmWorkItem w
-                    LEFT JOIN dbo.HrmUserAccount u ON u.Id=w.EmployeeId
-                    LEFT JOIN dbo.HrmDepartment d ON d.Id=COALESCE(w.DepartmentId, u.DepartmentId)
-                    LEFT JOIN dbo.HrmUserAccount cb ON cb.Id=w.CreatedBy
-                    WHERE w.Kind='payroll' AND (w.Quarter=@Period OR w.Quarter IS NULL)
-                    ORDER BY w.Reference ASC, w.Id ASC",
-                    new { Period = period }).ToList();
-            }
+                new { Period = period, CanSeeAll = canSeeAll, UserId = actor.Id }).ToList();
 
             // Slide 7 Left Dashboard: Department distribution (Bar chart + Donut chart)
             var deptStats = new List<PayrollDepartmentStat>();
@@ -1449,7 +1385,6 @@ public sealed class WorkItemStore
 
             var deptGroups = rawItems.GroupBy(x => x.DepartmentName ?? "Chưa phân phòng").ToList();
             var totalAllNet = rawItems.Sum(x => x.Actual ?? 0);
-            if (totalAllNet == 0) totalAllNet = 1458951350m;
             var maxDeptNet = deptGroups.Any() ? deptGroups.Max(g => g.Sum(x => x.Actual ?? 0)) : 1;
             if (maxDeptNet <= 0) maxDeptNet = 1;
 
@@ -1473,9 +1408,8 @@ public sealed class WorkItemStore
             page.PayrollDepartmentStats = deptStats;
 
             // Slide 7 KPI summary cards
-            page.TotalPayrollEmployees = rawItems.Count > 0 ? rawItems.Count : 187;
+            page.TotalPayrollEmployees = rawItems.Count;
             page.TotalPayrollNetSalary = rawItems.Sum(x => x.Actual ?? 0);
-            if (page.TotalPayrollNetSalary == 0) page.TotalPayrollNetSalary = 1458951350m;
 
             decimal totalBhxh = 0;
             decimal totalPit = 0;
@@ -1489,8 +1423,8 @@ public sealed class WorkItemStore
                 detailList.Add(detail);
             }
 
-            page.TotalPayrollSocialInsurance = totalBhxh > 0 ? totalBhxh : 195163500m;
-            page.TotalPayrollPersonalIncomeTax = totalPit > 0 ? totalPit : 122356381m;
+            page.TotalPayrollSocialInsurance = totalBhxh;
+            page.TotalPayrollPersonalIncomeTax = totalPit;
 
             // Role based filtering (Slide 6 Step 4: Employee views their own payslip only)
             var visibleDetails = detailList.AsEnumerable();
@@ -1502,7 +1436,7 @@ public sealed class WorkItemStore
                 }
                 else
                 {
-                    visibleDetails = visibleDetails.Where(x => x.EmployeeId == actor.Id && (x.Status == "PUBLISHED" || x.Status == "PAID"));
+                    visibleDetails = visibleDetails.Where(x => x.EmployeeId == actor.Id && (x.Status is "PUBLISHED" or "PAID" or "DISPUTED" or "RESOLVED"));
                 }
             }
 
@@ -1526,13 +1460,14 @@ public sealed class WorkItemStore
             // Load subcomponents for Tabs 2 - 6
             LoadPayrollSubcomponents(db, page, period, canSeeAll, actor);
         }
-        catch { }
+        catch { throw; }
     }
 
     private static PayrollItemDetail ParsePayrollItem(WorkItem item)
     {
         var detail = new PayrollItemDetail
         {
+            StoredValues = PayrollStoredValues.Parse(item.Keywords),
             Id = item.Id,
             Period = item.Quarter ?? "2026-02",
             EmployeeId = item.EmployeeId ?? 0,
@@ -1542,7 +1477,7 @@ public sealed class WorkItemStore
             DepartmentId = item.DepartmentId ?? 0,
             DepartmentName = item.DepartmentName ?? "Chưa phân phòng",
             Branch = item.Category ?? "TP. Hồ Chí Minh",
-            BaseSalary = item.Target ?? 12000000m,
+            BaseSalary = item.Target ?? 0,
             NetSalary = item.Actual ?? 0,
             Status = item.Status ?? "DRAFT",
             LastActionNote = item.LastActionNote,
@@ -1574,14 +1509,7 @@ public sealed class WorkItemStore
             catch { }
         }
 
-        if (detail.SocialInsurance == 0 && detail.BaseSalary > 0)
-        {
-            detail.SocialInsurance = Math.Round(detail.BaseSalary * 0.08m);
-            detail.HealthInsurance = Math.Round(detail.BaseSalary * 0.015m);
-            detail.UnemploymentInsurance = Math.Round(detail.BaseSalary * 0.01m);
-        }
-
-        if (detail.NetSalary == 0)
+        if (!item.Actual.HasValue)
         {
             detail.NetSalary = Math.Max(0, detail.GrossIncome - detail.TotalInsurance - detail.PersonalIncomeTax - detail.Advance - detail.Deduction);
         }
@@ -1610,7 +1538,8 @@ public sealed class WorkItemStore
                 LEFT JOIN dbo.HrmUserAccount u ON u.Id=w.EmployeeId
                 LEFT JOIN dbo.HrmDepartment d ON d.Id=COALESCE(w.DepartmentId, u.DepartmentId)
                 WHERE w.Kind='payroll-allowance' AND (w.Quarter=@Period OR w.Quarter IS NULL)
-                ORDER BY w.Id DESC", new { Period = period }).ToList();
+                  AND (@CanSeeAll=1 OR w.EmployeeId=@UserId)
+                ORDER BY w.Id DESC", new { Period = period, CanSeeAll = canSeeAll, UserId = actor.Id }).ToList();
 
             if (!canSeeAll && actor.RoleCode == "EMPLOYEE")
             {
@@ -1639,24 +1568,18 @@ public sealed class WorkItemStore
                 EmployeeId = p.EmployeeId,
                 EmployeeName = p.EmployeeName,
                 DepartmentName = p.DepartmentName,
-                InsuranceSalary = p.BaseSalary,
-                BhxhEmp = p.SocialInsurance,
-                BhytEmp = p.HealthInsurance,
-                BhtnEmp = p.UnemploymentInsurance,
-                BhxhComp = Math.Round(p.BaseSalary * 0.175m),
-                BhytComp = Math.Round(p.BaseSalary * 0.03m),
-                BhtnComp = Math.Round(p.BaseSalary * 0.01m)
+                InsuranceSalary = p.StoredValues.InsuranceSalary,
+                BhxhEmp = p.StoredValues.SocialInsurance,
+                BhytEmp = p.StoredValues.HealthInsurance,
+                BhtnEmp = p.StoredValues.UnemploymentInsurance,
+                BhxhComp = p.StoredValues.EmployerSocialInsurance,
+                BhytComp = p.StoredValues.EmployerHealthInsurance,
+                BhtnComp = p.StoredValues.EmployerUnemploymentInsurance
             }).ToList();
 
             // 3. Taxes (Tab 4)
             page.PayrollTaxes = page.PayrollItems.Select(p =>
             {
-                var gross = p.GrossIncome;
-                var nonTaxable = 730000m;
-                var taxable = Math.Max(0, gross - nonTaxable);
-                var personalDed = 11000000m;
-                var insDed = p.TotalInsurance;
-                var assessed = Math.Max(0, taxable - personalDed - insDed);
                 return new PayrollTaxItem
                 {
                     Id = p.Id,
@@ -1664,14 +1587,15 @@ public sealed class WorkItemStore
                     EmployeeId = p.EmployeeId,
                     EmployeeName = p.EmployeeName,
                     DepartmentName = p.DepartmentName,
-                    TotalIncome = gross,
-                    NonTaxableIncome = nonTaxable,
-                    PersonalDeduction = personalDed,
-                    DependentCount = p.EmployeeCode == "NV005" ? 1 : 0,
-                    InsuranceDeduction = insDed,
-                    AssessedIncome = assessed,
-                    TaxRate = assessed > 10000000m ? "15%" : assessed > 5000000m ? "10%" : assessed > 0 ? "5%" : "0%",
-                    TaxAmount = p.PersonalIncomeTax
+                    TotalIncome = p.GrossIncome,
+                    NonTaxableIncome = p.StoredValues.NonTaxableIncome,
+                    PersonalDeduction = p.StoredValues.PersonalDeduction,
+                    DependentCount = p.StoredValues.DependentCount,
+                    DependentDeduction = p.StoredValues.DependentDeduction,
+                    InsuranceDeduction = p.StoredValues.InsuranceDeduction,
+                    AssessedIncome = p.StoredValues.AssessedIncome,
+                    TaxRate = p.StoredValues.TaxRate,
+                    TaxAmount = p.StoredValues.PersonalIncomeTax
                 };
             }).ToList();
 
@@ -1681,7 +1605,8 @@ public sealed class WorkItemStore
                 LEFT JOIN dbo.HrmUserAccount u ON u.Id=w.EmployeeId
                 LEFT JOIN dbo.HrmDepartment d ON d.Id=COALESCE(w.DepartmentId, u.DepartmentId)
                 WHERE w.Kind='payroll-deduction' AND (w.Quarter=@Period OR w.Quarter IS NULL)
-                ORDER BY w.Id DESC", new { Period = period }).ToList();
+                  AND (@CanSeeAll=1 OR w.EmployeeId=@UserId)
+                ORDER BY w.Id DESC", new { Period = period, CanSeeAll = canSeeAll, UserId = actor.Id }).ToList();
 
             if (!canSeeAll && actor.RoleCode == "EMPLOYEE")
             {
@@ -1707,7 +1632,8 @@ public sealed class WorkItemStore
                 LEFT JOIN dbo.HrmUserAccount u ON u.Id=w.EmployeeId
                 LEFT JOIN dbo.HrmDepartment d ON d.Id=COALESCE(w.DepartmentId, u.DepartmentId)
                 WHERE w.Kind='payroll-advance' AND (w.Quarter=@Period OR w.Quarter IS NULL)
-                ORDER BY w.Id DESC", new { Period = period }).ToList();
+                  AND (@CanSeeAll=1 OR w.EmployeeId=@UserId)
+                ORDER BY w.Id DESC", new { Period = period, CanSeeAll = canSeeAll, UserId = actor.Id }).ToList();
 
             if (!canSeeAll && actor.RoleCode == "EMPLOYEE")
             {
@@ -1728,7 +1654,7 @@ public sealed class WorkItemStore
                 Status = a.Status ?? "APPROVED"
             }).ToList();
         }
-        catch { }
+        catch { throw; }
     }
 
     public bool BatchPayrollAction(string period, string actionType, string note, int actorId, string ipAddress)
@@ -1810,6 +1736,8 @@ public sealed class WorkItemStore
 
     public bool SavePayrollComponent(WorkItem item, int actorId, string ipAddress)
     {
+        if (item.Kind is not ("payroll-allowance" or "payroll-deduction" or "payroll-advance") || item.Target < 0) return false;
+        item.Quarter = string.IsNullOrWhiteSpace(item.Quarter) ? HrmDataStore.CurrentVietnamTime().ToString("yyyy-MM") : item.Quarter;
         using var db = Open();
         using var transaction = db.BeginTransaction();
         try
@@ -1828,7 +1756,7 @@ public sealed class WorkItemStore
                     item.Category,
                     item.JobLevel,
                     item.SalaryRange,
-                    Quarter = item.Quarter ?? "2026-02",
+                    Quarter = item.Quarter,
                     item.EmployeeId,
                     item.DepartmentId,
                     StartDate = item.StartDate ?? DateTime.Today,
@@ -1840,7 +1768,7 @@ public sealed class WorkItemStore
 
             if (item.EmployeeId.HasValue)
             {
-                RecalculateEmployeePayroll(db, transaction, item.EmployeeId.Value, item.Quarter ?? "2026-02");
+                RecalculateEmployeePayroll(db, transaction, item.EmployeeId.Value, item.Quarter);
             }
 
             AddAudit(db, transaction, actorId, "CREATE_PAYROLL_COMP", id, $"Thêm thành phần lương {item.Kind}: {item.Title}, Số tiền: {item.Target:N0}", ipAddress);
@@ -1859,48 +1787,33 @@ public sealed class WorkItemStore
     {
         try
         {
-            var payrollItem = db.QueryFirstOrDefault<WorkItem>(@"SELECT * FROM dbo.HrmWorkItem WHERE Kind='payroll' AND EmployeeId=@EmpId AND Quarter=@Period",
+            var payrollItem = db.QueryFirstOrDefault<WorkItem>(@"SELECT * FROM dbo.HrmWorkItem WITH (UPDLOCK,HOLDLOCK)
+                WHERE Kind='payroll' AND EmployeeId=@EmpId AND Quarter=@Period AND Status IN ('DRAFT','REJECTED')",
                 new { EmpId = employeeId, Period = period }, transaction);
             if (payrollItem == null) return;
 
             var allowances = db.ExecuteScalar<decimal?>(@"SELECT SUM(Target) FROM dbo.HrmWorkItem WHERE Kind='payroll-allowance' AND EmployeeId=@EmpId AND Quarter=@Period",
-                new { EmpId = employeeId, Period = period }, transaction) ?? 0m;
+                new { EmpId = employeeId, Period = period }, transaction);
             var deductions = db.ExecuteScalar<decimal?>(@"SELECT SUM(Target) FROM dbo.HrmWorkItem WHERE Kind='payroll-deduction' AND EmployeeId=@EmpId AND Quarter=@Period",
-                new { EmpId = employeeId, Period = period }, transaction) ?? 0m;
+                new { EmpId = employeeId, Period = period }, transaction);
             var advances = db.ExecuteScalar<decimal?>(@"SELECT SUM(Target) FROM dbo.HrmWorkItem WHERE Kind='payroll-advance' AND EmployeeId=@EmpId AND Quarter=@Period",
-                new { EmpId = employeeId, Period = period }, transaction) ?? 0m;
+                new { EmpId = employeeId, Period = period }, transaction);
 
             var detail = ParsePayrollItem(payrollItem);
-            detail.TotalAllowance = allowances > 0 ? allowances : detail.TotalAllowance;
-            detail.Deduction = deductions;
-            detail.Advance = advances;
+            detail.TotalAllowance = allowances ?? detail.TotalAllowance;
+            detail.Deduction = deductions ?? detail.Deduction;
+            detail.Advance = advances ?? detail.Advance;
             detail.NetSalary = Math.Max(0, detail.GrossIncome - detail.TotalInsurance - detail.PersonalIncomeTax - detail.Advance - detail.Deduction);
 
-            var metaJson = System.Text.Json.JsonSerializer.Serialize(new
-            {
-                baseSalary = detail.BaseSalary,
-                kpiSalary = detail.KpiSalary,
-                salesSalary = detail.SalesSalary,
-                otSalary = detail.OtSalary,
-                totalAllowance = detail.TotalAllowance,
-                bonus = detail.Bonus,
-                socialInsurance = detail.SocialInsurance,
-                healthInsurance = detail.HealthInsurance,
-                unemploymentInsurance = detail.UnemploymentInsurance,
-                personalIncomeTax = detail.PersonalIncomeTax,
-                advance = detail.Advance,
-                deduction = detail.Deduction,
-                netSalary = detail.NetSalary,
-                branch = detail.Branch,
-                email = detail.EmployeeEmail
-            });
+            var metaJson = PayrollStoredValues.UpdateComputedAmounts(payrollItem.Keywords,
+                detail.TotalAllowance, detail.Deduction, detail.Advance, detail.NetSalary);
 
             db.Execute(@"UPDATE dbo.HrmWorkItem 
                 SET Actual = @NetSalary, Keywords = @Keywords, UpdatedAt = SYSUTCDATETIME() 
                 WHERE Id = @Id",
                 new { NetSalary = detail.NetSalary, Keywords = metaJson, Id = payrollItem.Id }, transaction);
         }
-        catch { }
+        catch { throw; }
     }
 
     private void SeedPayrollData(SqlConnection db)

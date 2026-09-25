@@ -1001,7 +1001,7 @@
     var roleCode = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(roleCode));
 
     function esc(v) {
-        return $('<div>').text(v == null ? '' : v).html();
+        return HrmRequestForm.escapeHtml(v);
     }
     function fmtDate(v) {
         return v ? moment(v).format('DD/MM/YYYY') : '—';
@@ -1038,6 +1038,7 @@
         if (!cachedUsers.length) {
             $.get('@Url.Action("Users", "Hrm")').done(function (res) {
                 cachedUsers = res.Data || [];
+                HrmRequestForm.populateEmployees(cachedUsers);
             });
         }
     }
@@ -1084,7 +1085,7 @@
         var html = '<div class="tc-tanca-row">';
         html += '<label>' + esc(label || 'Nhân viên') + ' <span class="req">*</span></label>';
         html += '<div>';
-        html += '<input type="text" id="dynEmployeeInput" class="tc-tanca-input" placeholder="Nhập tên nhân viên" value="' + esc(currentDisplayName) + '" autocomplete="off" spellcheck="false" />';
+        html += '<input type="text" id="dynEmployeeInput" list="dynEmployeeOptions" class="tc-tanca-input" placeholder="Nhập tên nhân viên" value="' + esc(currentDisplayName) + '" autocomplete="off" spellcheck="false" />';
         html += '<input type="hidden" id="' + (id || 'dynEmployeeId') + '" value="' + (currentUserId || '') + '" />';
         html += '</div></div>';
         return html;
@@ -1652,6 +1653,9 @@
             default: html = renderLeaveForm(type, cat); break;
         }
         container.html(html);
+        container.append('<datalist id="dynEmployeeOptions"></datalist>');
+        HrmRequestForm.populateEmployees(cachedUsers);
+        if (roleCode === 'EMPLOYEE') $('#dynEmployeeInput').prop('readOnly', true);
 
         if (tpl === 'FINANCE') {
             financeItemCounter = 0;
@@ -1840,22 +1844,7 @@
     });
 
     $(document).on('input change', '#dynEmployeeInput', function () {
-        var val = ($(this).val() || '').trim().toLowerCase();
-        var matchedId = '';
-        if (cachedUsers && cachedUsers.length) {
-            for (var i = 0; i < cachedUsers.length; i++) {
-                var u = cachedUsers[i];
-                var uName = (u.DisplayName || '').toLowerCase();
-                var fullText = (u.DisplayName + (u.DepartmentName ? ' - ' + u.DepartmentName : '')).toLowerCase();
-                if (val === uName || val === fullText) {
-                    matchedId = u.Id;
-                    break;
-                }
-            }
-        }
-        if (!matchedId && val === (currentDisplayName || '').toLowerCase()) {
-            matchedId = currentUserId;
-        }
+        var matchedId = HrmRequestForm.employeeId($(this).val(), cachedUsers, currentUserId, currentDisplayName);
         $('#dynEmployeeId').val(matchedId);
     });
 
@@ -1870,6 +1859,9 @@
         var title = ($('#dynTitle').val() || '').trim();
         var fileInput = $('#dynAttachmentFile')[0];
         var file = fileInput && fileInput.files && fileInput.files[0];
+        var formError = HrmRequestForm.validate(formBox[0], cachedUsers, currentUserId, currentDisplayName, file);
+        if (formError) { alert(formError); return; }
+        empId = $('#dynEmployeeId').val();
         var token = $('#tcTokenFormShared input[name="__RequestVerificationToken"]').val() ||
                     $('#tcTokenForm input[name="__RequestVerificationToken"]').val() ||
                     $('input[name="__RequestVerificationToken"]').val();
@@ -2232,6 +2224,9 @@
         var btn = $(this);
         btn.prop('disabled', true).html('<i class="material-icons" style="font-size:16px;vertical-align:middle;">sync</i> Đang gửi...');
 
+        var rangeError = HrmRequestForm.dateRangeError(startDate, endDate);
+        if (rangeError) { alert(rangeError); return; }
+        if (reason.length > 16000) { alert('Nội dung yêu cầu tối đa 16.000 ký tự.'); return; }
         var payload = new FormData();
         payload.append('__RequestVerificationToken', token || '');
         if (empId) payload.append('EmployeeId', +empId);

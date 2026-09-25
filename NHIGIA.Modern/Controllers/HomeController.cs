@@ -13,7 +13,7 @@ public sealed class HomeController : BaseController
     public HomeController(HrmDataStore store, HrmUserAccessor userAccessor, IConfiguration configuration)
         : base(store, userAccessor) => _configuration = configuration;
 
-    public IActionResult Index() { ViewBag.Title = "Trang chủ"; return View(); }
+    public IActionResult Index() { ViewBag.Title = "Tổng quan"; return View(); }
     public IActionResult CompanyInformation(string section = "introduction", string brand = "nhigia")
     {
         section = section?.Trim().ToLowerInvariant() switch
@@ -50,7 +50,7 @@ public sealed class HomeController : BaseController
     }
     public IActionResult Attendance() { ViewBag.Title = "Chấm công"; return View(); }
     public IActionResult WorkSchedules() { ViewBag.Title = "Lịch làm việc"; return View(); }
-    public IActionResult LeaveRequests() { ViewBag.Title = "Yêu cầu của tôi"; return View(); }
+    public IActionResult LeaveRequests() { ViewBag.Title = "Thủ tục của tôi"; return View(); }
     public IActionResult InternalCommunications()
     {
         ViewBag.Title = "Truyền thông nội bộ";

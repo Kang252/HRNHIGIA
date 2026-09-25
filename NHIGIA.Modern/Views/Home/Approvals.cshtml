@@ -600,6 +600,7 @@
 .tc-drawer.is-open {
     transform: translateX(0);
 }
+.tc-drawer:not(.is-open) { display: none; }
 
 .tc-drawer-header {
     display: flex;
@@ -1552,6 +1553,10 @@ textarea.tc-form-control {
     .tc-select, .tc-search-box {
         width: 100%;
     }
+    .tc-search-box { flex: 0 0 38px; min-width: 0; }
+    .tc-search-box input { min-width: 0; }
+    .tc-date-group { display: grid; grid-template-columns: auto minmax(0, 1fr); width: 100%; }
+    .tc-date-input { min-width: 0; width: 100%; }
     .tc-drawer {
         width: 100vw;
     }
@@ -1619,6 +1624,7 @@ textarea.tc-form-control {
     <form id="tcTokenForm" style="display:none">@Html.AntiForgeryToken()</form>
     <div id="tcToastContainer" class="tc-toast-container"></div>
     <!-- Header -->
+    @await Html.PartialAsync("_ApprovalInbox")
     <div class="tc-page-header">
         <div>
             <h1>Phê duyệt</h1>
@@ -2675,7 +2681,7 @@ textarea.tc-form-control {
     ];
 
     function esc(v) {
-        return $('<div>').text(v == null ? '' : v).html();
+        return HrmRequestForm.escapeHtml(v);
     }
 
     function getInitials(name) {
@@ -2733,13 +2739,7 @@ textarea.tc-form-control {
     }
 
     function canUserApprove(x) {
-        if (!x) return false;
-        if (!canManage) return false;
-        // Không thể tự duyệt đơn của chính mình
-        if (x.UserId === currentUserId) return false;
-        // Đơn của Trưởng phòng thì chỉ Giám đốc / Admin mới được duyệt
-        if (x.RoleCode === 'MANAGER' && currentUserRole === 'MANAGER') return false;
-        return x.StatusCode === 'PENDING_MANAGER' || x.StatusCode === 'PENDING_HR';
+        return HrmRequestForm.canApprove(x, roleCode, currentUserId, @(current?.DepartmentId ?? 0));
     }
 
     /* URL Hash Navigation: #filter?req_id=&req_sta=waiting */
@@ -2948,7 +2948,9 @@ textarea.tc-form-control {
         }
     }
 
-    function loadData() {
+    window.addEventListener('hrm-approvals-changed', function () { loadData(true); });
+    function loadData(fromInbox) {
+        if (!fromInbox) window.dispatchEvent(new Event('hrm-procedures-changed'));
         $.get('@Url.Action("LeaveRequests", "Hrm")').done(function (res) {
             records = res.Data || [];
 
@@ -3017,11 +3019,9 @@ textarea.tc-form-control {
         $('#drawerDuration').text(days + ' ngày');
         $('#drawerSession').text(x.SessionCode || 'Cả ngày');
         $('#drawerHandover').text(x.HandoverTo || 'Không có');
-        $('#drawerAttachment').html(
-            x.AttachmentName
-                ? '<span style="display:inline-flex;align-items:center;gap:4px;color:var(--tc-primary);font-weight:600;"><i class="material-icons" style="font-size:16px;">attach_file</i> ' + esc(x.AttachmentName) + '</span>'
-                : '<span style="color:#98a2b3;">Không có</span>'
-        );
+        $('#drawerAttachment').html(x.HasAttachment
+            ? '<a href="@Url.Action("LeaveAttachment", "Hrm")?id=' + Number(x.Id) + '" target="_blank" rel="noopener">' + esc(x.AttachmentName || 'Tải tệp đính kèm') + '</a>'
+            : '<span>' + esc(x.AttachmentName ? x.AttachmentName + ' · Tệp cũ chưa lưu nội dung' : 'Không có') + '</span>');
         $('#drawerReason').text(x.Reason || 'Không có lý do');
 
         // Timeline Step 1
@@ -3207,6 +3207,7 @@ textarea.tc-form-control {
         if (!cachedUsers.length) {
             $.get('@Url.Action("Users", "Hrm")').done(function (res) {
                 cachedUsers = res.Data || [];
+                HrmRequestForm.populateEmployees(cachedUsers);
             });
         }
     }
@@ -3257,7 +3258,7 @@ textarea.tc-form-control {
         var html = '<div class="tc-tanca-row">';
         html += '<label>' + esc(label || 'Nhân viên') + ' <span class="req">*</span></label>';
         html += '<div>';
-        html += '<input type="text" id="dynEmployeeInput" class="tc-tanca-input" placeholder="Nhập tên nhân viên" value="" autocomplete="off" spellcheck="false" />';
+        html += '<input type="text" id="dynEmployeeInput" list="dynEmployeeOptions" class="tc-tanca-input" placeholder="Nhập tên nhân viên" value="' + esc(currentDisplayName) + '" autocomplete="off" spellcheck="false" />';
         html += '<input type="hidden" id="' + (id || 'dynEmployeeId') + '" value="' + (currentUserId || '') + '" />';
         html += '</div></div>';
         return html;
@@ -3849,6 +3850,9 @@ textarea.tc-form-control {
                 break;
         }
         container.html(html);
+        container.append('<datalist id="dynEmployeeOptions"></datalist>');
+        HrmRequestForm.populateEmployees(cachedUsers);
+        if (roleCode === 'EMPLOYEE') $('#dynEmployeeInput').prop('readOnly', true);
 
         if (tpl === 'FINANCE') {
             financeItemCounter = 0;
@@ -4223,23 +4227,8 @@ textarea.tc-form-control {
             }
         });
         $(document).on('input change', '#dynEmployeeInput', function () {
-            var val = ($(this).val() || '').trim().toLowerCase();
-            var matchedId = '';
-            if (cachedUsers && cachedUsers.length) {
-                for (var i = 0; i < cachedUsers.length; i++) {
-                    var u = cachedUsers[i];
-                    var uName = (u.DisplayName || '').toLowerCase();
-                    var fullText = (u.DisplayName + (u.DepartmentName ? ' - ' + u.DepartmentName : '')).toLowerCase();
-                    if (val === uName || val === fullText) {
-                        matchedId = u.Id;
-                        break;
-                    }
-                }
-            }
-            if (!matchedId && val === (currentDisplayName || '').toLowerCase()) {
-                matchedId = currentUserId;
-            }
-            $('#dynEmployeeId').val(matchedId);
+            var matchedId = HrmRequestForm.employeeId($(this).val(), cachedUsers, currentUserId, currentDisplayName);
+        $('#dynEmployeeId').val(matchedId);
         });
 
         // Submit Dynamic Request
@@ -4253,6 +4242,9 @@ textarea.tc-form-control {
             var title = ($('#dynTitle').val() || '').trim();
             var fileInput = $('#dynAttachmentFile')[0];
             var file = fileInput && fileInput.files && fileInput.files[0];
+        var formError = HrmRequestForm.validate(formBox[0], cachedUsers, currentUserId, currentDisplayName, file);
+        if (formError) { alert(formError); return; }
+        empId = $('#dynEmployeeId').val();
             var token = $('#tcTokenForm input[name="__RequestVerificationToken"]').val() || $('input[name="__RequestVerificationToken"]').val();
 
             var startDate = moment().format('YYYY-MM-DD');
@@ -4606,7 +4598,10 @@ textarea.tc-form-control {
             var btn = $(this);
             btn.prop('disabled', true).html('<i class="material-icons" style="font-size:16px;vertical-align:middle;">sync</i> Đang gửi...');
 
-            var payload = new FormData();
+            var rangeError = HrmRequestForm.dateRangeError(startDate, endDate);
+        if (rangeError) { alert(rangeError); return; }
+        if (reason.length > 16000) { alert('Nội dung yêu cầu tối đa 16.000 ký tự.'); return; }
+        var payload = new FormData();
             payload.append('__RequestVerificationToken', token || '');
             if (empId) payload.append('EmployeeId', +empId);
             payload.append('LeaveType', type);

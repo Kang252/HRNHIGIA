@@ -79,6 +79,7 @@ public sealed class WorkItem
 
 public sealed class WorkPage
 {
+    public string NextAssetReference { get; set; }
     public string Kind { get; set; }
     public string Title { get; set; }
     public string Subtitle { get; set; }
@@ -102,7 +103,7 @@ public sealed class WorkPage
     public List<WorkPerson> People { get; set; } = new();
     public List<WorkDepartment> Departments { get; set; } = new();
     public string TrainingTab { get; set; } = "ALL";
-    public string TrainingMonth { get; set; } = "2026-01";
+    public string TrainingMonth { get; set; } = DateTime.UtcNow.AddHours(7).ToString("yyyy-MM");
     public int EnrolledCoursesCount { get; set; }
     public int CompletedCoursesCount { get; set; }
     public int CertificatesCount { get; set; }
@@ -111,7 +112,7 @@ public sealed class WorkPage
     public List<TrainingSessionEvent> Sessions { get; set; } = new();
     public string OvertimeTab { get; set; } = "dashboard";
     public int OvertimeYear { get; set; } = 2026;
-    public string OvertimeMonth { get; set; } = "2026-01";
+    public string OvertimeMonth { get; set; } = DateTime.UtcNow.AddHours(7).ToString("yyyy-MM");
     public string TransferTab { get; set; } = "dashboard";
     public int TransferMonth { get; set; } = 0;
     public int TransferYear { get; set; } = 2026;
@@ -144,7 +145,7 @@ public sealed class WorkPage
 
     // Payroll Management (Slide 6 & 7)
     public string PayrollTab { get; set; } = "dashboard";
-    public string PayrollPeriod { get; set; } = "2026-02";
+    public string PayrollPeriod { get; set; } = DateTime.UtcNow.AddHours(7).ToString("yyyy-MM");
     public string PayrollDeptFilter { get; set; } = "ALL";
     public string PayrollStatusFilter { get; set; } = "ALL";
     public int TotalPayrollEmployees { get; set; }
@@ -253,6 +254,7 @@ public sealed class PayrollDepartmentStat
 
 public sealed class PayrollItemDetail
 {
+    public PayrollStoredValues StoredValues { get; set; } = new();
     public int Id { get; set; }
     public string Period { get; set; }
     public int EmployeeId { get; set; }
@@ -306,16 +308,16 @@ public sealed class PayrollInsuranceItem
     public int EmployeeId { get; set; }
     public string EmployeeName { get; set; }
     public string DepartmentName { get; set; }
-    public decimal InsuranceSalary { get; set; }
-    public decimal BhxhEmp { get; set; }
-    public decimal BhytEmp { get; set; }
-    public decimal BhtnEmp { get; set; }
-    public decimal TotalEmp => BhxhEmp + BhytEmp + BhtnEmp;
-    public decimal BhxhComp { get; set; }
-    public decimal BhytComp { get; set; }
-    public decimal BhtnComp { get; set; }
-    public decimal TotalComp => BhxhComp + BhytComp + BhtnComp;
-    public decimal TotalContribution => TotalEmp + TotalComp;
+    public decimal? InsuranceSalary { get; set; }
+    public decimal? BhxhEmp { get; set; }
+    public decimal? BhytEmp { get; set; }
+    public decimal? BhtnEmp { get; set; }
+    public decimal? TotalEmp => BhxhEmp + BhytEmp + BhtnEmp;
+    public decimal? BhxhComp { get; set; }
+    public decimal? BhytComp { get; set; }
+    public decimal? BhtnComp { get; set; }
+    public decimal? TotalComp => BhxhComp + BhytComp + BhtnComp;
+    public decimal? TotalContribution => TotalEmp + TotalComp;
 }
 
 public sealed class PayrollTaxItem
@@ -326,15 +328,15 @@ public sealed class PayrollTaxItem
     public string EmployeeName { get; set; }
     public string DepartmentName { get; set; }
     public decimal TotalIncome { get; set; }
-    public decimal NonTaxableIncome { get; set; }
-    public decimal TaxableIncome => Math.Max(0, TotalIncome - NonTaxableIncome);
-    public decimal PersonalDeduction { get; set; } = 11000000;
-    public int DependentCount { get; set; }
-    public decimal DependentDeduction => DependentCount * 4400000;
-    public decimal InsuranceDeduction { get; set; }
-    public decimal AssessedIncome { get; set; }
+    public decimal? NonTaxableIncome { get; set; }
+    public decimal? TaxableIncome => NonTaxableIncome.HasValue ? Math.Max(0, TotalIncome - NonTaxableIncome.Value) : null;
+    public decimal? PersonalDeduction { get; set; }
+    public int? DependentCount { get; set; }
+    public decimal? DependentDeduction { get; set; }
+    public decimal? InsuranceDeduction { get; set; }
+    public decimal? AssessedIncome { get; set; }
     public string TaxRate { get; set; }
-    public decimal TaxAmount { get; set; }
+    public decimal? TaxAmount { get; set; }
 }
 
 public sealed class PayrollDeductionItem
