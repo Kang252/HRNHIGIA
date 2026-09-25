@@ -426,6 +426,30 @@ namespace NHIGIA.Modern.Models
         public DateTime CreatedAt { get; set; }
     }
 
+    public class AttendanceConfirmationModel
+    {
+        public int UserId { get; set; }
+        public string DisplayName { get; set; }
+        public string EmployeeCode { get; set; }
+        public string DepartmentName { get; set; }
+        public bool IsConfirmed { get; set; }
+        public DateTime? SubmittedAt { get; set; }
+    }
+
+    public class HanetEventReconciliationModel
+    {
+        public long Id { get; set; }
+        public string DisplayName { get; set; }
+        public string EmployeeCode { get; set; }
+        public string PersonId { get; set; }
+        public string AliasId { get; set; }
+        public string DeviceId { get; set; }
+        public DateTime CheckTime { get; set; }
+        public DateTime ReceivedAt { get; set; }
+        public string EventType { get; set; }
+        public bool IsMapped { get; set; }
+    }
+
     public class HanetSettingsModel
     {
         public string ApiBaseUrl { get; set; }

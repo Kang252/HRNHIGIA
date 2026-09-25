@@ -40,7 +40,7 @@ function snapshot(route,role='ADMIN') {
                 const leave={Id:42,UserId:20,RequestCode:'NP42',DisplayName:'Nguyễn "An"',DepartmentName:'IT',DepartmentId:2,RoleCode:'MANAGER',
                     LeaveType:'Nghỉ phép',StartDate:'2026-09-25',EndDate:'2026-09-25',StatusCode:'PENDING_MANAGER',SessionCode:'Buổi sáng',
                     Reason:'Thử "nội dung" <script>không thực thi</script>',HasAttachment:true,AttachmentName:'Ghi chú.pdf'};
-                const data=u.pathname==='/Hrm/AttendancePeriod'?{StatusCode:'OPEN',IsConfirmed:false,EmployeeCount:2,ConfirmedCount:1,PendingAdjustmentCount:0}:u.pathname==='/Hrm/Users'?users:u.pathname==='/Hrm/LeaveRequests'?[leave]:u.pathname==='/Hrm/ApprovalInbox'?
+                const data=u.pathname==='/Hrm/HanetReconciliation'?[{Id:1,WorkDate:'2026-09-25',StatusCode:'SUCCESS',ReceivedCount:2,InsertedCount:1,MappedEvents:1,UnmappedEvents:1,MappedEmployees:1,FinishedAt:'2026-09-25T18:00:00',Message:'fixture'}]:u.pathname==='/Hrm/HanetReconciliationEvents'?[{Id:1,DisplayName:null,PersonId:'P1',AliasId:'A1',DeviceId:'D1',CheckTime:'2026-09-25T08:00:00',ReceivedAt:'2026-09-25T08:00:01',EventType:'checkin',IsMapped:false}]:u.pathname==='/Hrm/AttendanceConfirmations'?[{UserId:20,DisplayName:'Nguyễn An',EmployeeCode:'NV020',DepartmentName:'IT',IsConfirmed:false}]:u.pathname==='/Hrm/AttendancePeriod'?{StatusCode:'OPEN',IsConfirmed:false,EmployeeCount:2,ConfirmedCount:1,PendingAdjustmentCount:0}:u.pathname==='/Hrm/Users'?users:u.pathname==='/Hrm/LeaveRequests'?[leave]:u.pathname==='/Hrm/ApprovalInbox'?
                     [{Source:'work',Kind:'vehicle',Id:99,Code:'XE99',RequestType:'Đặt xe',EmployeeName:'Nguyễn An',Title:'Công tác',Description:'Cần xe 4 chỗ'}]:[];
                 return route.fulfill({json:{Success:true,Data:data}});
             }
@@ -128,6 +128,16 @@ function snapshot(route,role='ADMIN') {
             if(route.startsWith('/Work?')) assert.equal(enabled,0,'Offline mutation form enabled: '+route);
             console.log('PASS rendered scripts '+route);
         }
+        await open('/Home/HanetIntegration');
+        await page.locator('[data-panel="reconciliation"]').click();
+        await page.locator('.reconcile-detail').click();
+        await page.locator('#reconcileEventRows').getByText('Chưa ánh xạ').first().waitFor();
+        assert.ok((await page.locator('#reconcileEventRows').innerText()).includes('Chưa ánh xạ'));
+        console.log('PASS HANET reconciliation detail');
+        await open('/Home/Attendance');
+        await page.waitForFunction(()=>document.querySelector('#attendanceConfirmationRows')?.textContent.includes('Nguyễn An'));
+        assert.ok((await page.locator('#attendanceConfirmationRows').textContent()).includes('Nguyễn An'));
+        console.log('PASS attendance confirmation list');
         await page.setViewportSize({width:390,height:844});
         await open('/Home/Approvals','MANAGER');
         const mobileLayout=await page.evaluate(()=>({width:document.documentElement.scrollWidth,search:document.querySelector('.tc-search-box').getBoundingClientRect().height}));

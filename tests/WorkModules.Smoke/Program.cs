@@ -84,7 +84,7 @@ try
     }
     if (attendanceOnly)
     {
-        await Check("/Home/Attendance", "ADMIN", HttpStatusCode.OK, "Đang cập nhật", "Lần quét gần nhất", "Chờ kết thúc ca", "IsProvisional", "Đồng bộ hôm nay", "SyncHanetAttendanceToday", "Nghỉ đã duyệt", "ExpectedStartAt", "Đối chiếu và chốt công tháng", "Xác nhận dữ liệu của tôi", "Khóa kỳ", "AttendanceAdjustments");
+        await Check("/Home/Attendance", "ADMIN", HttpStatusCode.OK, "Đang cập nhật", "Lần quét gần nhất", "Chờ kết thúc ca", "IsProvisional", "Đồng bộ hôm nay", "SyncHanetAttendanceToday", "Nghỉ đã duyệt", "ExpectedStartAt", "Đối chiếu và chốt công tháng", "Xác nhận dữ liệu của tôi", "Khóa ngoại lệ", "Nhắc xác nhận", "AttendanceConfirmations");
         await Check("/Home/Attendance", "EMPLOYEE", HttpStatusCode.OK, "Nghỉ đã duyệt", "APPROVED_LEAVE");
         await Check("/Home/WorkSchedules", "EMPLOYEE", HttpStatusCode.OK, "Lịch nghỉ đã duyệt", "scheduleLeaveMonth", "/Hrm/ScheduleLeaves");
         await Check("/Hrm/ScheduleLeaves", null, HttpStatusCode.Redirect);
@@ -94,6 +94,8 @@ try
     }
     await Check("/Work?kind=kpi", null, HttpStatusCode.Redirect);
     await Check("/Hrm/LeaveAttachment?id=1", null, HttpStatusCode.Redirect);
+    await Check("/Hrm/AttendanceConfirmations?period=2026-09", "EMPLOYEE", HttpStatusCode.Redirect);
+    await Check("/Hrm/HanetReconciliationEvents?date=2026-09-25", "EMPLOYEE", HttpStatusCode.Redirect);
     await Check("/Account/Login", null, HttpStatusCode.OK, "images/nhigia-header-logo.png", "hrm-login-logo");
     using (var antiforgeryClient = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false, UseCookies = false }) { BaseAddress = client.BaseAddress })
     using (var antiforgeryPage = await antiforgeryClient.GetAsync("/Account/Login"))

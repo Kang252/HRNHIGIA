@@ -7,6 +7,7 @@
 3. Trưởng phòng chỉ xử lý nhân viên trong phòng; HR, Giám đốc và quản trị viên xử lý toàn công ty. Người gửi không được tự duyệt.
 4. Mỗi nhân viên xác nhận dữ liệu tháng. HR chỉ khóa kỳ khi không còn yêu cầu chờ xử lý và toàn bộ tài khoản nhân viên đang hoạt động đã xác nhận.
 5. Sau khi khóa, sự kiện HANET đến muộn vẫn được lưu để không mất dữ liệu nhưng chưa tham gia kết quả chấm công. Khi mở khóa có lý do, hệ thống tính lại từ toàn bộ sự kiện đã nhận.
+6. HR xem danh sách người chưa xác nhận và gửi thông báo nhắc trong hệ thống. Mỗi người chỉ nhận tối đa một thông báo nhắc cho cùng kỳ trong ngày.
 
 ## Quy tắc dữ liệu
 
@@ -15,6 +16,8 @@
 - Yêu cầu đã duyệt mới thay thế giờ thiết bị. Nếu có nhiều lần duyệt cho cùng ngày, lần duyệt mới nhất được dùng.
 - Nhật ký đồng bộ thành công và thất bại được giữ riêng để phục vụ đối soát.
 - Mở khóa kỳ bắt buộc nhập lý do và mọi thao tác xác nhận, khóa, mở khóa, tạo và duyệt điều chỉnh đều ghi nhật ký kiểm toán.
+- Khóa ngoại lệ được phép khi còn người chưa xác nhận hoặc điều chỉnh đang chờ, nhưng bắt buộc nhập lý do và được ghi riêng trong nhật ký kiểm toán.
+- Màn hình đối soát cho phép xem tối đa 1.000 sự kiện của một ngày, lọc theo trạng thái ánh xạ và chạy đồng bộ lại ngày đó. Payload JSON gốc không được đưa ra giao diện.
 
 ## Luồng quyết định điều chuyển
 

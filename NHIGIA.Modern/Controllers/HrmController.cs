@@ -437,8 +437,19 @@ public sealed class HrmController : BaseController
         Store.ConfirmAttendancePeriod(period, CurrentHrmUser, ClientIp));
 
     [HttpPost, ValidateAntiForgeryToken, HrmAuthorize(HrmRoles.Admin, HrmRoles.Hr, HrmRoles.Director)]
-    public IActionResult SetAttendancePeriodLock(string period, bool locked, string reason) => Execute(() =>
-        Store.SetAttendancePeriodLock(period, locked, reason, CurrentHrmUser, ClientIp));
+    public IActionResult SetAttendancePeriodLock(string period, bool locked, string reason, bool force = false) => Execute(() =>
+        Store.SetAttendancePeriodLock(period, locked, reason, force, CurrentHrmUser, ClientIp));
+
+    [HttpGet, HrmAuthorize(HrmRoles.Admin, HrmRoles.Hr, HrmRoles.Director, HrmRoles.Manager)]
+    public IActionResult AttendanceConfirmations(string period) => Execute(() =>
+        Store.GetAttendanceConfirmations(string.IsNullOrWhiteSpace(period) ? HrmDataStore.CurrentVietnamTime().ToString("yyyy-MM") : period, CurrentHrmUser));
+
+    [HttpPost, ValidateAntiForgeryToken, HrmAuthorize(HrmRoles.Admin, HrmRoles.Hr, HrmRoles.Director, HrmRoles.Manager)]
+    public IActionResult RemindAttendanceConfirmations(string period) => Execute(() =>
+    {
+        var count=Store.RemindAttendanceConfirmations(period,CurrentHrmUser,ClientIp);
+        return new { Count=count };
+    });
 
     [HttpGet]
     public IActionResult AttendanceAdjustments(string period) => Execute(() =>
@@ -463,6 +474,13 @@ public sealed class HrmController : BaseController
         var to=(toDate??HrmDataStore.CurrentVietnamTime()).Date;
         var from=(fromDate??to.AddDays(-7)).Date;
         return Store.GetHanetReconciliation(from,to);
+    });
+
+    [HttpGet, HrmAuthorize(HrmRoles.Admin)]
+    public IActionResult HanetReconciliationEvents(DateTime date, bool? mapped) => Execute(() =>
+    {
+        if(date==default) throw new InvalidOperationException("Ngày đối soát không hợp lệ.");
+        return Store.GetHanetReconciliationEvents(date,mapped);
     });
 
     [HttpGet, HrmAuthorize(HrmRoles.Admin)]

@@ -1,0 +1,32 @@
+name: NHIGIA Modern CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+          cache: true
+          cache-dependency-path: |
+            NHIGIA.Modern/NHIGIA.Modern.csproj
+            tests/**/*.csproj
+      - name: Restore
+        run: dotnet restore NHIGIA.Modern/NHIGIA.Modern.csproj
+      - name: Build
+        run: dotnet build NHIGIA.Modern/NHIGIA.Modern.csproj -c Release --no-restore
+      - name: Policy tests
+        run: dotnet run --project tests/RequestPolicy.Tests/RequestPolicy.Tests.csproj -c Release
+      - name: Attendance tests
+        run: dotnet run --project tests/AttendanceLeave.Tests/AttendanceLeave.Tests.csproj -c Release
+      - name: Offline smoke tests
+        run: dotnet run --project tests/WorkModules.Smoke/WorkModules.Smoke.csproj -c Release -- NHIGIA.Modern
+      - name: Attendance smoke tests
+        run: dotnet run --project tests/WorkModules.Smoke/WorkModules.Smoke.csproj -c Release -- NHIGIA.Modern --attendance-only

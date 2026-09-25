@@ -916,6 +916,18 @@ namespace NHIGIA.Modern.Infrastructure
                 new { From=fromDate.Date, To=toDate.Date }).ToList();
         }
 
+        public IList<HanetEventReconciliationModel> GetHanetReconciliationEvents(DateTime workDate,bool? mapped)
+        {
+            using var connection=OpenConnection();
+            return connection.Query<HanetEventReconciliationModel>(@"SELECT TOP (1000) e.Id,u.DisplayName,p.EmployeeCode,e.PersonId,e.AliasId,e.DeviceId,e.CheckTime,e.ReceivedAt,e.EventType,
+                    CONVERT(bit,CASE WHEN e.UserId IS NULL THEN 0 ELSE 1 END) IsMapped
+                FROM dbo.HrmAttendanceEvent e LEFT JOIN dbo.HrmUserAccount u ON u.Id=e.UserId
+                LEFT JOIN dbo.HrmEmployeeProfile p ON p.UserId=e.UserId
+                WHERE e.CheckTime>=@Date AND e.CheckTime<DATEADD(day,1,@Date)
+                  AND (@Mapped IS NULL OR (@Mapped=1 AND e.UserId IS NOT NULL) OR (@Mapped=0 AND e.UserId IS NULL))
+                ORDER BY e.CheckTime DESC,e.Id DESC",new {Date=workDate.Date,Mapped=mapped}).ToList();
+        }
+
         public AttendancePeriodModel GetAttendancePeriod(string period, HrmUserAccountModel actor)
         {
             if (!DateTime.TryParseExact(period+"-01","yyyy-MM-dd",null,System.Globalization.DateTimeStyles.None,out _))
@@ -942,21 +954,55 @@ namespace NHIGIA.Modern.Infrastructure
             AddAudit(connection,actor.Id,"SUBMIT","AttendancePeriod",period,"Xác nhận dữ liệu chấm công tháng",ip,tx);tx.Commit();return true;
         }
 
-        public bool SetAttendancePeriodLock(string period, bool locked, string reason, HrmUserAccountModel actor, string ip)
+        public bool SetAttendancePeriodLock(string period, bool locked, string reason, bool force, HrmUserAccountModel actor, string ip)
         {
             if (!DateTime.TryParseExact(period+"-01","yyyy-MM-dd",null,System.Globalization.DateTimeStyles.None,out _)) throw new InvalidOperationException("Kỳ chấm công không hợp lệ.");
-            if(!locked && string.IsNullOrWhiteSpace(reason)) throw new InvalidOperationException("Vui lòng nhập lý do mở khóa.");
-            var state=GetAttendancePeriod(period,actor);
-            if(locked && state.PendingAdjustmentCount>0) throw new InvalidOperationException("Còn yêu cầu điều chỉnh chấm công đang chờ xử lý.");
-            if(locked && state.ConfirmedCount<state.EmployeeCount) throw new InvalidOperationException($"Chưa đủ xác nhận chấm công ({state.ConfirmedCount}/{state.EmployeeCount} nhân viên).");
-            using var connection=OpenConnection();using var tx=connection.BeginTransaction();
+            if((!locked || force) && string.IsNullOrWhiteSpace(reason)) throw new InvalidOperationException(force ? "Vui lòng nhập lý do khóa ngoại lệ." : "Vui lòng nhập lý do mở khóa.");
+            using var connection=OpenConnection();using var tx=connection.BeginTransaction(IsolationLevel.Serializable);
+            if(locked && !force)
+            {
+                var pending=connection.ExecuteScalar<int>("SELECT COUNT(1) FROM dbo.HrmAttendanceAdjustment WITH(UPDLOCK,HOLDLOCK) WHERE CONVERT(char(7),WorkDate,126)=@Period AND StatusCode='PENDING'",new {Period=period},tx);
+                if(pending>0) throw new InvalidOperationException("Còn yêu cầu điều chỉnh chấm công đang chờ xử lý.");
+                var counts=connection.QuerySingle<AttendancePeriodModel>(@"SELECT
+                    (SELECT COUNT(1) FROM dbo.HrmUserAccount WITH(HOLDLOCK) WHERE IsActive=1 AND RoleCode<>'ADMIN') EmployeeCount,
+                    (SELECT COUNT(1) FROM dbo.HrmAttendancePeriodConfirmation c WITH(UPDLOCK,HOLDLOCK) INNER JOIN dbo.HrmUserAccount u ON u.Id=c.UserId WHERE c.Period=@Period AND c.StatusCode='SUBMITTED' AND u.IsActive=1 AND u.RoleCode<>'ADMIN') ConfirmedCount",new {Period=period},tx);
+                if(counts.ConfirmedCount<counts.EmployeeCount) throw new InvalidOperationException($"Chưa đủ xác nhận chấm công ({counts.ConfirmedCount}/{counts.EmployeeCount} nhân viên).");
+            }
             connection.Execute(@"MERGE dbo.HrmAttendancePeriod AS t USING(SELECT @Period Period)s ON t.Period=s.Period
                 WHEN MATCHED THEN UPDATE SET StatusCode=@Status,LockedByUserId=CASE WHEN @Locked=1 THEN @UserId ELSE NULL END,
                     LockedAt=CASE WHEN @Locked=1 THEN SYSDATETIME() ELSE NULL END,UnlockReason=CASE WHEN @Locked=0 THEN @Reason ELSE NULL END,UpdatedAt=SYSDATETIME()
                 WHEN NOT MATCHED THEN INSERT(Period,StatusCode,LockedByUserId,LockedAt,UnlockReason)
                     VALUES(@Period,@Status,CASE WHEN @Locked=1 THEN @UserId END,CASE WHEN @Locked=1 THEN SYSDATETIME() END,CASE WHEN @Locked=0 THEN @Reason END);",
                 new {Period=period,Status=locked?"LOCKED":"OPEN",Locked=locked,UserId=actor.Id,Reason=reason?.Trim()},tx);
-            AddAudit(connection,actor.Id,locked?"LOCK":"UNLOCK","AttendancePeriod",period,locked?"Khóa kỳ chấm công":"Mở khóa kỳ chấm công: "+reason,ip,tx);tx.Commit();return true;
+            var detail=locked ? (force ? "Khóa kỳ chấm công có ngoại lệ: "+reason : "Khóa kỳ chấm công") : "Mở khóa kỳ chấm công: "+reason;
+            AddAudit(connection,actor.Id,locked?"LOCK":"UNLOCK","AttendancePeriod",period,detail,ip,tx);tx.Commit();return true;
+        }
+
+        public IList<AttendanceConfirmationModel> GetAttendanceConfirmations(string period,HrmUserAccountModel actor)
+        {
+            if (!DateTime.TryParseExact(period+"-01","yyyy-MM-dd",null,System.Globalization.DateTimeStyles.None,out _)) throw new InvalidOperationException("Kỳ chấm công không hợp lệ.");
+            var all=actor.RoleCode is HrmRoles.Admin or HrmRoles.Hr or HrmRoles.Director;
+            using var connection=OpenConnection();
+            return connection.Query<AttendanceConfirmationModel>(@"SELECT u.Id UserId,u.DisplayName,p.EmployeeCode,d.Name DepartmentName,
+                    CONVERT(bit,CASE WHEN c.UserId IS NULL THEN 0 ELSE 1 END) IsConfirmed,c.SubmittedAt
+                FROM dbo.HrmUserAccount u LEFT JOIN dbo.HrmEmployeeProfile p ON p.UserId=u.Id
+                LEFT JOIN dbo.HrmDepartment d ON d.Id=u.DepartmentId
+                LEFT JOIN dbo.HrmAttendancePeriodConfirmation c ON c.Period=@Period AND c.UserId=u.Id AND c.StatusCode='SUBMITTED'
+                WHERE u.IsActive=1 AND u.RoleCode<>'ADMIN' AND (@All=1 OR (@Manager=1 AND u.DepartmentId=@DepartmentId))
+                ORDER BY CASE WHEN c.UserId IS NULL THEN 0 ELSE 1 END,u.DisplayName",
+                new {Period=period,All=all,Manager=actor.RoleCode==HrmRoles.Manager,actor.DepartmentId}).ToList();
+        }
+
+        public int RemindAttendanceConfirmations(string period,HrmUserAccountModel actor,string ip)
+        {
+            var rows=GetAttendanceConfirmations(period,actor).Where(x=>!x.IsConfirmed).ToList();
+            using var connection=OpenConnection();using var tx=connection.BeginTransaction();
+            var inserted=0;
+            foreach(var row in rows)
+                inserted+=connection.Execute(@"IF NOT EXISTS(SELECT 1 FROM dbo.HrmNotification WHERE UserId=@UserId AND Title=@Title AND CAST(CreatedAt AS date)=CAST(SYSDATETIME() AS date))
+                    INSERT dbo.HrmNotification(UserId,Title,Message,LinkUrl) VALUES(@UserId,@Title,@Message,'/Home/Attendance')",
+                    new {row.UserId,Title=$"Nhắc xác nhận công tháng {period}",Message="Vui lòng kiểm tra dữ liệu chấm công và xác nhận trước khi HR khóa kỳ."},tx);
+            AddAudit(connection,actor.Id,"REMIND","AttendancePeriod",period,$"Gửi {inserted} thông báo nhắc xác nhận chấm công",ip,tx);tx.Commit();return inserted;
         }
 
         public IList<AttendanceAdjustmentModel> GetAttendanceAdjustments(HrmUserAccountModel actor,string period)

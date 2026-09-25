@@ -19,6 +19,12 @@ public static class DatabaseConfiguration
         var connection = new SqlConnectionStringBuilder(raw);
         if (!OperatingSystem.IsWindows() && (connection.IntegratedSecurity || connection.DataSource.Contains("localdb", StringComparison.OrdinalIgnoreCase)))
             throw new InvalidOperationException("Render requires a reachable SQL Server host and SQL authentication; LocalDB/Windows authentication is unavailable.");
+        var environment = configuration["ASPNETCORE_ENVIRONMENT"] ?? Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
+        var expectedDatabase = configuration["HRM_EXPECTED_DATABASE"] ?? Environment.GetEnvironmentVariable("HRM_EXPECTED_DATABASE");
+        if (string.Equals(environment, "Staging", StringComparison.OrdinalIgnoreCase) && string.IsNullOrWhiteSpace(expectedDatabase))
+            throw new InvalidOperationException("Staging requires HRM_EXPECTED_DATABASE so tests cannot target the production database by mistake.");
+        if (!string.IsNullOrWhiteSpace(expectedDatabase) && !string.Equals(connection.InitialCatalog, expectedDatabase, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException($"Configured database '{connection.InitialCatalog}' does not match HRM_EXPECTED_DATABASE '{expectedDatabase}'.");
         return connection.ConnectionString;
     }
 

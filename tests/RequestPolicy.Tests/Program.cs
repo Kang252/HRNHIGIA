@@ -1,5 +1,6 @@
 using NHIGIA.Modern.Infrastructure;
 using NHIGIA.Modern.Models;
+using Microsoft.Extensions.Configuration;
 
 // Pure authorization/accounting checks: no production SQL, HANET or external calls.
 var count = 0;
@@ -64,4 +65,14 @@ var rejectedMetadata = false;
 try { PayrollStoredValues.UpdateComputedAmounts("broken",0,0,0,0); } catch (System.Text.Json.JsonException) { rejectedMetadata = true; }
 Check("Malformed payroll is not overwritten on save", rejectedMetadata);
 Check("Incomplete insurance total stays unknown", new PayrollInsuranceItem { BhxhComp=100, BhytComp=20 }.TotalComp == null);
+var stagingMissingGuard = false;
+try { DatabaseConfiguration.Resolve(new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string> { ["ASPNETCORE_ENVIRONMENT"]="Staging", ["ConnectionStrings:MainConnectionString"]="Server=localhost;Database=NHIGIA_STAGING;User Id=test;Password=test;TrustServerCertificate=True" }).Build()); }
+catch (InvalidOperationException) { stagingMissingGuard=true; }
+Check("Staging requires expected database guard",stagingMissingGuard);
+var stagingMismatch = false;
+try { DatabaseConfiguration.Resolve(new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string> { ["ASPNETCORE_ENVIRONMENT"]="Staging", ["HRM_EXPECTED_DATABASE"]="NHIGIA_STAGING", ["ConnectionStrings:MainConnectionString"]="Server=localhost;Database=NHIGIA_PRODUCTION;User Id=test;Password=test;TrustServerCertificate=True" }).Build()); }
+catch (InvalidOperationException) { stagingMismatch=true; }
+Check("Staging rejects mismatched database",stagingMismatch);
+var stagingConnection=DatabaseConfiguration.Resolve(new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string> { ["ASPNETCORE_ENVIRONMENT"]="Staging", ["HRM_EXPECTED_DATABASE"]="NHIGIA_STAGING", ["ConnectionStrings:MainConnectionString"]="Server=localhost;Database=NHIGIA_STAGING;User Id=test;Password=test;TrustServerCertificate=True" }).Build());
+Check("Staging accepts exact expected database",stagingConnection.Contains("Initial Catalog=NHIGIA_STAGING",StringComparison.OrdinalIgnoreCase));
 Console.WriteLine($"Passed {count} policy and payroll tests.");
