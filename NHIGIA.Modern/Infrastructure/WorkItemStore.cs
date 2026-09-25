@@ -626,18 +626,19 @@ public sealed class WorkItemStore
         bool changed;
         if (item.Id > 0)
         {
+            item.Status = null;
             changed = db.Execute(@"UPDATE dbo.HrmWorkItem
                 SET Title=@Title, Description=@Description, Category=@Category, Reference=@Reference,
                     ContactName=@ContactName, StartDate=@StartDate, DueDate=@DueDate, WorkLocation=@WorkLocation,
                     Target=@Target, DepartmentId=@DepartmentId, EmployeeId=@EmployeeId, JobLevel=@JobLevel,
-                    Status=COALESCE(@Status, Status), UpdatedAt=SYSDATETIME()
-                WHERE Id=@Id AND Kind='transfer-decision'", item, transaction) > 0;
+                    UpdatedAt=SYSDATETIME()
+                WHERE Id=@Id AND Kind='transfer-decision' AND Status IN ('PENDING_APPROVAL','REJECTED')", item, transaction) > 0;
             if (changed) AddAudit(db, transaction, actorId, "UPDATE", item.Id, $"Cập nhật quyết định điều chuyển {item.Reference}", ipAddress);
         }
         else
         {
             item.Kind = "transfer-decision";
-            item.Status = string.IsNullOrWhiteSpace(item.Status) ? "PENDING_APPROVAL" : item.Status;
+            item.Status = "PENDING_APPROVAL";
             item.CreatedBy = actorId;
             var newId = db.QuerySingle<int>(@"INSERT dbo.HrmWorkItem
                 (Kind, Title, Description, Category, Reference, ContactName, StartDate, DueDate, WorkLocation, Target, DepartmentId, EmployeeId, JobLevel, Keywords, Status, Priority, CreatedBy, CreatedAt)
@@ -651,14 +652,30 @@ public sealed class WorkItemStore
         return changed;
     }
 
+    public bool ApproveTransferDecision(int id, int actorId, string ipAddress)
+    {
+        using var db = Open();
+        using var transaction = db.BeginTransaction();
+        var changed = db.Execute(@"UPDATE w SET Status='APPROVED',UpdatedAt=SYSDATETIME(),LastActionNote=N'Đã ký duyệt'
+            FROM dbo.HrmWorkItem w WHERE w.Id=@Id AND w.Kind='transfer-decision' AND w.Status='PENDING_APPROVAL'
+              AND EXISTS(SELECT 1 FROM dbo.HrmUserAccount a WHERE a.Id=@ActorId AND a.IsActive=1 AND a.RoleCode IN ('ADMIN','DIRECTOR'))",
+            new { Id=id, ActorId=actorId }, transaction) > 0;
+        if (changed) AddAudit(db, transaction, actorId, "APPROVE", id, "Ký duyệt quyết định điều chuyển", ipAddress);
+        transaction.Commit();
+        return changed;
+    }
+
     public bool ExecuteTransferDecision(int id, int actorId, string ipAddress)
     {
         using var db = Open();
         using var transaction = db.BeginTransaction();
-        var item = db.QueryFirstOrDefault<WorkItem>("SELECT * FROM dbo.HrmWorkItem WHERE Id=@Id AND Kind='transfer-decision'", new { Id = id }, transaction);
+        var item = db.QueryFirstOrDefault<WorkItem>(@"SELECT w.* FROM dbo.HrmWorkItem w WITH(UPDLOCK,HOLDLOCK)
+            WHERE w.Id=@Id AND w.Kind='transfer-decision' AND w.Status='APPROVED'
+              AND EXISTS(SELECT 1 FROM dbo.HrmUserAccount a WHERE a.Id=@ActorId AND a.IsActive=1 AND a.RoleCode IN ('ADMIN','HR','DIRECTOR'))",
+            new { Id = id, ActorId=actorId }, transaction);
         if (item == null) return false;
 
-        var changed = db.Execute(@"UPDATE dbo.HrmWorkItem SET Status='EXECUTED', UpdatedAt=SYSDATETIME(), LastActionNote=N'Đã ban hành và thực thi' WHERE Id=@Id", new { Id = id }, transaction) > 0;
+        var changed = db.Execute(@"UPDATE dbo.HrmWorkItem SET Status='EXECUTED', UpdatedAt=SYSDATETIME(), LastActionNote=N'Đã ban hành và thực thi' WHERE Id=@Id AND Status='APPROVED'", new { Id = id }, transaction) > 0;
 
         if (item.EmployeeId.HasValue && item.DepartmentId.HasValue)
         {
@@ -691,7 +708,8 @@ public sealed class WorkItemStore
     {
         using var db = Open();
         using var transaction = db.BeginTransaction();
-        var changed = db.Execute(@"DELETE FROM dbo.HrmWorkItem WHERE Id=@Id AND Kind=@Kind", new { Id = id, Kind = kind }, transaction) > 0;
+        var changed = db.Execute(@"DELETE FROM dbo.HrmWorkItem WHERE Id=@Id AND Kind=@Kind
+            AND (@Kind<>'transfer-decision' OR Status IN ('PENDING_APPROVAL','REJECTED'))", new { Id = id, Kind = kind }, transaction) > 0;
         if (changed) AddAudit(db, transaction, actorId, "DELETE", id, $"Xóa {kind} #{id}", ipAddress);
         transaction.Commit();
         return changed;

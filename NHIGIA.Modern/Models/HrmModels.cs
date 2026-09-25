@@ -382,6 +382,50 @@ namespace NHIGIA.Modern.Models
         public string Source { get; set; }
     }
 
+    public class HanetSyncRunModel
+    {
+        public long Id { get; set; }
+        public DateTime WorkDate { get; set; }
+        public DateTime StartedAt { get; set; }
+        public DateTime FinishedAt { get; set; }
+        public string StatusCode { get; set; }
+        public int ReceivedCount { get; set; }
+        public int InsertedCount { get; set; }
+        public string Message { get; set; }
+        public int MappedEvents { get; set; }
+        public int UnmappedEvents { get; set; }
+        public int MappedEmployees { get; set; }
+    }
+
+    public class AttendancePeriodModel
+    {
+        public string Period { get; set; }
+        public string StatusCode { get; set; } = "OPEN";
+        public bool IsConfirmed { get; set; }
+        public DateTime? SubmittedAt { get; set; }
+        public DateTime? LockedAt { get; set; }
+        public string LockedByName { get; set; }
+        public string UnlockReason { get; set; }
+        public int EmployeeCount { get; set; }
+        public int ConfirmedCount { get; set; }
+        public int PendingAdjustmentCount { get; set; }
+    }
+
+    public class AttendanceAdjustmentModel
+    {
+        public long Id { get; set; }
+        public int UserId { get; set; }
+        public string DisplayName { get; set; }
+        public string DepartmentName { get; set; }
+        public DateTime WorkDate { get; set; }
+        public DateTime? RequestedCheckIn { get; set; }
+        public DateTime? RequestedCheckOut { get; set; }
+        public string Reason { get; set; }
+        public string StatusCode { get; set; }
+        public string ReviewNote { get; set; }
+        public DateTime CreatedAt { get; set; }
+    }
+
     public class HanetSettingsModel
     {
         public string ApiBaseUrl { get; set; }

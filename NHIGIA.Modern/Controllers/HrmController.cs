@@ -428,6 +428,43 @@ public sealed class HrmController : BaseController
         return Store.GetAttendance(CurrentHrmUser, from, to);
     });
 
+    [HttpGet]
+    public IActionResult AttendancePeriod(string period) => Execute(() =>
+        Store.GetAttendancePeriod(string.IsNullOrWhiteSpace(period) ? HrmDataStore.CurrentVietnamTime().ToString("yyyy-MM") : period, CurrentHrmUser));
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public IActionResult ConfirmAttendancePeriod(string period) => Execute(() =>
+        Store.ConfirmAttendancePeriod(period, CurrentHrmUser, ClientIp));
+
+    [HttpPost, ValidateAntiForgeryToken, HrmAuthorize(HrmRoles.Admin, HrmRoles.Hr, HrmRoles.Director)]
+    public IActionResult SetAttendancePeriodLock(string period, bool locked, string reason) => Execute(() =>
+        Store.SetAttendancePeriodLock(period, locked, reason, CurrentHrmUser, ClientIp));
+
+    [HttpGet]
+    public IActionResult AttendanceAdjustments(string period) => Execute(() =>
+        Store.GetAttendanceAdjustments(CurrentHrmUser, string.IsNullOrWhiteSpace(period) ? HrmDataStore.CurrentVietnamTime().ToString("yyyy-MM") : period));
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public IActionResult CreateAttendanceAdjustment(AttendanceAdjustmentModel request) => Execute(() =>
+        Store.CreateAttendanceAdjustment(request, CurrentHrmUser, ClientIp));
+
+    [HttpPost, ValidateAntiForgeryToken, HrmAuthorize(HrmRoles.Admin, HrmRoles.Hr, HrmRoles.Director, HrmRoles.Manager)]
+    public IActionResult DecideAttendanceAdjustment(long id, bool approve, string note) => Execute(() =>
+    {
+        if (!approve && string.IsNullOrWhiteSpace(note)) throw new InvalidOperationException("Vui lòng nhập lý do từ chối.");
+        if (!Store.DecideAttendanceAdjustment(id, approve, note, CurrentHrmUser, ClientIp))
+            throw new InvalidOperationException("Yêu cầu đã được xử lý, kỳ đã khóa hoặc bạn không có quyền.");
+        return true;
+    });
+
+    [HttpGet, HrmAuthorize(HrmRoles.Admin)]
+    public IActionResult HanetReconciliation(DateTime? fromDate, DateTime? toDate) => Execute(() =>
+    {
+        var to=(toDate??HrmDataStore.CurrentVietnamTime()).Date;
+        var from=(fromDate??to.AddDays(-7)).Date;
+        return Store.GetHanetReconciliation(from,to);
+    });
+
     [HttpGet, HrmAuthorize(HrmRoles.Admin)]
     public IActionResult HanetDevices() => Execute(() => Store.GetHanetDevices());
 

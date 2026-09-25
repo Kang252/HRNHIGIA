@@ -944,8 +944,8 @@ public sealed class WorkController : Controller
         }
         else if (command == "APPROVE")
         {
-            var item = new WorkItem { Id = id, Status = "APPROVED" };
-            if (_store.SaveTransferDecision(item, _user.Current.Id, ClientIp))
+            if (!User.IsInRole(HrmRoles.Admin) && !User.IsInRole(HrmRoles.Director)) return Forbid();
+            if (_store.ApproveTransferDecision(id, _user.Current.Id, ClientIp))
                 TempData["WorkSuccess"] = $"Đã phê duyệt quyết định điều chuyển #{id:D5}.";
             else
                 TempData["WorkError"] = "Không thể phê duyệt quyết định điều chuyển.";

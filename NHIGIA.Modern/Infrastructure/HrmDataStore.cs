@@ -728,20 +728,34 @@ namespace NHIGIA.Modern.Infrastructure
         {
             if (toDate.Date < fromDate.Date || (toDate.Date - fromDate.Date).TotalDays > 366)
                 throw new InvalidOperationException("Khoảng lọc tối đa là 366 ngày.");
-            const string sql = @"WITH Events AS (
+            const string sql = @"WITH EventRaw AS (
                     SELECT e.UserId, CAST(e.CheckTime AS DATE) WorkDate, MIN(e.CheckTime) CheckIn,
                         MAX(e.CheckTime) LastSeen, COUNT(1) EventCount
-                    FROM dbo.HrmAttendanceEvent e WHERE e.UserId IS NOT NULL AND e.CheckTime>=@FromDate AND e.CheckTime<DATEADD(DAY,1,@ToDate)
+                    FROM dbo.HrmAttendanceEvent e
+                    LEFT JOIN dbo.HrmAttendancePeriod ap ON ap.Period=CONVERT(char(7),e.CheckTime,126)
+                    WHERE e.UserId IS NOT NULL AND e.CheckTime>=@FromDate AND e.CheckTime<DATEADD(DAY,1,@ToDate)
+                      AND (ap.StatusCode IS NULL OR ap.StatusCode<>'LOCKED' OR e.ReceivedAt<=ap.LockedAt)
                     GROUP BY e.UserId, CAST(e.CheckTime AS DATE)
+                ), Dates AS (
+                    SELECT UserId,WorkDate FROM EventRaw UNION
+                    SELECT UserId,WorkDate FROM dbo.HrmAttendanceAdjustment
+                    WHERE StatusCode='APPROVED' AND WorkDate BETWEEN @FromDate AND @ToDate
+                ), Events AS (
+                    SELECT d.UserId,d.WorkDate,e.CheckIn,e.LastSeen,COALESCE(e.EventCount,0) EventCount
+                    FROM Dates d LEFT JOIN EventRaw e ON e.UserId=d.UserId AND e.WorkDate=d.WorkDate
                 )
                 SELECT e.UserId, hm.PersonId, p.EmployeeCode, u.DisplayName, p.JobTitle, d.Name DepartmentName, e.WorkDate, s.ShiftName,
-                    s.StartTime ScheduledStart, s.EndTime ScheduledEnd, s.GraceMinutes, s.BreakMinutes, e.CheckIn,
-                    CASE WHEN e.EventCount>1 AND e.LastSeen<>e.CheckIn THEN e.LastSeen END CheckOut,
-                    e.LastSeen, e.EventCount, 'HANET' Source
+                    s.StartTime ScheduledStart, s.EndTime ScheduledEnd, s.GraceMinutes, s.BreakMinutes,
+                    COALESCE(a.RequestedCheckIn,e.CheckIn) CheckIn,
+                    COALESCE(a.RequestedCheckOut,CASE WHEN e.EventCount>1 AND e.LastSeen<>e.CheckIn THEN e.LastSeen END) CheckOut,
+                    e.LastSeen, e.EventCount, CASE WHEN a.Id IS NULL THEN 'HANET' ELSE N'Điều chỉnh đã duyệt' END Source
                 FROM Events e INNER JOIN dbo.HrmUserAccount u ON u.Id=e.UserId
                 LEFT JOIN dbo.HrmEmployeeProfile p ON p.UserId=u.Id
                 LEFT JOIN dbo.HrmHanetPersonMap hm ON hm.UserId=u.Id AND hm.IsActive=1
                 LEFT JOIN dbo.HrmDepartment d ON d.Id=u.DepartmentId
+                OUTER APPLY (SELECT TOP 1 x.Id,x.RequestedCheckIn,x.RequestedCheckOut
+                    FROM dbo.HrmAttendanceAdjustment x WHERE x.UserId=e.UserId AND x.WorkDate=e.WorkDate AND x.StatusCode='APPROVED'
+                    ORDER BY x.ReviewedAt DESC,x.Id DESC) a
                 OUTER APPLY (SELECT TOP 1 x.ShiftName, x.StartTime, x.EndTime, x.GraceMinutes, x.BreakMinutes
                     FROM dbo.HrmEmployeeSchedule x WHERE x.UserId=e.UserId AND x.StatusCode='ACTIVE'
                       AND x.EffectiveFrom<=e.WorkDate AND (x.EffectiveTo IS NULL OR x.EffectiveTo>=e.WorkDate)
@@ -873,6 +887,123 @@ namespace NHIGIA.Modern.Infrastructure
         public void UpdateHanetSyncStatus(string status, string message)
         {
             using (var connection = OpenConnection()) connection.Execute("UPDATE dbo.HrmHanetSettings SET LastSyncAt=SYSDATETIME(), LastSyncStatus=@Status, LastSyncMessage=@Message WHERE Id=1", new { Status = status, Message = message });
+        }
+
+        public void AddHanetSyncRun(DateTime workDate, DateTime startedAt, DateTime finishedAt, string status, int received, int inserted, string message)
+        {
+            using var connection = OpenConnection();
+            connection.Execute(@"INSERT dbo.HrmHanetSyncRun(WorkDate,StartedAt,FinishedAt,StatusCode,ReceivedCount,InsertedCount,Message)
+                VALUES(@WorkDate,@StartedAt,@FinishedAt,@Status,@Received,@Inserted,@Message)",
+                new { WorkDate=workDate.Date, StartedAt=startedAt, FinishedAt=finishedAt, Status=status, Received=received, Inserted=inserted, Message=message });
+        }
+
+        public IList<HanetSyncRunModel> GetHanetReconciliation(DateTime fromDate, DateTime toDate)
+        {
+            if (toDate < fromDate || (toDate-fromDate).TotalDays > 31) throw new InvalidOperationException("Đối soát tối đa 31 ngày.");
+            using var connection = OpenConnection();
+            return connection.Query<HanetSyncRunModel>(@"WITH EventStats AS (
+                    SELECT CAST(CheckTime AS date) WorkDate, COUNT(1) TotalEvents,
+                        SUM(CASE WHEN UserId IS NULL THEN 1 ELSE 0 END) UnmappedEvents,
+                        SUM(CASE WHEN UserId IS NOT NULL THEN 1 ELSE 0 END) MappedEvents,
+                        COUNT(DISTINCT UserId) MappedEmployees
+                    FROM dbo.HrmAttendanceEvent WHERE CheckTime>=@From AND CheckTime<DATEADD(day,1,@To)
+                    GROUP BY CAST(CheckTime AS date)), Latest AS (
+                    SELECT *,ROW_NUMBER() OVER(PARTITION BY WorkDate ORDER BY Id DESC) rn FROM dbo.HrmHanetSyncRun
+                    WHERE WorkDate BETWEEN @From AND @To)
+                SELECT l.Id,l.WorkDate,l.StartedAt,l.FinishedAt,l.StatusCode,l.ReceivedCount,l.InsertedCount,l.Message,
+                    COALESCE(e.MappedEvents,0) MappedEvents,COALESCE(e.UnmappedEvents,0) UnmappedEvents,COALESCE(e.MappedEmployees,0) MappedEmployees
+                FROM Latest l LEFT JOIN EventStats e ON e.WorkDate=l.WorkDate WHERE l.rn=1 ORDER BY l.WorkDate DESC",
+                new { From=fromDate.Date, To=toDate.Date }).ToList();
+        }
+
+        public AttendancePeriodModel GetAttendancePeriod(string period, HrmUserAccountModel actor)
+        {
+            if (!DateTime.TryParseExact(period+"-01","yyyy-MM-dd",null,System.Globalization.DateTimeStyles.None,out _))
+                throw new InvalidOperationException("Kỳ chấm công không hợp lệ.");
+            using var connection=OpenConnection();
+            return connection.QuerySingle<AttendancePeriodModel>(@"SELECT @Period Period,COALESCE(p.StatusCode,'OPEN') StatusCode,
+                    CONVERT(bit,CASE WHEN c.UserId IS NULL THEN 0 ELSE 1 END) IsConfirmed,c.SubmittedAt,p.LockedAt,u.DisplayName LockedByName,p.UnlockReason,
+                    (SELECT COUNT(1) FROM dbo.HrmUserAccount x WHERE x.IsActive=1 AND x.RoleCode<>'ADMIN') EmployeeCount,
+                    (SELECT COUNT(1) FROM dbo.HrmAttendancePeriodConfirmation x INNER JOIN dbo.HrmUserAccount a ON a.Id=x.UserId WHERE x.Period=@Period AND x.StatusCode='SUBMITTED' AND a.IsActive=1 AND a.RoleCode<>'ADMIN') ConfirmedCount,
+                    (SELECT COUNT(1) FROM dbo.HrmAttendanceAdjustment x WHERE CONVERT(char(7),x.WorkDate,126)=@Period AND x.StatusCode='PENDING') PendingAdjustmentCount
+                FROM (SELECT 1 n) seed LEFT JOIN dbo.HrmAttendancePeriod p ON p.Period=@Period
+                LEFT JOIN dbo.HrmAttendancePeriodConfirmation c ON c.Period=@Period AND c.UserId=@UserId
+                LEFT JOIN dbo.HrmUserAccount u ON u.Id=p.LockedByUserId",new {Period=period,UserId=actor.Id});
+        }
+
+        public bool ConfirmAttendancePeriod(string period, HrmUserAccountModel actor, string ip)
+        {
+            var state=GetAttendancePeriod(period,actor);
+            if(state.StatusCode=="LOCKED") throw new InvalidOperationException("Kỳ chấm công đã khóa.");
+            using var connection=OpenConnection(); using var tx=connection.BeginTransaction();
+            connection.Execute(@"MERGE dbo.HrmAttendancePeriodConfirmation AS t USING(SELECT @Period Period,@UserId UserId)s
+                ON t.Period=s.Period AND t.UserId=s.UserId WHEN MATCHED THEN UPDATE SET StatusCode='SUBMITTED',SubmittedAt=SYSDATETIME()
+                WHEN NOT MATCHED THEN INSERT(Period,UserId) VALUES(@Period,@UserId);",new {Period=period,UserId=actor.Id},tx);
+            AddAudit(connection,actor.Id,"SUBMIT","AttendancePeriod",period,"Xác nhận dữ liệu chấm công tháng",ip,tx);tx.Commit();return true;
+        }
+
+        public bool SetAttendancePeriodLock(string period, bool locked, string reason, HrmUserAccountModel actor, string ip)
+        {
+            if (!DateTime.TryParseExact(period+"-01","yyyy-MM-dd",null,System.Globalization.DateTimeStyles.None,out _)) throw new InvalidOperationException("Kỳ chấm công không hợp lệ.");
+            if(!locked && string.IsNullOrWhiteSpace(reason)) throw new InvalidOperationException("Vui lòng nhập lý do mở khóa.");
+            var state=GetAttendancePeriod(period,actor);
+            if(locked && state.PendingAdjustmentCount>0) throw new InvalidOperationException("Còn yêu cầu điều chỉnh chấm công đang chờ xử lý.");
+            if(locked && state.ConfirmedCount<state.EmployeeCount) throw new InvalidOperationException($"Chưa đủ xác nhận chấm công ({state.ConfirmedCount}/{state.EmployeeCount} nhân viên).");
+            using var connection=OpenConnection();using var tx=connection.BeginTransaction();
+            connection.Execute(@"MERGE dbo.HrmAttendancePeriod AS t USING(SELECT @Period Period)s ON t.Period=s.Period
+                WHEN MATCHED THEN UPDATE SET StatusCode=@Status,LockedByUserId=CASE WHEN @Locked=1 THEN @UserId ELSE NULL END,
+                    LockedAt=CASE WHEN @Locked=1 THEN SYSDATETIME() ELSE NULL END,UnlockReason=CASE WHEN @Locked=0 THEN @Reason ELSE NULL END,UpdatedAt=SYSDATETIME()
+                WHEN NOT MATCHED THEN INSERT(Period,StatusCode,LockedByUserId,LockedAt,UnlockReason)
+                    VALUES(@Period,@Status,CASE WHEN @Locked=1 THEN @UserId END,CASE WHEN @Locked=1 THEN SYSDATETIME() END,CASE WHEN @Locked=0 THEN @Reason END);",
+                new {Period=period,Status=locked?"LOCKED":"OPEN",Locked=locked,UserId=actor.Id,Reason=reason?.Trim()},tx);
+            AddAudit(connection,actor.Id,locked?"LOCK":"UNLOCK","AttendancePeriod",period,locked?"Khóa kỳ chấm công":"Mở khóa kỳ chấm công: "+reason,ip,tx);tx.Commit();return true;
+        }
+
+        public IList<AttendanceAdjustmentModel> GetAttendanceAdjustments(HrmUserAccountModel actor,string period)
+        {
+            if (!DateTime.TryParseExact(period+"-01","yyyy-MM-dd",null,System.Globalization.DateTimeStyles.None,out _)) throw new InvalidOperationException("Kỳ chấm công không hợp lệ.");
+            var canSeeAll=actor.RoleCode is HrmRoles.Admin or HrmRoles.Hr or HrmRoles.Director;
+            using var connection=OpenConnection();
+            return connection.Query<AttendanceAdjustmentModel>(@"SELECT a.*,u.DisplayName,d.Name DepartmentName FROM dbo.HrmAttendanceAdjustment a
+                INNER JOIN dbo.HrmUserAccount u ON u.Id=a.UserId LEFT JOIN dbo.HrmDepartment d ON d.Id=u.DepartmentId
+                WHERE CONVERT(char(7),a.WorkDate,126)=@Period AND (@All=1 OR a.UserId=@ActorId OR (@Manager=1 AND u.DepartmentId=@DepartmentId))
+                ORDER BY a.CreatedAt DESC",new {Period=period,All=canSeeAll,ActorId=actor.Id,Manager=actor.RoleCode==HrmRoles.Manager,actor.DepartmentId}).ToList();
+        }
+
+        public long CreateAttendanceAdjustment(AttendanceAdjustmentModel item,HrmUserAccountModel actor,string ip)
+        {
+            if(item.WorkDate==default || item.WorkDate>CurrentVietnamTime().Date || string.IsNullOrWhiteSpace(item.Reason) || item.Reason.Length>1000)
+                throw new InvalidOperationException("Ngày và lý do điều chỉnh không hợp lệ.");
+            if(!item.RequestedCheckIn.HasValue && !item.RequestedCheckOut.HasValue) throw new InvalidOperationException("Vui lòng nhập giờ vào hoặc giờ ra cần điều chỉnh.");
+            if(item.RequestedCheckIn.HasValue && item.RequestedCheckIn.Value.Date!=item.WorkDate.Date) throw new InvalidOperationException("Giờ vào phải thuộc ngày cần điều chỉnh.");
+            if(item.RequestedCheckOut.HasValue && item.RequestedCheckOut.Value.Date!=item.WorkDate.Date) throw new InvalidOperationException("Giờ ra phải thuộc ngày cần điều chỉnh.");
+            if(item.RequestedCheckIn.HasValue && item.RequestedCheckOut.HasValue && item.RequestedCheckIn>=item.RequestedCheckOut) throw new InvalidOperationException("Giờ ra phải sau giờ vào.");
+            var period=item.WorkDate.ToString("yyyy-MM"); if(GetAttendancePeriod(period,actor).StatusCode=="LOCKED") throw new InvalidOperationException("Kỳ chấm công đã khóa.");
+            using var connection=OpenConnection();using var tx=connection.BeginTransaction();
+            long id;
+            try
+            {
+                id=connection.ExecuteScalar<long>(@"INSERT dbo.HrmAttendanceAdjustment(UserId,WorkDate,RequestedCheckIn,RequestedCheckOut,Reason)
+                    OUTPUT INSERTED.Id VALUES(@UserId,@WorkDate,@RequestedCheckIn,@RequestedCheckOut,@Reason)",new {UserId=actor.Id,item.WorkDate,item.RequestedCheckIn,item.RequestedCheckOut,Reason=item.Reason.Trim()},tx);
+            }
+            catch (Microsoft.Data.SqlClient.SqlException exception) when (exception.Number is 2601 or 2627)
+            {
+                throw new InvalidOperationException("Ngày này đã có một yêu cầu điều chỉnh đang chờ xử lý.");
+            }
+            AddAudit(connection,actor.Id,"CREATE","AttendanceAdjustment",id.ToString(),"Yêu cầu điều chỉnh chấm công",ip,tx);tx.Commit();return id;
+        }
+
+        public bool DecideAttendanceAdjustment(long id,bool approve,string note,HrmUserAccountModel actor,string ip)
+        {
+            using var connection=OpenConnection();using var tx=connection.BeginTransaction();
+            var changed=connection.Execute(@"UPDATE a SET StatusCode=@Status,ReviewNote=@Note,ReviewedByUserId=@ActorId,ReviewedAt=SYSDATETIME()
+                FROM dbo.HrmAttendanceAdjustment a INNER JOIN dbo.HrmUserAccount u ON u.Id=a.UserId
+                LEFT JOIN dbo.HrmAttendancePeriod p ON p.Period=CONVERT(char(7),a.WorkDate,126)
+                WHERE a.Id=@Id AND a.StatusCode='PENDING' AND COALESCE(p.StatusCode,'OPEN')<>'LOCKED' AND a.UserId<>@ActorId
+                  AND (@All=1 OR (@Manager=1 AND u.RoleCode='EMPLOYEE' AND u.DepartmentId=@DepartmentId))",
+                new {Id=id,Status=approve?"APPROVED":"REJECTED",Note=note?.Trim(),ActorId=actor.Id,
+                    All=actor.RoleCode is HrmRoles.Admin or HrmRoles.Hr or HrmRoles.Director,Manager=actor.RoleCode==HrmRoles.Manager,actor.DepartmentId},tx)>0;
+            if(changed)AddAudit(connection,actor.Id,approve?"APPROVE":"REJECT","AttendanceAdjustment",id.ToString(),note,ip,tx);tx.Commit();return changed;
         }
 
         public void SaveHanetPersonMap(HanetPersonMapRequest request, HrmUserAccountModel actor, string ipAddress)

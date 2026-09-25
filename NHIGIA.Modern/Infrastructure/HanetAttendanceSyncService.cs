@@ -54,7 +54,12 @@ public sealed class HanetAttendanceSyncService : BackgroundService
         catch (Exception exception)
         {
             _logger.LogWarning(exception, "Background HANET attendance synchronization failed for {Date}", date);
-            try { _store.UpdateHanetSyncStatus("FAILED", $"Đồng bộ nền HANET ngày {date:dd/MM/yyyy} lỗi: {exception.Message}"); } catch { }
+            try
+            {
+                var message = $"Đồng bộ nền HANET ngày {date:dd/MM/yyyy} lỗi: {exception.Message}";
+                _store.UpdateHanetSyncStatus("FAILED", message);
+            }
+            catch { }
             return true;
         }
     }
@@ -69,9 +74,22 @@ public sealed class HanetAttendanceSyncService : BackgroundService
         if (date > today) throw new InvalidOperationException("Không thể đồng bộ ngày trong tương lai.");
         if (date < today.AddDays(-31)) throw new InvalidOperationException("Chỉ hỗ trợ đồng bộ lại dữ liệu trong 31 ngày gần nhất.");
         await _syncLock.WaitAsync(stoppingToken);
+        var startedAt = HrmDataStore.CurrentVietnamTime();
         try
         {
             return await SynchronizeDateCore(date, stoppingToken);
+        }
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { throw; }
+        catch (Exception exception)
+        {
+            var message = $"Đồng bộ HANET ngày {date:dd/MM/yyyy} lỗi: {exception.Message}";
+            try
+            {
+                _store.UpdateHanetSyncStatus("FAILED", message);
+                _store.AddHanetSyncRun(date, startedAt, HrmDataStore.CurrentVietnamTime(), "FAILED", 0, 0, message);
+            }
+            catch (Exception logException) { _logger.LogWarning(logException, "Could not persist HANET synchronization failure"); }
+            throw;
         }
         finally
         {
@@ -81,6 +99,7 @@ public sealed class HanetAttendanceSyncService : BackgroundService
 
     private async Task<HanetAttendanceSyncResult> SynchronizeDateCore(DateTime date, CancellationToken stoppingToken)
     {
+        var startedAt = HrmDataStore.CurrentVietnamTime();
         var settings = _store.GetHanetSettings(true);
         if (!settings.IsEnabled) throw new InvalidOperationException("Tích hợp HANET đang tắt.");
         if (string.IsNullOrWhiteSpace(settings.AccessToken)) throw new InvalidOperationException("Chưa có Access Token HANET.");
@@ -126,6 +145,7 @@ public sealed class HanetAttendanceSyncService : BackgroundService
         var inserted = _store.SaveAttendanceEvents(events);
         var message = $"Đồng bộ HANET {date:dd/MM/yyyy}: nhận {events.Count} lượt, thêm {inserted} lượt mới trong {elapsed.Elapsed.TotalSeconds:0.0} giây.";
         _store.UpdateHanetSyncStatus("SUCCESS", message);
+        _store.AddHanetSyncRun(date, startedAt, HrmDataStore.CurrentVietnamTime(), "SUCCESS", events.Count, inserted, message);
         _logger.LogInformation("{Message}", message);
         return new HanetAttendanceSyncResult(date, events.Count, inserted, elapsed.Elapsed);
     }

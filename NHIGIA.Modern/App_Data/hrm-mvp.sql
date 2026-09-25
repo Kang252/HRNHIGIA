@@ -345,6 +345,58 @@ BEGIN
 END;
 GO
 
+IF OBJECT_ID('dbo.HrmHanetSyncRun', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.HrmHanetSyncRun (
+        Id BIGINT IDENTITY(1,1) NOT NULL CONSTRAINT PK_HrmHanetSyncRun PRIMARY KEY,
+        WorkDate DATE NOT NULL, StartedAt DATETIME2 NOT NULL, FinishedAt DATETIME2 NOT NULL,
+        StatusCode NVARCHAR(30) NOT NULL, ReceivedCount INT NOT NULL CONSTRAINT DF_HrmHanetSyncRun_Received DEFAULT(0),
+        InsertedCount INT NOT NULL CONSTRAINT DF_HrmHanetSyncRun_Inserted DEFAULT(0),
+        Message NVARCHAR(1000) NULL, CreatedAt DATETIME2 NOT NULL CONSTRAINT DF_HrmHanetSyncRun_Created DEFAULT(SYSDATETIME())
+    );
+    CREATE INDEX IX_HrmHanetSyncRun_Date ON dbo.HrmHanetSyncRun(WorkDate DESC, Id DESC);
+END;
+GO
+
+IF OBJECT_ID('dbo.HrmAttendancePeriod', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.HrmAttendancePeriod (
+        Period CHAR(7) NOT NULL CONSTRAINT PK_HrmAttendancePeriod PRIMARY KEY,
+        StatusCode NVARCHAR(30) NOT NULL CONSTRAINT DF_HrmAttendancePeriod_Status DEFAULT('OPEN'),
+        LockedByUserId INT NULL, LockedAt DATETIME2 NULL, UnlockReason NVARCHAR(1000) NULL,
+        UpdatedAt DATETIME2 NOT NULL CONSTRAINT DF_HrmAttendancePeriod_Updated DEFAULT(SYSDATETIME()),
+        CONSTRAINT FK_HrmAttendancePeriod_LockedBy FOREIGN KEY(LockedByUserId) REFERENCES dbo.HrmUserAccount(Id)
+    );
+END;
+GO
+
+IF OBJECT_ID('dbo.HrmAttendancePeriodConfirmation', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.HrmAttendancePeriodConfirmation (
+        Period CHAR(7) NOT NULL, UserId INT NOT NULL, StatusCode NVARCHAR(30) NOT NULL CONSTRAINT DF_HrmAttendanceConfirm_Status DEFAULT('SUBMITTED'),
+        SubmittedAt DATETIME2 NOT NULL CONSTRAINT DF_HrmAttendanceConfirm_Submitted DEFAULT(SYSDATETIME()),
+        CONSTRAINT PK_HrmAttendancePeriodConfirmation PRIMARY KEY(Period,UserId),
+        CONSTRAINT FK_HrmAttendanceConfirm_User FOREIGN KEY(UserId) REFERENCES dbo.HrmUserAccount(Id)
+    );
+END;
+GO
+
+IF OBJECT_ID('dbo.HrmAttendanceAdjustment', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.HrmAttendanceAdjustment (
+        Id BIGINT IDENTITY(1,1) NOT NULL CONSTRAINT PK_HrmAttendanceAdjustment PRIMARY KEY,
+        UserId INT NOT NULL, WorkDate DATE NOT NULL, RequestedCheckIn DATETIME2 NULL, RequestedCheckOut DATETIME2 NULL,
+        Reason NVARCHAR(1000) NOT NULL, StatusCode NVARCHAR(30) NOT NULL CONSTRAINT DF_HrmAttendanceAdjustment_Status DEFAULT('PENDING'),
+        ReviewNote NVARCHAR(1000) NULL, ReviewedByUserId INT NULL, ReviewedAt DATETIME2 NULL,
+        CreatedAt DATETIME2 NOT NULL CONSTRAINT DF_HrmAttendanceAdjustment_Created DEFAULT(SYSDATETIME()),
+        CONSTRAINT FK_HrmAttendanceAdjustment_User FOREIGN KEY(UserId) REFERENCES dbo.HrmUserAccount(Id),
+        CONSTRAINT FK_HrmAttendanceAdjustment_Reviewer FOREIGN KEY(ReviewedByUserId) REFERENCES dbo.HrmUserAccount(Id)
+    );
+    CREATE INDEX IX_HrmAttendanceAdjustment_UserDate ON dbo.HrmAttendanceAdjustment(UserId,WorkDate DESC,Id DESC);
+    CREATE UNIQUE INDEX UX_HrmAttendanceAdjustment_Pending ON dbo.HrmAttendanceAdjustment(UserId,WorkDate) WHERE StatusCode='PENDING';
+END;
+GO
+
 IF OBJECT_ID('dbo.HrmAuditLog', 'U') IS NULL
 BEGIN
     CREATE TABLE dbo.HrmAuditLog (

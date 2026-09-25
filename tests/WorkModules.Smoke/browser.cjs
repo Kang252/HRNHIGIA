@@ -40,7 +40,7 @@ function snapshot(route,role='ADMIN') {
                 const leave={Id:42,UserId:20,RequestCode:'NP42',DisplayName:'Nguyễn "An"',DepartmentName:'IT',DepartmentId:2,RoleCode:'MANAGER',
                     LeaveType:'Nghỉ phép',StartDate:'2026-09-25',EndDate:'2026-09-25',StatusCode:'PENDING_MANAGER',SessionCode:'Buổi sáng',
                     Reason:'Thử "nội dung" <script>không thực thi</script>',HasAttachment:true,AttachmentName:'Ghi chú.pdf'};
-                const data=u.pathname==='/Hrm/Users'?users:u.pathname==='/Hrm/LeaveRequests'?[leave]:u.pathname==='/Hrm/ApprovalInbox'?
+                const data=u.pathname==='/Hrm/AttendancePeriod'?{StatusCode:'OPEN',IsConfirmed:false,EmployeeCount:2,ConfirmedCount:1,PendingAdjustmentCount:0}:u.pathname==='/Hrm/Users'?users:u.pathname==='/Hrm/LeaveRequests'?[leave]:u.pathname==='/Hrm/ApprovalInbox'?
                     [{Source:'work',Kind:'vehicle',Id:99,Code:'XE99',RequestType:'Đặt xe',EmployeeName:'Nguyễn An',Title:'Công tác',Description:'Cần xe 4 chỗ'}]:[];
                 return route.fulfill({json:{Success:true,Data:data}});
             }
@@ -122,7 +122,7 @@ function snapshot(route,role='ADMIN') {
         await page.locator('#modalCreateAssetItem .modal-footer [data-dismiss="modal"]').click();
         await page.locator('#modalCreateAssetItem').waitFor({state:'hidden'});
         console.log('PASS asset editor restores failed draft and closes while offline');
-        for(const route of ['/Work?kind=kpi','/Work?kind=payroll','/Work?kind=recruitment','/Work?kind=training','/Work?kind=overtime','/Work?kind=resignation','/Work?kind=transfer','/Work?kind=meeting','/Work?kind=vehicle','/Home/InternalCommunications','/Home/HanetIntegration']) {
+        for(const route of ['/Work?kind=kpi','/Work?kind=payroll','/Work?kind=recruitment','/Work?kind=training','/Work?kind=overtime','/Work?kind=resignation','/Work?kind=transfer','/Work?kind=meeting','/Work?kind=vehicle','/Home/InternalCommunications','/Home/HanetIntegration','/Home/Attendance']) {
             await open(route);
             const enabled=await page.locator('section.content form[method="post"] button[type="submit"]:enabled').count();
             if(route.startsWith('/Work?')) assert.equal(enabled,0,'Offline mutation form enabled: '+route);
