@@ -7,6 +7,40 @@
 .sidebar .menu .list > li.active > a span,
 .sidebar .menu .list > li.active > a i { color: inherit; }
 .hrm-menu-toggle:focus-visible, .hrm-menu-section-toggle:focus-visible { outline: 2px solid #1769e0; outline-offset: 2px; }
+/* Keep short and wrapped labels on the same tile rhythm. */
+.sidebar .menu .list > li:not(.header):not(.hrm-menu-overview) > a {
+    gap: 8px;
+    align-items: center;
+}
+.sidebar .menu .list > li:not(.header):not(.hrm-menu-overview) > a > i {
+    margin: 0 !important;
+    text-align: center;
+    line-height: 24px;
+}
+.sidebar .menu .list > li:not(.header):not(.hrm-menu-overview) > a > span {
+    margin: 0;
+    flex: 1;
+    white-space: normal;
+    overflow-wrap: break-word;
+    line-height: 16px;
+}
+@media (min-width: 901px) {
+    .sidebar .menu .list > li:not(.header):not(.hrm-menu-overview) > a {
+        height: 96px;
+        min-height: 96px;
+        padding: 8px;
+    }
+    .sidebar .menu .list > li:not(.header):not(.hrm-menu-overview) > a > span {
+        font-size: 12px;
+    }
+}
+@media (max-width: 900px) {
+    .sidebar .menu .list > li:not(.header):not(.hrm-menu-overview) > a {
+        min-height: 52px;
+        padding: 8px 12px;
+        gap: 12px;
+    }
+}
 @media (min-width: 901px) and (max-width: 1279px) {
     body.hrm-menu-open { overflow: hidden; }
     .navbar { z-index: 1003 !important; }
