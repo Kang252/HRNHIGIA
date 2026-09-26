@@ -41,14 +41,21 @@ section.content { container-type: inline-size; container-name: hrm-content; }
     line-height: 16px;
 }
 @media (min-width: 901px) {
+    .sidebar { width: 420px !important; }
+    .sidebar .user-info { height: 76px; min-height: 76px; padding: 10px 16px; }
+    .sidebar .menu .list .hrm-menu-overview > a { min-height: 44px; }
+    .hrm-menu-section-toggle { padding-top: 12px; padding-bottom: 6px; }
     .sidebar .menu .list > li:not(.header):not(.hrm-menu-overview) > a {
-        height: 96px;
-        min-height: 96px;
-        padding: 8px;
+        height: 80px;
+        min-height: 80px;
+        padding: 6px;
     }
     .sidebar .menu .list > li:not(.header):not(.hrm-menu-overview) > a > span {
         font-size: 12px;
     }
+}
+@media (min-width: 1280px) {
+    body:not(.hrm-menu-collapsed) section.content { margin-left: 442px; }
 }
 @media (max-width: 900px) {
     .sidebar .menu .list > li:not(.header):not(.hrm-menu-overview) > a {
