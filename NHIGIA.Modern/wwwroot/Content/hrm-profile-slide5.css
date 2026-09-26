@@ -92,7 +92,7 @@
     border: 1px solid #e2e8f0;
     box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05), 0 2px 6px -1px rgba(0, 0, 0, 0.02);
     display: grid;
-    grid-template-columns: 260px 270px minmax(0, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
     gap: 20px;
     padding: 24px;
     align-items: center;
@@ -287,7 +287,7 @@
 }
 .s5-meta-grid {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
     gap: 16px 24px;
 }
 .s5-meta-subcol {
@@ -475,7 +475,7 @@
 /* 3-Column Personal Details Grid */
 .s5-info-grid-3 {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
     gap: 20px;
     padding: 20px;
 }
@@ -803,7 +803,7 @@
 /* Responsive Styles */
 @media (max-width: 1200px) {
     .s5-hero-card {
-        grid-template-columns: 240px 240px minmax(0, 1fr);
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
         gap: 16px;
         padding: 18px;
     }
@@ -1079,3 +1079,21 @@
 }
 .s5-nav-sidebar .s5-tab-item:hover .s5-tab-icon,
 .s5-nav-sidebar .s5-tab-item.active .s5-tab-icon { color:#0284c7; }
+
+/* The main menu changes available space without changing viewport width. */
+.s5-hero-card > *, .s5-meta-subcol, .s5-info-col { min-width: 0; }
+.s5-meta-item { flex-wrap: wrap; }
+.s5-meta-val, .s5-field-value, .s5-user-name { overflow-wrap: anywhere; }
+.s5-breadcrumb, .s5-action-group { flex-wrap: wrap; }
+@container hrm-content (max-width: 1050px) {
+    .s5-workspace-layout { grid-template-columns: minmax(0, 1fr); }
+    .s5-nav-sidebar { position: static; }
+    .s5-tab-list { display: grid !important; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); }
+    .s5-hero-col-user, .s5-hero-col-radar { border-right: 0; padding-right: 0; }
+    .s5-hero-col-meta { grid-column: 1 / -1; padding-left: 0; }
+    .s5-info-grid-3 { grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); }
+}
+@container hrm-content (max-width: 650px) {
+    .s5-profile-wrapper { padding: 12px 14px 40px; }
+    .s5-hero-card, .s5-meta-grid, .s5-info-grid-3 { grid-template-columns: minmax(0, 1fr); }
+}

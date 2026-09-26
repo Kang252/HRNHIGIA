@@ -1,4 +1,20 @@
 .sidebar .user-info .image { flex-shrink: 0; }
+section.content { container-type: inline-size; container-name: hrm-content; }
+@container hrm-content (max-width: 1050px) {
+    .wall .wall-grid { grid-template-columns: minmax(0, 1fr); }
+    .wall .wall-grid > aside { position: static; }
+    .wall .wall-grid > .right, .wall .wall-user { display: none; }
+    .wall .wall-tabs { display: flex; flex-wrap: wrap; }
+    .wall .wall-tabs button { width: auto; flex: 1 1 120px; }
+    .wall .mobile-search { display: block; }
+    .hrm-grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .hrm-content-grid, .work-layout, .trn-main-layout { grid-template-columns: minmax(0, 1fr); }
+    .recruitment-form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@container hrm-content (max-width: 650px) {
+    .hrm-grid-4, .hrm-grid-3, .hrm-grid-2, .recruitment-form-grid,
+    .trn-course-grid { grid-template-columns: minmax(0, 1fr); }
+}
 .navbar .container-fluid > .navbar-header { margin-left: 0; margin-right: 0; }
 .sidebar .user-info .info-container { min-width: 0; position: static; flex: 1; }
 .sidebar .user-info .info-container .name,
