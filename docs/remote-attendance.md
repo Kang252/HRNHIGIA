@@ -2,7 +2,7 @@
 
 ## Cách sử dụng
 
-Mở **Chấm công → Chấm công ngoài công ty** (hoặc mục cùng tên trong menu).
+Mở **Thủ tục → Đăng ký lịch ngoài công ty** để tạo và theo dõi lịch. Mở **Chấm công → Chấm công ngoài công ty** (hoặc mục cùng tên trong menu) để ghi nhận lượt vào/ra và ghé khách hàng. Nút “Dùng lại thông tin” ở trang chấm công sẽ mở form đăng ký trong Thủ tục.
 
 1. Đăng ký lịch theo ngày, thứ trong tuần, khung giờ, hình thức và nội dung công việc. Chọn ca linh hoạt nếu cần đủ số phút làm trong khung giờ; giờ làm được tính từ lượt vào đầu tới lượt ra cuối, trừ phút nghỉ đã đăng ký. Bản đầu hỗ trợ ca trong cùng ngày.
 2. **Làm tại nhà:** nhập tọa độ nhà và bán kính 50–2.000 m, mặc định 200 m; dùng nút lấy vị trí hiện tại khi đang ở nhà và kiểm tra bằng liên kết bản đồ. Có thể dùng lại thông tin địa điểm từ lịch cũ để gửi đăng ký mới.

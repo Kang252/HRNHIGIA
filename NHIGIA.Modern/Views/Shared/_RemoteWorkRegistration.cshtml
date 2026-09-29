@@ -1,0 +1,48 @@
+@model HrmUserAccountModel
+<link rel="stylesheet" href="~/Content/remote-attendance.css" asp-append-version="true" />
+<section id="remoteRegistration" class="remote-section">
+<div class="remote-page" id="remoteAttendance" data-user-id="@Model.Id" data-mode="plans">
+    <div id="remoteMessage" class="remote-message" role="status" aria-live="polite" hidden></div>
+    <p class="remote-intro">Đăng ký lịch làm tại nhà hoặc đi thị trường và theo dõi kết quả duyệt tại đây. Khi đến giờ làm, mở <a href="/RemoteAttendance">Chấm công ngoài công ty</a> để ghi nhận ảnh và GPS.</p>
+        <section class="hrm-card">
+            <div class="hrm-card-header"><h2 class="hrm-card-title">Đăng ký lịch ngoài công ty</h2></div>
+            <form id="remotePlanForm" class="hrm-card-body">
+                @Html.AntiForgeryToken()
+                <div class="remote-fields">
+                    <div><label for="planMode">Hình thức</label><select id="planMode" name="Mode" class="hrm-control"><option value="FIELD">Đi thị trường</option><option value="HOME">Làm tại nhà</option></select></div>
+                    <div><label for="planPlace">Nhà / tuyến / địa điểm</label><input id="planPlace" name="PlaceName" class="hrm-control" maxlength="200" required /></div>
+                    <div><label for="planFrom">Từ ngày</label><input id="planFrom" name="FromDate" type="date" class="hrm-control" required /></div>
+                    <div><label for="planTo">Đến ngày</label><input id="planTo" name="ToDate" type="date" class="hrm-control" required /></div>
+                </div>
+                <fieldset class="remote-days"><legend>Ngày áp dụng</legend>
+                    @foreach (var day in new[] { (2,"T2"),(4,"T3"),(8,"T4"),(16,"T5"),(32,"T6"),(64,"T7"),(1,"CN") })
+                    { <label><input type="checkbox" class="remote-day" value="@day.Item1" checked="@(day.Item1 != 64 && day.Item1 != 1)" /> @day.Item2</label> }
+                </fieldset>
+                <div class="remote-fields">
+                    <div><label for="planStart">Bắt đầu khung giờ</label><input id="planStart" name="WindowStart" type="time" value="08:00" class="hrm-control" required /></div>
+                    <div><label for="planEnd">Kết thúc khung giờ</label><input id="planEnd" name="WindowEnd" type="time" value="17:30" class="hrm-control" required /></div>
+                    <div><label for="planMinutes">Phút làm cần đủ</label><input id="planMinutes" name="RequiredMinutes" type="number" min="1" max="1440" value="480" class="hrm-control" required /></div>
+                    <div><label for="planBreak">Phút nghỉ trong ngày</label><input id="planBreak" name="BreakMinutes" type="number" min="0" max="480" value="60" class="hrm-control" required /></div>
+                </div>
+                <label class="remote-check"><input id="planFlexible" type="checkbox" /> Ca linh hoạt: xét đủ phút trong khung giờ, trừ thời gian nghỉ</label>
+                <label for="planTrip">Liên kết đơn công tác đã duyệt (nếu có)</label><select id="planTrip" name="LeaveRequestId" class="hrm-control"><option value="">Không liên kết</option></select>
+                <details class="remote-location" id="remoteLocation"><summary>Vùng địa lý — bắt buộc với làm tại nhà</summary>
+                    <p class="hrm-field-note">Đi thị trường có thể để trống tọa độ để làm việc theo tuyến, ghi nhận vị trí thực tế tại mỗi lượt. Nếu nhập vùng, lượt ngoài vùng sẽ chờ xác minh.</p>
+                    <div class="remote-fields">
+                        <div><label for="planLat">Vĩ độ</label><input id="planLat" name="Latitude" type="number" min="-90" max="90" step="any" class="hrm-control" /></div>
+                        <div><label for="planLng">Kinh độ</label><input id="planLng" name="Longitude" type="number" min="-180" max="180" step="any" class="hrm-control" /></div>
+                        <div><label for="planRadius">Bán kính (m)</label><input id="planRadius" name="RadiusMeters" type="number" min="50" max="2000" value="200" class="hrm-control" /></div>
+                    </div>
+                    <div class="remote-actions"><button type="button" class="hrm-btn" id="planLocate">Lấy vị trí hiện tại</button><a id="planMap" class="hrm-btn" target="_blank" rel="noopener noreferrer" hidden>Xem vị trí trên bản đồ</a></div>
+                </details>
+                <label for="planNote">Kế hoạch công việc</label><textarea id="planNote" name="Note" class="hrm-control" maxlength="2000" rows="2"></textarea>
+                <button class="hrm-btn hrm-btn-primary remote-submit" type="submit">Gửi đăng ký để duyệt</button>
+            </form>
+        </section>
+    <section class="hrm-card remote-section">
+        <div class="hrm-card-header remote-actions"><h2 class="hrm-card-title">Lịch ngoài công ty đã đăng ký</h2><label>Từ <input id="remoteFrom" type="date" class="hrm-control" /></label><label>Đến <input id="remoteTo" type="date" class="hrm-control" /></label><button type="button" class="hrm-btn" id="remoteRefresh">Tải dữ liệu</button></div>
+        <div class="hrm-card-body"><p class="hrm-field-note">Theo dõi, dùng lại thông tin hoặc hủy lịch. Người có quyền có thể duyệt lịch trong phạm vi phụ trách.</p><div id="remotePlans" class="remote-list"></div></div>
+    </section>
+</div>
+</section>
+<script src="~/Scripts/remote-attendance.js" asp-append-version="true" defer></script>

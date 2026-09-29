@@ -2,6 +2,7 @@
     'use strict';
     const root = document.getElementById('remoteAttendance');
     if (!root) return;
+    const plansOnly = root.dataset.mode === 'plans';
     const userId = Number(root.dataset.userId), $ = id => document.getElementById(id);
     const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     const labels = {PENDING:'Chờ xác minh / duyệt',APPROVED:'Đã chấp nhận',REJECTED:'Đã từ chối',CANCELLED:'Đã hủy',IN:'Vào làm',OUT:'Kết thúc làm',VISIT:'Ghé khách hàng'};
@@ -11,7 +12,7 @@
     const map = (lat, lng) => lat != null && lng != null ? `<a class="hrm-btn" href="https://www.google.com/maps?q=${Number(lat)},${Number(lng)}" target="_blank" rel="noopener noreferrer">Xem bản đồ</a>` : '';
     let plans = [], capture = null, stream = null, syncing = false;
     function message(text, error = false) { $('remoteMessage').textContent = text; $('remoteMessage').hidden = !text; $('remoteMessage').classList.toggle('is-error',error); }
-    function token() { return $('remotePunchForm').querySelector('[name=__RequestVerificationToken]').value; }
+    function token() { return root.querySelector('[name=__RequestVerificationToken]').value; }
     async function api(action, body) {
         const controller = new AbortController(), timer = setTimeout(() => controller.abort(),30000);
         try {
@@ -33,7 +34,7 @@
     });
 
     // User-specific, encrypted queue. The non-extractable key remains in this browser's IndexedDB.
-    const database = new Promise((resolve,reject) => {
+    const database = plansOnly ? null : new Promise((resolve,reject) => {
         const request = indexedDB.open('nhigia-remote-' + userId,1);
         request.onupgradeneeded = () => { request.result.createObjectStore('queue',{keyPath:'id'}); request.result.createObjectStore('meta'); };
         request.onsuccess = () => resolve(request.result); request.onerror = () => reject(new Error('Không mở được bộ nhớ offline của trình duyệt.'));
@@ -109,16 +110,22 @@
     async function load() {
         const data=await api(`State?from=${encodeURIComponent($('remoteFrom').value)}&to=${encodeURIComponent($('remoteTo').value)}`);
         if(data.UserId!==userId) throw new Error('Tài khoản đã thay đổi. Tải lại trang trước khi tiếp tục.');
-        plans=data.Plans; const previous=$('remotePlan').value;
+        plans=data.Plans;
+        if (!plansOnly) {
+        const previous=$('remotePlan').value;
         $('remotePlan').innerHTML='<option value="">Chọn lịch của bạn</option>'+plans.filter(x=>x.Plan.UserId===userId && ['APPROVED','PENDING'].includes(x.Plan.StatusCode)).map(({Plan:p})=>`<option value="${p.Id}">${esc(p.PlaceName)} · ${day(p.FromDate)} · ${esc(labels[p.StatusCode])}</option>`).join('');
         if([...$('remotePlan').options].some(o=>o.value===previous)) $('remotePlan').value=previous;
         planHint();
+        }
+        if ($('planTrip')) {
         const oldTrip=$('planTrip').value;
         $('planTrip').innerHTML='<option value="">Không liên kết</option>'+data.Trips.map(p=>`<option value="${p.Id}">${esc(p.RequestCode)} · ${day(p.StartDate)} → ${day(p.EndDate)}</option>`).join(''); $('planTrip').value=oldTrip;
+        }
         $('remotePlans').innerHTML=plans.length?plans.map(({Plan:p,CanReview,CanCancel})=>`<article class="remote-item"><header><strong>${esc(p.DisplayName)} · ${p.Mode==='HOME'?'Làm tại nhà':'Đi thị trường'} · #${p.Id}</strong><span class="hrm-badge">${esc(labels[p.StatusCode])}</span></header><p>${esc(p.PlaceName)} · ${day(p.FromDate)} → ${day(p.ToDate)} · ${time(p.WindowStart)}–${time(p.WindowEnd)}</p><p>${p.IsFlexible?'Linh hoạt '+p.RequiredMinutes+' phút/ngày':'Ca theo khung giờ'} · Nghỉ ${p.BreakMinutes} phút · ${p.Latitude!=null?'Bán kính '+p.RadiusMeters+' m':'Đi theo tuyến, ghi GPS thực tế'}</p><p>${esc(p.Note)} ${p.ReviewNote?' / Xử lý: '+esc(p.ReviewNote):''}</p><div class="remote-actions">${map(p.Latitude,p.Longitude)}${p.UserId===userId?`<button type="button" class="hrm-btn" data-copy-plan="${p.Id}">Dùng lại thông tin</button>`:''}${CanReview?`<button class="hrm-btn" data-review="ReviewPlan" data-id="${p.Id}" data-approve="true">Duyệt lịch</button><button class="hrm-btn" data-review="ReviewPlan" data-id="${p.Id}" data-approve="false">Từ chối</button>`:''}${CanCancel?`<button class="hrm-btn" data-cancel-plan="${p.Id}">Hủy lịch</button>`:''}</div></article>`).join(''):'Chưa có đăng ký trong khoảng này.';
-        $('remotePunches').innerHTML=data.Punches.length?data.Punches.map(p=>`<article class="remote-item"><header><strong>${esc(p.DisplayName)} · ${esc(labels[p.Kind])}</strong><span class="hrm-badge">${esc(labels[p.StatusCode])}</span></header><p>${formatTime(p.CheckTime)} · ${esc(p.PlaceName)} · Lịch #${p.PlanId}</p><p>GPS: ${p.AccuracyMeters!=null?'sai số ±'+Math.round(p.AccuracyMeters)+' m':'chưa có'}${p.DistanceMeters!=null?' · Cách điểm đăng ký '+Math.round(p.DistanceMeters)+' m':''}</p>${p.ReviewReason?`<p class="remote-note">${esc(p.ReviewReason)}</p>`:''}<p>${esc(p.Note)} ${p.ReviewNote?' / Xử lý: '+esc(p.ReviewNote):''}</p><div class="remote-actions">${map(p.Latitude,p.Longitude)}<a class="hrm-btn" href="/RemoteAttendance/Photo/${p.Id}" target="_blank" rel="noopener">Xem ảnh</a>${p.CanReview?`<button class="hrm-btn" data-review="ReviewPunch" data-id="${p.Id}" data-approve="true">Chấp nhận lượt</button><button class="hrm-btn" data-review="ReviewPunch" data-id="${p.Id}" data-approve="false">Từ chối</button>`:''}</div></article>`).join(''):'Chưa có lượt chấm trong khoảng này.';
+        if ($('remotePunches')) $('remotePunches').innerHTML=data.Punches.length?data.Punches.map(p=>`<article class="remote-item"><header><strong>${esc(p.DisplayName)} · ${esc(labels[p.Kind])}</strong><span class="hrm-badge">${esc(labels[p.StatusCode])}</span></header><p>${formatTime(p.CheckTime)} · ${esc(p.PlaceName)} · Lịch #${p.PlanId}</p><p>GPS: ${p.AccuracyMeters!=null?'sai số ±'+Math.round(p.AccuracyMeters)+' m':'chưa có'}${p.DistanceMeters!=null?' · Cách điểm đăng ký '+Math.round(p.DistanceMeters)+' m':''}</p>${p.ReviewReason?`<p class="remote-note">${esc(p.ReviewReason)}</p>`:''}<p>${esc(p.Note)} ${p.ReviewNote?' / Xử lý: '+esc(p.ReviewNote):''}</p><div class="remote-actions">${map(p.Latitude,p.Longitude)}<a class="hrm-btn" href="/RemoteAttendance/Photo/${p.Id}" target="_blank" rel="noopener">Xem ảnh</a>${p.CanReview?`<button class="hrm-btn" data-review="ReviewPunch" data-id="${p.Id}" data-approve="true">Chấp nhận lượt</button><button class="hrm-btn" data-review="ReviewPunch" data-id="${p.Id}" data-approve="false">Từ chối</button>`:''}</div></article>`).join(''):'Chưa có lượt chấm trong khoảng này.';
     }
 
+    if (!plansOnly) {
     $('remoteOpenCamera').onclick=async()=>{
         stopCamera(); $('remoteOpenCamera').disabled=true;
         try { stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:$('remoteKind').value==='VISIT'?'environment':'user',width:{ideal:960},height:{ideal:720}}}); $('remoteVideo').srcObject=stream; $('remoteVideo').hidden=false; await $('remoteVideo').play(); $('remoteCapture').disabled=false; }
@@ -154,9 +161,11 @@
         } catch(error) { message(error.message,true); }
         finally { $('remoteSend').disabled=false; }
     };
+    }
     function planMode() { const home=$('planMode').value==='HOME'; $('planLat').required=home; $('planLng').required=home; $('remoteLocation').open=home; $('planTrip').disabled=home; if(home) $('planTrip').value=''; }
-    $('planMode').onchange=planMode;
     function planMap() { const lat=$('planLat').value,lng=$('planLng').value; $('planMap').hidden=!lat||!lng; if(lat&&lng) $('planMap').href=`https://www.google.com/maps?q=${Number(lat)},${Number(lng)}`; }
+    if ($('remotePlanForm')) {
+    $('planMode').onchange=planMode;
     $('planLat').oninput=planMap; $('planLng').oninput=planMap;
     $('planLocate').onclick=async()=>{ $('planLocate').disabled=true; try {const gps=await locate(); $('planLat').value=gps.latitude; $('planLng').value=gps.longitude; planMap(); message(`Đã lấy tọa độ đăng ký, sai số ±${Math.round(gps.accuracy)} m. Kiểm tra bản đồ trước khi gửi.`);}catch(e){message(e.message,true);}finally{$('planLocate').disabled=false;} };
     $('remotePlanForm').onsubmit=async event=>{
@@ -164,6 +173,7 @@
         try { const body=new FormData(event.target); body.set('IsFlexible',$('planFlexible').checked); body.set('WorkDaysMask',[...root.querySelectorAll('.remote-day:checked')].reduce((sum,x)=>sum+Number(x.value),0)); body.set('__RequestVerificationToken',token()); await api('Plan',body); message('Đã gửi đăng ký, quản lý sẽ nhận thông báo.'); await load(); }
         catch(error) { message(error.message,true); } finally { button.disabled=false; }
     };
+    }
     root.addEventListener('click',async event=>{
         const button=event.target.closest('button');
         if(!button || !button.matches('[data-review],[data-cancel-plan],[data-copy-plan],[data-discard],[data-queue-note]')) return;
@@ -175,8 +185,9 @@
                 if(!confirm('Hủy lịch này? Các lượt chấm đã xác minh vẫn được giữ.')) return;
                 button.disabled=true; await api('CancelPlan',formBody({id:button.dataset.cancelPlan})); await load();
             } else if(button.dataset.copyPlan) {
+                if (!$('remotePlanForm')) { location.href='/Home/LeaveRequests?remotePlan='+encodeURIComponent(button.dataset.copyPlan)+'#remoteRegistration'; return; }
                 const plan=plans.find(x=>x.Plan.Id===Number(button.dataset.copyPlan))?.Plan; if(!plan) return;
-                for(const input of $('remotePlanForm').elements) if(input.name && !['FromDate','ToDate'].includes(input.name)) input.value=plan[input.name] ?? '';
+                for(const input of $('remotePlanForm').elements) if(input.name && !['FromDate','ToDate','__RequestVerificationToken'].includes(input.name)) input.value=plan[input.name] ?? '';
                 $('planFlexible').checked=plan.IsFlexible; root.querySelectorAll('.remote-day').forEach(x=>x.checked=(plan.WorkDaysMask&Number(x.value))!==0);
                 $('planStart').value=time(plan.WindowStart); $('planEnd').value=time(plan.WindowEnd); planMode(); planMap(); $('remotePlanForm').scrollIntoView({behavior:'smooth'});
             } else if(button.dataset.discard) {
@@ -189,10 +200,19 @@
         } catch(error) { message(error.message,true); } finally { button.disabled=false; }
     });
     function connection() { $('remoteConnection').textContent=navigator.onLine?'Có kết nối mạng':'Đang offline'; }
-    $('remoteRefresh').onclick=()=>load().catch(e=>message(e.message,true)); $('remoteSync').onclick=sync;
+    $('remoteRefresh').onclick=()=>load().catch(e=>message(e.message,true));
+    if (!plansOnly) {
+    $('remoteSync').onclick=sync;
     window.addEventListener('online',()=>{connection();sync();}); window.addEventListener('offline',connection);
     document.addEventListener('visibilitychange',()=>{if(document.hidden) stopCamera();}); window.addEventListener('pagehide',stopCamera);
-    $('planFrom').value=$('planTo').value=localDate(); $('remoteFrom').value=localDate(new Date(Date.now()-7*86400000)); $('remoteTo').value=localDate(new Date(Date.now()+90*86400000));
-    connection(); planMode();
-    load().then(sync).catch(e=>message(e.message,true)); showQueue().catch(e=>message(e.message,true));
+    connection();
+    }
+    if ($('remotePlanForm')) { $('planFrom').value=$('planTo').value=localDate(); planMode(); }
+    $('remoteFrom').value=localDate(new Date(Date.now()-7*86400000)); $('remoteTo').value=localDate(new Date(Date.now()+90*86400000));
+    load().then(()=> {
+        if (!plansOnly) return sync();
+        const copyId=Number(new URLSearchParams(location.search).get('remotePlan'));
+        if (copyId) root.querySelector(`[data-copy-plan="${copyId}"]`)?.click();
+    }).catch(e=>message(e.message,true));
+    if (!plansOnly) showQueue().catch(e=>message(e.message,true));
 })();

@@ -129,7 +129,9 @@ try
     Check((await client.GetAsync("/RemoteAttendance")).StatusCode==HttpStatusCode.Redirect,"remote page requires login");
     client.DefaultRequestHeaders.Add("Cookie","NHIGIA.Auth.v3="+Cookie(owner));
     var html=await client.GetStringAsync("/RemoteAttendance");
-    Check(html.Contains("remotePunchForm") && html.Contains("remotePlanForm"),"remote page renders forms");
+    Check(html.Contains("remotePunchForm") && !html.Contains("remotePlanForm"),"attendance page only renders punch form");
+    var procedures=await client.GetStringAsync("/Home/LeaveRequests");
+    Check(procedures.Contains("remotePlanForm") && !procedures.Contains("remotePunchForm"),"procedures page renders remote registration");
     Check((await client.PostAsync("/RemoteAttendance/CancelPlan",new FormUrlEncodedContent(new Dictionary<string,string>{{"id",planId.ToString()}}))).StatusCode==HttpStatusCode.BadRequest,"mutations require antiforgery");
     client.DefaultRequestHeaders.Remove("Cookie");client.DefaultRequestHeaders.Add("Cookie","NHIGIA.Auth.v3="+Cookie(outsider));
     Check((await client.GetAsync("/RemoteAttendance/Photo/"+pending.Id)).StatusCode==HttpStatusCode.NotFound,"HTTP photo access denied outside scope");
