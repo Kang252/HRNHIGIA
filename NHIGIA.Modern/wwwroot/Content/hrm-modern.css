@@ -702,8 +702,6 @@ section.content {
 .hrm-login-error { margin-bottom: 16px; padding: 10px 12px; border-radius: 8px; color: #a5121b; background: #ffebec; font-size: 12px; }
 .hrm-login-options { display: flex; justify-content: space-between; align-items: center; margin: 2px 0 18px; }
 .hrm-login-submit { width: 100%; height: 42px; }
-.hrm-demo-accounts { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--hrm-border); color: var(--hrm-muted); font-size: 12px; line-height: 1.7; }
-.hrm-demo-accounts strong { color: var(--hrm-text); }
 @media (max-width: 860px) {
     .hrm-login-shell { grid-template-columns: 1fr; }
     .hrm-login-intro { min-height: 260px; padding: 32px; }
