@@ -11,7 +11,7 @@ using System.Text.RegularExpressions;
 
 namespace NHIGIA.Modern.Infrastructure
 {
-    public class HrmDataStore
+    public partial class HrmDataStore
     {
         private readonly IConfiguration _configuration;
         private readonly IDataProtector _protector;
@@ -728,31 +728,54 @@ namespace NHIGIA.Modern.Infrastructure
         {
             if (toDate.Date < fromDate.Date || (toDate.Date - fromDate.Date).TotalDays > 366)
                 throw new InvalidOperationException("Khoảng lọc tối đa là 366 ngày.");
-            const string sql = @"WITH EventRaw AS (
-                    SELECT e.UserId, CAST(e.CheckTime AS DATE) WorkDate, MIN(e.CheckTime) CheckIn,
-                        MAX(e.CheckTime) LastSeen, COUNT(1) EventCount
+            const string sql = @"WITH RawPunches AS (
+                    SELECT e.UserId,e.CheckTime,e.CheckTime InCandidate,e.CheckTime OutCandidate,0 IsRemote
                     FROM dbo.HrmAttendanceEvent e
                     LEFT JOIN dbo.HrmAttendancePeriod ap ON ap.Period=CONVERT(char(7),e.CheckTime,126)
                     WHERE e.UserId IS NOT NULL AND e.CheckTime>=@FromDate AND e.CheckTime<DATEADD(DAY,1,@ToDate)
                       AND (ap.StatusCode IS NULL OR ap.StatusCode<>'LOCKED' OR e.ReceivedAt<=ap.LockedAt)
+                    UNION ALL
+                    SELECT r.UserId,r.CheckTime,CASE WHEN r.Kind='IN' THEN r.CheckTime END,
+                        CASE WHEN r.Kind='OUT' THEN r.CheckTime END,1
+                    FROM dbo.HrmRemotePunch r
+                    LEFT JOIN dbo.HrmAttendancePeriod ap ON ap.Period=CONVERT(char(7),r.CheckTime,126)
+                    WHERE r.StatusCode='APPROVED' AND r.Kind IN ('IN','OUT')
+                        AND r.CheckTime>=@FromDate AND r.CheckTime<DATEADD(DAY,1,@ToDate)
+                        AND (ap.StatusCode IS NULL OR ap.StatusCode<>'LOCKED' OR r.IncludedAt<=ap.LockedAt)
+                ), EventRaw AS (
+                    SELECT e.UserId, CAST(e.CheckTime AS DATE) WorkDate, MIN(e.InCandidate) CheckIn,
+                        MAX(e.OutCandidate) OutTime, MAX(e.CheckTime) LastSeen, COUNT(1) EventCount,
+                        MAX(e.IsRemote) HasRemote, MIN(e.IsRemote) OnlyRemote
+                    FROM RawPunches e
                     GROUP BY e.UserId, CAST(e.CheckTime AS DATE)
                 ), Dates AS (
                     SELECT UserId,WorkDate FROM EventRaw UNION
                     SELECT UserId,WorkDate FROM dbo.HrmAttendanceAdjustment
                     WHERE StatusCode='APPROVED' AND WorkDate BETWEEN @FromDate AND @ToDate
                 ), Events AS (
-                    SELECT d.UserId,d.WorkDate,e.CheckIn,e.LastSeen,COALESCE(e.EventCount,0) EventCount
+                    SELECT d.UserId,d.WorkDate,e.CheckIn,e.OutTime,e.LastSeen,COALESCE(e.EventCount,0) EventCount,e.HasRemote,e.OnlyRemote
                     FROM Dates d LEFT JOIN EventRaw e ON e.UserId=d.UserId AND e.WorkDate=d.WorkDate
                 )
-                SELECT e.UserId, hm.PersonId, p.EmployeeCode, u.DisplayName, p.JobTitle, d.Name DepartmentName, e.WorkDate, s.ShiftName,
-                    s.StartTime ScheduledStart, s.EndTime ScheduledEnd, s.GraceMinutes, s.BreakMinutes,
+                SELECT e.UserId, hm.PersonId, p.EmployeeCode, u.DisplayName, p.JobTitle, d.Name DepartmentName, e.WorkDate,
+                    CASE WHEN rp.Id IS NULL THEN s.ShiftName WHEN rp.Mode='HOME' THEN N'Làm tại nhà' ELSE N'Đi thị trường' END ShiftName,
+                    COALESCE(rp.WindowStart,s.StartTime) ScheduledStart,COALESCE(rp.WindowEnd,s.EndTime) ScheduledEnd,
+                    s.GraceMinutes,COALESCE(rp.BreakMinutes,s.BreakMinutes) BreakMinutes,
+                    CONVERT(bit,COALESCE(e.HasRemote,0)) HasExplicitPunches,
+                    COALESCE(rp.IsFlexible,0) IsFlexible,COALESCE(rp.RequiredMinutes,0) RequiredMinutes,
                     COALESCE(a.RequestedCheckIn,e.CheckIn) CheckIn,
-                    COALESCE(a.RequestedCheckOut,CASE WHEN e.EventCount>1 AND e.LastSeen<>e.CheckIn THEN e.LastSeen END) CheckOut,
-                    e.LastSeen, e.EventCount, CASE WHEN a.Id IS NULL THEN 'HANET' ELSE N'Điều chỉnh đã duyệt' END Source
+                    COALESCE(a.RequestedCheckOut,CASE WHEN e.OutTime>e.CheckIn OR e.CheckIn IS NULL THEN e.OutTime END) CheckOut,
+                    e.LastSeen, e.EventCount, CASE WHEN a.Id IS NOT NULL THEN N'Điều chỉnh đã duyệt'
+                        WHEN e.OnlyRemote=1 THEN 'GPS + Photo' WHEN e.HasRemote=1 THEN 'HANET + GPS' ELSE 'HANET' END Source
                 FROM Events e INNER JOIN dbo.HrmUserAccount u ON u.Id=e.UserId
                 LEFT JOIN dbo.HrmEmployeeProfile p ON p.UserId=u.Id
                 LEFT JOIN dbo.HrmHanetPersonMap hm ON hm.UserId=u.Id AND hm.IsActive=1
                 LEFT JOIN dbo.HrmDepartment d ON d.Id=u.DepartmentId
+                OUTER APPLY (SELECT TOP 1 wp.* FROM dbo.HrmRemoteWorkPlan wp
+                    JOIN dbo.HrmRemotePunch r ON r.PlanId=wp.Id AND r.UserId=e.UserId
+                    WHERE r.StatusCode='APPROVED' AND r.Kind IN ('IN','OUT')
+                        AND r.CheckTime>=e.WorkDate AND r.CheckTime<DATEADD(day,1,e.WorkDate)
+                        AND EXISTS(SELECT 1 FROM RawPunches raw WHERE raw.UserId=r.UserId AND raw.CheckTime=r.CheckTime AND raw.IsRemote=1)
+                    ORDER BY r.CheckTime DESC,r.Id DESC) rp
                 OUTER APPLY (SELECT TOP 1 x.Id,x.RequestedCheckIn,x.RequestedCheckOut
                     FROM dbo.HrmAttendanceAdjustment x WHERE x.UserId=e.UserId AND x.WorkDate=e.WorkDate AND x.StatusCode='APPROVED'
                     ORDER BY x.ReviewedAt DESC,x.Id DESC) a
@@ -937,7 +960,8 @@ namespace NHIGIA.Modern.Infrastructure
                     CONVERT(bit,CASE WHEN c.UserId IS NULL THEN 0 ELSE 1 END) IsConfirmed,c.SubmittedAt,p.LockedAt,u.DisplayName LockedByName,p.UnlockReason,
                     (SELECT COUNT(1) FROM dbo.HrmUserAccount x WHERE x.IsActive=1 AND x.RoleCode<>'ADMIN') EmployeeCount,
                     (SELECT COUNT(1) FROM dbo.HrmAttendancePeriodConfirmation x INNER JOIN dbo.HrmUserAccount a ON a.Id=x.UserId WHERE x.Period=@Period AND x.StatusCode='SUBMITTED' AND a.IsActive=1 AND a.RoleCode<>'ADMIN') ConfirmedCount,
-                    (SELECT COUNT(1) FROM dbo.HrmAttendanceAdjustment x WHERE CONVERT(char(7),x.WorkDate,126)=@Period AND x.StatusCode='PENDING') PendingAdjustmentCount
+                    (SELECT COUNT(1) FROM dbo.HrmAttendanceAdjustment x WHERE CONVERT(char(7),x.WorkDate,126)=@Period AND x.StatusCode='PENDING') PendingAdjustmentCount,
+                    (SELECT COUNT(1) FROM dbo.HrmRemotePunch x WHERE CONVERT(char(7),x.CheckTime,126)=@Period AND x.StatusCode='PENDING' AND x.Kind IN ('IN','OUT')) PendingRemoteCount
                 FROM (SELECT 1 n) seed LEFT JOIN dbo.HrmAttendancePeriod p ON p.Period=@Period
                 LEFT JOIN dbo.HrmAttendancePeriodConfirmation c ON c.Period=@Period AND c.UserId=@UserId
                 LEFT JOIN dbo.HrmUserAccount u ON u.Id=p.LockedByUserId",new {Period=period,UserId=actor.Id});
@@ -963,6 +987,8 @@ namespace NHIGIA.Modern.Infrastructure
             {
                 var pending=connection.ExecuteScalar<int>("SELECT COUNT(1) FROM dbo.HrmAttendanceAdjustment WITH(UPDLOCK,HOLDLOCK) WHERE CONVERT(char(7),WorkDate,126)=@Period AND StatusCode='PENDING'",new {Period=period},tx);
                 if(pending>0) throw new InvalidOperationException("Còn yêu cầu điều chỉnh chấm công đang chờ xử lý.");
+                var remotePending=connection.ExecuteScalar<int>("SELECT COUNT(1) FROM dbo.HrmRemotePunch WITH(UPDLOCK,HOLDLOCK) WHERE CONVERT(char(7),CheckTime,126)=@Period AND StatusCode='PENDING' AND Kind IN ('IN','OUT')",new {Period=period},tx);
+                if(remotePending>0) throw new InvalidOperationException("Còn lượt chấm ngoài công ty chờ xác minh. Mở Chấm công ngoài công ty để xử lý.");
                 var counts=connection.QuerySingle<AttendancePeriodModel>(@"SELECT
                     (SELECT COUNT(1) FROM dbo.HrmUserAccount WITH(HOLDLOCK) WHERE IsActive=1 AND RoleCode<>'ADMIN') EmployeeCount,
                     (SELECT COUNT(1) FROM dbo.HrmAttendancePeriodConfirmation c WITH(UPDLOCK,HOLDLOCK) INNER JOIN dbo.HrmUserAccount u ON u.Id=c.UserId WHERE c.Period=@Period AND c.StatusCode='SUBMITTED' AND u.IsActive=1 AND u.RoleCode<>'ADMIN') ConfirmedCount",new {Period=period},tx);

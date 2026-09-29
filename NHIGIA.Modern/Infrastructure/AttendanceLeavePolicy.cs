@@ -115,6 +115,19 @@ public static class AttendanceLeavePolicy
 
         row.ExpectedStartAt = expectedStart;
         row.ExpectedEndAt = expectedEnd;
+        if (row.IsFlexible)
+        {
+            var actualStart = row.CheckIn > expectedStart ? row.CheckIn : expectedStart;
+            var actualEnd = row.CheckOut < expectedEnd ? row.CheckOut : expectedEnd;
+            row.WorkedMinutes = row.CheckIn.HasValue && row.CheckOut.HasValue
+                ? Math.Max(0, (int)(actualEnd.Value - actualStart.Value).TotalMinutes - (row.ApprovedLeave ? 0 : row.BreakMinutes)) : 0;
+            var target = row.ApprovedLeave ? (int)Math.Ceiling(row.RequiredMinutes / 2d) : row.RequiredMinutes;
+            row.IsProvisional = now < expectedEnd;
+            row.StatusCode = row.IsProvisional ? "IN_PROGRESS" :
+                !row.CheckIn.HasValue || !row.CheckOut.HasValue ? "MISSING_CHECK" :
+                row.WorkedMinutes >= target ? "ON_TIME" : "INSUFFICIENT_HOURS";
+            return;
+        }
         row.LateMinutes = row.CheckIn.HasValue
             ? Math.Max(0, (int)(row.CheckIn.Value - expectedStart.AddMinutes(row.GraceMinutes)).TotalMinutes) : 0;
         if (now < expectedEnd)
@@ -126,7 +139,7 @@ public static class AttendanceLeavePolicy
         }
 
         // LastSeen remains raw; it also restores checkout if this projection is refreshed after shift end.
-        row.CheckOut = row.EventCount > 1 && row.LastSeen.HasValue && row.LastSeen != row.CheckIn ? row.LastSeen : row.CheckOut;
+        row.CheckOut = !row.HasExplicitPunches && row.EventCount > 1 && row.LastSeen.HasValue && row.LastSeen != row.CheckIn ? row.LastSeen : row.CheckOut;
         row.WorkedMinutes = row.CheckIn.HasValue && row.CheckOut.HasValue
             ? Math.Max(0, (int)((row.ApprovedLeave && row.CheckOut > expectedEnd ? expectedEnd : row.CheckOut.Value) -
                 (row.ApprovedLeave && row.CheckIn < expectedStart ? expectedStart : row.CheckIn.Value)).TotalMinutes) : 0;
@@ -152,6 +165,7 @@ public static class AttendanceLeavePolicy
         JobTitle = row.JobTitle, DepartmentName = row.DepartmentName, WorkDate = row.WorkDate,
         ShiftName = row.ShiftName, ScheduledStart = row.ScheduledStart, ScheduledEnd = row.ScheduledEnd,
         GraceMinutes = row.GraceMinutes, BreakMinutes = row.BreakMinutes,
-        CheckIn = row.CheckIn, CheckOut = row.CheckOut, LastSeen = row.LastSeen, EventCount = row.EventCount, Source = row.Source
+        CheckIn = row.CheckIn, CheckOut = row.CheckOut, LastSeen = row.LastSeen, EventCount = row.EventCount, Source = row.Source,
+        HasExplicitPunches = row.HasExplicitPunches, IsFlexible = row.IsFlexible, RequiredMinutes = row.RequiredMinutes
     };
 }

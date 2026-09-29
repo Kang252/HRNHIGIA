@@ -19,6 +19,7 @@
     }
 
     if (isWork) { action = "Work"; }
+    if (ViewContext.RouteData.Values["controller"]?.ToString() == "RemoteAttendance") { action = "RemoteAttendance"; }
 }
 <!DOCTYPE html>
 <html lang="vi">
@@ -102,6 +103,7 @@
                         <li class="@(action == "EmployeeInformation" ? "active" : "")"><a asp-controller="Home" asp-action="EmployeeInformation"><i class="material-icons">groups</i><span>@(isManager ? "Nhân sự phòng ban" : "Quản lý nhân sự")</span></a></li>
                     }
                     <li class="@(action == "Attendance" ? "active" : "")"><a asp-controller="Home" asp-action="Attendance"><i class="material-icons">alarm_on</i><span>Chấm công</span></a></li>
+                    <li class="@(action == "RemoteAttendance" ? "active" : "")"><a asp-controller="RemoteAttendance" asp-action="Index"><i class="material-icons">location_on</i><span>Chấm công ngoài công ty</span></a></li>
                     <li class="@(action == "WorkSchedules" ? "active" : "")"><a asp-controller="Home" asp-action="WorkSchedules"><i class="material-icons">event_note</i><span>@(canManage ? "Phân ca làm việc" : "Lịch làm việc")</span></a></li>
                     <li class="@(action == "LeaveRequests" ? "active" : "")"><a asp-controller="Home" asp-action="LeaveRequests"><i class="material-icons">description</i><span>Thủ tục</span></a></li>
                     @if (canManage)

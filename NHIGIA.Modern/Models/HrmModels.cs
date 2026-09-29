@@ -375,6 +375,9 @@ namespace NHIGIA.Modern.Models
         public DateTime? LastSeen { get; set; }
         public int EventCount { get; set; }
         public bool IsProvisional { get; set; }
+        public bool HasExplicitPunches { get; set; }
+        public bool IsFlexible { get; set; }
+        public int RequiredMinutes { get; set; }
         public int WorkedMinutes { get; set; }
         public int LateMinutes { get; set; }
         public int EarlyMinutes { get; set; }
@@ -409,6 +412,7 @@ namespace NHIGIA.Modern.Models
         public int EmployeeCount { get; set; }
         public int ConfirmedCount { get; set; }
         public int PendingAdjustmentCount { get; set; }
+        public int PendingRemoteCount { get; set; }
     }
 
     public class AttendanceAdjustmentModel

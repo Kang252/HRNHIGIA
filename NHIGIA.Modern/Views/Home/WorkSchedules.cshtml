@@ -7,6 +7,7 @@
         </div>
         <div class="hrm-header-actions">
             <a class="hrm-btn" href="@Url.Action("Attendance", "Home")"><i class="material-icons">alarm_on</i> Xem chấm công</a>
+            <a class="hrm-btn" asp-controller="RemoteAttendance" asp-action="Index"><i class="material-icons">location_on</i> Lịch làm ngoài công ty</a>
             @if (canEditSchedule) { <button id="scheduleCreate" class="hrm-btn hrm-btn-primary" type="button"><i class="material-icons">add</i> Tạo lịch</button> }
         </div>
     </div>

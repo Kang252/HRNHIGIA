@@ -228,7 +228,7 @@ public sealed class HrmAssistantService
     private static string AttendanceStatus(string status) => status switch
     {
         "IN_PROGRESS" => "đang cập nhật đến khi kết thúc ca", "ON_TIME" => "đúng giờ", "LATE" => "đi muộn", "EARLY" => "về sớm", "LATE_EARLY" => "đi muộn và về sớm",
-        "ON_LEAVE" => "nghỉ đã duyệt", "MISSING_CHECK" => "thiếu lượt chấm", "MISSING_SCHEDULE" => "chưa có ca làm", _ => "chưa xác định"
+        "ON_LEAVE" => "nghỉ đã duyệt", "MISSING_CHECK" => "thiếu lượt chấm", "MISSING_SCHEDULE" => "chưa có ca làm", "INSUFFICIENT_HOURS" => "chưa đủ giờ ca linh hoạt", _ => "chưa xác định"
     };
 
     private static string Time(DateTime? value) => value?.ToString("HH:mm") ?? "chưa có";
