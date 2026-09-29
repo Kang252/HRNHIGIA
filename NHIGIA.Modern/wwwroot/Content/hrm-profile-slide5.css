@@ -1097,3 +1097,17 @@
     .s5-profile-wrapper { padding: 12px 14px 40px; }
     .s5-hero-card, .s5-meta-grid, .s5-info-grid-3 { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* Reserve compact identity/chart columns; give employment details the space. */
+@container hrm-content (min-width: 1051px) {
+    .s5-hero-card {
+        grid-template-columns: 220px 200px minmax(0, 1fr);
+        gap: 16px;
+        padding: 20px;
+        align-items: start;
+    }
+    .s5-hero-col-user, .s5-hero-col-radar { padding-right: 12px; }
+    .s5-meta-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 20px; }
+    .s5-meta-key { white-space: normal; }
+    .s5-hero-col-user, .s5-hero-col-radar { align-self: center; }
+}
