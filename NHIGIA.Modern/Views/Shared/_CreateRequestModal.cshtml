@@ -623,14 +623,19 @@
         </div>
 
         <div class="tc-modal-body">
-            <!-- Nhóm 1: Lượt chấm công (9) -->
+            <!-- Nhóm 1: Lượt chấm công (10) -->
             <div class="tc-create-cat">
                 <div class="tc-category-header">
                     <span class="tc-category-badge cat-time">
-                        <i class="material-icons">alarm_on</i> Lượt chấm công (9)
+                        <i class="material-icons">alarm_on</i> Lượt chấm công (10)
                     </span>
                 </div>
                 <div class="tc-create-grid">
+                    <button type="button" class="tc-create-item" data-type="Đăng ký lịch ngoài công ty" data-cat="Lượt chấm công" style="text-align:left">
+                        <span class="tc-item-icon" style="background:#e0f2fe;color:#0284c7"><i class="material-icons">add_location_alt</i></span>
+                        <span class="tc-item-text"><span class="tc-item-title">Đăng ký lịch ngoài công ty</span></span>
+                        <i class="material-icons tc-item-arrow">chevron_right</i>
+                    </button>
                     <div class="tc-create-item" data-type="Công tác/Ra ngoài" data-cat="Lượt chấm công">
                         <span class="tc-item-icon" style="background:#e0f2fe;color:#0284c7;" title="Công tác/Ra ngoài">
                             <svg class="tc-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -933,7 +938,7 @@
 
         <div class="tc-modal-footer">
             <div class="tc-modal-summary">
-                Có tổng cộng <strong>25</strong> loại yêu cầu đề xuất
+                Có tổng cộng <strong>26</strong> loại yêu cầu đề xuất
             </div>
             <div>
                 <button id="tcCreateModalCancel" type="button" class="tc-btn-modal-cancel">Đóng</button>
@@ -1735,7 +1740,18 @@
     }
     window.recalcFinanceTotal = recalcFinanceTotal;
 
+    function parkRemoteForm() {
+        var panel = document.getElementById('remotePlanPanel');
+        var parking = document.getElementById('remotePlanParking');
+        if (panel && parking) parking.appendChild(panel);
+        $('#btnSubmitDynamicRequest').show();
+    }
     function selectCreateType(type, cat, iconHtml, iconBg, iconColor) {
+        parkRemoteForm();
+        if (type === 'Đăng ký lịch ngoài công ty' && !document.getElementById('remotePlanPanel')) {
+            window.location.href = '/Home/LeaveRequests#remoteRegistration';
+            return;
+        }
         $('#newReqTypeBadge').text(type);
         $('#newReqCatBadge').text('Nhóm: ' + (cat || 'Thủ tục'));
         $('#newReqSelectedIcon').html(iconHtml).css({
@@ -1743,7 +1759,12 @@
             'color': iconColor || '#059669'
         });
         $('#newReqModalHeaderTitle').text('Tạo yêu cầu: ' + type);
-        renderDynamicCreateForm(type, cat);
+        if (type === 'Đăng ký lịch ngoài công ty') {
+            $('#dynamicFormContainer').empty().append($('#remotePlanPanel'));
+            $('#btnSubmitDynamicRequest').hide();
+        } else {
+            renderDynamicCreateForm(type, cat);
+        }
         $('#createStepTypes').removeClass('is-active');
         $('#createStepForm').addClass('is-active');
     }
@@ -1758,6 +1779,7 @@
     window.openDirectLeaveModal = openDirectLeaveModal;
 
     function openCreateModal() {
+        parkRemoteForm();
         loadCachedUsers();
         $('#createSearchInput').val('');
         $('.tc-create-item').show();
@@ -1770,15 +1792,25 @@
     window.openCreateModal = openCreateModal;
 
     function closeCreateModal() {
+        parkRemoteForm();
         $('#tcCreateModal').removeClass('is-open');
         $('#tcCreateModalBackdrop').removeClass('is-open');
         $('#dynamicFormContainer').empty();
     }
     window.closeCreateModal = closeCreateModal;
+    window.openRemoteWorkRequest = function () {
+        openCreateModal();
+        selectCreateType('Đăng ký lịch ngoài công ty', 'Lượt chấm công', '<i class="material-icons">add_location_alt</i>', '#e0f2fe', '#0284c7');
+    };
+    document.addEventListener('remote:planCreated', function () {
+        closeCreateModal();
+        showToast('Đã gửi đăng ký lịch ngoài công ty để duyệt.', 'success');
+    });
 
     // Events
     $(document).on('click', '#tcCreateModalClose, #tcCreateModalCancel, #tcCreateModalBackdrop, #tcCreateFormClose', closeCreateModal);
     $(document).on('click', '#btnBackToTypes, #btnChangeType, #btnCancelCreateForm', function () {
+        parkRemoteForm();
         $('#createStepForm').removeClass('is-active');
         $('#createStepTypes').addClass('is-active');
     });

@@ -46,6 +46,12 @@ const path=require('node:path');
         await page.waitForURL('**/Home/LeaveRequests?remotePlan=*#remoteRegistration');
         await page.waitForFunction(()=>document.querySelector('#planPlace').value.length>0);
         assert.equal(await page.locator('#remotePunchForm').count(),0);
+        assert(await page.locator('#tcCreateModal').evaluate(el=>el.classList.contains('is-open')));
+        // The form belongs to the create-procedure catalog, and can be reopened without losing its handlers.
+        await page.click('#btnBackToTypes');
+        assert.equal(await page.locator('#remotePlanForm').isVisible(),false);
+        await page.click('.tc-create-item[data-type="Đăng ký lịch ngoài công ty"]');
+        assert(await page.locator('#remotePlanForm').isVisible());
         // Exercise the real form binder: decimal coordinates must survive the server locale.
         await page.selectOption('#planMode','HOME');
         await page.fill('#planPlace','Nhà kiểm thử tọa độ');
@@ -54,9 +60,12 @@ const path=require('node:path');
         await page.locator('#remotePlanForm button[type=submit]').click();
         assert.equal((await saved).status(),200);
         await page.waitForFunction(()=>document.querySelector('#remotePlans').textContent.includes('Nhà kiểm thử tọa độ'));
+        assert.equal(await page.locator('#remotePlanForm').isVisible(),false);
         await page.setViewportSize({width:390,height:844});
+        await page.click('#btnOpenCreateRequest');
+        await page.click('.tc-create-item[data-type="Đăng ký lịch ngoài công ty"]');
         assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
-        await page.locator('#remoteRegistration').scrollIntoViewIfNeeded();
+        assert(await page.locator('#remotePlanForm').isVisible());
         await page.screenshot({path:path.join(process.env.HRM_REMOTE_TEST_OUTPUT,'procedures-mobile.png'),animations:'disabled'});
         await page.goto(origin+'/RemoteAttendance');
         await page.waitForFunction(()=>document.querySelector('#remotePlan').options.length>1);

@@ -11,8 +11,11 @@
     const formatTime = s => String(s || '').replace('T',' ').slice(0,19);
     const map = (lat, lng) => lat != null && lng != null ? `<a class="hrm-btn" href="https://www.google.com/maps?q=${Number(lat)},${Number(lng)}" target="_blank" rel="noopener noreferrer">Xem bản đồ</a>` : '';
     let plans = [], capture = null, stream = null, syncing = false;
-    function message(text, error = false) { $('remoteMessage').textContent = text; $('remoteMessage').hidden = !text; $('remoteMessage').classList.toggle('is-error',error); }
-    function token() { return root.querySelector('[name=__RequestVerificationToken]').value; }
+    function message(text, error = false) {
+        const target=$('remotePlanPanel')?.closest('#tcCreateModal.is-open') ? $('remotePlanMessage') : $('remoteMessage');
+        target.textContent=text; target.hidden=!text; target.classList.toggle('is-error',error);
+    }
+    function token() { return ($('remotePlanForm') || $('remotePunchForm')).querySelector('[name=__RequestVerificationToken]').value; }
     async function api(action, body) {
         const controller = new AbortController(), timer = setTimeout(() => controller.abort(),30000);
         try {
@@ -170,7 +173,7 @@
     $('planLocate').onclick=async()=>{ $('planLocate').disabled=true; try {const gps=await locate(); $('planLat').value=gps.latitude; $('planLng').value=gps.longitude; planMap(); message(`Đã lấy tọa độ đăng ký, sai số ±${Math.round(gps.accuracy)} m. Kiểm tra bản đồ trước khi gửi.`);}catch(e){message(e.message,true);}finally{$('planLocate').disabled=false;} };
     $('remotePlanForm').onsubmit=async event=>{
         event.preventDefault(); const button=event.target.querySelector('[type=submit]'); button.disabled=true;
-        try { const body=new FormData(event.target); body.set('IsFlexible',$('planFlexible').checked); body.set('WorkDaysMask',[...root.querySelectorAll('.remote-day:checked')].reduce((sum,x)=>sum+Number(x.value),0)); body.set('__RequestVerificationToken',token()); await api('Plan',body); message('Đã gửi đăng ký, quản lý sẽ nhận thông báo.'); await load(); }
+        try { const body=new FormData(event.target); body.set('IsFlexible',$('planFlexible').checked); body.set('WorkDaysMask',[...$('remotePlanForm').querySelectorAll('.remote-day:checked')].reduce((sum,x)=>sum+Number(x.value),0)); body.set('__RequestVerificationToken',token()); await api('Plan',body); document.dispatchEvent(new Event('remote:planCreated')); message('Đã gửi đăng ký, quản lý sẽ nhận thông báo.'); await load(); }
         catch(error) { message(error.message,true); } finally { button.disabled=false; }
     };
     }
@@ -188,8 +191,8 @@
                 if (!$('remotePlanForm')) { location.href='/Home/LeaveRequests?remotePlan='+encodeURIComponent(button.dataset.copyPlan)+'#remoteRegistration'; return; }
                 const plan=plans.find(x=>x.Plan.Id===Number(button.dataset.copyPlan))?.Plan; if(!plan) return;
                 for(const input of $('remotePlanForm').elements) if(input.name && !['FromDate','ToDate','__RequestVerificationToken'].includes(input.name)) input.value=plan[input.name] ?? '';
-                $('planFlexible').checked=plan.IsFlexible; root.querySelectorAll('.remote-day').forEach(x=>x.checked=(plan.WorkDaysMask&Number(x.value))!==0);
-                $('planStart').value=time(plan.WindowStart); $('planEnd').value=time(plan.WindowEnd); planMode(); planMap(); $('remotePlanForm').scrollIntoView({behavior:'smooth'});
+                $('planFlexible').checked=plan.IsFlexible; $('remotePlanForm').querySelectorAll('.remote-day').forEach(x=>x.checked=(plan.WorkDaysMask&Number(x.value))!==0);
+                $('planStart').value=time(plan.WindowStart); $('planEnd').value=time(plan.WindowEnd); planMode(); planMap(); window.openRemoteWorkRequest?.();
             } else if(button.dataset.discard) {
                 if(!confirm('Xóa bản chờ chưa đồng bộ trên thiết bị?')) return;
                 await dbOp('queue','delete',button.dataset.discard); await showQueue();
@@ -213,6 +216,8 @@
         if (!plansOnly) return sync();
         const copyId=Number(new URLSearchParams(location.search).get('remotePlan'));
         if (copyId) root.querySelector(`[data-copy-plan="${copyId}"]`)?.click();
+        else if (location.hash === '#remoteRegistration') window.openRemoteWorkRequest?.();
     }).catch(e=>message(e.message,true));
+    if (plansOnly) window.addEventListener('hashchange',()=>{if(location.hash==='#remoteRegistration') window.openRemoteWorkRequest?.();});
     if (!plansOnly) showQueue().catch(e=>message(e.message,true));
 })();

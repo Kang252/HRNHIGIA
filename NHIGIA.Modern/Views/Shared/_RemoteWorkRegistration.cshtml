@@ -3,8 +3,10 @@
 <section id="remoteRegistration" class="remote-section">
 <div class="remote-page" id="remoteAttendance" data-user-id="@Model.Id" data-mode="plans">
     <div id="remoteMessage" class="remote-message" role="status" aria-live="polite" hidden></div>
-    <p class="remote-intro">Đăng ký lịch làm tại nhà hoặc đi thị trường và theo dõi kết quả duyệt tại đây. Khi đến giờ làm, mở <a href="/RemoteAttendance">Chấm công ngoài công ty</a> để ghi nhận ảnh và GPS.</p>
-        <section class="hrm-card">
+
+    <div id="remotePlanParking" hidden>
+        <section id="remotePlanPanel" class="hrm-card remote-page">
+            <div id="remotePlanMessage" class="remote-message" role="status" aria-live="polite" hidden></div>
             <div class="hrm-card-header"><h2 class="hrm-card-title">Đăng ký lịch ngoài công ty</h2></div>
             <form id="remotePlanForm" class="hrm-card-body">
                 @Html.AntiForgeryToken()
@@ -39,6 +41,7 @@
                 <button class="hrm-btn hrm-btn-primary remote-submit" type="submit">Gửi đăng ký để duyệt</button>
             </form>
         </section>
+    </div>
     <section class="hrm-card remote-section">
         <div class="hrm-card-header remote-actions"><h2 class="hrm-card-title">Lịch ngoài công ty đã đăng ký</h2><label>Từ <input id="remoteFrom" type="date" class="hrm-control" /></label><label>Đến <input id="remoteTo" type="date" class="hrm-control" /></label><button type="button" class="hrm-btn" id="remoteRefresh">Tải dữ liệu</button></div>
         <div class="hrm-card-body"><p class="hrm-field-note">Theo dõi, dùng lại thông tin hoặc hủy lịch. Người có quyền có thể duyệt lịch trong phạm vi phụ trách.</p><div id="remotePlans" class="remote-list"></div></div>
