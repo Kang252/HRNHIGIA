@@ -4,7 +4,7 @@
     const valid=(lat,lng)=>lat!==null && lng!==null && lat!=='' && lng!=='' && Number.isFinite(Number(lat)) && Number.isFinite(Number(lng)) && Math.abs(Number(lat))<=90 && Math.abs(Number(lng))<=180;
     function create(canvas,status,editable,onSelect) {
         if (!window.L) { status.textContent='Không tải được bản đồ. Bạn vẫn có thể nhập tọa độ hoặc lấy GPS.'; return null; }
-        const instance=L.map(canvas,{scrollWheelZoom:false}).setView([10.7769,106.7009],12);
+        const instance=L.map(canvas,{scrollWheelZoom:true}).setView([10.7769,106.7009],12);
         let marker,circle,layer;
         const attribution='&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors';
         const extra=document.createElement('span');extra.textContent=config?.dataset.attribution || '';
