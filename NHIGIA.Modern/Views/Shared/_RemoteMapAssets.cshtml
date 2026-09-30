@@ -1,0 +1,6 @@
+@inject Microsoft.Extensions.Configuration.IConfiguration MapConfiguration
+<link rel="stylesheet" href="~/lib/leaflet/leaflet.css" asp-append-version="true" />
+<link rel="stylesheet" href="~/Content/remote-map.css" asp-append-version="true" />
+<div id="remoteMapConfig" hidden data-tile-url="@(MapConfiguration["Maps:TileUrl"] ?? "https://tile.openstreetmap.org/{z}/{x}/{y}.png")" data-attribution="@(MapConfiguration["Maps:Attribution"] ?? "")"></div>
+<script src="~/lib/leaflet/leaflet.js" asp-append-version="true" defer></script>
+<script src="~/Scripts/remote-map.js" asp-append-version="true" defer></script>

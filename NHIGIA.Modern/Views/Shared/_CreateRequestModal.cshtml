@@ -1767,6 +1767,7 @@
         }
         $('#createStepTypes').removeClass('is-active');
         $('#createStepForm').addClass('is-active');
+        if (type === 'Đăng ký lịch ngoài công ty') document.dispatchEvent(new Event('remote:formOpened'));
     }
 
     function openDirectLeaveModal() {

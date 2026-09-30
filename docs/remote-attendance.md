@@ -19,6 +19,14 @@ Bấm **Đồng bộ lại** hoặc đợi sự kiện có mạng khi trang đan
 
 Camera và GPS cần HTTPS và quyền của người dùng. GPS được lấy theo từng lượt, không có theo dõi nền. Tài liệu trình duyệt: [Geolocation](https://developer.mozilla.org/en-US/docs/Web/API/Geolocation/getCurrentPosition), [camera](https://developer.mozilla.org/en-US/docs/Web/API/MediaDevices/getUserMedia). Dữ liệu GPS/selfie phía trình duyệt có thể bị giả lập; bản này không tuyên bố chống giả mạo hoặc nhận diện AI.
 
+## Bản đồ địa điểm
+
+Form đăng ký tích hợp Leaflet 1.9.4 (thư viện lưu cùng ứng dụng) và nền OpenStreetMap. Mở vùng địa lý để bấm chọn hoặc kéo ghim; tọa độ và vòng bán kính cập nhật theo form. Nút lấy GPS vẫn cần quyền vị trí. Bản đồ lịch hiển thị bán kính đăng ký; bản đồ lượt chấm hiển thị vòng sai số GPS, không phải vùng làm việc được duyệt. Vị trí lượt chấm chỉ để xem, không chỉnh qua bản đồ.
+
+Có thể đổi máy chủ raster tiles bằng `Maps__TileUrl` (HTTPS, mẫu `{z}/{x}/{y}`) và `Maps__Attribution` (ghi nguồn dạng văn bản) trên Render. Khóa nằm trong URL tiles là khóa công khai phía trình duyệt: chỉ dùng khóa được nhà cung cấp cho phép và giới hạn theo tên miền. Google Maps/Vietmap SDK và tìm địa chỉ chưa được tích hợp; cần cấu hình dịch vụ tương ứng nếu bổ sung.
+
+Nền mặc định dùng `https://tile.openstreetmap.org/{z}/{x}/{y}.png`, hiển thị nguồn dữ liệu, giữ cache HTTP và chỉ tải khi bản đồ được mở. Không tải trước hoặc lưu bản đồ offline. Dịch vụ công cộng không có SLA; khi cần cam kết vận hành, đổi sang nhà cung cấp có hợp đồng. Tham khảo [Leaflet](https://leafletjs.com/examples/quick-start/) và [chính sách OSM](https://operations.osmfoundation.org/policies/tiles/). Tọa độ nhập tay/GPS và hàng chờ chấm công vẫn hoạt động khi nền bản đồ mất kết nối. Kiểm thử tự động dùng tiles giả lập để không gọi dịch vụ công cộng.
+
 ## Tính công và lưu dữ liệu
 
 - SQL lưu lịch, vị trí, ảnh JPEG tối đa 2 MB, quyết định và nhật ký; ảnh không nằm trong thư mục tĩnh và không mất khi deploy. Endpoint ảnh yêu cầu đăng nhập/phạm vi phù hợp và không cache.

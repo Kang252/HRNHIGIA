@@ -36,6 +36,8 @@
                         <div><label for="planRadius">Bán kính (m)</label><input id="planRadius" name="RadiusMeters" type="number" min="50" max="2000" value="200" class="hrm-control" /></div>
                     </div>
                     <div class="remote-actions"><button type="button" class="hrm-btn" id="planLocate">Lấy vị trí hiện tại</button><a id="planMap" class="hrm-btn" target="_blank" rel="noopener noreferrer" hidden>Xem vị trí trên bản đồ</a></div>
+                    <div id="planMapCanvas" class="remote-map-canvas" aria-label="Bản đồ chọn địa điểm làm việc"></div>
+                    <p id="planMapStatus" class="remote-map-status" role="status">Bấm trên bản đồ hoặc kéo ghim để chọn địa điểm. Vòng tròn hiển thị bán kính cho phép.</p>
                 </details>
                 <label for="planNote">Kế hoạch công việc</label><textarea id="planNote" name="Note" class="hrm-control" maxlength="2000" rows="2"></textarea>
                 <button class="hrm-btn hrm-btn-primary remote-submit" type="submit">Gửi đăng ký để duyệt</button>
@@ -48,4 +50,5 @@
     </section>
 </div>
 </section>
+<partial name="_RemoteMapAssets" />
 <script src="~/Scripts/remote-attendance.js" asp-append-version="true" defer></script>
