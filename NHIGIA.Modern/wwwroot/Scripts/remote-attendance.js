@@ -10,7 +10,25 @@
     const day = s => String(s || '').slice(0,10), time = s => String(s || '').slice(0,5);
     const formatTime = s => String(s || '').replace('T',' ').slice(0,19);
     const map = (lat,lng,radius=0,title='Vị trí chấm công') => lat != null && lng != null ? `<button type="button" class="hrm-btn" data-remote-map data-lat="${Number(lat)}" data-lng="${Number(lng)}" data-radius="${Number(radius)||0}" data-map-title="${esc(title)}">Xem bản đồ</button>` : '';
-    let plans = [], capture = null, stream = null, syncing = false, faceStatus = null;
+    let plans = [], capture = null, stream = null, syncing = false, faceStatus = null, openCvEnabled = false;
+    const faceMatchLabels = {MATCH:'Đạt ngưỡng so khớp',NO_MATCH:'Chưa đạt ngưỡng so khớp',NO_FACE:'Không tìm thấy khuôn mặt',MULTIPLE_FACES:'Ảnh có nhiều khuôn mặt',LOW_QUALITY:'Ảnh chưa đủ chất lượng',INVALID_IMAGE:'Ảnh không hợp lệ',UNAVAILABLE:'Dịch vụ thử nghiệm chưa sẵn sàng',DISABLED:'Thử nghiệm chưa bật',BUSY:'Máy chủ đang bận',TIMEOUT:'So khớp quá thời gian'};
+    function faceTrialState() {
+        if (plansOnly) return;
+        const allowed = openCvEnabled && $('remoteKind').value !== 'VISIT';
+        $('remoteFaceTrial').hidden = !allowed;
+        $('remoteFaceConsent').disabled = !allowed || !capture;
+        if (!allowed) $('remoteFaceConsent').checked = false;
+        $('remoteFaceTrialUnavailable').hidden = openCvEnabled;
+        $('remoteFaceTrialUnavailable').textContent = 'Thử so khớp OpenCV chưa bật. Lượt chấm vẫn được gửi để xác minh thủ công.';
+    }
+    function faceMatchResult(p) {
+        if (!p.FaceEnrollmentId) return '';
+        const score = typeof p.FaceMatchScore === 'number' && Number.isFinite(p.FaceMatchScore) && Math.abs(p.FaceMatchScore) <= 1 ? p.FaceMatchScore.toFixed(3) : null;
+        const threshold = typeof p.FaceMatchThreshold === 'number' && Number.isFinite(p.FaceMatchThreshold) ? p.FaceMatchThreshold.toFixed(3) : null;
+        const result = p.FaceMatchStatus ? `<div class="remote-face-result"><strong>OpenCV · ${esc(faceMatchLabels[p.FaceMatchStatus] || 'Chưa có kết quả xác định')}</strong>${score !== null ? `<p>Điểm tương đồng cosine: <b>${score}</b>${threshold !== null ? ` · Ngưỡng: ${threshold}` : ''}. Đây không phải tỷ lệ xác thực danh tính.</p>` : ''}${p.FaceMatchModelVersion ? `<p class="hrm-field-note">Mô hình: ${esc(p.FaceMatchModelVersion)}</p>` : ''}<p>Chưa kiểm tra người thật (liveness). Cần đối chiếu thủ công để quyết định công.</p></div>` : '';
+        const action = openCvEnabled && p.CanCompareFace ? `<button type="button" class="hrm-btn" data-compare-face="${p.Id}" data-face-owner="${p.UserId === userId}">${p.FaceMatchStatus ? 'Thử lại so khớp OpenCV' : 'Thử so khớp OpenCV'}</button>` : '';
+        return result + (action ? `<div class="remote-actions remote-face-trial-actions">${action}</div>` : '');
+    }
     function ensureFaceReady() {
         if ($('remoteKind').value !== 'VISIT' && faceStatus !== 'ACTIVE')
             throw new Error('Cần đăng ký mẫu khuôn mặt và được HR duyệt trước khi chấm vào/ra. Mở “Khuôn mặt chấm công” để đăng ký.');
@@ -34,7 +52,7 @@
     }
     function formBody(values) { const body = new FormData(); Object.entries(values).forEach(([k,v]) => { if (v != null && v !== '') body.append(k,String(v)); }); body.append('__RequestVerificationToken',token()); return body; }
     function stopCamera() { if (stream) stream.getTracks().forEach(t => t.stop()); stream=null; $('remoteVideo').srcObject=null; $('remoteVideo').hidden=true; $('remoteCapture').disabled=true; }
-    function resetPhoto() { capture=null; $('remotePhoto').hidden=true; $('remotePhoto').removeAttribute('src'); $('remoteGps').textContent='GPS sẽ được lấy cùng lúc chụp ảnh.'; stopCamera(); }
+    function resetPhoto() { capture=null; $('remoteFaceConsent').checked=false; faceTrialState(); $('remotePhoto').hidden=true; $('remotePhoto').removeAttribute('src'); $('remoteGps').textContent='GPS sẽ được lấy cùng lúc chụp ảnh.'; stopCamera(); }
     const locate = () => new Promise((resolve,reject) => {
         if (!navigator.geolocation) return reject(new Error('Thiết bị không hỗ trợ GPS.'));
         navigator.geolocation.getCurrentPosition(p => resolve(p.coords), () => reject(new Error('Chưa lấy được GPS. Kiểm tra quyền vị trí hoặc ghi rõ lý do để quản lý xác minh.')), {enableHighAccuracy:true,timeout:15000,maximumAge:0});
@@ -118,6 +136,7 @@
         const data=await api(`State?from=${encodeURIComponent($('remoteFrom').value)}&to=${encodeURIComponent($('remoteTo').value)}`);
         if(data.UserId!==userId) throw new Error('Tài khoản đã thay đổi. Tải lại trang trước khi tiếp tục.');
         plans=data.Plans;
+        openCvEnabled = data.OpenCvEnabled === true;
         if (!plansOnly) {
         faceStatus = data.FaceEnrollmentStatus;
         $('remoteFaceState').textContent = faceStatus === 'ACTIVE'
@@ -127,13 +146,14 @@
         $('remotePlan').innerHTML='<option value="">Chọn lịch của bạn</option>'+plans.filter(x=>x.Plan.UserId===userId && ['APPROVED','PENDING'].includes(x.Plan.StatusCode)).map(({Plan:p})=>`<option value="${p.Id}">${esc(p.PlaceName)} · ${day(p.FromDate)} · ${esc(labels[p.StatusCode])}</option>`).join('');
         if([...$('remotePlan').options].some(o=>o.value===previous)) $('remotePlan').value=previous;
         planHint();
+        faceTrialState();
         }
         if ($('planTrip')) {
         const oldTrip=$('planTrip').value;
         $('planTrip').innerHTML='<option value="">Không liên kết</option>'+data.Trips.map(p=>`<option value="${p.Id}">${esc(p.RequestCode)} · ${day(p.StartDate)} → ${day(p.EndDate)}</option>`).join(''); $('planTrip').value=oldTrip;
         }
         $('remotePlans').innerHTML=plans.length?plans.map(({Plan:p,CanReview,CanCancel})=>`<article class="remote-item"><header><strong>${esc(p.DisplayName)} · ${p.Mode==='HOME'?'Làm tại nhà':'Đi thị trường'} · #${p.Id}</strong><span class="hrm-badge">${esc(labels[p.StatusCode])}</span></header><p>${esc(p.PlaceName)} · ${day(p.FromDate)} → ${day(p.ToDate)} · ${time(p.WindowStart)}–${time(p.WindowEnd)}</p><p>${p.IsFlexible?'Linh hoạt '+p.RequiredMinutes+' phút/ngày':'Ca theo khung giờ'} · Nghỉ ${p.BreakMinutes} phút · ${p.Latitude!=null?'Bán kính '+p.RadiusMeters+' m':'Đi theo tuyến, ghi GPS thực tế'}</p><p>${esc(p.Note)} ${p.ReviewNote?' / Xử lý: '+esc(p.ReviewNote):''}</p><div class="remote-actions">${map(p.Latitude,p.Longitude,p.RadiusMeters,'Vùng làm việc đã đăng ký')}${p.UserId===userId?`<button type="button" class="hrm-btn" data-copy-plan="${p.Id}">Dùng lại thông tin</button>`:''}${CanReview?`<button class="hrm-btn" data-review="ReviewPlan" data-id="${p.Id}" data-approve="true">Duyệt lịch</button><button class="hrm-btn" data-review="ReviewPlan" data-id="${p.Id}" data-approve="false">Từ chối</button>`:''}${CanCancel?`<button class="hrm-btn" data-cancel-plan="${p.Id}">Hủy lịch</button>`:''}</div></article>`).join(''):'Chưa có đăng ký trong khoảng này.';
-        if ($('remotePunches')) $('remotePunches').innerHTML=data.Punches.length?data.Punches.map(p=>`<article class="remote-item"><header><strong>${esc(p.DisplayName)} · ${esc(labels[p.Kind])}</strong><span class="hrm-badge">${esc(labels[p.StatusCode])}</span></header><p>${formatTime(p.CheckTime)} · ${esc(p.PlaceName)} · Lịch #${p.PlanId}</p><p>GPS: ${p.AccuracyMeters!=null?'sai số ±'+Math.round(p.AccuracyMeters)+' m':'chưa có'}${p.DistanceMeters!=null?' · Cách điểm đăng ký '+Math.round(p.DistanceMeters)+' m':''}</p>${p.ReviewReason?`<p class="remote-note">${esc(p.ReviewReason)}</p>`:''}<p>${esc(p.Note)} ${p.ReviewNote?' / Xử lý: '+esc(p.ReviewNote):''}</p>${p.FaceEnrollmentId?`<p>Danh tính: ${p.FaceVerificationStatus==='MANUAL_APPROVED'?'Đã đối chiếu thủ công':p.FaceVerificationStatus==='MANUAL_REJECTED'?'Đã từ chối khi xác minh':'Chờ đối chiếu thủ công'}</p>${p.CanReview?`<details class="remote-face-compare"><summary>Đối chiếu ảnh mẫu và ảnh chấm công</summary><div><figure><img src="/RemoteAttendance/FaceReference/${p.Id}" alt="Ảnh mẫu đã được HR duyệt; không còn xem được nếu đã thu hồi" loading="lazy"><figcaption>Mẫu đã được HR duyệt</figcaption></figure><figure><img src="/RemoteAttendance/Photo/${p.Id}" alt="Ảnh của lượt chấm đang duyệt" loading="lazy"><figcaption>Ảnh lượt chấm công</figcaption></figure></div><p>Chỉ chấp nhận khi xác minh đúng nhân viên. Nếu mẫu đã bị thu hồi, yêu cầu đăng ký và chấm lại.</p></details>`:''}`:''}<div class="remote-actions">${map(p.Latitude,p.Longitude,p.AccuracyMeters,'Vị trí chấm công · vòng sai số GPS')}<a class="hrm-btn" href="/RemoteAttendance/Photo/${p.Id}" target="_blank" rel="noopener">Xem ảnh</a>${p.CanReview?`<button class="hrm-btn" data-review="ReviewPunch" data-id="${p.Id}" data-approve="true">Chấp nhận lượt</button><button class="hrm-btn" data-review="ReviewPunch" data-id="${p.Id}" data-approve="false">Từ chối</button>`:''}</div></article>`).join(''):'Chưa có lượt chấm trong khoảng này.';
+        if ($('remotePunches')) $('remotePunches').innerHTML=data.Punches.length?data.Punches.map(p=>`<article class="remote-item"><header><strong>${esc(p.DisplayName)} · ${esc(labels[p.Kind])}</strong><span class="hrm-badge">${esc(labels[p.StatusCode])}</span></header><p>${formatTime(p.CheckTime)} · ${esc(p.PlaceName)} · Lịch #${p.PlanId}</p><p>GPS: ${p.AccuracyMeters!=null?'sai số ±'+Math.round(p.AccuracyMeters)+' m':'chưa có'}${p.DistanceMeters!=null?' · Cách điểm đăng ký '+Math.round(p.DistanceMeters)+' m':''}</p>${p.ReviewReason?`<p class="remote-note">${esc(p.ReviewReason)}</p>`:''}<p>${esc(p.Note)} ${p.ReviewNote?' / Xử lý: '+esc(p.ReviewNote):''}</p>${p.FaceEnrollmentId?`<p>Danh tính: ${p.FaceVerificationStatus==='MANUAL_APPROVED'?'Đã đối chiếu thủ công':p.FaceVerificationStatus==='MANUAL_REJECTED'?'Đã từ chối khi xác minh':'Chờ đối chiếu thủ công'}</p>${p.CanReview?`<details class="remote-face-compare"><summary>Đối chiếu ảnh mẫu và ảnh chấm công</summary><div><figure><img src="/RemoteAttendance/FaceReference/${p.Id}" alt="Ảnh mẫu đã được HR duyệt; không còn xem được nếu đã thu hồi" loading="lazy"><figcaption>Mẫu đã được HR duyệt</figcaption></figure><figure><img src="/RemoteAttendance/Photo/${p.Id}" alt="Ảnh của lượt chấm đang duyệt" loading="lazy"><figcaption>Ảnh lượt chấm công</figcaption></figure></div><p>Chỉ chấp nhận khi xác minh đúng nhân viên. Nếu mẫu đã bị thu hồi, yêu cầu đăng ký và chấm lại.</p></details>`:''}`:''}${faceMatchResult(p)}<div class="remote-actions">${map(p.Latitude,p.Longitude,p.AccuracyMeters,'Vị trí chấm công · vòng sai số GPS')}<a class="hrm-btn" href="/RemoteAttendance/Photo/${p.Id}" target="_blank" rel="noopener">Xem ảnh</a>${p.CanReview?`<button class="hrm-btn" data-review="ReviewPunch" data-id="${p.Id}" data-approve="true">Chấp nhận lượt</button><button class="hrm-btn" data-review="ReviewPunch" data-id="${p.Id}" data-approve="false">Từ chối</button>`:''}</div></article>`).join(''):'Chưa có lượt chấm trong khoảng này.';
     }
 
     if (!plansOnly) {
@@ -145,12 +165,14 @@
     };
     $('remoteCapture').onclick=async()=>{
         $('remoteCapture').disabled=true;
+        $('remoteFaceConsent').checked=false;
         try {
             const video=$('remoteVideo'); if(!video.videoWidth) throw new Error('Camera chưa sẵn sàng.');
             const canvas=document.createElement('canvas'), scale=Math.min(1,960/video.videoWidth);
             canvas.width=video.videoWidth*scale; canvas.height=video.videoHeight*scale;
             canvas.getContext('2d').drawImage(video,0,0,canvas.width,canvas.height);
             capture={Photo:canvas.toDataURL('image/jpeg',0.78),CapturedAt:new Date().toISOString()};
+            faceTrialState();
             $('remotePhoto').src=capture.Photo; $('remotePhoto').hidden=false; stopCamera();
             $('remoteGps').textContent='Đang lấy GPS…'; $('remoteSend').disabled=true;
             try { const gps=await locate(); Object.assign(capture,{Latitude:gps.latitude,Longitude:gps.longitude,AccuracyMeters:gps.accuracy}); $('remoteGps').textContent=`Đã lấy vị trí; sai số ±${Math.round(gps.accuracy)} m.`; }
@@ -167,7 +189,7 @@
             if(Date.now()-new Date(capture.CapturedAt).getTime()>5*60000) throw new Error('Ảnh đã quá 5 phút. Vui lòng chụp lại.');
             if(capture.Latitude==null && !$('remoteNote').value.trim()) throw new Error('Vui lòng giải trình khi không lấy được GPS.');
             if((await queued()).length>=50) throw new Error('Đã có 50 lượt chờ. Đồng bộ hoặc xử lý các lượt cũ trước.');
-            const item={...capture,ClientId:crypto.randomUUID(),OwnerUserId:userId,PlanId:Number($('remotePlan').value),Kind:$('remoteKind').value,PlaceName:$('remotePlace').value.trim(),Note:$('remoteNote').value.trim() || (!navigator.onLine?'Ghi nhận trong lúc mất mạng.':''),WasOffline:!navigator.onLine};
+            const item={...capture,ClientId:crypto.randomUUID(),OwnerUserId:userId,PlanId:Number($('remotePlan').value),Kind:$('remoteKind').value,PlaceName:$('remotePlace').value.trim(),Note:$('remoteNote').value.trim() || (!navigator.onLine?'Ghi nhận trong lúc mất mạng.':''),WasOffline:!navigator.onLine,FaceMatchConsent:openCvEnabled && $('remoteKind').value !== 'VISIT' && $('remoteFaceConsent').checked};
             await saveQueued(item); resetPhoto(); $('remoteNote').value='';
             message('Đã lưu lượt chấm trên thiết bị. Đang chờ đồng bộ.'); await showQueue(); await sync();
         } catch(error) { message(error.message,true); }
@@ -188,9 +210,19 @@
     }
     root.addEventListener('click',async event=>{
         const button=event.target.closest('button');
-        if(!button || !button.matches('[data-review],[data-cancel-plan],[data-copy-plan],[data-discard],[data-queue-note]')) return;
+        if(!button || !button.matches('[data-review],[data-cancel-plan],[data-copy-plan],[data-discard],[data-queue-note],[data-compare-face]')) return;
         try {
-            if(button.dataset.review) {
+            if(button.dataset.compareFace) {
+                const owner = button.dataset.faceOwner === 'true';
+                const explanation = owner
+                    ? 'Anh/chị đồng ý dùng ảnh lượt chấm đã lưu và mẫu đã được HR duyệt để thử so khớp trên máy chủ OpenCV do công ty vận hành? Ảnh không gửi đến AWS. Đây chưa phải kiểm tra người thật (liveness); lượt chấm vẫn chờ xác minh thủ công.'
+                    : 'Thử so khớp ảnh lượt chấm và mẫu đã được HR duyệt trên máy chủ OpenCV do công ty vận hành? Nhân viên đã đồng ý cho lượt này. Kết quả không kiểm tra người thật (liveness) và không tự duyệt công.';
+                if (!confirm(explanation)) return;
+                button.disabled=true;
+                await api('CompareFace',formBody({id:button.dataset.compareFace,consent:owner}));
+                message('Đã xử lý yêu cầu thử so khớp. Xem kết quả của lượt chấm bên dưới; trạng thái công vẫn cần xác minh thủ công.');
+                await load();
+            } else if(button.dataset.review) {
                 const note=prompt('Ghi chú xác minh / lý do xử lý (bắt buộc):'); if(!note?.trim()) return;
                 button.disabled=true; await api(button.dataset.review,formBody({id:button.dataset.id,approve:button.dataset.approve,note})); message('Đã lưu kết quả xử lý.'); await load();
             } else if(button.dataset.cancelPlan) {

@@ -36,11 +36,20 @@ public partial class HrmDataStore
         using var db = OpenConnection();
         var rows = db.Query<RemotePunch>(@"SELECT TOP (500) p.Id,p.ClientId,p.UserId,p.PlanId,p.Kind,p.CapturedAt,p.CheckTime,
             p.ReceivedAt,p.WasOffline,p.Latitude,p.Longitude,p.AccuracyMeters,p.DistanceMeters,p.PlaceName,p.Note,
-            p.StatusCode,p.ReviewReason,p.ReviewNote,p.FaceEnrollmentId,p.FaceVerificationStatus,u.DisplayName,u.DepartmentId,u.RoleCode
+            p.StatusCode,p.ReviewReason,p.ReviewNote,p.FaceEnrollmentId,p.FaceVerificationStatus,
+            p.FaceMatchStatus,p.FaceMatchScore,p.FaceMatchThreshold,p.FaceMatchModelVersion,p.FaceComparedAt,p.FaceMatchConsentAt,
+            u.DisplayName,u.DepartmentId,u.RoleCode
             FROM dbo.HrmRemotePunch p JOIN dbo.HrmUserAccount u ON u.Id=p.UserId
             WHERE p.CheckTime>=@From AND p.CheckTime<DATEADD(day,1,@To) AND " + RemoteScope +
             " ORDER BY p.CheckTime DESC,p.Id DESC", RemoteFilter(actor, from, to)).ToList();
-        foreach (var row in rows) row.CanReview = row.StatusCode == "PENDING" && RemoteAttendancePolicy.CanReview(actor, row.UserId, row.DepartmentId, row.RoleCode);
+        foreach (var row in rows)
+        {
+            row.CanReview = row.StatusCode == "PENDING" && RemoteAttendancePolicy.CanReview(actor, row.UserId, row.DepartmentId, row.RoleCode);
+            row.CanCompareFace = row.StatusCode == "PENDING" && row.FaceEnrollmentId.HasValue && !FaceMatchResult.IsTerminal(row.FaceMatchStatus)
+                && (row.UserId == actor.Id || row.CanReview && row.FaceMatchConsentAt.HasValue);
+            if (row.FaceComparedAt.HasValue) row.FaceComparedAt = DateTime.SpecifyKind(row.FaceComparedAt.Value, DateTimeKind.Utc);
+            if (row.FaceMatchConsentAt.HasValue) row.FaceMatchConsentAt = DateTime.SpecifyKind(row.FaceMatchConsentAt.Value, DateTimeKind.Utc);
+        }
         return rows;
     }
 
@@ -102,7 +111,7 @@ public partial class HrmDataStore
         tx.Commit();
     }
 
-    public object RecordRemotePunch(RemotePunchRequest punch, byte[] photo, HrmUserAccountModel actor, string ip)
+    public RemotePunchReceipt RecordRemotePunch(RemotePunchRequest punch, byte[] photo, HrmUserAccountModel actor, string ip)
     {
         if (punch.OwnerUserId != actor.Id) throw new InvalidOperationException("Bản ghi thuộc tài khoản khác. Đăng nhập lại đúng tài khoản đã chấm.");
         using var db = OpenConnection();
@@ -111,7 +120,7 @@ public partial class HrmDataStore
         db.ExecuteScalar<int>("SELECT Id FROM dbo.HrmUserAccount WITH(UPDLOCK,HOLDLOCK) WHERE Id=@Id", new { actor.Id }, tx);
         var existing = db.QuerySingleOrDefault<RemotePunch>("SELECT Id,StatusCode,ReviewReason FROM dbo.HrmRemotePunch WHERE UserId=@UserId AND ClientId=@ClientId",
             new { UserId = actor.Id, punch.ClientId }, tx);
-        if (existing != null) { tx.Commit(); return new { existing.Id, existing.StatusCode, existing.ReviewReason }; }
+        if (existing != null) { tx.Commit(); return new RemotePunchReceipt { Id = existing.Id, StatusCode = existing.StatusCode, ReviewReason = existing.ReviewReason }; }
         long? enrollmentId = null;
         if (punch.Kind is "IN" or "OUT")
         {
@@ -128,21 +137,26 @@ public partial class HrmDataStore
         var evaluated = RemoteAttendancePolicy.Evaluate(plan, punch, DateTimeOffset.UtcNow);
         // A human-approved reference is not a biometric match. Never auto-approve without a real provider result.
         if (enrollmentId.HasValue)
-            evaluated.Reason = string.Join("; ", new[] { evaluated.Reason, "Chưa kết nối nhận diện/liveness; cần xác minh danh tính thủ công" }.Where(x => !string.IsNullOrEmpty(x)));
+            evaluated.Reason = string.Join("; ", new[] { evaluated.Reason, "Chưa xác thực người thật (liveness); cần xác minh danh tính thủ công" }.Where(x => !string.IsNullOrEmpty(x)));
         EnsureRemotePeriodOpen(db, tx, evaluated.CheckTime);
         var status = string.IsNullOrEmpty(evaluated.Reason) ? "APPROVED" : "PENDING";
         var id = db.ExecuteScalar<long>(@"INSERT dbo.HrmRemotePunch(ClientId,UserId,PlanId,Kind,CapturedAt,CheckTime,WasOffline,
-            Latitude,Longitude,AccuracyMeters,DistanceMeters,PlaceName,Note,PhotoContent,PhotoContentType,StatusCode,ReviewReason,IncludedAt,FaceEnrollmentId,FaceVerificationStatus)
+            Latitude,Longitude,AccuracyMeters,DistanceMeters,PlaceName,Note,PhotoContent,PhotoContentType,StatusCode,ReviewReason,IncludedAt,FaceEnrollmentId,FaceVerificationStatus,
+            FaceMatchConsentAt,FaceMatchConsentVersion)
             OUTPUT INSERTED.Id VALUES(@ClientId,@UserId,@PlanId,@Kind,@CapturedAt,@CheckTime,@WasOffline,@Latitude,@Longitude,
-            @AccuracyMeters,@Distance,@PlaceName,@Note,@Photo,'image/jpeg',@Status,@Reason,CASE WHEN @Status='APPROVED' THEN SYSDATETIME() END,@EnrollmentId,@FaceStatus)",
+            @AccuracyMeters,@Distance,@PlaceName,@Note,@Photo,'image/jpeg',@Status,@Reason,CASE WHEN @Status='APPROVED' THEN SYSDATETIME() END,@EnrollmentId,@FaceStatus,
+            CASE WHEN @MatchConsent=1 THEN SYSUTCDATETIME() END,CASE WHEN @MatchConsent=1 THEN @ConsentVersion END)",
             new { punch.ClientId, UserId = actor.Id, punch.PlanId, punch.Kind, punch.CapturedAt, evaluated.CheckTime, punch.WasOffline,
                 punch.Latitude, punch.Longitude, punch.AccuracyMeters, evaluated.Distance, punch.PlaceName, punch.Note, Photo = photo, Status = status, evaluated.Reason,
-                EnrollmentId = enrollmentId, FaceStatus = enrollmentId.HasValue ? "MANUAL_REQUIRED" : null }, tx);
+                EnrollmentId = enrollmentId, FaceStatus = enrollmentId.HasValue ? "MANUAL_REQUIRED" : null,
+                MatchConsent = enrollmentId.HasValue && punch.FaceMatchConsent, ConsentVersion = FaceMatchConsentVersion }, tx);
         if (status == "APPROVED" && punch.Kind != "VISIT") InvalidateRemoteConfirmation(db, tx, actor.Id, evaluated.CheckTime);
         if (status == "PENDING") NotifyRemoteReviewers(db, tx, actor.Id, "Lượt chấm ngoài công ty cần xác minh", actor.DisplayName + ": " + evaluated.Reason);
         AddAudit(db, actor.Id, "CREATE", "RemotePunch", id.ToString(), $"{punch.Kind}: {status}", ip, tx);
+        if (enrollmentId.HasValue && punch.FaceMatchConsent)
+            AddAudit(db, actor.Id, "CONSENT", "RemoteFaceMatch", id.ToString(), FaceMatchConsentVersion, ip, tx);
         tx.Commit();
-        return new { Id = id, StatusCode = status, ReviewReason = evaluated.Reason };
+        return new RemotePunchReceipt { Id = id, StatusCode = status, ReviewReason = evaluated.Reason };
     }
 
     public void DecideRemotePunch(long id, bool approve, string note, HrmUserAccountModel actor, string ip)

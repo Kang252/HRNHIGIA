@@ -2,12 +2,12 @@
 
 ## Phạm vi bản hiện tại
 
-Đã có đăng ký ảnh và HR/Admin duyệt để đối soát danh tính. **Chưa tích hợp API so khớp khuôn mặt hoặc kiểm tra người thật (liveness)**; ảnh đã duyệt không phải kết quả xác thực AI. Không có tài khoản/API key AWS trong bản triển khai này.
+Đã có đăng ký ảnh và HR/Admin duyệt để đối soát danh tính. Có thể bật **thử so khớp OpenCV nội bộ** trên từng lượt chấm ngoài công ty; đây chỉ là điểm tương đồng ảnh, không kiểm tra người thật (liveness) và không tự duyệt công. Không có API nhận diện bên thứ ba hoặc tài khoản/API key AWS trong bản triển khai này.
 
 1. Nhân viên mở **Hồ sơ của tôi → Khuôn mặt chấm công** (`/FaceEnrollment`), đọc thông tin sử dụng ảnh, đồng ý và chụp ảnh trực tiếp.
 2. HR/Admin vào cùng trang, đối chiếu người đăng ký với hồ sơ nhân sự, rồi duyệt hoặc từ chối kèm ghi chú. Không tự duyệt đăng ký của mình.
 3. Trạng thái `ACTIVE` nghĩa là **mẫu đã được HR duyệt**. Nhân viên mới được gửi lượt vào/ra ngoài công ty sau thời điểm mẫu được duyệt. Ảnh chụp từ trước thời điểm này phải chụp lại.
-4. Khi chưa có dịch vụ AI, mọi lượt vào/ra mới vẫn **chờ xác minh thủ công**, dù GPS và lịch hợp lệ. Chỉ lượt được duyệt mới vào bảng công. Lượt ghé khách hàng không tạo giờ vào/ra và không bắt buộc mẫu khuôn mặt.
+4. Mỗi lượt vào/ra vẫn **chờ xác minh thủ công**, kể cả khi OpenCV báo đạt ngưỡng, GPS và lịch hợp lệ. Chỉ lượt được duyệt mới vào bảng công. Lượt ghé khách hàng không tạo giờ vào/ra và không bắt buộc mẫu khuôn mặt.
 5. Muốn đăng ký lại, nhân viên thu hồi mẫu hiện tại rồi gửi mẫu mới và chờ duyệt. Chủ tài khoản hoặc HR/Admin được thu hồi; tối đa một mẫu đang chờ/đang hoạt động theo luồng ứng dụng. Mỗi lần gửi cách nhau ít nhất 60 giây, tối đa 3 lần trong 24 giờ.
 
 Thu hồi mẫu chặn phê duyệt các lượt mới đang chờ gắn với mẫu đó; nhân viên phải đăng ký và chấm lại. Các lượt đã được duyệt và dữ liệu HANET cũ không bị tự xóa hay tính lại. Chấm offline không được xem là đã vượt qua liveness; server vẫn kiểm tra thời điểm chụp, mẫu và quyền khi đồng bộ.
@@ -19,13 +19,13 @@ Thu hồi mẫu chặn phê duyệt các lượt mới đang chờ gắn với m
 - Từ chối hoặc thu hồi sẽ xóa nội dung ảnh mẫu trong bảng hoạt động (`PhotoProtected=NULL`), giữ lịch sử quyết định. Điều này không xóa ảnh chứng từ chấm công riêng hoặc bản sao lưu đã tồn tại; thời hạn giữ/xóa backup cần nằm trong quy trình vận hành.
 - Khóa Data Protection mặc định được giữ trong `HrmDataProtectionKey` của SQL. Nếu cấu hình `HRM_DATA_PROTECTION_PATH`, đường dẫn phải nằm trên ổ lưu bền vững và được sao lưu. Không xóa kho khóa hoặc đổi `SetApplicationName("NHIGIA.Modern.v1")` khi deploy; mất khóa sẽ không đọc được ảnh đã mã hóa.
 - Bảo vệ và sao lưu cả dữ liệu lẫn kho khóa; mã hóa ứng dụng không thay thế kiểm soát quyền SQL hay mã hóa backup. Khi dùng kho khóa trong cùng database, không coi đây là bảo vệ khỏi người đã có toàn quyền database.
-- Startup chạy migration bổ sung `App_Data/face-enrollment.sql` sau bảng chấm công ngoài công ty. Tài khoản triển khai phải có quyền tạo bảng, chỉ mục và bổ sung cột; không thay đổi dữ liệu production để chạy thử.
+- Startup chạy migration bổ sung `App_Data/face-enrollment.sql` sau bảng chấm công ngoài công ty, rồi chạy `App_Data/opencv-face-trial.sql` để thêm cột lưu sự đồng ý và kết quả thử. Tài khoản triển khai phải có quyền tạo bảng, chỉ mục và bổ sung cột; không thay đổi dữ liệu chấm công hiện có.
 
-Nguồn triển khai: `NHIGIA.Modern/Controllers/FaceEnrollmentController.cs`, `Infrastructure/HrmDataStore.FaceEnrollment.cs`, `Infrastructure/HrmDataStore.RemoteAttendance.cs`, `App_Data/face-enrollment.sql` và cấu hình Data Protection trong `Program.cs`.
+Nguồn triển khai: `NHIGIA.Modern/Controllers/FaceEnrollmentController.cs`, `Infrastructure/HrmDataStore.FaceEnrollment.cs`, `Infrastructure/HrmDataStore.RemoteAttendance.cs`, `Infrastructure/OpenCvFaceMatcher.cs`, `App_Data/face-enrollment.sql`, `App_Data/opencv-face-trial.sql` và cấu hình Data Protection trong `Program.cs`. Hướng dẫn giới hạn và cấu hình chạy OpenCV nằm tại [`docs/opencv-face-trial.md`](opencv-face-trial.md).
 
-## Giai đoạn tự xác thực: khuyến nghị AWS
+## Giai đoạn tự xác thực có liveness: phương án sau thử nghiệm
 
-Đề xuất **Amazon Rekognition Face Liveness + CompareFaces**: kiểm tra người thật và đối chiếu 1:1 với mẫu của tài khoản đang đăng nhập. Đây là hướng tích hợp tiếp theo, **chưa có mã kết nối hay kiểm thử với AWS trong bản này**.
+Nếu sau này doanh nghiệp cần tự xác minh người thật và tự động quyết định công, cần một dịch vụ liveness chuyên dụng kết hợp so khớp 1:1. **Amazon Rekognition Face Liveness + CompareFaces** là một phương án có tính phí, chưa được tích hợp ở đây. Bản OpenCV hiện tại chỉ là thử nghiệm miễn phí theo lượt gọi, chạy trên máy chủ HRM; máy chủ vẫn phát sinh chi phí tài nguyên.
 
 Luồng dự kiến: backend tạo phiên gắn với người dùng/mục đích → thành phần `FaceLivenessDetector` thu video → backend đọc kết quả trực tiếp từ AWS → so khớp ảnh tham chiếu với mẫu đã duyệt → kiểm tra GPS/lịch và ghi công. Khi bắt đầu dùng AI, mẫu thủ công hiện có cần được đăng ký/xác minh lại qua luồng liveness trước khi bật duyệt tự động.
 

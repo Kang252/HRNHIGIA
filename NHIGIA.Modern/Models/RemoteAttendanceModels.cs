@@ -41,6 +41,7 @@ public class RemotePunchRequest
     public string Kind { get; set; }
     public DateTimeOffset CapturedAt { get; set; }
     public bool WasOffline { get; set; }
+    public bool FaceMatchConsent { get; set; }
     [ModelBinder(BinderType = typeof(InvariantCoordinateBinder))]
     public double? Latitude { get; set; }
     [ModelBinder(BinderType = typeof(InvariantCoordinateBinder))]
@@ -67,4 +68,11 @@ public class RemotePunch : RemotePunchRequest
     public bool CanReview { get; set; }
     public long? FaceEnrollmentId { get; set; }
     public string FaceVerificationStatus { get; set; }
+    public string FaceMatchStatus { get; set; }
+    public double? FaceMatchScore { get; set; }
+    public double? FaceMatchThreshold { get; set; }
+    public string FaceMatchModelVersion { get; set; }
+    public DateTime? FaceComparedAt { get; set; }
+    public DateTime? FaceMatchConsentAt { get; set; }
+    public bool CanCompareFace { get; set; }
 }

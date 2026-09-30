@@ -76,6 +76,7 @@ else
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<HrmDataStore>();
+builder.Services.AddSingleton<IOpenCvFaceMatcher, OpenCvFaceMatcher>();
 builder.Services.AddSingleton<HanetAttendanceSyncService>();
 builder.Services.AddHostedService(provider => provider.GetRequiredService<HanetAttendanceSyncService>());
 
@@ -122,6 +123,7 @@ try
     store.EnsureSchema(Path.Combine(app.Environment.ContentRootPath, "App_Data", "hrm-mvp.sql"));
     store.EnsureSchema(Path.Combine(app.Environment.ContentRootPath, "App_Data", "remote-attendance.sql"));
     store.EnsureSchema(Path.Combine(app.Environment.ContentRootPath, "App_Data", "face-enrollment.sql"));
+    store.EnsureSchema(Path.Combine(app.Environment.ContentRootPath, "App_Data", "opencv-face-trial.sql"));
 }
 catch (Exception exception)
 {

@@ -82,3 +82,6 @@ NHIGIA.Modern/appsettings.Production.json
 **/Web.config
 
 _logs/
+__pycache__/
+NHIGIA.Modern/OpenCv/models/
+NHIGIA.Modern/OpenCv/.venv/

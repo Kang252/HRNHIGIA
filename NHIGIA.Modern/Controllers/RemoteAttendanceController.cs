@@ -9,7 +9,9 @@ namespace NHIGIA.Modern.Controllers;
 public sealed class RemoteAttendanceController : BaseController
 {
     private readonly ILogger<RemoteAttendanceController> _logger;
-    public RemoteAttendanceController(HrmDataStore store, HrmUserAccessor users, ILogger<RemoteAttendanceController> logger) : base(store, users) => _logger = logger;
+    private readonly IOpenCvFaceMatcher _faceMatcher;
+    public RemoteAttendanceController(HrmDataStore store, HrmUserAccessor users, ILogger<RemoteAttendanceController> logger,
+        IOpenCvFaceMatcher faceMatcher) : base(store, users) { _logger = logger; _faceMatcher = faceMatcher; }
 
     private HrmUserAccountModel Actor()
     {
@@ -46,6 +48,7 @@ public sealed class RemoteAttendanceController : BaseController
     {
         UserId = actor.Id,
         FaceEnrollmentStatus = Store.GetFaceEnrollmentState(actor).Enrollment?.StatusCode,
+        OpenCvEnabled = _faceMatcher.IsEnabled,
         Plans = Store.GetRemotePlans(actor, from, to).Select(p => new
         {
             Plan = p, CanReview = p.StatusCode == "PENDING" && RemoteAttendancePolicy.CanReview(actor, p.UserId, p.DepartmentId, p.RoleCode),
@@ -64,6 +67,24 @@ public sealed class RemoteAttendanceController : BaseController
     public IActionResult CancelPlan(long id) => Run(actor => { Store.CancelRemotePlan(id, actor, Ip); return new { Id = id }; });
     [HttpPost]
     public IActionResult ReviewPunch(long id, bool approve, string note) => Run(actor => { Store.DecideRemotePunch(id, approve, note, actor, Ip); return new { Id = id }; });
+
+    [HttpPost]
+    public async Task<IActionResult> CompareFace(long id, bool consent, CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (!ModelState.IsValid) return BadRequest(ApiResponse.Fail("Dữ liệu nhập không hợp lệ."));
+            var result = await Store.CompareRemoteFaceAsync(id, consent, Actor(), Ip, _faceMatcher, cancellationToken);
+            return Json(ApiResponse.Ok(result));
+        }
+        catch (UnauthorizedAccessException) { return StatusCode(403, ApiResponse.Fail("Tài khoản không có quyền đối chiếu lượt chấm này.")); }
+        catch (InvalidOperationException error) { return BadRequest(ApiResponse.Fail(error.Message)); }
+        catch (Exception error)
+        {
+            _logger.LogError(error, "OpenCV face trial failed for remote punch {PunchId}", id);
+            return StatusCode(503, ApiResponse.Fail("Chưa thể thử so khớp. Lượt chấm vẫn chờ xác minh thủ công."));
+        }
+    }
 
     [HttpPost, RequestSizeLimit(3 * 1024 * 1024)]
     public async Task<IActionResult> Punch(RemotePunchRequest request, IFormFile photo)

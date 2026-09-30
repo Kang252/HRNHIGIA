@@ -6,7 +6,7 @@
         <div class="remote-actions"><a class="hrm-btn hrm-btn-primary" href="/Home/LeaveRequests#remoteRegistration">Đăng ký lịch tại Thủ tục</a><a class="hrm-btn" asp-controller="Home" asp-action="Attendance">Bảng chấm công tháng</a></div>
     </div>
     <div id="remoteMessage" class="remote-message" role="status" aria-live="polite" hidden></div>
-    <p class="remote-intro">Đăng ký mẫu khuôn mặt và chờ HR duyệt trước khi chấm vào/ra. Chưa kết nối nhận diện/liveness tự động: lượt vào/ra cần được xác minh thủ công trước khi tính công.</p>
+    <p class="remote-intro">Đăng ký mẫu khuôn mặt và chờ HR duyệt trước khi chấm vào/ra. Thử so khớp ảnh OpenCV chỉ hỗ trợ đối chiếu, chưa kiểm tra người thật (liveness). Lượt vào/ra vẫn cần xác minh thủ công trước khi tính công.</p>
     <div class="remote-intro"><strong id="remoteFaceState">Đang kiểm tra mẫu khuôn mặt…</strong> <a class="hrm-btn" href="/FaceEnrollment">Khuôn mặt chấm công</a></div>
     <div>
         <section class="hrm-card">
@@ -25,6 +25,12 @@
                     <div class="remote-actions"><button class="hrm-btn" type="button" id="remoteOpenCamera">Mở camera</button><button class="hrm-btn" type="button" id="remoteCapture" disabled>Chụp ảnh và lấy GPS</button></div>
                 </div>
                 <p id="remoteGps" class="hrm-field-note">GPS sẽ được lấy cùng lúc chụp ảnh.</p>
+                <div class="remote-face-trial" id="remoteFaceTrial" hidden>
+                    <strong>Thử so khớp khuôn mặt OpenCV</strong>
+                    <label class="remote-check" for="remoteFaceConsent"><input id="remoteFaceConsent" type="checkbox" disabled /><span>Tôi đồng ý dùng ảnh lượt chấm này và mẫu đã được HR duyệt để thử so khớp trên máy chủ OpenCV do công ty vận hành.</span></label>
+                    <p class="hrm-field-note">Tùy chọn cho từng lượt vào/ra. Ảnh không được gửi đến AWS. Kết quả chỉ hỗ trợ đối chiếu, không chứng minh người thật và không tự duyệt công. Nếu đang offline, lựa chọn này được lưu cùng lượt chấm và thực hiện khi đồng bộ.</p>
+                </div>
+                <p id="remoteFaceTrialUnavailable" class="hrm-field-note">Đang kiểm tra tính năng thử so khớp…</p>
                 <label for="remoteNote">Nội dung công việc / giải trình</label><textarea id="remoteNote" class="hrm-control" maxlength="2000" rows="3" placeholder="Ghi chú nếu đổi điểm, GPS yếu, làm ngoài giờ hoặc mất mạng"></textarea>
                 <button class="hrm-btn hrm-btn-primary remote-submit" type="submit" id="remoteSend">Ghi nhận lượt chấm</button>
                 <p class="hrm-field-note">Khi mất mạng: giữ trang đã mở để chấm. Bản ghi được lưu trên thiết bị và gửi lại khi có mạng, sau đó chờ quản lý xác minh.</p>

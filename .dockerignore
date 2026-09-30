@@ -19,3 +19,6 @@ publish
 **/appsettings.Production.json
 **/bin
 **/obj
+**/__pycache__
+NHIGIA.Modern/OpenCv/models
+NHIGIA.Modern/OpenCv/.venv

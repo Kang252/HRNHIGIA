@@ -6,7 +6,7 @@
     const statusLabels = {PENDING: 'Chờ HR duyệt', ACTIVE: 'HR đã duyệt mẫu', REJECTED: 'HR từ chối mẫu', REVOKED: 'Đã thu hồi mẫu'};
     const statusDetails = {
         PENDING: 'Mẫu đang chờ HR đối chiếu. Bạn có thể thu hồi nếu cần chụp và gửi lại.',
-        ACTIVE: 'Ảnh tham chiếu đã được HR xác nhận. Lượt chấm vào/ra vẫn chờ quản lý đối chiếu; so khớp tự động và liveness chưa được kích hoạt.',
+        ACTIVE: 'Ảnh tham chiếu đã được HR xác nhận. Bạn có thể chọn thử so khớp OpenCV tại trang chấm công khi được bật. Lượt vào/ra vẫn chờ quản lý đối chiếu; chưa có kiểm tra liveness.',
         REJECTED: 'Kiểm tra ghi chú của HR rồi chụp ảnh mới để gửi lại.',
         REVOKED: 'Mẫu đã ngừng sử dụng. Chụp ảnh mới và gửi HR duyệt khi bạn muốn đăng ký lại.'
     };

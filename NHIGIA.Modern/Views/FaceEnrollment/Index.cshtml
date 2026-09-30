@@ -6,7 +6,7 @@
         <div class="face-actions"><a class="hrm-btn" asp-controller="Home" asp-action="MyProfile">Hồ sơ của tôi</a><a class="hrm-btn" asp-controller="RemoteAttendance" asp-action="Index">Chấm công ngoài công ty</a></div>
     </div>
     <div id="faceMessage" class="face-message" role="status" aria-live="polite" hidden></div>
-    <div class="face-intro"><strong>Xác nhận ảnh bởi HR</strong><p>Ảnh được chụp trực tiếp và gửi HR kiểm tra. HR và người có quyền duyệt chấm công được xem mẫu theo phạm vi phụ trách để đối chiếu danh tính. Hệ thống chưa kết nối dịch vụ so khớp khuôn mặt hoặc kiểm tra người thật (liveness); mẫu được duyệt chưa đồng nghĩa đã xác thực tự động.</p><p>Bạn cần mẫu được HR duyệt để chấm vào/ra ngoài công ty. Các lượt này tiếp tục chờ quản lý đối chiếu trước khi được tính công.</p></div>
+    <div class="face-intro"><strong>Xác nhận ảnh bởi HR</strong><p>Ảnh được chụp trực tiếp và gửi HR kiểm tra. HR và người có quyền duyệt chấm công được xem mẫu theo phạm vi phụ trách để đối chiếu danh tính. Mẫu được duyệt chưa đồng nghĩa đã xác thực tự động hoặc đã kiểm tra người thật (liveness).</p><p>Bạn cần mẫu được HR duyệt để chấm vào/ra ngoài công ty. Tại trang chấm công, bạn có thể đồng ý thử so khớp OpenCV trên từng lượt khi tính năng được bật. Các lượt vẫn chờ quản lý đối chiếu trước khi được tính công.</p></div>
     <div class="face-columns">
         <section class="hrm-card" aria-labelledby="faceStatusTitle">
             <div class="hrm-card-header"><h2 id="faceStatusTitle" class="hrm-card-title">Mẫu của tôi</h2><button id="faceRefresh" class="hrm-btn" type="button">Tải lại</button></div>
