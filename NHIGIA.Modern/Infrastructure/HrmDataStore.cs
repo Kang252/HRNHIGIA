@@ -20,6 +20,7 @@ namespace NHIGIA.Modern.Infrastructure
         {
             _configuration = configuration;
             _protector = dataProtectionProvider.CreateProtector("NHIGIA", "HanetCredential", "v1");
+            _faceProtector = dataProtectionProvider.CreateProtector("NHIGIA", "FaceEnrollment", "v1");
         }
 
         private SqlConnection OpenConnection()

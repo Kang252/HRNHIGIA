@@ -8,8 +8,8 @@ Mở **Thủ tục → Tạo thủ tục → Đăng ký lịch ngoài công ty**
 2. **Làm tại nhà:** nhập tọa độ nhà và bán kính 50–2.000 m, mặc định 200 m; dùng nút lấy vị trí hiện tại khi đang ở nhà và kiểm tra bằng liên kết bản đồ. Có thể dùng lại thông tin địa điểm từ lịch cũ để gửi đăng ký mới.
 3. **Đi thị trường:** ghi tuyến/khu vực; tọa độ vùng là tùy chọn. Để trống tọa độ cho tuyến linh hoạt, hoặc nhập tọa độ/bán kính để đối chiếu. Có thể liên kết đơn “Công tác/Ra ngoài” đã được duyệt của chính nhân viên, bao phủ khoảng ngày. Mỗi lượt được nhập khách hàng/điểm phát sinh thực tế.
 4. Quản lý duyệt lịch kèm ghi chú. Quản lý phòng chỉ xử lý nhân viên thuộc phòng; HR/Admin/Giám đốc có phạm vi toàn công ty. Không tự duyệt. Một nhân viên không có hai lịch ngoài công ty được duyệt trùng ngày áp dụng; hủy lịch trùng trước khi thay thế.
-5. Chọn lịch, lượt **Vào làm / Kết thúc làm / Ghé khách hàng**, chụp ảnh và lấy GPS rồi gửi. Ảnh selfie phục vụ đối soát lúc vào/ra; ảnh điểm bán dùng cho lượt ghé khách hàng. Không có kiểm tra khuôn mặt/liveness tự động trong bản này.
-6. Lượt đúng lịch/khung giờ, GPS đủ chính xác và chắc chắn trong vùng (nếu có vùng) được chấp nhận. Các ngoại lệ cần ghi chú, chuyển chờ xác minh; quản lý mở danh sách, xem ảnh/vị trí và duyệt hoặc từ chối kèm lý do.
+5. Trước khi chấm vào/ra, mở **Hồ sơ của tôi → Khuôn mặt chấm công**, gửi ảnh và chờ HR/Admin duyệt mẫu. Sau đó chọn lịch, lượt **Vào làm / Kết thúc làm / Ghé khách hàng**, chụp ảnh và lấy GPS rồi gửi. Ảnh selfie phục vụ đối soát lúc vào/ra; ảnh điểm bán dùng cho lượt ghé khách hàng. Lượt ghé khách hàng không yêu cầu mẫu khuôn mặt và không tạo giờ công. Xem [hướng dẫn đăng ký khuôn mặt](face-enrollment.md).
+6. **Mọi lượt vào/ra mới đều chờ xác minh thủ công**, kể cả khi đúng lịch/khung giờ và GPS hợp lệ, vì chưa tích hợp so khớp khuôn mặt/liveness tự động. Người có quyền duyệt xem ảnh lượt chấm, mẫu đã duyệt gắn với lượt đó và vị trí, rồi xử lý kèm ghi chú. Các ngoại lệ lịch/GPS/offline vẫn cần giải trình. Lượt ghé khách hàng hợp lệ được ghi nhận; lượt có ngoại lệ chờ xác minh như trước.
 
 ## Offline và quyền thiết bị
 
@@ -29,7 +29,8 @@ Nền mặc định dùng `https://tile.openstreetmap.org/{z}/{x}/{y}.png`, hi�
 
 ## Tính công và lưu dữ liệu
 
-- SQL lưu lịch, vị trí, ảnh JPEG tối đa 2 MB, quyết định và nhật ký; ảnh không nằm trong thư mục tĩnh và không mất khi deploy. Endpoint ảnh yêu cầu đăng nhập/phạm vi phù hợp và không cache.
+- SQL lưu lịch, vị trí, ảnh JPEG tối đa 2 MB, quyết định và nhật ký; ảnh không nằm trong thư mục tĩnh và không mất khi deploy. Endpoint ảnh yêu cầu đăng nhập/phạm vi phù hợp và không cache. Ảnh mẫu đăng ký được mã hóa riêng bằng Data Protection; phải giữ kho khóa bền vững qua deploy như [hướng dẫn khuôn mặt](face-enrollment.md).
+- Mỗi lượt vào/ra mới tham chiếu mẫu khuôn mặt đang hoạt động của người chấm. Mẫu chưa duyệt hoặc ảnh chấm chụp trước khi mẫu được duyệt bị từ chối. Thu hồi mẫu không xóa công đã được duyệt, nhưng chặn phê duyệt lượt đang chờ liên quan; cần đăng ký/chấm lại.
 - Lượt ghé khách hàng lưu bằng chứng nhưng không tạo giờ vào/ra. Lượt chờ/từ chối không tính công. Lượt đã chấp nhận hợp nhất với HANET thành một dòng/người/ngày và dùng chung xuất Excel, dashboard, AI và chốt kỳ.
 - Lượt vào/ra có loại rõ ràng: hai lượt vào không tự sinh lượt ra. Ca linh hoạt xét số phút đủ trong khung giờ thay cho phạt vào muộn/về sớm. Danh sách hiển thị “Chưa đủ giờ” khi hết khung giờ nhưng thiếu thời lượng.
 - Lượt mới được chấp nhận làm mất xác nhận tháng cũ của nhân viên để đối chiếu lại. Khóa kỳ thông thường chặn khi còn lượt vào/ra chờ xác minh. Kỳ khóa không cho tải/duyệt lượt mới; HR phải mở khóa trước. Khóa ngoại lệ hiện có vẫn yêu cầu lý do.
@@ -37,8 +38,8 @@ Nền mặc định dùng `https://tile.openstreetmap.org/{z}/{x}/{y}.png`, hi�
 
 ## Triển khai và kiểm chứng
 
-Startup chạy `App_Data/remote-attendance.sql` sau `hrm-mvp.sql`; migration chỉ tạo bảng mới nếu chưa có. Tài khoản SQL triển khai cần quyền tạo bảng và chỉ mục. Không sửa dữ liệu mẫu/nhân viên trong môi trường thật để kiểm thử.
+Startup chạy `App_Data/remote-attendance.sql` sau `hrm-mvp.sql`, tiếp theo là `App_Data/face-enrollment.sql` để tạo bảng mẫu và bổ sung cột liên kết khuôn mặt vào lượt chấm. Các migration kiểm tra bảng/cột đã có trước khi thêm. Tài khoản SQL triển khai cần quyền tạo bảng, chỉ mục và bổ sung cột. Không sửa dữ liệu mẫu/nhân viên trong môi trường thật để kiểm thử.
 
 `dotnet run --project tests/RemoteAttendance.Tests -c Release` kiểm tra policy không cần SQL. Cờ `--integration` tạo rồi xóa một database riêng có tiền tố `NHIGIA_RemoteTests_` trên LocalDB instance `NHIGIA`; không đọc chuỗi kết nối production. Cờ `--browser` chạy camera/GPS giả lập, kiểm tra offline và layout trong trình duyệt trên loopback. Chọn Playwright bằng biến `HRM_TEST_PLAYWRIGHT` nếu máy không có module trên đường dẫn mặc định.
 
-Cần thí điểm trên điện thoại thực (quyền camera, GPS trong nhà, mạng chập chờn) trước khi dùng để chốt lương. Face ID/liveness và theo dõi lộ trình nền là các giai đoạn tiếp theo, chưa nằm trong tính năng đã triển khai ở bản này.
+Cần thí điểm trên điện thoại thực (quyền camera, GPS trong nhà, mạng chập chờn) trước khi dùng để chốt lương. Đăng ký ảnh/HR duyệt đã có; Face ID/liveness tự động và theo dõi lộ trình nền vẫn là các giai đoạn tiếp theo, chưa nằm trong bản này.

@@ -330,6 +330,10 @@
                     <i class="material-icons">edit</i> Chỉnh sửa hồ sơ
                 </a>
             }
+            @if (isViewingSelf)
+            {
+                <a class="s5-btn s5-btn-outline" href="@Url.Action("Index", "FaceEnrollment")"><i class="material-icons">face</i> Khuôn mặt chấm công</a>
+            }
             <a class="s5-btn s5-btn-primary" href="@Url.Action("Attendance", "Home")">
                 <i class="material-icons">schedule</i> Chấm công
             </a>

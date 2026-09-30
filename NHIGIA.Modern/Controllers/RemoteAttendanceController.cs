@@ -45,6 +45,7 @@ public sealed class RemoteAttendanceController : BaseController
     public IActionResult State(DateTime from, DateTime to) => Run(actor => new
     {
         UserId = actor.Id,
+        FaceEnrollmentStatus = Store.GetFaceEnrollmentState(actor).Enrollment?.StatusCode,
         Plans = Store.GetRemotePlans(actor, from, to).Select(p => new
         {
             Plan = p, CanReview = p.StatusCode == "PENDING" && RemoteAttendancePolicy.CanReview(actor, p.UserId, p.DepartmentId, p.RoleCode),
@@ -75,6 +76,23 @@ public sealed class RemoteAttendanceController : BaseController
         if (bytes[0] != 0xff || bytes[1] != 0xd8 || bytes[2] != 0xff || bytes[^2] != 0xff || bytes[^1] != 0xd9)
             return BadRequest(ApiResponse.Fail("Ảnh JPEG không hợp lệ."));
         return Run(actor => Store.RecordRemotePunch(request, bytes, actor, Ip));
+    }
+
+    [HttpGet]
+    public IActionResult FaceReference(long id)
+    {
+        try
+        {
+            var content = Store.GetRemoteFaceReference(id, Actor());
+            Response.Headers["X-Content-Type-Options"] = "nosniff";
+            return content == null ? NotFound() : File(content, "image/jpeg");
+        }
+        catch (UnauthorizedAccessException) { return Forbid(); }
+        catch (Exception error)
+        {
+            _logger.LogError(error, "Cannot load face reference for remote punch {PunchId}", id);
+            return StatusCode(503, ApiResponse.Fail("Chưa tải được ảnh tham chiếu. Vui lòng thử lại."));
+        }
     }
 
     [HttpGet]

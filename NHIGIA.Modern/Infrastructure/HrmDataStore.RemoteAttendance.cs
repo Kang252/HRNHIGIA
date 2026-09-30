@@ -1,5 +1,6 @@
 using System.Data;
 using Dapper;
+using Microsoft.AspNetCore.DataProtection;
 using NHIGIA.Modern.Models;
 
 namespace NHIGIA.Modern.Infrastructure;
@@ -35,7 +36,7 @@ public partial class HrmDataStore
         using var db = OpenConnection();
         var rows = db.Query<RemotePunch>(@"SELECT TOP (500) p.Id,p.ClientId,p.UserId,p.PlanId,p.Kind,p.CapturedAt,p.CheckTime,
             p.ReceivedAt,p.WasOffline,p.Latitude,p.Longitude,p.AccuracyMeters,p.DistanceMeters,p.PlaceName,p.Note,
-            p.StatusCode,p.ReviewReason,p.ReviewNote,u.DisplayName,u.DepartmentId,u.RoleCode
+            p.StatusCode,p.ReviewReason,p.ReviewNote,p.FaceEnrollmentId,p.FaceVerificationStatus,u.DisplayName,u.DepartmentId,u.RoleCode
             FROM dbo.HrmRemotePunch p JOIN dbo.HrmUserAccount u ON u.Id=p.UserId
             WHERE p.CheckTime>=@From AND p.CheckTime<DATEADD(day,1,@To) AND " + RemoteScope +
             " ORDER BY p.CheckTime DESC,p.Id DESC", RemoteFilter(actor, from, to)).ToList();
@@ -111,18 +112,32 @@ public partial class HrmDataStore
         var existing = db.QuerySingleOrDefault<RemotePunch>("SELECT Id,StatusCode,ReviewReason FROM dbo.HrmRemotePunch WHERE UserId=@UserId AND ClientId=@ClientId",
             new { UserId = actor.Id, punch.ClientId }, tx);
         if (existing != null) { tx.Commit(); return new { existing.Id, existing.StatusCode, existing.ReviewReason }; }
+        long? enrollmentId = null;
+        if (punch.Kind is "IN" or "OUT")
+        {
+            var enrollment = db.QuerySingleOrDefault<FaceEnrollmentModel>(@"SELECT Id,ReviewedAt FROM dbo.HrmFaceEnrollment WITH(UPDLOCK,HOLDLOCK)
+                WHERE UserId=@Id AND StatusCode='ACTIVE'", new { actor.Id }, tx);
+            if (enrollment == null) throw new InvalidOperationException("Đăng ký khuôn mặt trong Hồ sơ của tôi và chờ HR duyệt trước khi chấm vào/ra.");
+            if (!enrollment.ReviewedAt.HasValue || punch.CapturedAt.UtcDateTime < enrollment.ReviewedAt.Value)
+                throw new InvalidOperationException("Ảnh chấm được chụp trước khi mẫu khuôn mặt được duyệt. Vui lòng chụp lại.");
+            enrollmentId = enrollment.Id;
+        }
         var plan = db.QuerySingleOrDefault<RemoteWorkPlan>("SELECT * FROM dbo.HrmRemoteWorkPlan WITH(HOLDLOCK) WHERE Id=@PlanId AND UserId=@UserId",
             new { punch.PlanId, UserId = actor.Id }, tx);
         if (plan == null) throw new InvalidOperationException("Không tìm thấy đăng ký của bạn.");
         var evaluated = RemoteAttendancePolicy.Evaluate(plan, punch, DateTimeOffset.UtcNow);
+        // A human-approved reference is not a biometric match. Never auto-approve without a real provider result.
+        if (enrollmentId.HasValue)
+            evaluated.Reason = string.Join("; ", new[] { evaluated.Reason, "Chưa kết nối nhận diện/liveness; cần xác minh danh tính thủ công" }.Where(x => !string.IsNullOrEmpty(x)));
         EnsureRemotePeriodOpen(db, tx, evaluated.CheckTime);
         var status = string.IsNullOrEmpty(evaluated.Reason) ? "APPROVED" : "PENDING";
         var id = db.ExecuteScalar<long>(@"INSERT dbo.HrmRemotePunch(ClientId,UserId,PlanId,Kind,CapturedAt,CheckTime,WasOffline,
-            Latitude,Longitude,AccuracyMeters,DistanceMeters,PlaceName,Note,PhotoContent,PhotoContentType,StatusCode,ReviewReason,IncludedAt)
+            Latitude,Longitude,AccuracyMeters,DistanceMeters,PlaceName,Note,PhotoContent,PhotoContentType,StatusCode,ReviewReason,IncludedAt,FaceEnrollmentId,FaceVerificationStatus)
             OUTPUT INSERTED.Id VALUES(@ClientId,@UserId,@PlanId,@Kind,@CapturedAt,@CheckTime,@WasOffline,@Latitude,@Longitude,
-            @AccuracyMeters,@Distance,@PlaceName,@Note,@Photo,'image/jpeg',@Status,@Reason,CASE WHEN @Status='APPROVED' THEN SYSDATETIME() END)",
+            @AccuracyMeters,@Distance,@PlaceName,@Note,@Photo,'image/jpeg',@Status,@Reason,CASE WHEN @Status='APPROVED' THEN SYSDATETIME() END,@EnrollmentId,@FaceStatus)",
             new { punch.ClientId, UserId = actor.Id, punch.PlanId, punch.Kind, punch.CapturedAt, evaluated.CheckTime, punch.WasOffline,
-                punch.Latitude, punch.Longitude, punch.AccuracyMeters, evaluated.Distance, punch.PlaceName, punch.Note, Photo = photo, Status = status, evaluated.Reason }, tx);
+                punch.Latitude, punch.Longitude, punch.AccuracyMeters, evaluated.Distance, punch.PlaceName, punch.Note, Photo = photo, Status = status, evaluated.Reason,
+                EnrollmentId = enrollmentId, FaceStatus = enrollmentId.HasValue ? "MANUAL_REQUIRED" : null }, tx);
         if (status == "APPROVED" && punch.Kind != "VISIT") InvalidateRemoteConfirmation(db, tx, actor.Id, evaluated.CheckTime);
         if (status == "PENDING") NotifyRemoteReviewers(db, tx, actor.Id, "Lượt chấm ngoài công ty cần xác minh", actor.DisplayName + ": " + evaluated.Reason);
         AddAudit(db, actor.Id, "CREATE", "RemotePunch", id.ToString(), $"{punch.Kind}: {status}", ip, tx);
@@ -134,14 +149,23 @@ public partial class HrmDataStore
     {
         ValidateReviewNote(note);
         using var db = OpenConnection();
+        var ownerId = db.QuerySingleOrDefault<int?>("SELECT UserId FROM dbo.HrmRemotePunch WHERE Id=@id", new { id });
+        if (!ownerId.HasValue) throw new InvalidOperationException("Không tìm thấy lượt chấm.");
         using var tx = db.BeginTransaction(IsolationLevel.Serializable);
-        var item = db.QuerySingleOrDefault<RemotePunch>(@"SELECT p.Id,p.UserId,p.CheckTime,p.Kind,p.StatusCode,u.DepartmentId,u.RoleCode
+        // Use the same owner -> evidence -> period lock order as recording/revoking a sample.
+        LockFaceOwner(db, tx, ownerId.Value);
+        var item = db.QuerySingleOrDefault<RemotePunch>(@"SELECT p.Id,p.UserId,p.CheckTime,p.Kind,p.StatusCode,p.FaceEnrollmentId,u.DepartmentId,u.RoleCode
             FROM dbo.HrmRemotePunch p WITH(UPDLOCK,HOLDLOCK) JOIN dbo.HrmUserAccount u ON u.Id=p.UserId AND u.IsActive=1 WHERE p.Id=@id", new { id }, tx);
         if (item == null || item.StatusCode != "PENDING" || !RemoteAttendancePolicy.CanReview(actor, item.UserId, item.DepartmentId, item.RoleCode))
             throw new InvalidOperationException("Không có quyền duyệt hoặc lượt chấm đã được xử lý.");
+        if (approve && item.FaceEnrollmentId.HasValue && db.ExecuteScalar<int>("SELECT COUNT(*) FROM dbo.HrmFaceEnrollment WITH(HOLDLOCK) WHERE Id=@Id AND UserId=@UserId AND StatusCode='ACTIVE'",
+                new { Id = item.FaceEnrollmentId, item.UserId }, tx) != 1)
+            throw new InvalidOperationException("Mẫu khuôn mặt đã bị thu hồi. Nhân viên cần đăng ký và chấm lại trước khi duyệt.");
         EnsureRemotePeriodOpen(db, tx, item.CheckTime);
         db.Execute(@"UPDATE dbo.HrmRemotePunch SET StatusCode=@Status,ReviewNote=@note,ReviewedBy=@Actor,ReviewedAt=SYSDATETIME(),
-            IncludedAt=CASE WHEN @Status='APPROVED' THEN SYSDATETIME() END WHERE Id=@id", new { id, note, Actor = actor.Id, Status = approve ? "APPROVED" : "REJECTED" }, tx);
+            IncludedAt=CASE WHEN @Status='APPROVED' THEN SYSDATETIME() END,
+            FaceVerificationStatus=CASE WHEN FaceEnrollmentId IS NOT NULL THEN @FaceStatus ELSE FaceVerificationStatus END WHERE Id=@id",
+            new { id, note, Actor = actor.Id, Status = approve ? "APPROVED" : "REJECTED", FaceStatus = approve ? "MANUAL_APPROVED" : "MANUAL_REJECTED" }, tx);
         if (approve && item.Kind != "VISIT") InvalidateRemoteConfirmation(db, tx, item.UserId, item.CheckTime);
         AddAudit(db, actor.Id, approve ? "APPROVE" : "REJECT", "RemotePunch", id.ToString(), note, ip, tx);
         NotifyRemoteOwner(db, tx, item.UserId, approve ? "Đã xác minh lượt chấm ngoài công ty" : "Lượt chấm ngoài công ty bị từ chối", note);
@@ -155,6 +179,20 @@ public partial class HrmDataStore
         filter.Add("Id", id);
         return db.QuerySingleOrDefault<byte[]>(@"SELECT p.PhotoContent FROM dbo.HrmRemotePunch p JOIN dbo.HrmUserAccount u ON u.Id=p.UserId
             WHERE p.Id=@Id AND " + RemoteScope, filter);
+    }
+
+    public byte[] GetRemoteFaceReference(long id, HrmUserAccountModel actor)
+    {
+        if (actor?.IsActive != true) throw new UnauthorizedAccessException();
+        using var db = OpenConnection();
+        var filter = new DynamicParameters(RemoteFilter(actor, DateTime.Today, DateTime.Today));
+        filter.Add("Id", id);
+        // Reviewers may compare only the reference linked to an in-scope punch, never browse all samples.
+        var protectedPhoto = db.QuerySingleOrDefault<byte[]>(@"SELECT f.PhotoProtected
+            FROM dbo.HrmRemotePunch p JOIN dbo.HrmUserAccount u ON u.Id=p.UserId AND u.IsActive=1
+            JOIN dbo.HrmFaceEnrollment f ON f.Id=p.FaceEnrollmentId AND f.UserId=p.UserId AND f.StatusCode='ACTIVE'
+            WHERE p.Id=@Id AND " + RemoteScope, filter);
+        return protectedPhoto == null ? null : _faceProtector.Unprotect(protectedPhoto);
     }
 
     private static void EnsureRemotePeriodOpen(IDbConnection db, IDbTransaction tx, DateTime day)

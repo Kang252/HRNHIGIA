@@ -65,4 +65,6 @@ public class RemotePunch : RemotePunchRequest
     public string ReviewNote { get; set; }
     public double? DistanceMeters { get; set; }
     public bool CanReview { get; set; }
+    public long? FaceEnrollmentId { get; set; }
+    public string FaceVerificationStatus { get; set; }
 }

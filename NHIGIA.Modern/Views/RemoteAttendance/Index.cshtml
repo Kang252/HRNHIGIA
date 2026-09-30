@@ -6,7 +6,8 @@
         <div class="remote-actions"><a class="hrm-btn hrm-btn-primary" href="/Home/LeaveRequests#remoteRegistration">Đăng ký lịch tại Thủ tục</a><a class="hrm-btn" asp-controller="Home" asp-action="Attendance">Bảng chấm công tháng</a></div>
     </div>
     <div id="remoteMessage" class="remote-message" role="status" aria-live="polite" hidden></div>
-    <p class="remote-intro">Chỉ lấy vị trí khi bạn chấm công. Ảnh dùng để đối soát, chưa xác thực khuôn mặt tự động. Lượt chờ xác minh chưa được tính công.</p>
+    <p class="remote-intro">Đăng ký mẫu khuôn mặt và chờ HR duyệt trước khi chấm vào/ra. Chưa kết nối nhận diện/liveness tự động: lượt vào/ra cần được xác minh thủ công trước khi tính công.</p>
+    <div class="remote-intro"><strong id="remoteFaceState">Đang kiểm tra mẫu khuôn mặt…</strong> <a class="hrm-btn" href="/FaceEnrollment">Khuôn mặt chấm công</a></div>
     <div>
         <section class="hrm-card">
             <div class="hrm-card-header"><h2 class="hrm-card-title">Ghi nhận lượt chấm</h2><span id="remoteConnection" class="hrm-badge">Đang kiểm tra</span></div>

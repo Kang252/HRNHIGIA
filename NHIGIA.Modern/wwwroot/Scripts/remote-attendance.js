@@ -10,7 +10,11 @@
     const day = s => String(s || '').slice(0,10), time = s => String(s || '').slice(0,5);
     const formatTime = s => String(s || '').replace('T',' ').slice(0,19);
     const map = (lat,lng,radius=0,title='Vị trí chấm công') => lat != null && lng != null ? `<button type="button" class="hrm-btn" data-remote-map data-lat="${Number(lat)}" data-lng="${Number(lng)}" data-radius="${Number(radius)||0}" data-map-title="${esc(title)}">Xem bản đồ</button>` : '';
-    let plans = [], capture = null, stream = null, syncing = false;
+    let plans = [], capture = null, stream = null, syncing = false, faceStatus = null;
+    function ensureFaceReady() {
+        if ($('remoteKind').value !== 'VISIT' && faceStatus !== 'ACTIVE')
+            throw new Error('Cần đăng ký mẫu khuôn mặt và được HR duyệt trước khi chấm vào/ra. Mở “Khuôn mặt chấm công” để đăng ký.');
+    }
     function message(text, error = false) {
         const target=$('remotePlanPanel')?.closest('#tcCreateModal.is-open') ? $('remotePlanMessage') : $('remoteMessage');
         target.textContent=text; target.hidden=!text; target.classList.toggle('is-error',error);
@@ -115,6 +119,10 @@
         if(data.UserId!==userId) throw new Error('Tài khoản đã thay đổi. Tải lại trang trước khi tiếp tục.');
         plans=data.Plans;
         if (!plansOnly) {
+        faceStatus = data.FaceEnrollmentStatus;
+        $('remoteFaceState').textContent = faceStatus === 'ACTIVE'
+            ? 'Mẫu đã được HR duyệt · lượt vào/ra chờ xác minh thủ công.'
+            : faceStatus === 'PENDING' ? 'Mẫu khuôn mặt đang chờ HR duyệt.' : 'Chưa có mẫu khuôn mặt được duyệt để chấm vào/ra.';
         const previous=$('remotePlan').value;
         $('remotePlan').innerHTML='<option value="">Chọn lịch của bạn</option>'+plans.filter(x=>x.Plan.UserId===userId && ['APPROVED','PENDING'].includes(x.Plan.StatusCode)).map(({Plan:p})=>`<option value="${p.Id}">${esc(p.PlaceName)} · ${day(p.FromDate)} · ${esc(labels[p.StatusCode])}</option>`).join('');
         if([...$('remotePlan').options].some(o=>o.value===previous)) $('remotePlan').value=previous;
@@ -125,14 +133,14 @@
         $('planTrip').innerHTML='<option value="">Không liên kết</option>'+data.Trips.map(p=>`<option value="${p.Id}">${esc(p.RequestCode)} · ${day(p.StartDate)} → ${day(p.EndDate)}</option>`).join(''); $('planTrip').value=oldTrip;
         }
         $('remotePlans').innerHTML=plans.length?plans.map(({Plan:p,CanReview,CanCancel})=>`<article class="remote-item"><header><strong>${esc(p.DisplayName)} · ${p.Mode==='HOME'?'Làm tại nhà':'Đi thị trường'} · #${p.Id}</strong><span class="hrm-badge">${esc(labels[p.StatusCode])}</span></header><p>${esc(p.PlaceName)} · ${day(p.FromDate)} → ${day(p.ToDate)} · ${time(p.WindowStart)}–${time(p.WindowEnd)}</p><p>${p.IsFlexible?'Linh hoạt '+p.RequiredMinutes+' phút/ngày':'Ca theo khung giờ'} · Nghỉ ${p.BreakMinutes} phút · ${p.Latitude!=null?'Bán kính '+p.RadiusMeters+' m':'Đi theo tuyến, ghi GPS thực tế'}</p><p>${esc(p.Note)} ${p.ReviewNote?' / Xử lý: '+esc(p.ReviewNote):''}</p><div class="remote-actions">${map(p.Latitude,p.Longitude,p.RadiusMeters,'Vùng làm việc đã đăng ký')}${p.UserId===userId?`<button type="button" class="hrm-btn" data-copy-plan="${p.Id}">Dùng lại thông tin</button>`:''}${CanReview?`<button class="hrm-btn" data-review="ReviewPlan" data-id="${p.Id}" data-approve="true">Duyệt lịch</button><button class="hrm-btn" data-review="ReviewPlan" data-id="${p.Id}" data-approve="false">Từ chối</button>`:''}${CanCancel?`<button class="hrm-btn" data-cancel-plan="${p.Id}">Hủy lịch</button>`:''}</div></article>`).join(''):'Chưa có đăng ký trong khoảng này.';
-        if ($('remotePunches')) $('remotePunches').innerHTML=data.Punches.length?data.Punches.map(p=>`<article class="remote-item"><header><strong>${esc(p.DisplayName)} · ${esc(labels[p.Kind])}</strong><span class="hrm-badge">${esc(labels[p.StatusCode])}</span></header><p>${formatTime(p.CheckTime)} · ${esc(p.PlaceName)} · Lịch #${p.PlanId}</p><p>GPS: ${p.AccuracyMeters!=null?'sai số ±'+Math.round(p.AccuracyMeters)+' m':'chưa có'}${p.DistanceMeters!=null?' · Cách điểm đăng ký '+Math.round(p.DistanceMeters)+' m':''}</p>${p.ReviewReason?`<p class="remote-note">${esc(p.ReviewReason)}</p>`:''}<p>${esc(p.Note)} ${p.ReviewNote?' / Xử lý: '+esc(p.ReviewNote):''}</p><div class="remote-actions">${map(p.Latitude,p.Longitude,p.AccuracyMeters,'Vị trí chấm công · vòng sai số GPS')}<a class="hrm-btn" href="/RemoteAttendance/Photo/${p.Id}" target="_blank" rel="noopener">Xem ảnh</a>${p.CanReview?`<button class="hrm-btn" data-review="ReviewPunch" data-id="${p.Id}" data-approve="true">Chấp nhận lượt</button><button class="hrm-btn" data-review="ReviewPunch" data-id="${p.Id}" data-approve="false">Từ chối</button>`:''}</div></article>`).join(''):'Chưa có lượt chấm trong khoảng này.';
+        if ($('remotePunches')) $('remotePunches').innerHTML=data.Punches.length?data.Punches.map(p=>`<article class="remote-item"><header><strong>${esc(p.DisplayName)} · ${esc(labels[p.Kind])}</strong><span class="hrm-badge">${esc(labels[p.StatusCode])}</span></header><p>${formatTime(p.CheckTime)} · ${esc(p.PlaceName)} · Lịch #${p.PlanId}</p><p>GPS: ${p.AccuracyMeters!=null?'sai số ±'+Math.round(p.AccuracyMeters)+' m':'chưa có'}${p.DistanceMeters!=null?' · Cách điểm đăng ký '+Math.round(p.DistanceMeters)+' m':''}</p>${p.ReviewReason?`<p class="remote-note">${esc(p.ReviewReason)}</p>`:''}<p>${esc(p.Note)} ${p.ReviewNote?' / Xử lý: '+esc(p.ReviewNote):''}</p>${p.FaceEnrollmentId?`<p>Danh tính: ${p.FaceVerificationStatus==='MANUAL_APPROVED'?'Đã đối chiếu thủ công':p.FaceVerificationStatus==='MANUAL_REJECTED'?'Đã từ chối khi xác minh':'Chờ đối chiếu thủ công'}</p>${p.CanReview?`<details class="remote-face-compare"><summary>Đối chiếu ảnh mẫu và ảnh chấm công</summary><div><figure><img src="/RemoteAttendance/FaceReference/${p.Id}" alt="Ảnh mẫu đã được HR duyệt; không còn xem được nếu đã thu hồi" loading="lazy"><figcaption>Mẫu đã được HR duyệt</figcaption></figure><figure><img src="/RemoteAttendance/Photo/${p.Id}" alt="Ảnh của lượt chấm đang duyệt" loading="lazy"><figcaption>Ảnh lượt chấm công</figcaption></figure></div><p>Chỉ chấp nhận khi xác minh đúng nhân viên. Nếu mẫu đã bị thu hồi, yêu cầu đăng ký và chấm lại.</p></details>`:''}`:''}<div class="remote-actions">${map(p.Latitude,p.Longitude,p.AccuracyMeters,'Vị trí chấm công · vòng sai số GPS')}<a class="hrm-btn" href="/RemoteAttendance/Photo/${p.Id}" target="_blank" rel="noopener">Xem ảnh</a>${p.CanReview?`<button class="hrm-btn" data-review="ReviewPunch" data-id="${p.Id}" data-approve="true">Chấp nhận lượt</button><button class="hrm-btn" data-review="ReviewPunch" data-id="${p.Id}" data-approve="false">Từ chối</button>`:''}</div></article>`).join(''):'Chưa có lượt chấm trong khoảng này.';
     }
 
     if (!plansOnly) {
     $('remoteOpenCamera').onclick=async()=>{
         stopCamera(); $('remoteOpenCamera').disabled=true;
-        try { stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:$('remoteKind').value==='VISIT'?'environment':'user',width:{ideal:960},height:{ideal:720}}}); $('remoteVideo').srcObject=stream; $('remoteVideo').hidden=false; await $('remoteVideo').play(); $('remoteCapture').disabled=false; }
-        catch { message('Không mở được camera. Hãy cấp quyền camera và dùng kết nối HTTPS.',true); }
+        try { ensureFaceReady(); stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:$('remoteKind').value==='VISIT'?'environment':'user',width:{ideal:960},height:{ideal:720}}}); $('remoteVideo').srcObject=stream; $('remoteVideo').hidden=false; await $('remoteVideo').play(); $('remoteCapture').disabled=false; }
+        catch (error) { message(faceStatus !== 'ACTIVE' && $('remoteKind').value !== 'VISIT' ? error.message : 'Không mở được camera. Hãy cấp quyền camera và dùng kết nối HTTPS.',true); }
         finally { $('remoteOpenCamera').disabled=false; }
     };
     $('remoteCapture').onclick=async()=>{
@@ -154,6 +162,7 @@
     $('remotePunchForm').onsubmit=async event=>{
         event.preventDefault(); $('remoteSend').disabled=true;
         try {
+            ensureFaceReady();
             if(!capture) throw new Error('Chụp ảnh trước khi ghi nhận.');
             if(Date.now()-new Date(capture.CapturedAt).getTime()>5*60000) throw new Error('Ảnh đã quá 5 phút. Vui lòng chụp lại.');
             if(capture.Latitude==null && !$('remoteNote').value.trim()) throw new Error('Vui lòng giải trình khi không lấy được GPS.');

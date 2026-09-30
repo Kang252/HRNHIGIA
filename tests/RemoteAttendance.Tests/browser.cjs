@@ -98,5 +98,6 @@ const path=require('node:path');
         assert((await page.locator('#remoteMessage').textContent()).includes('giải trình'));
         assert.deepEqual(errors,[]);
         console.log('PASS mobile/desktop layout, camera+GPS, offline encryption/sync, missing GPS explanation, zero page errors');
+        await require('./face-browser.cjs')(browser, origin);
     } finally {await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

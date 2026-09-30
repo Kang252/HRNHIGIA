@@ -1,0 +1,60 @@
+@model HrmUserAccountModel
+<link rel="stylesheet" href="~/Content/face-enrollment.css" asp-append-version="true" />
+<div id="faceEnrollment" class="container-fluid face-page" data-user-id="@Model.Id">
+    <div class="hrm-page-header">
+        <div><h1 class="hrm-page-title">Khuôn mặt chấm công</h1><p class="hrm-page-subtitle">Đăng ký ảnh tham chiếu để HR đối chiếu danh tính khi chấm công ngoài công ty.</p></div>
+        <div class="face-actions"><a class="hrm-btn" asp-controller="Home" asp-action="MyProfile">Hồ sơ của tôi</a><a class="hrm-btn" asp-controller="RemoteAttendance" asp-action="Index">Chấm công ngoài công ty</a></div>
+    </div>
+    <div id="faceMessage" class="face-message" role="status" aria-live="polite" hidden></div>
+    <div class="face-intro"><strong>Xác nhận ảnh bởi HR</strong><p>Ảnh được chụp trực tiếp và gửi HR kiểm tra. HR và người có quyền duyệt chấm công được xem mẫu theo phạm vi phụ trách để đối chiếu danh tính. Hệ thống chưa kết nối dịch vụ so khớp khuôn mặt hoặc kiểm tra người thật (liveness); mẫu được duyệt chưa đồng nghĩa đã xác thực tự động.</p><p>Bạn cần mẫu được HR duyệt để chấm vào/ra ngoài công ty. Các lượt này tiếp tục chờ quản lý đối chiếu trước khi được tính công.</p></div>
+    <div class="face-columns">
+        <section class="hrm-card" aria-labelledby="faceStatusTitle">
+            <div class="hrm-card-header"><h2 id="faceStatusTitle" class="hrm-card-title">Mẫu của tôi</h2><button id="faceRefresh" class="hrm-btn" type="button">Tải lại</button></div>
+            <div class="hrm-card-body">
+                <p><span id="faceStatus" class="face-badge">Đang tải…</span></p>
+                <p id="faceStatusDetail" class="face-muted">Đang kiểm tra mẫu đã đăng ký.</p>
+                <img id="faceReference" class="face-reference" alt="Ảnh khuôn mặt đã đăng ký của bạn" hidden />
+                <p id="faceDates" class="face-muted"></p>
+                <p id="faceReviewNote" class="face-note" hidden></p>
+                <div id="faceRevokePanel" hidden>
+                    <label for="faceRevokeNote">Lý do thu hồi / đăng ký lại</label>
+                    <textarea id="faceRevokeNote" class="hrm-control" rows="2" maxlength="1000" placeholder="Ví dụ: ảnh cũ không còn phù hợp"></textarea>
+                    <button id="faceRevoke" class="hrm-btn face-revoke" type="button">Thu hồi mẫu</button>
+                    <p class="hrm-field-note">Thu hồi sẽ xóa ảnh mẫu và ngừng sử dụng mẫu này. Mẫu thay thế phải được HR duyệt lại; lịch sử xử lý vẫn được giữ.</p>
+                </div>
+            </div>
+        </section>
+        <section class="hrm-card" aria-labelledby="faceCaptureTitle">
+            <div class="hrm-card-header"><h2 id="faceCaptureTitle" class="hrm-card-title">Đăng ký ảnh khuôn mặt</h2></div>
+            <form id="faceForm" class="hrm-card-body">
+                @Html.AntiForgeryToken()
+                <p id="faceRegisterHint" class="face-muted">Đang tải trạng thái đăng ký…</p>
+                <fieldset id="faceCaptureFields" disabled>
+                    <ol class="face-guidance"><li>Chụp chính diện, đủ sáng, khuôn mặt nằm rõ trong khung.</li><li>Bỏ khẩu trang, tránh kính tối màu và vật che khuôn mặt.</li><li>Chỉ đăng ký ảnh của chính bạn; HR sẽ đối chiếu với hồ sơ nhân viên.</li></ol>
+                    <div class="face-camera">
+                        <video id="faceVideo" autoplay playsinline muted hidden aria-label="Camera đăng ký khuôn mặt"></video>
+                        <img id="facePreview" alt="Ảnh vừa chụp, chưa gửi cho HR" hidden />
+                        <p id="faceCameraHint">Camera chỉ hoạt động khi bạn bấm mở. Ảnh chưa gửi không được lưu trên thiết bị.</p>
+                        <div class="face-actions"><button id="faceOpenCamera" type="button" class="hrm-btn">Mở camera</button><button id="faceCapture" type="button" class="hrm-btn" disabled>Chụp ảnh</button></div>
+                    </div>
+                    <label class="face-consent" for="faceConsent"><input id="faceConsent" type="checkbox" required /><span>Tôi đồng ý cung cấp ảnh khuôn mặt của mình để HR và người có quyền duyệt chấm công đối chiếu danh tính theo phạm vi phụ trách. Tôi có thể thu hồi mẫu và yêu cầu HR xử lý dữ liệu đã gửi.</span></label>
+                    <button id="faceSubmit" type="submit" class="hrm-btn hrm-btn-primary" disabled>Gửi HR duyệt</button>
+                    <p class="hrm-field-note">Chỉ gửi khi có mạng. Tối đa 3 lần đăng ký trong 24 giờ, cách nhau ít nhất 60 giây. Nếu không mở được camera, kiểm tra quyền camera trong trình duyệt và thử lại.</p>
+                </fieldset>
+            </form>
+        </section>
+    </div>
+    <section id="faceReviewPanel" class="hrm-card face-section" aria-labelledby="faceReviewTitle" hidden>
+        <div class="hrm-card-header"><h2 id="faceReviewTitle" class="hrm-card-title">HR duyệt mẫu khuôn mặt</h2><span id="facePendingCount" class="face-badge"></span></div>
+        <div class="hrm-card-body"><p class="face-muted">Đối chiếu ảnh với hồ sơ hoặc xác minh trực tiếp nhân viên trước khi duyệt. Không duyệt mẫu của chính mình. Việc duyệt chỉ xác nhận ảnh tham chiếu, không thay thế kiểm tra liveness.</p><div id="facePending" class="face-pending-list"></div></div>
+    </section>
+    <section id="faceActivePanel" class="hrm-card face-section" aria-labelledby="faceActiveTitle" hidden>
+        <div class="hrm-card-header"><h2 id="faceActiveTitle" class="hrm-card-title">Mẫu đang được sử dụng</h2><span id="faceActiveCount" class="face-badge"></span></div>
+        <div class="hrm-card-body">
+            <form id="faceSearchForm" class="face-search"><div><label for="faceSearch">Tìm nhân viên</label><input id="faceSearch" class="hrm-control" type="search" maxlength="100" placeholder="Họ tên hoặc tên đăng nhập" /></div><button type="submit" class="hrm-btn">Tìm kiếm</button></form>
+            <p class="face-muted">Hiển thị tối đa 200 mẫu phù hợp. Tìm theo họ tên hoặc tên đăng nhập để thu hẹp danh sách. HR có thể thu hồi mẫu sai hoặc không còn phù hợp; ảnh sẽ được xóa và nhân viên cần đăng ký lại.</p>
+            <div id="faceActive" class="face-pending-list"></div>
+        </div>
+    </section>
+</div>
+<script src="~/Scripts/face-enrollment.js" asp-append-version="true" defer></script>
