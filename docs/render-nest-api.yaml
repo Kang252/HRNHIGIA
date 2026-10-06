@@ -1,0 +1,37 @@
+# Render Blueprint template for the NestJS/React migration service.
+# Apply this as a separate service. Do not replace the root render.yaml because
+# it continues to deploy the existing ASP.NET Core application.
+services:
+  - type: web
+    name: nhigia-api
+    runtime: docker
+    dockerfilePath: ./NHIGIA.Api/Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "10000"
+      - key: HOST
+        value: 0.0.0.0
+      - key: API_PREFIX
+        value: api/v1
+      - key: CLIENT_APP_DIR
+        value: /app/client-app
+      - key: DB_ENABLED
+        value: "true"
+      - key: DB_CONNECT_ON_STARTUP
+        value: "true"
+      - key: DB_ENCRYPT
+        value: "true"
+      - key: DB_TRUST_SERVER_CERTIFICATE
+        value: "false"
+      - key: AUTH_MODE
+        value: session
+      # Use a SQL-login connection string with Encrypt=True and
+      # TrustServerCertificate=False. The API rejects an untrusted SQL
+      # certificate in production, so do not copy a legacy C# secret that
+      # still sets TrustServerCertificate=True.
+      - key: DB_CONNECTION_STRING
+        sync: false

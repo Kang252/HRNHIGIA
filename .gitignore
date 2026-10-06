@@ -85,3 +85,9 @@ _logs/
 __pycache__/
 NHIGIA.Modern/OpenCv/models/
 NHIGIA.Modern/OpenCv/.venv/
+
+# Node build artifacts and local environment files
+**/node_modules/
+**/dist/
+.env
+**/.env

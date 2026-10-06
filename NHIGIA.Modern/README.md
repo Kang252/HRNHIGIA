@@ -1,8 +1,10 @@
 # HRM Nhị Gia Modern
 
-ASP.NET Core MVC .NET 8 migration host for the existing HRM system. The app now includes cookie authentication, role-based access, dashboard, employee profile, attendance, work schedules, leave requests and approvals, internal communications, reports, and the optional HANET integration.
+ASP.NET Core MVC .NET 10 LTS migration host for the existing HRM system. The app now includes cookie authentication, role-based access, dashboard, employee profile, attendance, work schedules, leave requests and approvals, internal communications, reports, and the optional HANET integration.
 
 ## Run locally
+
+Install the .NET 10 SDK before running the project.
 
 ```powershell
 dotnet run --urls http://localhost:5090

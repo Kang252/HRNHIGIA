@@ -173,7 +173,7 @@ try
     var portListener=new System.Net.Sockets.TcpListener(IPAddress.Loopback,0);portListener.Start();var port=((IPEndPoint)portListener.LocalEndpoint).Port;portListener.Stop();
     var url=$"http://127.0.0.1:{port}";
     var start=new ProcessStartInfo("dotnet"){WorkingDirectory=root,UseShellExecute=false,RedirectStandardOutput=true,RedirectStandardError=true,CreateNoWindow=true};
-    start.ArgumentList.Add(Path.Combine(root,"bin/Release/net8.0/NHIGIA.Modern.dll"));start.ArgumentList.Add("--urls");start.ArgumentList.Add(url);
+    start.ArgumentList.Add(Path.Combine(root,"bin/Release/net10.0/NHIGIA.Modern.dll"));start.ArgumentList.Add("--urls");start.ArgumentList.Add(url);
     start.Environment["ASPNETCORE_ENVIRONMENT"]="Development";start.Environment["HRM_CONNECTION_STRING"]=testString;start.Environment["HRM_DATA_PROTECTION_PATH"]=artifactPath;
     start.Environment["HRM_EXPECTED_DATABASE"]=database;
     host=Process.Start(start)!;host.OutputDataReceived+=(_,_)=>{};host.ErrorDataReceived+=(_,_)=>{};host.BeginOutputReadLine();host.BeginErrorReadLine();

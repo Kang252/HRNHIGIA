@@ -12,7 +12,7 @@ var attendanceOnly = args.Skip(1).Contains("--attendance-only");
 var keys = Path.Combine(Path.GetTempPath(), "nhigia-smoke-" + Guid.NewGuid());
 Directory.CreateDirectory(keys);
 var start = new ProcessStartInfo("dotnet") { WorkingDirectory = root, UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true, CreateNoWindow = true };
-start.ArgumentList.Add(Path.Combine(root, "bin/Release/net8.0/NHIGIA.Modern.dll"));
+start.ArgumentList.Add(Path.Combine(root, "bin/Release/net10.0/NHIGIA.Modern.dll"));
 start.ArgumentList.Add("--urls"); start.ArgumentList.Add("http://127.0.0.1:5182");
 start.Environment["ASPNETCORE_ENVIRONMENT"] = communicationsOnly || attendanceOnly ? "Development" : "Production";
 start.Environment["HRM_DATA_PROTECTION_PATH"] = keys;

@@ -14,8 +14,7 @@ public static class HrmPasswordHasher
         if (string.IsNullOrEmpty(password) || string.IsNullOrEmpty(saltBase64) || string.IsNullOrEmpty(expectedHashBase64)) return false;
         var salt = Convert.FromBase64String(saltBase64);
         var expected = Convert.FromBase64String(expectedHashBase64);
-        using var derive = new Rfc2898DeriveBytes(password, salt, Iterations, HashAlgorithmName.SHA1);
-        var actual = derive.GetBytes(32);
+        var actual = Rfc2898DeriveBytes.Pbkdf2(password, salt, Iterations, HashAlgorithmName.SHA1, 32);
         return CryptographicOperations.FixedTimeEquals(actual, expected);
     }
 }

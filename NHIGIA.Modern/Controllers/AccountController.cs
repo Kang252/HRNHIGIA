@@ -8,7 +8,6 @@ using NHIGIA.Modern.Models;
 
 namespace NHIGIA.Modern.Controllers;
 
-[AllowAnonymous]
 public sealed class AccountController : Controller
 {
     private readonly HrmDataStore _store;
@@ -20,6 +19,7 @@ public sealed class AccountController : Controller
         _logger = logger;
     }
 
+    [AllowAnonymous]
     [HttpGet]
     public IActionResult Login(string returnUrl = null)
     {
@@ -27,6 +27,7 @@ public sealed class AccountController : Controller
         return View(new LoginViewModel { ReturnUrl = returnUrl });
     }
 
+    [AllowAnonymous]
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Login(LoginViewModel model)
@@ -86,5 +87,6 @@ public sealed class AccountController : Controller
         return RedirectToAction("Login");
     }
 
+    [AllowAnonymous]
     public IActionResult AccessDenied() => View();
 }

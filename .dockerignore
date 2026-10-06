@@ -22,3 +22,9 @@ publish
 **/__pycache__
 NHIGIA.Modern/OpenCv/models
 NHIGIA.Modern/OpenCv/.venv
+
+# Do not send local Node artifacts or environment files to any Docker build.
+**/node_modules
+**/dist
+.env
+**/.env

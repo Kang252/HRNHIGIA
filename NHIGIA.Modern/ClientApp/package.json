@@ -1,0 +1,29 @@
+{
+  "name": "nhigia-modern-client",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "React + TypeScript client shell for the gradual NHIGIA HRM migration.",
+  "engines": {
+    "node": ">=20.19.0 <25",
+    "npm": ">=10"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -b --pretty false"
+  },
+  "dependencies": {
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.1",
+    "@types/react": "^19.1.12",
+    "@types/react-dom": "^19.1.9",
+    "@vitejs/plugin-react": "^5.0.2",
+    "typescript": "~5.9.2",
+    "vite": "^7.0.6"
+  }
+}
