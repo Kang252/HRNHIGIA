@@ -2,6 +2,7 @@ const assert = require("node:assert/strict");
 const test = require("node:test");
 
 const {
+  toCommunicationCommentItem,
   toCommunicationListItem,
 } = require("../../dist/communications/communications.service.js");
 
@@ -52,5 +53,32 @@ test("maps legacy PascalCase communication SQL rows to the public camelCase cont
     commentCount: 2,
     likedByCurrentUser: false,
     isMine: true,
+  });
+});
+
+test("maps comments without exposing deleted-state or legacy casing", () => {
+  const createdAt = new Date("2026-10-06T10:00:00.000Z");
+  const item = toCommunicationCommentItem({
+    Id: 18,
+    CommunicationId: 47,
+    AuthorUserId: 12,
+    AuthorName: "Nguyễn Minh An",
+    AuthorAvatarUrl: null,
+    AuthorJobTitle: "Nhân viên kinh doanh",
+    Body: "Đã nắm thông tin.",
+    CreatedAt: createdAt,
+    IsMine: 0,
+  });
+
+  assert.deepEqual(item, {
+    id: 18,
+    communicationId: 47,
+    authorUserId: 12,
+    authorName: "Nguyễn Minh An",
+    authorAvatarUrl: null,
+    authorJobTitle: "Nhân viên kinh doanh",
+    body: "Đã nắm thông tin.",
+    createdAt,
+    isMine: false,
   });
 });

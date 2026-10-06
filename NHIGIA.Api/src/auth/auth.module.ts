@@ -15,6 +15,11 @@ import { BrowserMutationGuard } from "./browser-mutation.guard";
     LoginRateLimitService,
     BrowserMutationGuard,
   ],
-  exports: [AuthService, ProxyIdentityGuard, ApiIdentityGuard],
+  exports: [
+    AuthService,
+    ProxyIdentityGuard,
+    ApiIdentityGuard,
+    BrowserMutationGuard,
+  ],
 })
 export class AuthModule {}

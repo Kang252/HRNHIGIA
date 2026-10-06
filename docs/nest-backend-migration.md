@@ -25,17 +25,37 @@ những nghiệp vụ chưa có API tương đương, còn NestJS chỉ nhận c
 - `GET /api/v1/users/:id/avatar` chỉ trả ảnh nhị phân cho người có quyền xem
   hồ sơ tương ứng. Khi ảnh được lưu trong SQL, URL trong danh bạ và truyền
   thông luôn trỏ về route này thay vì route ASP.NET cũ.
+- Truyền thông nội bộ có đầy đủ `POST`, `PATCH`, `DELETE`, duyệt/từ chối,
+  thích/bỏ thích và bình luận văn bản qua `/api/v1/communications`. Mọi thao
+  tác ghi đều kiểm tra phiên, same-origin XHR và quyền SQL: bài `ALL` chỉ dành
+  cho HR/Ban giám đốc/Admin; bài `MANAGER` chỉ dành cho quản lý hoặc cấp cao hơn.
+  Tệp đính kèm vẫn ở C# cho tới khi endpoint multipart và quyền tải tệp được
+  chuyển cùng một thay đổi đã kiểm tra.
+- `GET /api/v1/notifications`, `GET /api/v1/notifications/unread-count`,
+  `POST /api/v1/notifications/:id/read` và
+  `POST /api/v1/notifications/read-all` chỉ thao tác thông báo của phiên hiện
+  tại. Link trả về phải là đường dẫn nội bộ an toàn; API không dùng dữ liệu cũ
+  để điều hướng sang website bên ngoài.
+- `GET /api/v1/attendance` và `GET /api/v1/attendance/period` dùng cùng phạm
+  vi dữ liệu C# (nhân viên: bản thân; trưởng phòng: phòng ban; HR/Giám đốc/
+  Admin: toàn công ty). `POST /api/v1/attendance/period/confirm` chỉ xác nhận
+  kỳ của chính người dùng, không khóa kỳ hoặc sửa log chấm công.
+- `GET /api/v1/procedures` và `GET /api/v1/procedures/:source/:id` là phần đọc
+  cho nghỉ phép và các thủ tục đã cho phép. Tệp đính kèm nhị phân, thông tin
+  tài chính, tài sản, KPI, tuyển dụng và đào tạo vẫn ở C# cho đến khi có luồng
+  tải xuống/ủy quyền được kiểm tra riêng.
 
 Không có password, token session, chuỗi kết nối, hoặc khóa nhà cung cấp nào được
 ghi log. Cookie `NHIGIA.Auth.v3` của ASP.NET Core không được NestJS giải mã hay
 parse; đây là dữ liệu Microsoft Data Protection riêng của C#.
 
-`POST /api/v1/auth/login` và `POST /api/v1/auth/logout` chỉ nhận yêu cầu cùng
-origin từ giao diện NHIGIA, có header `X-Requested-With: XMLHttpRequest`; login
-còn bắt buộc `Content-Type: application/json`. Quy tắc này chặn website khác
-ép trình duyệt tạo hoặc thay phiên đăng nhập. Vì vậy client production phải
-được phục vụ cùng origin với API; Vite development proxy đã chuyển tiếp origin
-an toàn khi phát triển cục bộ.
+Các endpoint ghi của API (đăng nhập/đăng xuất, thông báo, chấm công và truyền
+thông) chỉ nhận yêu cầu cùng origin từ giao diện NHIGIA, có header
+`X-Requested-With: XMLHttpRequest`; login còn bắt buộc
+`Content-Type: application/json`. Quy tắc này chặn website khác ép trình duyệt
+tạo phiên hoặc thay đổi dữ liệu. Vì vậy client production phải được phục vụ cùng
+origin với API; Vite development proxy đã chuyển tiếp origin an toàn khi phát
+triển cục bộ.
 
 ## Áp dụng migration
 
@@ -90,6 +110,20 @@ Không đưa `DB_PASSWORD` hoặc file `.env` lên Git. Sử dụng secret store
 `AUTH_MODE=disabled` chỉ dành cho foundation local; production validation sẽ từ
 chối khởi động nếu chế độ này vẫn bật.
 
+Ngoài session migration, các route nghiệp vụ cần đúng schema đã được C# sử
+dụng. Đặc biệt endpoint chấm công đọc dữ liệu chấm công ngoài công ty, nên SQL
+Server phải đã áp dụng [`remote-attendance.sql`](../NHIGIA.Modern/App_Data/remote-attendance.sql)
+trước khi route `/api/v1/attendance` được bật. Không có migration này, bảng
+`HrmRemoteWorkPlan` và `HrmRemotePunch` chưa tồn tại; không nên dùng endpoint
+để suy đoán hay tự tạo schema trên production.
+
+Khi một route notifications, truyền thông, chấm công hoặc thủ tục được gọi,
+NestJS kiểm tra metadata của các bảng/cột mà route đó thực sự sử dụng và cache
+kết quả 30 giây. Nếu thiếu migration hoặc SQL không phản hồi, API trả `503` với
+thông điệp tiếng Việt nêu rõ feature bị chặn; API không trả trực tiếp lỗi SQL như
+`Invalid column name 'ApprovedByUserId'`. Đây là cơ chế chặn an toàn, không tự
+tạo hoặc tự sửa schema production.
+
 ## Phục vụ React mới
 
 [`NHIGIA.Api/Dockerfile`](../NHIGIA.Api/Dockerfile) có multi-stage build riêng:
@@ -116,6 +150,15 @@ khi trình duyệt yêu cầu HTML; file asset bị thiếu không bị biến t
    CareerViet, AI Gemini, dữ liệu sinh trắc học hoặc OpenCV trong giai đoạn đầu.
 5. Chỉ tách các tính năng đó sau khi có hợp đồng API, bộ dữ liệu replay và cơ
    chế queue/khóa phân tán riêng.
+
+## Kiểm thử trước khi bật route mới
+
+Trước khi chuyển bất kỳ màn hình nào sang NestJS, chạy kiểm thử tĩnh và smoke
+test trong `NHIGIA.Api`, sau đó đối chiếu trực tiếp với C# bằng tài khoản thuộc
+các vai trò EMPLOYEE, MANAGER, HR, DIRECTOR và ADMIN. Với chấm công, kiểm tra
+riêng ngày đang trong ca, ngày đã kết thúc ca, nghỉ nửa ngày, ca qua đêm và kỳ
+đã khóa. Chỉ bật UI sau khi database thật đã có các bảng tương ứng và phản hồi
+được đối chiếu; build thành công không chứng minh API đã sẵn sàng vận hành.
 
 ## Cầu nối tùy chọn
 

@@ -32,3 +32,21 @@ checks the required session schema rather than waiting for the first login to
 fail. Cookie login/logout only accepts same-origin XMLHttpRequest traffic;
 serve the React bundle from this service in production or use the configured
 Vite development proxy locally.
+
+## Current API surface
+
+- Authentication and identity: `/api/v1/auth/*`
+- Dashboard: `/api/v1/dashboard`
+- Employee directory and protected avatars: `/api/v1/users/*`
+- Internal communications: `/api/v1/communications/*` (bài đăng, duyệt,
+  tương tác và bình luận văn bản)
+- Personal notifications: `/api/v1/notifications/*`
+- Attendance and attendance-period confirmation: `/api/v1/attendance/*`
+- Read-only employee procedures: `/api/v1/procedures/*`
+
+Before a feature query, notifications, communications, attendance and procedures
+probe their required SQL tables and columns for 30 seconds. Schema drift returns
+an actionable `503` rather than leaking an `Invalid column name` SQL error.
+The attendance and procedures routes use the same role scope as the legacy
+application, but they still require live-SQL comparison before a production UI
+is switched to them. See the migration guide for the verification checklist.
