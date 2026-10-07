@@ -38,12 +38,25 @@ những nghiệp vụ chưa có API tương đương, còn NestJS chỉ nhận c
   để điều hướng sang website bên ngoài.
 - `GET /api/v1/attendance` và `GET /api/v1/attendance/period` dùng cùng phạm
   vi dữ liệu C# (nhân viên: bản thân; trưởng phòng: phòng ban; HR/Giám đốc/
-  Admin: toàn công ty). `POST /api/v1/attendance/period/confirm` chỉ xác nhận
+  Admin: toàn công ty). Khi không có lượt chấm hay nghỉ được duyệt trong một
+  ngày đã có lịch, danh sách chấm công trả trạng thái `MISSING_CHECK` thay vì
+  bỏ qua ngày đó. `GET /api/v1/attendance/period` mặc định tháng nghiệp vụ
+  hiện tại theo giờ Việt Nam nếu không truyền `period`, và mọi số đếm cũng áp
+  dụng phạm vi vai trò. `POST /api/v1/attendance/period/confirm` chỉ xác nhận
   kỳ của chính người dùng, không khóa kỳ hoặc sửa log chấm công.
 - `GET /api/v1/procedures` và `GET /api/v1/procedures/:source/:id` là phần đọc
   cho nghỉ phép và các thủ tục đã cho phép. Tệp đính kèm nhị phân, thông tin
   tài chính, tài sản, KPI, tuyển dụng và đào tạo vẫn ở C# cho đến khi có luồng
   tải xuống/ủy quyền được kiểm tra riêng.
+- `GET /api/v1/remote-attendance?fromDate=YYYY-MM-DD&toDate=YYYY-MM-DD` trả
+  lịch ngoài công ty, metadata lượt chấm và các đơn công tác của chính người
+  dùng theo cùng phạm vi C#: nhân viên chỉ bản thân, quản lý chỉ nhân viên
+  thuộc phòng, HR/Ban giám đốc/Admin toàn công ty. API có `POST /plans`,
+  `POST /plans/:id/review`, `POST /plans/:id/cancel` và
+  `POST /punches/:id/review`. Quyết định duyệt lượt chấm luôn là quyết định thủ
+  công của người có quyền; API không nhận ảnh, không trả ảnh/mẫu khuôn mặt và
+  không chạy OpenCV. Chụp ảnh, đăng ký/thu hồi khuôn mặt và thử so khớp tiếp tục
+  dùng `NHIGIA.Modern` để giữ cơ chế bảo vệ ảnh hiện hữu.
 
 Không có password, token session, chuỗi kết nối, hoặc khóa nhà cung cấp nào được
 ghi log. Cookie `NHIGIA.Auth.v3` của ASP.NET Core không được NestJS giải mã hay
@@ -113,9 +126,12 @@ chối khởi động nếu chế độ này vẫn bật.
 Ngoài session migration, các route nghiệp vụ cần đúng schema đã được C# sử
 dụng. Đặc biệt endpoint chấm công đọc dữ liệu chấm công ngoài công ty, nên SQL
 Server phải đã áp dụng [`remote-attendance.sql`](../NHIGIA.Modern/App_Data/remote-attendance.sql)
-trước khi route `/api/v1/attendance` được bật. Không có migration này, bảng
-`HrmRemoteWorkPlan` và `HrmRemotePunch` chưa tồn tại; không nên dùng endpoint
-để suy đoán hay tự tạo schema trên production.
+trước khi route `/api/v1/attendance` được bật. Route
+`/api/v1/remote-attendance` cần thêm
+[`face-enrollment.sql`](../NHIGIA.Modern/App_Data/face-enrollment.sql), vì lúc
+duyệt lượt chấm API vẫn xác nhận mẫu liên kết chưa bị thu hồi. Không có các
+migration này, API trả `503` nêu rõ bảng/cột thiếu; không tự tạo schema hoặc
+trả lỗi SQL thô trên production.
 
 Khi một route notifications, truyền thông, chấm công hoặc thủ tục được gọi,
 NestJS kiểm tra metadata của các bảng/cột mà route đó thực sự sử dụng và cache
@@ -146,9 +162,12 @@ khi trình duyệt yêu cầu HTML; file asset bị thiếu không bị biến t
    các vai trò EMPLOYEE, MANAGER, HR, DIRECTOR và ADMIN.
 3. Dashboard Nest hiện chỉ có ba metric đã kiểm tra (`totalEmployees`,
    `pendingApprovals`, `unmappedHanetUsers`), nên chưa thay trang dashboard C#.
-4. Không chuyển bảng SQL Server, khả năng chấm công HANET, webhook TopCV/
-   CareerViet, AI Gemini, dữ liệu sinh trắc học hoặc OpenCV trong giai đoạn đầu.
-5. Chỉ tách các tính năng đó sau khi có hợp đồng API, bộ dữ liệu replay và cơ
+4. Chỉ chuyển phần lịch ngoài công ty và quyết định duyệt thủ công đã nêu ở
+   trên; không chuyển ảnh, dữ liệu sinh trắc học, OpenCV hoặc việc tự duyệt
+   chấm công sang Node trong giai đoạn này.
+5. Không chuyển bảng SQL Server, khả năng chấm công HANET, webhook TopCV/
+   CareerViet và AI Gemini trong giai đoạn đầu.
+6. Chỉ tách các tính năng đó sau khi có hợp đồng API, bộ dữ liệu replay và cơ
    chế queue/khóa phân tán riêng.
 
 ## Kiểm thử trước khi bật route mới

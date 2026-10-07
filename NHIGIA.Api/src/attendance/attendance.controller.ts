@@ -14,6 +14,7 @@ import { ApiIdentityGuard } from "../auth/session-identity.guard";
 import { BrowserMutationGuard } from "../auth/browser-mutation.guard";
 import type { AuthenticatedIdentity } from "../common/correlation/request-context";
 import { CurrentIdentity } from "../identity/identity.decorator";
+import { GetAttendancePeriodDto } from "./get-attendance-period.dto";
 import { AttendancePeriodDto } from "./attendance-period.dto";
 import {
   AttendanceService,
@@ -43,7 +44,7 @@ export class AttendanceController {
   @Get("period")
   public async getPeriod(
     @CurrentIdentity() identity: AuthenticatedIdentity,
-    @Query() query: AttendancePeriodDto,
+    @Query() query: GetAttendancePeriodDto,
   ): Promise<{ success: true; data: AttendancePeriodData }> {
     return {
       success: true,

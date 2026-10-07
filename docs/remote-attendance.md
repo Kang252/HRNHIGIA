@@ -38,6 +38,13 @@ Nền mặc định dùng `https://tile.openstreetmap.org/{z}/{x}/{y}.png`, hi�
 
 ## Triển khai và kiểm chứng
 
+Khi thử nghiệm backend NestJS riêng, `/api/v1/remote-attendance` chỉ phục vụ
+quản lý lịch và quyết định duyệt thủ công. API không nhận ảnh camera, không
+trả ảnh/mẫu khuôn mặt và không thực hiện so khớp OpenCV; các endpoint đó tiếp
+tục chạy ở `NHIGIA.Modern` để không làm thay đổi cơ chế mã hóa Data Protection
+của ảnh mẫu. Xem [lộ trình migration](nest-backend-migration.md) trước khi
+chuyển bất kỳ giao diện nào sang API mới.
+
 Startup chạy `App_Data/remote-attendance.sql` sau `hrm-mvp.sql`, tiếp theo là `App_Data/face-enrollment.sql` để tạo bảng mẫu và bổ sung cột liên kết khuôn mặt vào lượt chấm. Các migration kiểm tra bảng/cột đã có trước khi thêm. Tài khoản SQL triển khai cần quyền tạo bảng, chỉ mục và bổ sung cột. Không sửa dữ liệu mẫu/nhân viên trong môi trường thật để kiểm thử.
 
 `dotnet run --project tests/RemoteAttendance.Tests -c Release` kiểm tra policy không cần SQL. Cờ `--integration` tạo rồi xóa một database riêng có tiền tố `NHIGIA_RemoteTests_` trên LocalDB instance `NHIGIA`; không đọc chuỗi kết nối production. Cờ `--browser` chạy camera/GPS giả lập, kiểm tra offline và layout trong trình duyệt trên loopback. Chọn Playwright bằng biến `HRM_TEST_PLAYWRIGHT` nếu máy không có module trên đường dẫn mặc định.

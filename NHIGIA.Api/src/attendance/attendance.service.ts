@@ -7,7 +7,6 @@ import * as sql from "mssql";
 import type { AuthenticatedIdentity } from "../common/correlation/request-context";
 import { SchemaReadinessService } from "../database/schema-readiness.service";
 import { SqlServerService } from "../database/sql-server.service";
-import { AttendancePeriodDto } from "./attendance-period.dto";
 import type { ListAttendanceDto } from "./list-attendance.dto";
 
 const maxAttendanceRangeDays = 366;
@@ -75,6 +74,11 @@ export interface AttendanceScope {
   isManager: boolean;
 }
 
+export interface AttendancePeriodScope extends AttendanceScope {
+  actorId: number;
+  departmentId: number | null;
+}
+
 interface RawAttendanceRow {
   UserId: number;
   EmployeeCode: string | null;
@@ -100,6 +104,10 @@ interface RawAttendanceRow {
 interface ScheduleRow {
   Id: number;
   UserId: number;
+  EmployeeCode: string | null;
+  DisplayName: string;
+  JobTitle: string | null;
+  DepartmentName: string | null;
   ShiftName: string;
   StartTime: string;
   EndTime: string;
@@ -194,15 +202,20 @@ export class AttendanceService {
 
   public async getPeriod(
     identity: AuthenticatedIdentity,
-    period: string,
+    requestedPeriod?: string,
   ): Promise<AttendancePeriodData> {
-    validateAttendancePeriod(period);
+    const period = resolveAttendancePeriod(requestedPeriod);
+    const scope = attendancePeriodScopeFor(identity);
     await this.schemaReadiness.assertReady("attendance");
     const pool = await this.sqlServer.getPool();
     const result = await pool
       .request()
       .input("Period", sql.Char(7), period)
       .input("UserId", sql.Int, identity.userId)
+      .input("CanSeeAll", sql.Bit, scope.canSeeAll)
+      .input("IsManager", sql.Bit, scope.isManager)
+      .input("ActorId", sql.Int, scope.actorId)
+      .input("DepartmentId", sql.Int, scope.departmentId)
       .query<AttendancePeriodRow>(attendancePeriodSql);
     return toAttendancePeriodData(result.recordset[0], period);
   }
@@ -401,12 +414,15 @@ WHERE (@TargetUserId IS NULL OR e.UserId=@TargetUserId)
 ORDER BY e.WorkDate DESC,u.DisplayName,e.UserId;`;
 
 const schedulesSql = `
-SELECT s.Id,s.UserId,s.ShiftName,CONVERT(char(8),s.StartTime,108) AS StartTime,
+SELECT s.Id,s.UserId,p.EmployeeCode,COALESCE(u.DisplayName,N'Nhân viên') AS DisplayName,
+  p.JobTitle,d.Name AS DepartmentName,s.ShiftName,CONVERT(char(8),s.StartTime,108) AS StartTime,
   CONVERT(char(8),s.EndTime,108) AS EndTime,s.BreakMinutes,s.GraceMinutes,s.WorkDaysMask,
   CONVERT(char(10),s.EffectiveFrom,23) AS EffectiveFrom,
   CONVERT(char(10),s.EffectiveTo,23) AS EffectiveTo,s.StatusCode
 FROM dbo.HrmEmployeeSchedule s
 INNER JOIN dbo.HrmUserAccount u ON u.Id=s.UserId
+LEFT JOIN dbo.HrmEmployeeProfile p ON p.UserId=s.UserId
+LEFT JOIN dbo.HrmDepartment d ON d.Id=u.DepartmentId
 WHERE (@TargetUserId IS NULL OR s.UserId=@TargetUserId)
   AND (@CanSeeAll=1 OR u.Id=@ActorId
        OR (@IsManager=1 AND u.DepartmentId=@DepartmentId));`;
@@ -431,16 +447,26 @@ SELECT @Period AS Period,COALESCE(p.StatusCode,'OPEN') AS StatusCode,
   CONVERT(char(19),c.SubmittedAt,126) AS SubmittedAt,
   CONVERT(char(19),p.LockedAt,126) AS LockedAt,u.DisplayName AS LockedByName,p.UnlockReason,
   (SELECT COUNT(1) FROM dbo.HrmUserAccount x
-    WHERE x.IsActive=1 AND x.RoleCode<>'ADMIN') AS EmployeeCount,
+    WHERE x.IsActive=1 AND x.RoleCode<>'ADMIN'
+      AND (@CanSeeAll=1 OR x.Id=@ActorId
+        OR (@IsManager=1 AND x.DepartmentId=@DepartmentId))) AS EmployeeCount,
   (SELECT COUNT(1) FROM dbo.HrmAttendancePeriodConfirmation x
     INNER JOIN dbo.HrmUserAccount a ON a.Id=x.UserId
     WHERE x.Period=@Period AND x.StatusCode='SUBMITTED'
-      AND a.IsActive=1 AND a.RoleCode<>'ADMIN') AS ConfirmedCount,
+      AND a.IsActive=1 AND a.RoleCode<>'ADMIN'
+      AND (@CanSeeAll=1 OR a.Id=@ActorId
+        OR (@IsManager=1 AND a.DepartmentId=@DepartmentId))) AS ConfirmedCount,
   (SELECT COUNT(1) FROM dbo.HrmAttendanceAdjustment x
-    WHERE CONVERT(char(7),x.WorkDate,126)=@Period AND x.StatusCode='PENDING') AS PendingAdjustmentCount,
+    INNER JOIN dbo.HrmUserAccount a ON a.Id=x.UserId
+    WHERE CONVERT(char(7),x.WorkDate,126)=@Period AND x.StatusCode='PENDING'
+      AND (@CanSeeAll=1 OR a.Id=@ActorId
+        OR (@IsManager=1 AND a.DepartmentId=@DepartmentId))) AS PendingAdjustmentCount,
   (SELECT COUNT(1) FROM dbo.HrmRemotePunch x
+    INNER JOIN dbo.HrmUserAccount a ON a.Id=x.UserId
     WHERE CONVERT(char(7),x.CheckTime,126)=@Period AND x.StatusCode='PENDING'
-      AND x.Kind IN ('IN','OUT')) AS PendingRemoteCount
+      AND x.Kind IN ('IN','OUT')
+      AND (@CanSeeAll=1 OR a.Id=@ActorId
+        OR (@IsManager=1 AND a.DepartmentId=@DepartmentId))) AS PendingRemoteCount
 FROM (SELECT 1 AS n) seed
 LEFT JOIN dbo.HrmAttendancePeriod p ON p.Period=@Period
 LEFT JOIN dbo.HrmAttendancePeriodConfirmation c
@@ -516,6 +542,20 @@ export function projectAttendance(
     }
   }
 
+  // Events alone cannot represent an absence. Materialize every scheduled
+  // work date that has no punch or approved leave so the client can show the
+  // same actionable MISSING_CHECK result that it shows for incomplete days.
+  // This runs after leave projection to retain leave-request profile details.
+  for (const [userId, schedules] of schedulesByUser) {
+    for (const workDate of datesInRange(range.fromDate, range.toDate)) {
+      const key = attendanceKey(userId, workDate);
+      if (records.has(key)) continue;
+      const schedule = scheduleForDate(schedules, workDate);
+      if (!schedule) continue;
+      records.set(key, recordFromSchedule(schedule, workDate));
+    }
+  }
+
   for (const record of records.values()) {
     calculateAttendance(
       record,
@@ -566,6 +606,43 @@ function recordFromRaw(row: RawAttendanceRow): AttendanceRecord {
     earlyMinutes: 0,
     statusCode: "MISSING_SCHEDULE",
     source: row.Source,
+  };
+}
+
+function recordFromSchedule(
+  schedule: ScheduleRow,
+  workDate: string,
+): AttendanceRecord {
+  return {
+    userId: schedule.UserId,
+    employeeCode: schedule.EmployeeCode,
+    displayName: schedule.DisplayName,
+    jobTitle: schedule.JobTitle,
+    departmentName: schedule.DepartmentName,
+    workDate,
+    shiftName: schedule.ShiftName,
+    scheduledStart: timeWithoutSeconds(schedule.StartTime),
+    scheduledEnd: timeWithoutSeconds(schedule.EndTime),
+    graceMinutes: schedule.GraceMinutes,
+    breakMinutes: schedule.BreakMinutes,
+    approvedLeave: false,
+    leaveSession: null,
+    leaveDescription: null,
+    expectedStartAt: null,
+    expectedEndAt: null,
+    checkIn: null,
+    checkOut: null,
+    lastSeen: null,
+    eventCount: 0,
+    isProvisional: false,
+    hasExplicitPunches: false,
+    isFlexible: false,
+    requiredMinutes: 0,
+    workedMinutes: 0,
+    lateMinutes: 0,
+    earlyMinutes: 0,
+    statusCode: "MISSING_SCHEDULE",
+    source: "Lịch làm việc",
   };
 }
 
@@ -782,9 +859,19 @@ export function resolveAttendanceRange(
   return { fromDate, toDate, from, to };
 }
 
-function validateAttendancePeriod(period: string): asserts period is string {
-  const typed: AttendancePeriodDto = { period };
-  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(typed.period)) {
+export function resolveAttendancePeriod(
+  period: string | undefined,
+  now = new Date(),
+): string {
+  if (period === undefined) return vietnamDatePart(now).slice(0, 7);
+  validateAttendancePeriod(period);
+  return period;
+}
+
+function validateAttendancePeriod(
+  period: string | undefined,
+): asserts period is string {
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(period ?? "")) {
     throw new BadRequestException("Kỳ chấm công không hợp lệ.");
   }
 }
@@ -798,6 +885,16 @@ export function attendanceScopeFor(
       identity.roleCode === "HR" ||
       identity.roleCode === "DIRECTOR",
     isManager: identity.roleCode === "MANAGER",
+  };
+}
+
+export function attendancePeriodScopeFor(
+  identity: AuthenticatedIdentity,
+): AttendancePeriodScope {
+  return {
+    ...attendanceScopeFor(identity),
+    actorId: identity.userId,
+    departmentId: identity.departmentId ?? null,
   };
 }
 
@@ -828,6 +925,8 @@ function scheduleForDate(
   schedules: readonly ScheduleRow[],
   date: string,
 ): ScheduleRow | undefined {
+  // SQL Server and the legacy C# policy both use DayOfWeek where Sunday=0,
+  // so the persisted mask is Sunday=1 ... Saturday=64.
   const dayMask = 1 << dateOnlyAsUtc(date).getUTCDay();
   return schedules
     .filter(

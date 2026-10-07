@@ -43,10 +43,19 @@ Vite development proxy locally.
 - Personal notifications: `/api/v1/notifications/*`
 - Attendance and attendance-period confirmation: `/api/v1/attendance/*`
 - Read-only employee procedures: `/api/v1/procedures/*`
+- Remote-work plans and manual review: `/api/v1/remote-attendance/*`
 
-Before a feature query, notifications, communications, attendance and procedures
+`/api/v1/remote-attendance` is a deliberately limited migration slice. It
+lists and creates offsite-work plans, lets authorized people review/cancel plans
+and manually review existing punches. Camera uploads, photos, face-enrollment
+images and OpenCV comparison remain in `NHIGIA.Modern`; the Nest API neither
+accepts nor exposes biometric images, and it never automatically approves a
+punch from a face signal.
+
+Before a feature query, notifications, communications, attendance, procedures
+and remote attendance
 probe their required SQL tables and columns for 30 seconds. Schema drift returns
 an actionable `503` rather than leaking an `Invalid column name` SQL error.
-The attendance and procedures routes use the same role scope as the legacy
+The attendance, procedures and remote-attendance routes use the same role scope as the legacy
 application, but they still require live-SQL comparison before a production UI
 is switched to them. See the migration guide for the verification checklist.

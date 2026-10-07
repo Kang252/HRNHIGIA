@@ -11,7 +11,11 @@ import { SqlServerService } from "./sql-server.service";
  * parameter or interpolated into SQL.
  */
 export type ApiSchemaFeature =
-  "notifications" | "communications" | "attendance" | "procedures";
+  | "notifications"
+  | "communications"
+  | "attendance"
+  | "procedures"
+  | "remoteAttendance";
 
 export interface SchemaProbeRow {
   Requirement: string;
@@ -39,6 +43,7 @@ const featureLabels: Readonly<Record<ApiSchemaFeature, string>> = {
   communications: "Truyền thông nội bộ",
   attendance: "Chấm công",
   procedures: "Thủ tục",
+  remoteAttendance: "Chấm công ngoài công ty",
 };
 
 /**
@@ -248,6 +253,90 @@ export const featureSchemaRequirements: Readonly<
     "dbo.HrmDepartment.Id",
     "dbo.HrmDepartment.Name",
   ],
+  remoteAttendance: [
+    "dbo.HrmRemoteWorkPlan",
+    "dbo.HrmRemoteWorkPlan.Id",
+    "dbo.HrmRemoteWorkPlan.UserId",
+    "dbo.HrmRemoteWorkPlan.Mode",
+    "dbo.HrmRemoteWorkPlan.PlaceName",
+    "dbo.HrmRemoteWorkPlan.FromDate",
+    "dbo.HrmRemoteWorkPlan.ToDate",
+    "dbo.HrmRemoteWorkPlan.WorkDaysMask",
+    "dbo.HrmRemoteWorkPlan.WindowStart",
+    "dbo.HrmRemoteWorkPlan.WindowEnd",
+    "dbo.HrmRemoteWorkPlan.IsFlexible",
+    "dbo.HrmRemoteWorkPlan.RequiredMinutes",
+    "dbo.HrmRemoteWorkPlan.BreakMinutes",
+    "dbo.HrmRemoteWorkPlan.Latitude",
+    "dbo.HrmRemoteWorkPlan.Longitude",
+    "dbo.HrmRemoteWorkPlan.RadiusMeters",
+    "dbo.HrmRemoteWorkPlan.LeaveRequestId",
+    "dbo.HrmRemoteWorkPlan.Note",
+    "dbo.HrmRemoteWorkPlan.StatusCode",
+    "dbo.HrmRemoteWorkPlan.CreatedAt",
+    "dbo.HrmRemoteWorkPlan.ReviewedAt",
+    "dbo.HrmRemoteWorkPlan.ReviewedBy",
+    "dbo.HrmRemoteWorkPlan.ReviewNote",
+    "dbo.HrmRemotePunch",
+    "dbo.HrmRemotePunch.Id",
+    "dbo.HrmRemotePunch.UserId",
+    "dbo.HrmRemotePunch.PlanId",
+    "dbo.HrmRemotePunch.Kind",
+    "dbo.HrmRemotePunch.CapturedAt",
+    "dbo.HrmRemotePunch.CheckTime",
+    "dbo.HrmRemotePunch.ReceivedAt",
+    "dbo.HrmRemotePunch.WasOffline",
+    "dbo.HrmRemotePunch.Latitude",
+    "dbo.HrmRemotePunch.Longitude",
+    "dbo.HrmRemotePunch.AccuracyMeters",
+    "dbo.HrmRemotePunch.DistanceMeters",
+    "dbo.HrmRemotePunch.PlaceName",
+    "dbo.HrmRemotePunch.Note",
+    "dbo.HrmRemotePunch.StatusCode",
+    "dbo.HrmRemotePunch.ReviewReason",
+    "dbo.HrmRemotePunch.ReviewNote",
+    "dbo.HrmRemotePunch.ReviewedBy",
+    "dbo.HrmRemotePunch.ReviewedAt",
+    "dbo.HrmRemotePunch.IncludedAt",
+    "dbo.HrmRemotePunch.FaceEnrollmentId",
+    "dbo.HrmRemotePunch.FaceVerificationStatus",
+    "dbo.HrmFaceEnrollment",
+    "dbo.HrmFaceEnrollment.Id",
+    "dbo.HrmFaceEnrollment.UserId",
+    "dbo.HrmFaceEnrollment.StatusCode",
+    "dbo.HrmLeaveRequest",
+    "dbo.HrmLeaveRequest.Id",
+    "dbo.HrmLeaveRequest.UserId",
+    "dbo.HrmLeaveRequest.RequestCode",
+    "dbo.HrmLeaveRequest.LeaveType",
+    "dbo.HrmLeaveRequest.StartDate",
+    "dbo.HrmLeaveRequest.EndDate",
+    "dbo.HrmLeaveRequest.StatusCode",
+    "dbo.HrmAttendancePeriod",
+    "dbo.HrmAttendancePeriod.Period",
+    "dbo.HrmAttendancePeriod.StatusCode",
+    "dbo.HrmAttendancePeriodConfirmation",
+    "dbo.HrmAttendancePeriodConfirmation.Period",
+    "dbo.HrmAttendancePeriodConfirmation.UserId",
+    "dbo.HrmNotification",
+    "dbo.HrmNotification.UserId",
+    "dbo.HrmNotification.Title",
+    "dbo.HrmNotification.Message",
+    "dbo.HrmNotification.LinkUrl",
+    "dbo.HrmAuditLog",
+    "dbo.HrmAuditLog.UserId",
+    "dbo.HrmAuditLog.ActionCode",
+    "dbo.HrmAuditLog.EntityType",
+    "dbo.HrmAuditLog.EntityId",
+    "dbo.HrmAuditLog.Detail",
+    "dbo.HrmAuditLog.IpAddress",
+    "dbo.HrmUserAccount",
+    "dbo.HrmUserAccount.Id",
+    "dbo.HrmUserAccount.DisplayName",
+    "dbo.HrmUserAccount.DepartmentId",
+    "dbo.HrmUserAccount.RoleCode",
+    "dbo.HrmUserAccount.IsActive",
+  ],
 };
 
 /**
@@ -451,6 +540,89 @@ export const schemaProbeSql: Readonly<Record<ApiSchemaFeature, string>> = {
     UNION ALL SELECT N'dbo.HrmDepartment',CAST(CASE WHEN OBJECT_ID(N'dbo.HrmDepartment',N'U') IS NULL THEN 0 ELSE 1 END AS bit)
     UNION ALL SELECT N'dbo.HrmDepartment.Id',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmDepartment',N'Id') IS NULL THEN 0 ELSE 1 END AS bit)
     UNION ALL SELECT N'dbo.HrmDepartment.Name',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmDepartment',N'Name') IS NULL THEN 0 ELSE 1 END AS bit);`,
+  remoteAttendance: `
+    SELECT N'dbo.HrmRemoteWorkPlan' AS Requirement,CAST(CASE WHEN OBJECT_ID(N'dbo.HrmRemoteWorkPlan',N'U') IS NULL THEN 0 ELSE 1 END AS bit) AS IsPresent
+    UNION ALL SELECT N'dbo.HrmRemoteWorkPlan.Id',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmRemoteWorkPlan',N'Id') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmRemoteWorkPlan.UserId',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmRemoteWorkPlan',N'UserId') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmRemoteWorkPlan.Mode',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmRemoteWorkPlan',N'Mode') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmRemoteWorkPlan.PlaceName',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmRemoteWorkPlan',N'PlaceName') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmRemoteWorkPlan.FromDate',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmRemoteWorkPlan',N'FromDate') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmRemoteWorkPlan.ToDate',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmRemoteWorkPlan',N'ToDate') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmRemoteWorkPlan.WorkDaysMask',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmRemoteWorkPlan',N'WorkDaysMask') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmRemoteWorkPlan.WindowStart',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmRemoteWorkPlan',N'WindowStart') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmRemoteWorkPlan.WindowEnd',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmRemoteWorkPlan',N'WindowEnd') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmRemoteWorkPlan.IsFlexible',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmRemoteWorkPlan',N'IsFlexible') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmRemoteWorkPlan.RequiredMinutes',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmRemoteWorkPlan',N'RequiredMinutes') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmRemoteWorkPlan.BreakMinutes',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmRemoteWorkPlan',N'BreakMinutes') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmRemoteWorkPlan.Latitude',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmRemoteWorkPlan',N'Latitude') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmRemoteWorkPlan.Longitude',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmRemoteWorkPlan',N'Longitude') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmRemoteWorkPlan.RadiusMeters',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmRemoteWorkPlan',N'RadiusMeters') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmRemoteWorkPlan.LeaveRequestId',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmRemoteWorkPlan',N'LeaveRequestId') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmRemoteWorkPlan.Note',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmRemoteWorkPlan',N'Note') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmRemoteWorkPlan.StatusCode',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmRemoteWorkPlan',N'StatusCode') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmRemoteWorkPlan.CreatedAt',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmRemoteWorkPlan',N'CreatedAt') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmRemoteWorkPlan.ReviewedAt',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmRemoteWorkPlan',N'ReviewedAt') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmRemoteWorkPlan.ReviewedBy',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmRemoteWorkPlan',N'ReviewedBy') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmRemoteWorkPlan.ReviewNote',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmRemoteWorkPlan',N'ReviewNote') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmRemotePunch',CAST(CASE WHEN OBJECT_ID(N'dbo.HrmRemotePunch',N'U') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmRemotePunch.Id',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmRemotePunch',N'Id') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmRemotePunch.UserId',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmRemotePunch',N'UserId') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmRemotePunch.PlanId',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmRemotePunch',N'PlanId') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmRemotePunch.Kind',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmRemotePunch',N'Kind') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmRemotePunch.CapturedAt',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmRemotePunch',N'CapturedAt') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmRemotePunch.CheckTime',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmRemotePunch',N'CheckTime') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmRemotePunch.ReceivedAt',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmRemotePunch',N'ReceivedAt') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmRemotePunch.WasOffline',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmRemotePunch',N'WasOffline') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmRemotePunch.Latitude',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmRemotePunch',N'Latitude') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmRemotePunch.Longitude',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmRemotePunch',N'Longitude') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmRemotePunch.AccuracyMeters',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmRemotePunch',N'AccuracyMeters') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmRemotePunch.DistanceMeters',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmRemotePunch',N'DistanceMeters') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmRemotePunch.PlaceName',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmRemotePunch',N'PlaceName') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmRemotePunch.Note',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmRemotePunch',N'Note') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmRemotePunch.StatusCode',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmRemotePunch',N'StatusCode') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmRemotePunch.ReviewReason',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmRemotePunch',N'ReviewReason') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmRemotePunch.ReviewNote',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmRemotePunch',N'ReviewNote') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmRemotePunch.ReviewedBy',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmRemotePunch',N'ReviewedBy') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmRemotePunch.ReviewedAt',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmRemotePunch',N'ReviewedAt') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmRemotePunch.IncludedAt',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmRemotePunch',N'IncludedAt') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmRemotePunch.FaceEnrollmentId',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmRemotePunch',N'FaceEnrollmentId') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmRemotePunch.FaceVerificationStatus',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmRemotePunch',N'FaceVerificationStatus') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmFaceEnrollment',CAST(CASE WHEN OBJECT_ID(N'dbo.HrmFaceEnrollment',N'U') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmFaceEnrollment.Id',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmFaceEnrollment',N'Id') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmFaceEnrollment.UserId',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmFaceEnrollment',N'UserId') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmFaceEnrollment.StatusCode',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmFaceEnrollment',N'StatusCode') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmLeaveRequest',CAST(CASE WHEN OBJECT_ID(N'dbo.HrmLeaveRequest',N'U') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmLeaveRequest.Id',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmLeaveRequest',N'Id') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmLeaveRequest.UserId',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmLeaveRequest',N'UserId') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmLeaveRequest.RequestCode',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmLeaveRequest',N'RequestCode') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmLeaveRequest.LeaveType',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmLeaveRequest',N'LeaveType') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmLeaveRequest.StartDate',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmLeaveRequest',N'StartDate') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmLeaveRequest.EndDate',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmLeaveRequest',N'EndDate') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmLeaveRequest.StatusCode',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmLeaveRequest',N'StatusCode') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmAttendancePeriod',CAST(CASE WHEN OBJECT_ID(N'dbo.HrmAttendancePeriod',N'U') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmAttendancePeriod.Period',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmAttendancePeriod',N'Period') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmAttendancePeriod.StatusCode',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmAttendancePeriod',N'StatusCode') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmAttendancePeriodConfirmation',CAST(CASE WHEN OBJECT_ID(N'dbo.HrmAttendancePeriodConfirmation',N'U') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmAttendancePeriodConfirmation.Period',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmAttendancePeriodConfirmation',N'Period') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmAttendancePeriodConfirmation.UserId',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmAttendancePeriodConfirmation',N'UserId') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmNotification',CAST(CASE WHEN OBJECT_ID(N'dbo.HrmNotification',N'U') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmNotification.UserId',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmNotification',N'UserId') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmNotification.Title',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmNotification',N'Title') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmNotification.Message',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmNotification',N'Message') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmNotification.LinkUrl',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmNotification',N'LinkUrl') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmAuditLog',CAST(CASE WHEN OBJECT_ID(N'dbo.HrmAuditLog',N'U') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmAuditLog.UserId',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmAuditLog',N'UserId') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmAuditLog.ActionCode',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmAuditLog',N'ActionCode') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmAuditLog.EntityType',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmAuditLog',N'EntityType') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmAuditLog.EntityId',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmAuditLog',N'EntityId') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmAuditLog.Detail',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmAuditLog',N'Detail') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmAuditLog.IpAddress',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmAuditLog',N'IpAddress') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmUserAccount',CAST(CASE WHEN OBJECT_ID(N'dbo.HrmUserAccount',N'U') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmUserAccount.Id',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmUserAccount',N'Id') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmUserAccount.DisplayName',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmUserAccount',N'DisplayName') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmUserAccount.DepartmentId',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmUserAccount',N'DepartmentId') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmUserAccount.RoleCode',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmUserAccount',N'RoleCode') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmUserAccount.IsActive',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmUserAccount',N'IsActive') IS NULL THEN 0 ELSE 1 END AS bit);`,
 };
 
 /**

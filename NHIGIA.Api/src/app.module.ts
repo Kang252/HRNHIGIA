@@ -15,6 +15,7 @@ import { UsersModule } from "./users/users.module";
 import { NotificationsModule } from "./notifications/notifications.module";
 import { AttendanceModule } from "./attendance/attendance.module";
 import { ProceduresModule } from "./procedures/procedures.module";
+import { RemoteAttendanceModule } from "./remote-attendance/remote-attendance.module";
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { ProceduresModule } from "./procedures/procedures.module";
     NotificationsModule,
     AttendanceModule,
     ProceduresModule,
+    RemoteAttendanceModule,
   ],
 })
 export class AppModule implements NestModule {
