@@ -110,6 +110,27 @@ Node từ chối chạy production nếu chuỗi kết nối có
 nếu nó đang bỏ qua kiểm tra chứng chỉ SQL; hãy cấp chuỗi riêng sử dụng SQL login,
 `Encrypt=True` và chứng chỉ SQL Server hợp lệ.
 
+Một số nhà cung cấp SQL dùng hostname tenant để định tuyến nhưng cấp chứng chỉ
+cho hostname khác của máy chủ. Trong trường hợp đó, giữ nguyên `Server` để kết
+nối đúng tenant, thêm `DB_TLS_SERVER_NAME=<tên DNS có trong SAN của chứng chỉ>`
+và vẫn giữ `TrustServerCertificate=False`. Biến này chỉ truyền tên SNI/hostname
+để driver kiểm chứng chứng chỉ, không tắt hoặc bỏ qua xác thực TLS. Chỉ đặt giá
+trị sau khi đối chiếu hostname trong chứng chỉ do nhà cung cấp công bố.
+
+## Kiểm tra service sau deploy
+
+Sau khi Render báo deploy thành công, kiểm tra readiness và rào chắn đăng nhập
+từ máy quản trị:
+
+```powershell
+.\scripts\verify-nest-api.ps1 -BaseUrl 'https://<ten-service>.onrender.com'
+```
+
+Script chỉ gọi `GET /api/v1/health` và một route có bảo vệ khi chưa có cookie.
+Nó yêu cầu SQL kết nối được, schema `HrmApiSession` đủ cột và route nghiệp vụ
+trả `401`; không tạo phiên, không ghi dữ liệu và không dùng thông tin đăng nhập.
+Với instance loopback cục bộ, thêm `-AllowHttpForLocalTest`.
+
 Ví dụ chuỗi riêng của service NestJS:
 
 ```text

@@ -27,6 +27,11 @@ services:
         value: "true"
       - key: DB_TRUST_SERVER_CERTIFICATE
         value: "false"
+      # Optional non-secret DNS name in the certificate SAN for managed SQL
+      # hosts whose tenant endpoint does not match the TLS certificate.
+      # This preserves certificate verification; do not use it to bypass TLS.
+      - key: DB_TLS_SERVER_NAME
+        sync: false
       - key: AUTH_MODE
         value: session
       # Use a SQL-login connection string with Encrypt=True and

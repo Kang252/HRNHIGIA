@@ -90,6 +90,9 @@ export class SqlServerService implements OnModuleInit, OnApplicationShutdown {
       options: {
         encrypt: this.options.encrypt,
         trustServerCertificate: this.options.trustServerCertificate,
+        ...(this.options.tlsServerName
+          ? { serverName: this.options.tlsServerName }
+          : {}),
         enableArithAbort: true,
       },
     });

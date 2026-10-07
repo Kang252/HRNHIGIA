@@ -13,6 +13,7 @@ export interface SqlServerRuntimeConfig {
   password: string;
   encrypt: boolean;
   trustServerCertificate: boolean;
+  tlsServerName?: string;
   connectTimeoutMs: number;
   requestTimeoutMs: number;
   poolMin: number;
@@ -114,6 +115,7 @@ export class RuntimeConfigService {
         password: parsed.password,
         encrypt: parsed.encrypt,
         trustServerCertificate: parsed.trustServerCertificate,
+        tlsServerName: this.tlsServerName,
         connectTimeoutMs:
           parsed.connectTimeoutMs ??
           this.config.get("DB_CONNECT_TIMEOUT_MS", { infer: true }),
@@ -141,6 +143,7 @@ export class RuntimeConfigService {
       trustServerCertificate: this.config.get("DB_TRUST_SERVER_CERTIFICATE", {
         infer: true,
       }),
+      tlsServerName: this.tlsServerName,
       connectTimeoutMs: this.config.get("DB_CONNECT_TIMEOUT_MS", {
         infer: true,
       }),
@@ -162,5 +165,12 @@ export class RuntimeConfigService {
       .get("ConnectionStrings__MainConnectionString", { infer: true })
       ?.trim();
     return apiValue || dotnetValue || undefined;
+  }
+
+  private get tlsServerName(): string | undefined {
+    return (
+      this.config.get("DB_TLS_SERVER_NAME", { infer: true })?.trim() ||
+      undefined
+    );
   }
 }

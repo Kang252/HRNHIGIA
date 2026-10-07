@@ -21,6 +21,7 @@ export interface ValidatedEnvironment {
   DB_PASSWORD?: string;
   DB_ENCRYPT: boolean;
   DB_TRUST_SERVER_CERTIFICATE: boolean;
+  DB_TLS_SERVER_NAME?: string;
   DB_CONNECT_TIMEOUT_MS: number;
   DB_REQUEST_TIMEOUT_MS: number;
   DB_POOL_MIN: number;
@@ -75,6 +76,11 @@ const schema = Joi.object<ValidatedEnvironment>({
   DB_PASSWORD: Joi.string().max(1024).optional(),
   DB_ENCRYPT: booleanValue.default(true),
   DB_TRUST_SERVER_CERTIFICATE: booleanValue.default(false),
+  // Some managed SQL providers route a tenant hostname to a shared SQL
+  // instance whose certificate is issued to a different, documented DNS name.
+  // This keeps certificate verification enabled while supplying that name as
+  // TLS SNI/hostname validation input to the driver.
+  DB_TLS_SERVER_NAME: Joi.string().hostname().max(253).optional().allow(""),
   DB_CONNECT_TIMEOUT_MS: Joi.number()
     .integer()
     .min(1000)
