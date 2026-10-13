@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.DataProtection.KeyManagement;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.IdentityModel.Tokens;
 using NHIGIA.Modern.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -12,7 +14,17 @@ builder.Logging.AddConsole();
 builder.Services
     .AddControllersWithViews()
     .AddJsonOptions(options => options.JsonSerializerOptions.PropertyNamingPolicy = null);
-builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+var keycloak = builder.Configuration.GetSection("Authentication:Keycloak");
+var keycloakEnabled = keycloak.GetValue<bool>("Enabled");
+
+builder.Services.AddAuthentication(options =>
+    {
+        options.DefaultAuthenticateScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+        options.DefaultSignInScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+        options.DefaultChallengeScheme = keycloakEnabled
+            ? OpenIdConnectDefaults.AuthenticationScheme
+            : CookieAuthenticationDefaults.AuthenticationScheme;
+    })
     .AddCookie(options =>
     {
         options.LoginPath = "/Account/Login";
@@ -47,6 +59,102 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
             return Task.CompletedTask;
         };
     });
+if (keycloakEnabled)
+{
+    var authority = keycloak["Authority"];
+    var clientId = keycloak["ClientId"];
+    if (string.IsNullOrWhiteSpace(authority) || string.IsNullOrWhiteSpace(clientId))
+    {
+        throw new InvalidOperationException("Authentication:Keycloak:Authority và ClientId là bắt buộc khi bật Keycloak.");
+    }
+
+    builder.Services.AddAuthentication()
+        .AddOpenIdConnect(OpenIdConnectDefaults.AuthenticationScheme, options =>
+        {
+            options.Authority = authority.TrimEnd('/');
+            options.ClientId = clientId;
+            options.ClientSecret = keycloak["ClientSecret"];
+            options.ResponseType = "code";
+            options.UsePkce = true;
+            options.SaveTokens = false;
+            options.MapInboundClaims = false;
+            options.GetClaimsFromUserInfoEndpoint = true;
+            options.Scope.Clear();
+            options.Scope.Add("openid");
+            options.Scope.Add("profile");
+            options.TokenValidationParameters = new TokenValidationParameters
+            {
+                NameClaimType = keycloak["UsernameClaim"] ?? "preferred_username"
+            };
+            options.Events.OnTokenValidated = context =>
+            {
+                var usernameClaim = keycloak["UsernameClaim"] ?? "preferred_username";
+                var username = context.Principal?.FindFirst(usernameClaim)?.Value;
+                if (string.IsNullOrWhiteSpace(username))
+                {
+                    context.Fail("Keycloak không trả về tên tài khoản.");
+                    return Task.CompletedTask;
+                }
+
+                var store = context.HttpContext.RequestServices.GetRequiredService<HrmDataStore>();
+                NHIGIA.Modern.Models.HrmUserAccountModel user;
+                try
+                {
+                    user = store.FindUser(username);
+                }
+                catch (Exception exception)
+                {
+                    context.HttpContext.RequestServices.GetRequiredService<ILoggerFactory>()
+                        .CreateLogger("Keycloak")
+                        .LogError(exception, "Không thể kiểm tra tài khoản HRM sau khi Keycloak xác thực {Username}", username);
+                    context.Fail("Không thể kiểm tra quyền truy cập HRM.");
+                    return Task.CompletedTask;
+                }
+
+                if (user == null || !user.IsActive)
+                {
+                    context.Fail("Tài khoản chưa được cấp quyền vào HRM.");
+                    return Task.CompletedTask;
+                }
+
+                var identity = context.Principal?.Identity as System.Security.Claims.ClaimsIdentity;
+                if (identity == null)
+                {
+                    context.Fail("Không thể tạo phiên đăng nhập HRM.");
+                    return Task.CompletedTask;
+                }
+
+                foreach (var claim in identity.Claims.Where(claim =>
+                             claim.Type is System.Security.Claims.ClaimTypes.NameIdentifier or
+                                 System.Security.Claims.ClaimTypes.Name or
+                                 System.Security.Claims.ClaimTypes.Role or
+                                 "display_name" or "department_name" or "department_id" or "supervisor_id").ToList())
+                {
+                    identity.RemoveClaim(claim);
+                }
+
+                identity.AddClaim(new global::System.Security.Claims.Claim(global::System.Security.Claims.ClaimTypes.NameIdentifier, user.Id.ToString()));
+                identity.AddClaim(new global::System.Security.Claims.Claim(global::System.Security.Claims.ClaimTypes.Name, user.Username));
+                identity.AddClaim(new global::System.Security.Claims.Claim(global::System.Security.Claims.ClaimTypes.Role, user.RoleCode));
+                identity.AddClaim(new global::System.Security.Claims.Claim("display_name", user.DisplayName ?? user.Username));
+                identity.AddClaim(new global::System.Security.Claims.Claim("department_name", user.DepartmentName ?? string.Empty));
+                if (user.DepartmentId.HasValue) identity.AddClaim(new global::System.Security.Claims.Claim("department_id", user.DepartmentId.Value.ToString()));
+                if (user.SupervisorUserId.HasValue) identity.AddClaim(new global::System.Security.Claims.Claim("supervisor_id", user.SupervisorUserId.Value.ToString()));
+
+                store.MarkLogin(user.Id, context.HttpContext.Connection.RemoteIpAddress?.ToString());
+                return Task.CompletedTask;
+            };
+            options.Events.OnRemoteFailure = context =>
+            {
+                context.HttpContext.RequestServices.GetRequiredService<ILoggerFactory>()
+                    .CreateLogger("Keycloak")
+                    .LogWarning(context.Failure, "Đăng nhập Keycloak không thành công");
+                context.Response.Redirect("/Account/Login?error=keycloak");
+                context.HandleResponse();
+                return Task.CompletedTask;
+            };
+        });
+}
 builder.Services.AddAuthorization();
 builder.Services.AddAntiforgery(options =>
 {

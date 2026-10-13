@@ -28,6 +28,10 @@
             <div class="hrm-login-form-wrap">
                 <h2>Đăng nhập</h2>
                 <p>Sử dụng tài khoản được cấp để truy cập hệ thống.</p>
+                @if (TempData["LoginError"] is string loginError)
+                {
+                    <div class="hrm-login-error">@loginError</div>
+                }
                 @using (Html.BeginForm("Login", "Account", FormMethod.Post, new { @class = "hrm-login-form" }))
                 {
                     @Html.AntiForgeryToken()

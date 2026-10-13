@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using NHIGIA.Modern.Infrastructure;
@@ -12,18 +13,31 @@ public sealed class AccountController : Controller
 {
     private readonly HrmDataStore _store;
     private readonly ILogger<AccountController> _logger;
+    private readonly IConfiguration _configuration;
 
-    public AccountController(HrmDataStore store, ILogger<AccountController> logger)
+    public AccountController(HrmDataStore store, ILogger<AccountController> logger, IConfiguration configuration)
     {
         _store = store;
         _logger = logger;
+        _configuration = configuration;
     }
 
     [AllowAnonymous]
     [HttpGet]
-    public IActionResult Login(string returnUrl = null)
+    public IActionResult Login(string returnUrl = null, string error = null)
     {
         if (User.Identity?.IsAuthenticated == true) return RedirectToAction("Index", "Home");
+        if (KeycloakEnabled)
+        {
+            if (string.Equals(error, "keycloak", StringComparison.OrdinalIgnoreCase))
+            {
+                TempData["LoginError"] = "Không thể đăng nhập hoặc tài khoản chưa được cấp quyền vào HRM.";
+                return View(new LoginViewModel { ReturnUrl = returnUrl });
+            }
+
+            var redirectUri = Url.IsLocalUrl(returnUrl) ? returnUrl : Url.Action("Index", "Home");
+            return Challenge(new AuthenticationProperties { RedirectUri = redirectUri }, OpenIdConnectDefaults.AuthenticationScheme);
+        }
         return View(new LoginViewModel { ReturnUrl = returnUrl });
     }
 
@@ -32,6 +46,11 @@ public sealed class AccountController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Login(LoginViewModel model)
     {
+        if (KeycloakEnabled)
+        {
+            var redirectUri = Url.IsLocalUrl(model.ReturnUrl) ? model.ReturnUrl : Url.Action("Index", "Home");
+            return Challenge(new AuthenticationProperties { RedirectUri = redirectUri }, OpenIdConnectDefaults.AuthenticationScheme);
+        }
         if (!ModelState.IsValid) return View(model);
 
         HrmUserAccountModel user;
@@ -83,10 +102,19 @@ public sealed class AccountController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Logout()
     {
+        if (KeycloakEnabled)
+        {
+            return SignOut(
+                new AuthenticationProperties { RedirectUri = Url.Action(nameof(Login), "Account") },
+                CookieAuthenticationDefaults.AuthenticationScheme,
+                OpenIdConnectDefaults.AuthenticationScheme);
+        }
         await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
         return RedirectToAction("Login");
     }
 
     [AllowAnonymous]
     public IActionResult AccessDenied() => View();
+
+    private bool KeycloakEnabled => _configuration.GetValue<bool>("Authentication:Keycloak:Enabled");
 }
