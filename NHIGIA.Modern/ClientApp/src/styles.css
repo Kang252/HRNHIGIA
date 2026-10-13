@@ -146,6 +146,8 @@ code { padding: 2px 6px; border-radius: 6px; background: #eaf3ff; color: #1767cf
   font-weight: 500;
 }
 .login-form input:focus, .filter-panel input:focus, .filter-panel select:focus { border-color: #2772d3; box-shadow: 0 0 0 3px rgba(39, 114, 211, .14); }
+.login-form .remember-choice { display: flex; align-items: center; gap: 9px; color: #526a86; font-size: .82rem; font-weight: 620; }
+.login-form .remember-choice input { width: 16px; min-width: 16px; min-height: 16px; height: 16px; margin: 0; padding: 0; accent-color: #1767cf; }
 .login-button { width: 100%; margin-top: 6px; }
 .form-alert {
   display: grid;

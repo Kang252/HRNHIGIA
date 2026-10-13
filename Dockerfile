@@ -1,25 +1,34 @@
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
-WORKDIR /src
-COPY ["NHIGIA.Modern/NHIGIA.Modern.csproj", "NHIGIA.Modern/"]
-RUN dotnet restore "NHIGIA.Modern/NHIGIA.Modern.csproj"
-COPY NHIGIA.Modern/ NHIGIA.Modern/
-WORKDIR /src/NHIGIA.Modern
-RUN dotnet publish "NHIGIA.Modern.csproj" -c Release -o /app/publish /p:UseAppHost=false
+# Primary Render image: serve the NHIGIA React client and Nest API from one
+# same-origin service. This replaces the previous ASP.NET runtime.
+FROM node:22-alpine AS api-dependencies
+WORKDIR /src/NHIGIA.Api
+COPY NHIGIA.Api/package*.json ./
+RUN npm ci
 
-FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
+FROM node:22-alpine AS client-build
+WORKDIR /src/NHIGIA.Modern/ClientApp
+COPY NHIGIA.Modern/ClientApp/package*.json ./
+RUN npm ci
+COPY NHIGIA.Modern/ClientApp/ ./
+ENV VITE_APP_BASE_PATH=/modern-ui/
+ENV VITE_API_BASE_PATH=/api/v1
+RUN npm run build
+
+FROM node:22-alpine AS api-build
+WORKDIR /src/NHIGIA.Api
+COPY --from=api-dependencies /src/NHIGIA.Api/node_modules ./node_modules
+COPY NHIGIA.Api/ ./
+RUN npm run build && npm prune --omit=dev
+
+FROM node:22-alpine AS runtime
 WORKDIR /app
-RUN apt-get update && apt-get install -y --no-install-recommends python3 python3-venv ca-certificates \
-    && rm -rf /var/lib/apt/lists/* \
-    && python3 -m venv /opt/opencv
-COPY NHIGIA.Modern/OpenCv/requirements.txt /tmp/opencv-requirements.txt
-RUN /opt/opencv/bin/pip install --no-cache-dir -r /tmp/opencv-requirements.txt
-EXPOSE 8080
-ENV ASPNETCORE_URLS=http://+:8080
-COPY --from=build /app/publish .
-RUN /opt/opencv/bin/python OpenCv/download_models.py --model-dir /opt/opencv/models
-ENV HRM_OPENCV_ENABLED=true \
-    HRM_OPENCV_PYTHON=/opt/opencv/bin/python \
-    HRM_OPENCV_MODEL_PATH=/opt/opencv/models \
-    OPENBLAS_NUM_THREADS=1 \
-    OMP_NUM_THREADS=1
-ENTRYPOINT ["dotnet", "NHIGIA.Modern.dll"]
+ENV NODE_ENV=production \
+    PORT=10000 \
+    HOST=0.0.0.0 \
+    CLIENT_APP_DIR=/app/client-app
+COPY --from=api-build --chown=node:node /src/NHIGIA.Api/node_modules ./node_modules
+COPY --from=api-build --chown=node:node /src/NHIGIA.Api/dist ./dist
+COPY --from=client-build --chown=node:node /src/NHIGIA.Modern/ClientApp/dist ./client-app
+USER node
+EXPOSE 10000
+CMD ["node", "dist/main.js"]

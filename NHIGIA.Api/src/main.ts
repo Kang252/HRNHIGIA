@@ -56,7 +56,7 @@ async function bootstrap(): Promise<void> {
   );
 }
 
-function configureClientApp(
+export function configureClientApp(
   app: INestApplication,
   configuredDir?: string,
 ): void {
@@ -74,6 +74,18 @@ function configureClientApp(
   // deliberately only for API controllers; the React entrypoint must remain
   // reachable at /modern-ui/ rather than /api/v1/modern-ui/.
   const expressApp = app.getHttpAdapter().getInstance() as ExpressApplication;
+  const redirectToModernLogin = (_request: Request, response: Response) => {
+    // Deliberately do not carry over a legacy returnUrl: the React shell only
+    // accepts its own allowlisted hash views after authentication.
+    response.setHeader("Cache-Control", "no-store");
+    response.redirect(302, "/modern-ui/");
+  };
+
+  // These browser-only entry points make the new service usable as the login
+  // target during the gradual cutover. POST /Account/Login is intentionally
+  // not intercepted, so credentials cannot be forwarded or reinterpreted.
+  expressApp.get("/", redirectToModernLogin);
+  expressApp.get("/Account/Login", redirectToModernLogin);
   expressApp.use(
     "/modern-ui",
     serveStatic(clientRoot, {
@@ -114,7 +126,10 @@ function configureClientApp(
 
 interface ExpressApplication {
   set(setting: string, value: unknown): void;
+  get: (...handlers: unknown[]) => void;
   use: (...handlers: unknown[]) => void;
 }
 
-void bootstrap();
+if (require.main === module) {
+  void bootstrap();
+}

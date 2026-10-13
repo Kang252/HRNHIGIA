@@ -3,7 +3,6 @@ import { getCurrentUser, login, logout, type ApiUser, type LoginCredentials } fr
 import { CommunicationsView } from './components/CommunicationsView'
 import { DashboardView } from './components/DashboardView'
 import { LoginForm } from './components/LoginForm'
-import { apiBasePath } from './config'
 import { errorMessage, errorRequestId, isUnauthorized } from './ui/errors'
 
 type ViewKey = 'dashboard' | 'communications'
@@ -116,7 +115,7 @@ export default function App() {
 
   if (auth.status === 'loading') return <SessionLoading />
   if (auth.status === 'error') return <SessionError error={auth.error} onRetry={() => void establishSession()} />
-  if (auth.status === 'anonymous') return <LoginForm apiBasePath={apiBasePath} onSubmit={submitLogin} />
+  if (auth.status === 'anonymous') return <LoginForm onSubmit={submitLogin} />
 
   return (
     <div className="app-shell">

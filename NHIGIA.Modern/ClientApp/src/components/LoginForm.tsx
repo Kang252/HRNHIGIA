@@ -3,13 +3,13 @@ import type { LoginCredentials } from '../api/hrm'
 import { errorMessage, errorRequestId } from '../ui/errors'
 
 type LoginFormProps = {
-  apiBasePath: string
   onSubmit: (credentials: LoginCredentials) => Promise<void>
 }
 
-export function LoginForm({ apiBasePath, onSubmit }: LoginFormProps) {
+export function LoginForm({ onSubmit }: LoginFormProps) {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
+  const [rememberMe, setRememberMe] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<unknown>(null)
 
@@ -18,7 +18,7 @@ export function LoginForm({ apiBasePath, onSubmit }: LoginFormProps) {
     setSubmitting(true)
     setError(null)
     try {
-      await onSubmit({ username: username.trim(), password })
+      await onSubmit({ username: username.trim(), password, rememberMe })
     } catch (nextError) {
       setError(nextError)
     } finally {
@@ -35,8 +35,8 @@ export function LoginForm({ apiBasePath, onSubmit }: LoginFormProps) {
           <span><strong>NHỊ GIA</strong><small>HRM Modern</small></span>
         </a>
         <p className="eyebrow">Đăng nhập</p>
-        <h1 id="login-title">Mở phiên làm việc</h1>
-        <p className="login-intro">Đăng nhập qua API tại <code>{apiBasePath}</code>. Phiên được lưu trong cookie cùng tên miền.</p>
+        <h1 id="login-title">Đăng nhập hệ thống</h1>
+        <p className="login-intro">Sử dụng tài khoản Nhị Gia của bạn để tiếp tục.</p>
 
         {error !== null && (
           <div className="form-alert" role="alert">
@@ -69,6 +69,16 @@ export function LoginForm({ apiBasePath, onSubmit }: LoginFormProps) {
               required
               disabled={submitting}
             />
+          </label>
+          <label className="remember-choice">
+            <input
+              name="rememberMe"
+              type="checkbox"
+              checked={rememberMe}
+              onChange={(event) => setRememberMe(event.target.checked)}
+              disabled={submitting}
+            />
+            <span>Ghi nhớ đăng nhập trên thiết bị này</span>
           </label>
           <button className="primary-button login-button" type="submit" disabled={submitting}>
             {submitting ? 'Đang đăng nhập…' : 'Đăng nhập'}

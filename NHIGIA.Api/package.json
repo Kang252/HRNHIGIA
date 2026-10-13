@@ -14,7 +14,7 @@
     "start:dev": "nest start --watch",
     "lint": "eslint \"src/**/*.ts\"",
     "typecheck": "tsc --noEmit",
-    "test:smoke": "npm run build && node --test test/smoke/sql-connection-string.test.cjs test/smoke/runtime-config.test.cjs test/smoke/dashboard-scope.test.cjs test/smoke/login-rate-limit.test.cjs test/smoke/browser-mutation.test.cjs test/smoke/communications-contract.test.cjs test/smoke/notifications-contract.test.cjs test/smoke/attendance-contract.test.cjs test/smoke/procedures-contract.test.cjs test/smoke/remote-attendance-contract.test.cjs test/smoke/schema-readiness.test.cjs test/smoke/session-schema.test.cjs",
+    "test:smoke": "npm run build && node --test test/smoke/sql-connection-string.test.cjs test/smoke/runtime-config.test.cjs test/smoke/dashboard-scope.test.cjs test/smoke/login-rate-limit.test.cjs test/smoke/browser-mutation.test.cjs test/smoke/communications-contract.test.cjs test/smoke/notifications-contract.test.cjs test/smoke/attendance-contract.test.cjs test/smoke/procedures-contract.test.cjs test/smoke/remote-attendance-contract.test.cjs test/smoke/schema-readiness.test.cjs test/smoke/session-schema.test.cjs test/smoke/client-entrypoints.test.cjs",
     "format:check": "prettier --check \"src/**/*.ts\" \"*.json\" \"*.md\""
   },
   "dependencies": {
