@@ -75,4 +75,6 @@ catch (InvalidOperationException) { stagingMismatch=true; }
 Check("Staging rejects mismatched database",stagingMismatch);
 var stagingConnection=DatabaseConfiguration.Resolve(new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string> { ["ASPNETCORE_ENVIRONMENT"]="Staging", ["HRM_EXPECTED_DATABASE"]="NHIGIA_STAGING", ["ConnectionStrings:MainConnectionString"]="Server=localhost;Database=NHIGIA_STAGING;User Id=test;Password=test;TrustServerCertificate=True" }).Build());
 Check("Staging accepts exact expected database",stagingConnection.Contains("Initial Catalog=NHIGIA_STAGING",StringComparison.OrdinalIgnoreCase));
+var apiCutoverConnection=DatabaseConfiguration.Resolve(new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string> { ["DB_CONNECTION_STRING"]="Server=localhost;Database=NHIGIA_API_CUTOVER;User Id=test;Password=test;TrustServerCertificate=True" }).Build());
+Check("API connection variable is accepted by the portal",apiCutoverConnection.Contains("Initial Catalog=NHIGIA_API_CUTOVER",StringComparison.OrdinalIgnoreCase));
 Console.WriteLine($"Passed {count} policy and payroll tests.");

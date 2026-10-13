@@ -11,10 +11,19 @@ public static class DatabaseConfiguration
 
     public static string Resolve(IConfiguration configuration)
     {
-        var raw = new[] { configuration["HRM_CONNECTION_STRING"], configuration.GetConnectionString("MainConnectionString") }
+        // During the Nest API cutover the Render service was configured with
+        // DB_CONNECTION_STRING. Accept it here too so the full MVC portal can
+        // return to the primary host without requiring the SQL secret to be
+        // copied or re-entered in Render.
+        var raw = new[]
+            {
+                configuration["HRM_CONNECTION_STRING"],
+                configuration["DB_CONNECTION_STRING"],
+                configuration.GetConnectionString("MainConnectionString")
+            }
             .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
         if (string.IsNullOrWhiteSpace(raw) || raw.Contains("CHANGE_ME", StringComparison.OrdinalIgnoreCase))
-            throw new InvalidOperationException("Configure HRM_CONNECTION_STRING or ConnectionStrings__MainConnectionString with the SQL Server connection string.");
+            throw new InvalidOperationException("Configure HRM_CONNECTION_STRING, DB_CONNECTION_STRING or ConnectionStrings__MainConnectionString with the SQL Server connection string.");
 
         var connection = new SqlConnectionStringBuilder(raw);
         if (!OperatingSystem.IsWindows() && (connection.IntegratedSecurity || connection.DataSource.Contains("localdb", StringComparison.OrdinalIgnoreCase)))
