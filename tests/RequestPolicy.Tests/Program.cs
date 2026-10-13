@@ -1,5 +1,6 @@
 using NHIGIA.Modern.Infrastructure;
 using NHIGIA.Modern.Models;
+using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
 
 // Pure authorization/accounting checks: no production SQL, HANET or external calls.
@@ -77,4 +78,6 @@ var stagingConnection=DatabaseConfiguration.Resolve(new ConfigurationBuilder().A
 Check("Staging accepts exact expected database",stagingConnection.Contains("Initial Catalog=NHIGIA_STAGING",StringComparison.OrdinalIgnoreCase));
 var apiCutoverConnection=DatabaseConfiguration.Resolve(new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string> { ["DB_CONNECTION_STRING"]="Server=localhost;Database=NHIGIA_API_CUTOVER;User Id=test;Password=test;TrustServerCertificate=True" }).Build());
 Check("API connection variable is accepted by the portal",apiCutoverConnection.Contains("Initial Catalog=NHIGIA_API_CUTOVER",StringComparison.OrdinalIgnoreCase));
+var tlsOverrideConnection=DatabaseConfiguration.Resolve(new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string> { ["DB_CONNECTION_STRING"]="Server=tenant.sql.example;Database=NHIGIA;User Id=test;Password=test;Encrypt=True;TrustServerCertificate=False", ["DB_TLS_SERVER_NAME"]="certificate.sql.example" }).Build());
+Check("Portal supports a verified SQL certificate hostname override",new SqlConnectionStringBuilder(tlsOverrideConnection).HostNameInCertificate=="certificate.sql.example");
 Console.WriteLine($"Passed {count} policy and payroll tests.");

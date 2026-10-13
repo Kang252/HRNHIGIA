@@ -26,6 +26,14 @@ public static class DatabaseConfiguration
             throw new InvalidOperationException("Configure HRM_CONNECTION_STRING, DB_CONNECTION_STRING or ConnectionStrings__MainConnectionString with the SQL Server connection string.");
 
         var connection = new SqlConnectionStringBuilder(raw);
+        // Some managed SQL providers route through a tenant hostname while the
+        // server certificate is issued to a different published DNS name.
+        // This keeps TLS validation enabled and lets Render supply that name
+        // without duplicating the connection-string secret.
+        var tlsServerName = configuration["DB_TLS_SERVER_NAME"]
+            ?? configuration["HRM_SQL_TLS_SERVER_NAME"];
+        if (!string.IsNullOrWhiteSpace(tlsServerName))
+            connection.HostNameInCertificate = tlsServerName.Trim();
         if (!OperatingSystem.IsWindows() && (connection.IntegratedSecurity || connection.DataSource.Contains("localdb", StringComparison.OrdinalIgnoreCase)))
             throw new InvalidOperationException("Render requires a reachable SQL Server host and SQL authentication; LocalDB/Windows authentication is unavailable.");
         var environment = configuration["ASPNETCORE_ENVIRONMENT"] ?? Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");

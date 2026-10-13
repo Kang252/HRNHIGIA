@@ -14,7 +14,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends python3 python3
 COPY NHIGIA.Modern/OpenCv/requirements.txt /tmp/opencv-requirements.txt
 RUN /opt/opencv/bin/pip install --no-cache-dir -r /tmp/opencv-requirements.txt
 EXPOSE 8080
-ENV ASPNETCORE_URLS=http://+:8080
 COPY --from=build /app/publish .
 RUN /opt/opencv/bin/python OpenCv/download_models.py --model-dir /opt/opencv/models
 ENV HRM_OPENCV_ENABLED=true \
@@ -22,4 +21,6 @@ ENV HRM_OPENCV_ENABLED=true \
     HRM_OPENCV_MODEL_PATH=/opt/opencv/models \
     OPENBLAS_NUM_THREADS=1 \
     OMP_NUM_THREADS=1
-ENTRYPOINT ["dotnet", "NHIGIA.Modern.dll"]
+# Render assigns PORT at runtime.  Keep 8080 as the local-container default,
+# while binding to Render's assigned port in production.
+ENTRYPOINT ["/bin/sh", "-c", "ASPNETCORE_URLS=\"http://+:${PORT:-8080}\" exec dotnet NHIGIA.Modern.dll"]
