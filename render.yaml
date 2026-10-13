@@ -3,6 +3,7 @@ services:
     name: nhigia-hrm
     runtime: docker
     dockerfilePath: ./Dockerfile
+    autoDeployTrigger: commit
     healthCheckPath: /Health
     envVars:
       - key: ASPNETCORE_ENVIRONMENT
