@@ -3,29 +3,9 @@ services:
     name: nhigia-hrm
     runtime: docker
     dockerfilePath: ./Dockerfile
-    healthCheckPath: /api/v1/health
+    healthCheckPath: /Health
     envVars:
-      - key: NODE_ENV
-        value: production
-      - key: PORT
-        value: "10000"
-      - key: HOST
-        value: 0.0.0.0
-      - key: API_PREFIX
-        value: api/v1
-      - key: CLIENT_APP_DIR
-        value: /app/client-app
-      - key: DB_ENABLED
-        value: "true"
-      - key: DB_CONNECT_ON_STARTUP
-        value: "true"
-      - key: DB_ENCRYPT
-        value: "true"
-      - key: DB_TRUST_SERVER_CERTIFICATE
-        value: "false"
-      - key: DB_TLS_SERVER_NAME
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: ConnectionStrings__MainConnectionString
         sync: false
-      - key: DB_CONNECTION_STRING
-        sync: false
-      - key: AUTH_MODE
-        value: session
