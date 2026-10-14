@@ -100,16 +100,22 @@ khai. Có thể dùng URL mặc định của Render, ví dụ
 Không chạy Keycloak chung Docker image hay chung database với HRM.
 
 1. Tạo PostgreSQL trên Render cùng region với service Keycloak.
-2. Tạo Web Service từ image `quay.io/keycloak/keycloak:26.8.0`, dùng Docker
-   Command `start` và service port `10000`. Nếu triển khai từ
+2. Tạo Web Service từ image `quay.io/keycloak/keycloak:26.8.1`, dùng Docker
+   Command `/opt/keycloak/bin/kc.sh start --verbose` và service port `10000`.
+   Image chính thức không có CMD mặc định; với service **Existing Image** trên
+   Render cần dùng đường dẫn lệnh đầy đủ như trên. Nếu triển khai từ
    `infra/keycloak/Dockerfile`, image đã có lệnh mặc định này; để Docker
    Command trống hoặc đặt đúng `start`.
-3. Đặt tối thiểu các biến môi trường sau trong service Keycloak. Giá trị nằm
+3. Chọn compute `1c-2g` (1 CPU, 2 GB RAM) cho production. Gói Free 512 MB có
+   thể hết bộ nhớ trong lần khởi tạo database/realm. Đặt tối thiểu các biến môi
+   trường sau trong service Keycloak. Giá trị nằm
    trong Render Secrets, không đưa vào Git hay chat.
 
 ```text
 KC_DB=postgres
-KC_DB_URL=jdbc:postgresql://<db-host>:<db-port>/<database>
+KC_DB_URL_HOST=<internal-db-host>
+KC_DB_URL_PORT=5432
+KC_DB_URL_DATABASE=<database>
 KC_DB_USERNAME=<db-user>
 KC_DB_PASSWORD=<db-password>
 KC_BOOTSTRAP_ADMIN_USERNAME=<admin-user>
@@ -122,15 +128,21 @@ KC_HEALTH_ENABLED=true
 KC_HTTP_MANAGEMENT_HEALTH_ENABLED=false
 ```
 
-4. Đặt Health Check Path của Render là `/health/ready`, rồi kiểm tra discovery
+4. Đặt Health Check Path của Render là `/health/ready`. Khi endpoint trả
+   `status: UP`, đăng nhập Admin Console và import
+   `infra/keycloak/templates/nhigia-render-realm.json`. Tệp này tạo realm
+   `nhigia` cùng client confidential `hrm-web` dành cho production; không chứa
+   user, mật khẩu hoặc client secret cố định. Sau import, kiểm tra discovery
    document: `https://<ten-service>.onrender.com/realms/nhigia/.well-known/openid-configuration`.
    Có thể thay URL này bằng custom domain sau khi đã mua tên miền và Render báo
    xác thực thành công.
-5. Tạo realm `nhigia`, client confidential `hrm-web`, bật Standard flow và PKCE
-   S256. Đặt redirect URI `https://hrnhigia.onrender.com/signin-oidc`, post
-   logout redirect URI `https://hrnhigia.onrender.com/signout-callback-oidc`,
-   web origin `https://hrnhigia.onrender.com`.
-6. Sao chép **Client secret** ở **Clients → hrm-web → Credentials** vào Render
+5. Xác nhận client `hrm-web` đã bật Standard flow, Client authentication và
+   PKCE S256. Redirect URI phải là
+   `https://hrnhigia.onrender.com/signin-oidc`, post logout redirect URI là
+   `https://hrnhigia.onrender.com/signout-callback-oidc`, và web origin là
+   `https://hrnhigia.onrender.com`.
+6. Sao chép **Client secret** được Keycloak tạo ở
+   **Clients → hrm-web → Credentials** vào Render
    secrets của service HRM, cùng các biến sau:
 
 ```text
