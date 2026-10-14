@@ -27,6 +27,8 @@ services:
       dockerfile: infra/keycloak/Dockerfile
     image: nhigia-keycloak:local
     restart: unless-stopped
+    entrypoint:
+      - /opt/keycloak/bin/kc.sh
     command:
       - start-dev
       - --import-realm

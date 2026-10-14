@@ -4,6 +4,6 @@ FROM quay.io/keycloak/keycloak:26.8.0
 
 COPY infra/keycloak/realm/ /opt/keycloak/data/import/
 
-# The official image entrypoint invokes kc.sh.  A production web service must
-# supply a subcommand; otherwise Keycloak prints its help and exits.
-CMD ["start"]
+# Pin the production action in the entrypoint so this image cannot launch
+# Keycloak without a subcommand and exit after printing its help.
+ENTRYPOINT ["/opt/keycloak/bin/kc.sh", "start"]
