@@ -23,8 +23,8 @@ services:
 
   keycloak:
     build:
-      context: ./infra/keycloak
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: infra/keycloak/Dockerfile
     image: nhigia-keycloak:local
     restart: unless-stopped
     command:
