@@ -17,6 +17,10 @@ Hướng dẫn cấu hình SQL, migration phiên và mẫu Render riêng nằm t
 service NestJS công khai trước khi chạy migration `HrmApiSession` và cấu hình
 secret SQL Server trên service mới.
 
+Hướng dẫn chạy Keycloak cục bộ, cấu hình OIDC cho HRM và triển khai Keycloak
+thành service riêng trên Render nằm tại
+[`docs/keycloak-project-integration.md`](docs/keycloak-project-integration.md).
+
 ## Chạy bằng Visual Studio
 
 1. Mở `NHIGIA.sln`.

@@ -73,10 +73,13 @@ Authentication__Keycloak__Enabled=true
 Authentication__Keycloak__Authority=https://sso.ten-mien-cua-ban/realms/nhigia
 Authentication__Keycloak__ClientId=hrm-web
 Authentication__Keycloak__ClientSecret=<client-secret-tu-keycloak>
+Authentication__Keycloak__RequireHttpsMetadata=true
 Authentication__Keycloak__UsernameClaim=preferred_username
 ```
 
-Sau khi redeploy, URL `/Account/Login` sẽ chuyển sang Keycloak. Callback cố định là `/signin-oidc`.
+`RequireHttpsMetadata` mặc định là `true` và phải giữ nguyên ở Render hoặc bất kỳ môi trường không phải Development nào. Chỉ Keycloak cục bộ chạy HTTP mới dùng `Authentication__Keycloak__RequireHttpsMetadata=false` cùng `ASPNETCORE_ENVIRONMENT=Development`.
+
+Sau khi redeploy, URL `/Account/Login` sẽ chuyển sang Keycloak. Callback đăng nhập cố định là `/signin-oidc`; callback đăng xuất là `/signout-callback-oidc`.
 
 ## 5. CRM, kế toán và website khác
 

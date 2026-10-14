@@ -16,6 +16,12 @@ builder.Services
     .AddJsonOptions(options => options.JsonSerializerOptions.PropertyNamingPolicy = null);
 var keycloak = builder.Configuration.GetSection("Authentication:Keycloak");
 var keycloakEnabled = keycloak.GetValue<bool>("Enabled");
+var keycloakRequireHttpsMetadata = keycloak.GetValue("RequireHttpsMetadata", true);
+
+if (keycloakEnabled && !keycloakRequireHttpsMetadata && !builder.Environment.IsDevelopment())
+{
+    throw new InvalidOperationException("Authentication:Keycloak:RequireHttpsMetadata chỉ được đặt false trong môi trường Development.");
+}
 
 builder.Services.AddAuthentication(options =>
     {
@@ -74,6 +80,10 @@ if (keycloakEnabled)
             options.Authority = authority.TrimEnd('/');
             options.ClientId = clientId;
             options.ClientSecret = keycloak["ClientSecret"];
+            // Keycloak local runs on HTTP only during Development. Production metadata must always use HTTPS.
+            options.RequireHttpsMetadata = keycloakRequireHttpsMetadata;
+            options.CallbackPath = "/signin-oidc";
+            options.SignedOutCallbackPath = "/signout-callback-oidc";
             options.ResponseType = "code";
             options.UsePkce = true;
             options.SaveTokens = false;

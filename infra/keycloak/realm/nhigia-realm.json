@@ -1,0 +1,63 @@
+{
+  "realm": "nhigia",
+  "displayName": "Nhị Gia HRM (local)",
+  "enabled": true,
+  "registrationAllowed": false,
+  "registrationEmailAsUsername": false,
+  "rememberMe": false,
+  "verifyEmail": false,
+  "loginWithEmailAllowed": false,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": false,
+  "bruteForceProtected": true,
+  "permanentLockout": false,
+  "maxFailureWaitSeconds": 900,
+  "minimumQuickLoginWaitSeconds": 60,
+  "waitIncrementSeconds": 60,
+  "quickLoginCheckMilliSeconds": 1000,
+  "maxDeltaTimeSeconds": 43200,
+  "failureFactor": 30,
+  "defaultSignatureAlgorithm": "RS256",
+  "clients": [
+    {
+      "clientId": "hrm-web-local",
+      "name": "Nhị Gia HRM local development",
+      "description": "Public OIDC client for local NHIGIA.Modern development only. Create the confidential hrm-web client separately for production.",
+      "rootUrl": "http://localhost:5116",
+      "baseUrl": "http://localhost:5116",
+      "enabled": true,
+      "bearerOnly": false,
+      "consentRequired": false,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "publicClient": true,
+      "frontchannelLogout": true,
+      "protocol": "openid-connect",
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:5116/signout-callback-oidc"
+      },
+      "redirectUris": [
+        "http://localhost:5116/signin-oidc"
+      ],
+      "webOrigins": [
+        "http://localhost:5116"
+      ],
+      "defaultClientScopes": [
+        "profile",
+        "email",
+        "roles",
+        "web-origins",
+        "acr"
+      ],
+      "optionalClientScopes": [
+        "address",
+        "phone",
+        "offline_access",
+        "microprofile-jwt"
+      ]
+    }
+  ]
+}
