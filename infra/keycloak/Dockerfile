@@ -3,7 +3,9 @@
 FROM quay.io/keycloak/keycloak:26.8.0
 
 COPY infra/keycloak/realm/ /opt/keycloak/data/import/
+COPY --chown=1000:0 --chmod=755 infra/keycloak/render-entrypoint.sh /opt/keycloak/bin/nhigia-entrypoint.sh
 
-# Pin the production action in the entrypoint so this image cannot launch
-# Keycloak without a subcommand and exit after printing its help.
-ENTRYPOINT ["/opt/keycloak/bin/kc.sh", "start"]
+# The wrapper supplies "start" if the runtime clears CMD, while Compose can
+# still replace CMD with start-dev --import-realm for local development.
+ENTRYPOINT ["/opt/keycloak/bin/nhigia-entrypoint.sh"]
+CMD ["start"]
