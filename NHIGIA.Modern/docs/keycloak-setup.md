@@ -31,9 +31,11 @@ Sao chép **Client secret** ở tab Credentials. Không đưa secret vào Git ha
 
 Tạo người dùng với username trùng chính xác `HrmUserAccounts.Username` trong database HRM. HRM chỉ cho đăng nhập nếu tài khoản local đang hoạt động; dữ liệu phòng ban và vai trò HRM vẫn được lấy từ database để tránh một role trên Keycloak vô tình cấp thêm quyền trong HRM.
 
-## 3. Chạy Keycloak trên tên miền bằng Render
+## 3. Chạy Keycloak trên Render
 
-Khuyến nghị dùng subdomain riêng, ví dụ `sso.ten-mien-cua-ban`. Không chạy Keycloak chung đường dẫn với website HRM.
+Không chạy Keycloak chung đường dẫn với website HRM. Có thể dùng URL mặc định
+`https://nhigia-sso.onrender.com` của Render trước; tên miền riêng là tùy chọn
+sau khi hệ thống đã hoạt động ổn định.
 
 1. Trong Render, tạo **PostgreSQL** mới (cùng region với HRM). Lưu lại `Internal Database URL`, username, password và database name.
 2. Tạo **Web Service** mới, chọn **Existing Image**: `quay.io/keycloak/keycloak:26.8.0`.
@@ -51,6 +53,8 @@ KC_HTTP_ENABLED=true
 KC_HTTP_PORT=10000
 KC_PROXY_HEADERS=xforwarded
 KC_HOSTNAME=https://nhigia-sso.onrender.com
+KC_HEALTH_ENABLED=true
+KC_HTTP_MANAGEMENT_HEALTH_ENABLED=false
 ```
 
 5. Đặt Docker Command:
@@ -59,8 +63,8 @@ KC_HOSTNAME=https://nhigia-sso.onrender.com
 start
 ```
 
-6. Trong Settings > Custom Domains của service Keycloak, thêm `sso.ten-mien-cua-ban`. Tại nhà cung cấp tên miền, tạo DNS record đúng giá trị Render hiển thị, rồi bấm Verify trên Render. Render tự cấp và gia hạn TLS/HTTPS.
-7. Chỉ sau khi Render báo domain đã verified, đổi `KC_HOSTNAME` thành `https://sso.ten-mien-cua-ban` và redeploy service.
+6. Trong **Settings > Health Checks**, đặt Path là `/health/ready`.
+7. Khi có tên miền riêng, thêm nó tại **Settings > Custom Domains**, tạo DNS record theo giá trị Render hiển thị, bấm Verify rồi đổi `KC_HOSTNAME` sang domain mới và redeploy.
 
 > Không dùng `start-dev` trên Render. Keycloak cần PostgreSQL để dữ liệu người dùng, realm và client không mất khi dịch vụ redeploy.
 
@@ -70,7 +74,7 @@ Thêm các biến sau vào dịch vụ HRM trên Render:
 
 ```text
 Authentication__Keycloak__Enabled=true
-Authentication__Keycloak__Authority=https://sso.ten-mien-cua-ban/realms/nhigia
+Authentication__Keycloak__Authority=https://nhigia-sso.onrender.com/realms/nhigia
 Authentication__Keycloak__ClientId=hrm-web
 Authentication__Keycloak__ClientSecret=<client-secret-tu-keycloak>
 Authentication__Keycloak__RequireHttpsMetadata=true

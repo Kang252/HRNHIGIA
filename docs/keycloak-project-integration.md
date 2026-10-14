@@ -94,13 +94,16 @@ xóa toàn bộ identity data local.
 
 ## Triển khai thật trên Render
 
-Keycloak phải là Web Service riêng, có PostgreSQL riêng và domain HTTPS riêng
-như `sso.nhigia.vn`. Không chạy Keycloak chung Docker image hay chung database
-với HRM.
+Keycloak phải là Web Service riêng, có PostgreSQL riêng và một URL HTTPS công
+khai. Có thể dùng URL mặc định của Render, ví dụ
+`https://nhigia-sso.onrender.com`, trước khi mua hoặc cấu hình tên miền riêng.
+Không chạy Keycloak chung Docker image hay chung database với HRM.
 
 1. Tạo PostgreSQL trên Render cùng region với service Keycloak.
-2. Tạo Web Service từ image `quay.io/keycloak/keycloak:26.8.0`, dùng command
-   `start` và service port `10000`.
+2. Tạo Web Service từ image `quay.io/keycloak/keycloak:26.8.0`, dùng Docker
+   Command `start` và service port `10000`. Nếu triển khai từ
+   `infra/keycloak/Dockerfile`, image đã có lệnh mặc định này; để Docker
+   Command trống hoặc đặt đúng `start`.
 3. Đặt tối thiểu các biến môi trường sau trong service Keycloak. Giá trị nằm
    trong Render Secrets, không đưa vào Git hay chat.
 
@@ -114,12 +117,15 @@ KC_BOOTSTRAP_ADMIN_PASSWORD=<admin-password-manh>
 KC_HTTP_ENABLED=true
 KC_HTTP_PORT=10000
 KC_PROXY_HEADERS=xforwarded
-KC_HOSTNAME=https://sso.nhigia.vn
+KC_HOSTNAME=https://<ten-service>.onrender.com
 KC_HEALTH_ENABLED=true
+KC_HTTP_MANAGEMENT_HEALTH_ENABLED=false
 ```
 
-4. Gắn và xác thực custom domain `sso.nhigia.vn`. Kiểm tra discovery document:
-   `https://sso.nhigia.vn/realms/nhigia/.well-known/openid-configuration`.
+4. Đặt Health Check Path của Render là `/health/ready`, rồi kiểm tra discovery
+   document: `https://<ten-service>.onrender.com/realms/nhigia/.well-known/openid-configuration`.
+   Có thể thay URL này bằng custom domain sau khi đã mua tên miền và Render báo
+   xác thực thành công.
 5. Tạo realm `nhigia`, client confidential `hrm-web`, bật Standard flow và PKCE
    S256. Đặt redirect URI `https://hrnhigia.onrender.com/signin-oidc`, post
    logout redirect URI `https://hrnhigia.onrender.com/signout-callback-oidc`,
@@ -129,7 +135,7 @@ KC_HEALTH_ENABLED=true
 
 ```text
 Authentication__Keycloak__Enabled=true
-Authentication__Keycloak__Authority=https://sso.nhigia.vn/realms/nhigia
+Authentication__Keycloak__Authority=https://<ten-service>.onrender.com/realms/nhigia
 Authentication__Keycloak__ClientId=hrm-web
 Authentication__Keycloak__ClientSecret=<client-secret>
 Authentication__Keycloak__RequireHttpsMetadata=true
