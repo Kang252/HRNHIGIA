@@ -129,13 +129,15 @@ KC_HTTP_MANAGEMENT_HEALTH_ENABLED=false
 ```
 
 4. Đặt Health Check Path của Render là `/health/ready`. Khi endpoint trả
-   `status: UP`, đăng nhập Admin Console. Nếu realm `nhigia` chưa tồn tại, mở
+   `status: UP`, đăng nhập Admin Console. Production sử dụng realm `hrm-web`;
+   realm `nhigia` trong phần trên chỉ dành cho môi trường local. Nếu realm
+   `hrm-web` chưa tồn tại, mở
    **Manage realms → Create realm** và import
-   `infra/keycloak/templates/nhigia-render-realm.json`. Nếu realm đã tồn tại,
+   `infra/keycloak/templates/hrm-web-render-realm.json`. Nếu realm đã tồn tại,
    mở **Clients → Import client** và chọn
    `infra/keycloak/templates/hrm-web-render-client.json`. Các tệp này không
    chứa user, mật khẩu hoặc client secret cố định. Sau import, kiểm tra discovery
-   document: `https://<ten-service>.onrender.com/realms/nhigia/.well-known/openid-configuration`.
+   document: `https://<ten-service>.onrender.com/realms/hrm-web/.well-known/openid-configuration`.
    Có thể thay URL này bằng custom domain sau khi đã mua tên miền và Render báo
    xác thực thành công.
 5. Xác nhận client `hrm-web` đã bật Standard flow, Client authentication và
@@ -149,7 +151,7 @@ KC_HTTP_MANAGEMENT_HEALTH_ENABLED=false
 
 ```text
 Authentication__Keycloak__Enabled=true
-Authentication__Keycloak__Authority=https://<ten-service>.onrender.com/realms/nhigia
+Authentication__Keycloak__Authority=https://<ten-service>.onrender.com/realms/hrm-web
 Authentication__Keycloak__ClientId=hrm-web
 Authentication__Keycloak__ClientSecret=<client-secret>
 Authentication__Keycloak__RequireHttpsMetadata=true

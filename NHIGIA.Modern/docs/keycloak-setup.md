@@ -10,13 +10,14 @@ $env:KC_BOOTSTRAP_ADMIN_PASSWORD = "đặt-mật-khẩu-mạnh"
 .\bin\kc.bat start-dev --http-port=8081
 ```
 
-Mở `http://localhost:8081`, đăng nhập quản trị và tạo Realm tên `nhigia`.
+Mở `http://localhost:8081`, đăng nhập quản trị và tạo Realm local tên `nhigia`.
+Môi trường production trên Render hiện dùng Realm `hrm-web`.
 
 > `start-dev` chỉ dùng trên máy phát triển. Khi triển khai thật, Keycloak phải chạy thành một dịch vụ riêng có tên miền HTTPS, cơ sở dữ liệu PostgreSQL và biến môi trường quản trị mạnh.
 
 ## 2. Tạo client cho HRM
 
-Trong Realm `nhigia`, tạo client OpenID Connect với các giá trị:
+Trong Realm production `hrm-web`, tạo client OpenID Connect với các giá trị:
 
 | Thuộc tính | Giá trị |
 | --- | --- |
@@ -74,7 +75,7 @@ Thêm các biến sau vào dịch vụ HRM trên Render:
 
 ```text
 Authentication__Keycloak__Enabled=true
-Authentication__Keycloak__Authority=https://nhigia-sso.onrender.com/realms/nhigia
+Authentication__Keycloak__Authority=https://nhigia-sso.onrender.com/realms/hrm-web
 Authentication__Keycloak__ClientId=hrm-web
 Authentication__Keycloak__ClientSecret=<client-secret-tu-keycloak>
 Authentication__Keycloak__RequireHttpsMetadata=true
@@ -87,7 +88,7 @@ Sau khi redeploy, URL `/Account/Login` sẽ chuyển sang Keycloak. Callback đ�
 
 ## 5. CRM, kế toán và website khác
 
-Mỗi hệ thống là một client riêng trong cùng Realm `nhigia`, có redirect URI riêng. Như vậy người dùng đăng nhập Keycloak ở HRM rồi sang CRM/kế toán sẽ không phải nhập lại mật khẩu. Các hệ thống vẫn phải tự kiểm soát quyền nghiệp vụ của chúng.
+Mỗi hệ thống là một client riêng trong cùng Realm production `hrm-web`, có redirect URI riêng. Như vậy người dùng đăng nhập Keycloak ở HRM rồi sang CRM/kế toán sẽ không phải nhập lại mật khẩu. Các hệ thống vẫn phải tự kiểm soát quyền nghiệp vụ của chúng.
 
 ## Kiểm tra trước khi mở cho toàn bộ nhân viên
 
