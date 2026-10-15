@@ -141,7 +141,10 @@ KC_HTTP_MANAGEMENT_HEALTH_ENABLED=false
    Có thể thay URL này bằng custom domain sau khi đã mua tên miền và Render báo
    xác thực thành công.
 5. Xác nhận client `hrm-web` đã bật Standard flow, Client authentication và
-   PKCE S256. Redirect URI phải là
+   PKCE S256. Trong **Client scopes → Dedicated scope → Scope**, tắt
+   **Full scope allowed**. HRM tự lấy vai trò nghiệp vụ từ database nên client
+   này không cần ánh xạ role Keycloak; giữ client scope `profile` để phát hành
+   claim `preferred_username`. Redirect URI phải là
    `https://hrnhigia.onrender.com/signin-oidc`, post logout redirect URI là
    `https://hrnhigia.onrender.com/signout-callback-oidc`, và web origin là
    `https://hrnhigia.onrender.com`.
@@ -184,5 +187,6 @@ Authentication__Keycloak__UsernameClaim=preferred_username
 | Metadata HTTPS error ở local | Chỉ ở Development đặt `RequireHttpsMetadata=false`; không áp dụng lên Render. |
 | Keycloak login xong nhưng HRM từ chối | Username Keycloak phải trùng local và tài khoản HRM phải active. |
 | `preferred_username` thiếu | Kiểm tra client scope `profile` hoặc mapper User Property. |
+| Cảnh báo `Full scope allowed` | Vào **Clients → hrm-web → Client scopes → Dedicated scope → Scope**, tắt **Full scope allowed**. Không thêm role scope mapping khi HRM vẫn lấy quyền từ database. |
 | Logout quay về Keycloak | Kiểm tra post logout redirect URI `/signout-callback-oidc`. |
 | Không thấy client secret | Client authentication phải bật; public client không có secret. |

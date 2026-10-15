@@ -28,6 +28,7 @@
       "enabled": true,
       "bearerOnly": false,
       "consentRequired": false,
+      "fullScopeAllowed": false,
       "standardFlowEnabled": true,
       "implicitFlowEnabled": false,
       "directAccessGrantsEnabled": false,

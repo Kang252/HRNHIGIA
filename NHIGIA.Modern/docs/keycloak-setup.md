@@ -30,11 +30,12 @@ Trong Realm production `hrm-web`, tạo client OpenID Connect với các giá tr
 | Client ID | `hrm-web` |
 | Client authentication | Bật (confidential client) |
 | Standard flow | Bật |
+| Full scope allowed | Tắt |
 | Valid redirect URIs | `https://hrnhigia.onrender.com/signin-oidc` |
 | Valid post logout redirect URIs | `https://hrnhigia.onrender.com/*` |
 | Web origins | `https://hrnhigia.onrender.com` |
 
-Sao chép **Client secret** ở tab Credentials. Không đưa secret vào Git hay file `appsettings.json` đã commit.
+Sao chép **Client secret** ở tab Credentials. Không đưa secret vào Git hay file `appsettings.json` đã commit. Trong **Client scopes → Dedicated scope → Scope**, tắt **Full scope allowed**. Client không cần role scope mapping vì quyền nghiệp vụ được HRM nạp từ database; giữ client scope `profile` để token có `preferred_username`.
 
 Tạo người dùng với username trùng chính xác `HrmUserAccounts.Username` trong database HRM. HRM chỉ cho đăng nhập nếu tài khoản local đang hoạt động; dữ liệu phòng ban và vai trò HRM vẫn được lấy từ database để tránh một role trên Keycloak vô tình cấp thêm quyền trong HRM.
 
