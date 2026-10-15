@@ -100,16 +100,33 @@ khai. Có thể dùng URL mặc định của Render, ví dụ
 Không chạy Keycloak chung Docker image hay chung database với HRM.
 
 1. Tạo PostgreSQL trên Render cùng region với service Keycloak.
-2. Tạo Web Service từ image `quay.io/keycloak/keycloak:26.8.1`, dùng Docker
-   Command `/opt/keycloak/bin/kc.sh start --verbose` và service port `10000`.
-   Image chính thức không có CMD mặc định; với service **Existing Image** trên
-   Render cần dùng đường dẫn lệnh đầy đủ như trên. Nếu triển khai từ
-   `infra/keycloak/Dockerfile`, image đã có lệnh mặc định này; để Docker
-   Command trống hoặc đặt đúng `start`.
-3. Chọn compute `1c-2g` (1 CPU, 2 GB RAM) cho production. Gói Free 512 MB có
+2. Cách khuyến nghị là tạo Web Service kết nối Git repository, chọn runtime
+   **Docker**, đặt Dockerfile Path là `./infra/keycloak/Dockerfile` và giữ build
+   context ở thư mục gốc repository. Để **Docker Command trống** để Render dùng
+   `CMD ["start", "--optimized"]` đã khai báo trong image. Dockerfile chạy
+   `kc.sh build` ngay trong giai đoạn build, vì vậy mỗi container production
+   không phải chạy lại Quarkus augmentation khi khởi động.
+3. Nếu cần dùng **Existing Image**, có hai trường hợp:
+   - Image chính thức `quay.io/keycloak/keycloak:26.8.1` chưa được build theo
+     cấu hình PostgreSQL của dự án. Đặt Docker Command là `start --verbose` và
+     không thêm `--optimized`.
+   - Muốn chạy optimized qua Existing Image, build
+     `infra/keycloak/Dockerfile`, đẩy image `linux/amd64` lên một registry như
+     GHCR rồi cấu hình Render dùng đúng tag hoặc digest đó. Để Docker Command
+     trống. Service dùng Existing Image không tự redeploy khi nội dung của tag
+     thay đổi; cần Manual Deploy hoặc deploy hook.
+
+   Không nhập `/opt/keycloak/bin/kc.sh` vào Docker Command vì image đã dùng
+   script này làm `ENTRYPOINT`; Docker Command chỉ chứa các đối số phía sau.
+4. Chọn compute `1c-2g` (1 CPU, 2 GB RAM) cho production. Gói Free 512 MB có
    thể hết bộ nhớ trong lần khởi tạo database/realm. Đặt tối thiểu các biến môi
    trường sau trong service Keycloak. Giá trị nằm
    trong Render Secrets, không đưa vào Git hay chat.
+
+   Gói Free chỉ phù hợp thử nghiệm: Free web service ngủ sau 15 phút không có
+   request và Free PostgreSQL hết hạn sau 30 ngày. Production cần compute trả
+   phí luôn chạy cùng PostgreSQL trả phí có chính sách backup; không đặt hệ
+   thống xác thực nhân viên trên tài nguyên Free.
 
 ```text
 KC_DB=postgres
@@ -128,7 +145,10 @@ KC_HEALTH_ENABLED=true
 KC_HTTP_MANAGEMENT_HEALTH_ENABLED=false
 ```
 
-4. Đặt Health Check Path của Render là `/health/ready`. Khi endpoint trả
+5. Đặt Health Check Path của Render là `/health/ready`. Biến
+   `KC_HTTP_MANAGEMENT_HEALTH_ENABLED=false` giữ endpoint này trên cổng web
+   chính `10000`; nếu bỏ biến đó, Keycloak mặc định phục vụ health trên cổng
+   quản trị `9000`. Khi endpoint trả
    `status: UP`, đăng nhập Admin Console. Production sử dụng realm `hrm-web`;
    realm `nhigia` trong phần trên chỉ dành cho môi trường local. Nếu realm
    `hrm-web` chưa tồn tại, mở
@@ -140,7 +160,7 @@ KC_HTTP_MANAGEMENT_HEALTH_ENABLED=false
    document: `https://<ten-service>.onrender.com/realms/hrm-web/.well-known/openid-configuration`.
    Có thể thay URL này bằng custom domain sau khi đã mua tên miền và Render báo
    xác thực thành công.
-5. Xác nhận client `hrm-web` đã bật Standard flow, Client authentication và
+6. Xác nhận client `hrm-web` đã bật Standard flow, Client authentication và
    PKCE S256. Trong **Client scopes → Dedicated scope → Scope**, tắt
    **Full scope allowed**. HRM tự lấy vai trò nghiệp vụ từ database nên client
    này không cần ánh xạ role Keycloak; giữ client scope `profile` để phát hành
@@ -148,7 +168,7 @@ KC_HTTP_MANAGEMENT_HEALTH_ENABLED=false
    `https://hrnhigia.onrender.com/signin-oidc`, post logout redirect URI là
    `https://hrnhigia.onrender.com/signout-callback-oidc`, và web origin là
    `https://hrnhigia.onrender.com`.
-6. Sao chép **Client secret** được Keycloak tạo ở
+7. Sao chép **Client secret** được Keycloak tạo ở
    **Clients → hrm-web → Credentials** vào Render
    secrets của service HRM, cùng các biến sau:
 
@@ -161,9 +181,24 @@ Authentication__Keycloak__RequireHttpsMetadata=true
 Authentication__Keycloak__UsernameClaim=preferred_username
 ```
 
-7. Redeploy HRM. Thử trước với một tài khoản active có username khớp. Chỉ sau
+8. Redeploy HRM. Thử trước với một tài khoản active có username khớp. Chỉ sau
    khi đăng nhập, logout và tài khoản bị khóa đều cho kết quả đúng mới mở cho
    toàn bộ nhân viên.
+
+Có thể build và phát hành image riêng bằng lệnh sau sau khi đã đăng nhập
+registry. Dùng tag bất biến gắn với commit thay cho `latest`:
+
+```powershell
+docker buildx build --platform linux/amd64 --pull `
+  -f .\infra\keycloak\Dockerfile `
+  -t ghcr.io/kang252/hrnhigia-keycloak:26.8.1-<git-sha> `
+  --push .
+```
+
+`--optimized` chỉ an toàn với image đã chạy `kc.sh build`. Nếu thay database
+vendor, bật thêm build-time feature hoặc cài provider JAR, phải build và triển
+khai một image mới. Không đưa mật khẩu database, admin hoặc client secret vào
+Dockerfile vì các giá trị đó chỉ được cung cấp lúc container chạy.
 
 ## Vận hành
 

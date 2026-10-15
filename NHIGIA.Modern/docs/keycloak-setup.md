@@ -8,7 +8,7 @@ Tệp `../keycloak/nhigia-realm.local.json` chứa realm và client dành riêng
 
 > Tệp import local dùng wildcard redirect URI để tương thích với cổng phát triển thay đổi. Không dùng tệp này cho production; production phải khai báo các redirect URI HTTPS cụ thể.
 
-Từ thư mục `C:\Users\tranp\Downloads\keycloak-26.8.0\keycloak-26.8.0`, chạy thử nghiệm cục bộ:
+Từ thư mục `C:\Users\tranp\Downloads\keycloak-26.8.1\keycloak-26.8.1`, chạy thử nghiệm cục bộ:
 
 ```powershell
 $env:KC_BOOTSTRAP_ADMIN_USERNAME = "admin"
@@ -46,7 +46,19 @@ Không chạy Keycloak chung đường dẫn với website HRM. Có thể dùng 
 sau khi hệ thống đã hoạt động ổn định.
 
 1. Trong Render, tạo **PostgreSQL** mới (cùng region với HRM). Lưu lại `Internal Database URL`, username, password và database name.
-2. Tạo **Web Service** mới, chọn **Existing Image**: `quay.io/keycloak/keycloak:26.8.0`.
+2. Cách khuyến nghị là tạo **Web Service** từ Git repository, chọn runtime
+   **Docker**, đặt Dockerfile Path là `./infra/keycloak/Dockerfile`, giữ build
+   context ở thư mục gốc repository và để **Docker Command trống**. Image của
+   dự án đã build PostgreSQL cùng health support và chạy `start --optimized`.
+   Nếu dùng image chính thức qua **Existing Image**, chọn
+   `quay.io/keycloak/keycloak:26.8.1`, đặt Docker Command là `start --verbose`
+   và không thêm `--optimized` vì image đó chưa được build theo cấu hình dự án.
+   Muốn Existing Image optimized, tự build Dockerfile của dự án cho
+   `linux/amd64`, đẩy lên registry và dùng đúng tag hoặc digest; Render không tự
+   redeploy image-backed service khi nội dung tag thay đổi.
+   Gói Free chỉ phù hợp thử nghiệm: Free web service ngủ sau 15 phút không có
+   request và Free PostgreSQL hết hạn sau 30 ngày. Production cần compute trả
+   phí luôn chạy cùng PostgreSQL trả phí có chính sách backup.
 3. Đặt service name, ví dụ `nhigia-sso`; Render sẽ cấp URL tạm `https://nhigia-sso.onrender.com`.
 4. Trong Environment, thêm các biến sau. Giá trị mật khẩu phải là secret do bạn tự tạo, không dùng ví dụ này cho môi trường thật.
 
@@ -65,13 +77,18 @@ KC_HEALTH_ENABLED=true
 KC_HTTP_MANAGEMENT_HEALTH_ENABLED=false
 ```
 
-5. Đặt Docker Command:
+5. Với phương án Git Docker hoặc custom optimized image, để Docker Command
+   trống. Giá trị mặc định trong Dockerfile là:
 
 ```text
-start
+start --optimized
 ```
 
+   Với official Existing Image, dùng `start --verbose`. Không nhập đường dẫn
+   `/opt/keycloak/bin/kc.sh` vì đó đã là `ENTRYPOINT` của image.
 6. Trong **Settings > Health Checks**, đặt Path là `/health/ready`.
+   `KC_HTTP_MANAGEMENT_HEALTH_ENABLED=false` giữ health endpoint trên cổng web
+   `10000`; mặc định Keycloak sẽ chuyển endpoint này sang cổng quản trị `9000`.
 7. Khi có tên miền riêng, thêm nó tại **Settings > Custom Domains**, tạo DNS record theo giá trị Render hiển thị, bấm Verify rồi đổi `KC_HOSTNAME` sang domain mới và redeploy.
 
 > Không dùng `start-dev` trên Render. Keycloak cần PostgreSQL để dữ liệu người dùng, realm và client không mất khi dịch vụ redeploy.

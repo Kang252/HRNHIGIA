@@ -1,11 +1,25 @@
-# Project-owned Keycloak image. The realm import is used only when local
-# Compose overrides the command with start-dev --import-realm.
+# Build PostgreSQL and health support into the distribution so production
+# startup does not run Quarkus augmentation on every container replacement.
+FROM quay.io/keycloak/keycloak:26.8.1 AS builder
+
+ENV KC_DB=postgres \
+    KC_HEALTH_ENABLED=true
+
+WORKDIR /opt/keycloak
+RUN /opt/keycloak/bin/kc.sh build
+
 FROM quay.io/keycloak/keycloak:26.8.1
 
-COPY infra/keycloak/realm/ /opt/keycloak/data/import/
-COPY --chown=1000:0 --chmod=755 infra/keycloak/render-entrypoint.sh /opt/keycloak/bin/nhigia-entrypoint.sh
+COPY --from=builder /opt/keycloak/ /opt/keycloak/
 
-# The wrapper supplies "start" if the runtime clears CMD, while Compose can
-# still replace CMD with start-dev --import-realm for local development.
-ENTRYPOINT ["/opt/keycloak/bin/nhigia-entrypoint.sh"]
-CMD ["start"]
+# These non-secret build options must match the optimized distribution.
+# Database credentials, hostname and proxy settings remain runtime secrets.
+ENV KC_DB=postgres \
+    KC_HEALTH_ENABLED=true
+
+# The realm directory is imported only when local Compose overrides CMD with
+# start-dev --import-realm. Production identity data stays in PostgreSQL.
+COPY --chown=1000:0 infra/keycloak/realm/ /opt/keycloak/data/import/
+
+ENTRYPOINT ["/opt/keycloak/bin/kc.sh"]
+CMD ["start", "--optimized"]
