@@ -86,7 +86,9 @@ if (keycloakEnabled)
             options.SignedOutCallbackPath = "/signout-callback-oidc";
             options.ResponseType = "code";
             options.UsePkce = true;
-            options.SaveTokens = false;
+            // The OIDC handler reads the saved ID token when it builds Keycloak's
+            // RP-initiated logout request (id_token_hint).
+            options.SaveTokens = true;
             options.MapInboundClaims = false;
             options.GetClaimsFromUserInfoEndpoint = true;
             options.Scope.Clear();
@@ -161,6 +163,18 @@ if (keycloakEnabled)
                     .LogWarning(context.Failure, "Đăng nhập Keycloak không thành công");
                 context.Response.Redirect("/Account/Login?error=keycloak");
                 context.HandleResponse();
+                return Task.CompletedTask;
+            };
+            options.Events.OnRedirectToIdentityProviderForSignOut = context =>
+            {
+                // Sessions created before SaveTokens was enabled do not contain an
+                // ID token. Keycloak accepts client_id as the fallback identifier
+                // when post_logout_redirect_uri is present.
+                if (string.IsNullOrWhiteSpace(context.ProtocolMessage.IdTokenHint))
+                {
+                    context.ProtocolMessage.ClientId = clientId;
+                }
+
                 return Task.CompletedTask;
             };
         });
