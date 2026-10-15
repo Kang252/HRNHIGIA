@@ -1,0 +1,16 @@
+{
+  "clientId": "hrm-web",
+  "enabled": true,
+  "publicClient": true,
+  "standardFlowEnabled": true,
+  "directAccessGrantsEnabled": true,
+  "redirectUris": [
+    "*",
+    "http://localhost:5369/signin-oidc",
+    "http://localhost:5372/signin-oidc"
+  ],
+  "webOrigins": [
+    "http://localhost:5369",
+    "http://localhost:5372"
+  ]
+}

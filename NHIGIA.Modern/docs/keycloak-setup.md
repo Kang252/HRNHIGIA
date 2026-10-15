@@ -2,6 +2,12 @@
 
 ## 1. Khởi động Keycloak
 
+### Nạp cấu hình local có sẵn
+
+Tệp `../keycloak/nhigia-realm.local.json` chứa realm và client dành riêng cho máy phát triển; không chứa user hoặc mật khẩu. Khi chạy Keycloak local lần đầu, sao chép tệp này vào thư mục `data/import` của Keycloak và khởi động với tham số `--import-realm`.
+
+> Tệp import local dùng wildcard redirect URI để tương thích với cổng phát triển thay đổi. Không dùng tệp này cho production; production phải khai báo các redirect URI HTTPS cụ thể.
+
 Từ thư mục `C:\Users\tranp\Downloads\keycloak-26.8.0\keycloak-26.8.0`, chạy thử nghiệm cục bộ:
 
 ```powershell
