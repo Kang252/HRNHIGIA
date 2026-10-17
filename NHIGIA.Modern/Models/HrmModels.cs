@@ -144,6 +144,9 @@ namespace NHIGIA.Modern.Models
 
         public bool RememberMe { get; set; }
         public string ReturnUrl { get; set; }
+        public bool UseSingleSignOn { get; set; }
+        public bool AuthenticationUnavailable { get; set; }
+        public string AuthenticationMessage { get; set; }
     }
 
     public class ScheduleModel

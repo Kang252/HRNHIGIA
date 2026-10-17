@@ -27,28 +27,44 @@
         <section class="hrm-login-panel">
             <div class="hrm-login-form-wrap">
                 <h2>Đăng nhập</h2>
-                <p>Sử dụng tài khoản được cấp để truy cập hệ thống.</p>
-                @if (TempData["LoginError"] is string loginError)
+                <p>Sử dụng tài khoản Nhị Gia được cấp để truy cập hệ thống.</p>
+                @if (!string.IsNullOrWhiteSpace(Model?.AuthenticationMessage))
+                {
+                    <div class="hrm-login-error">@Model.AuthenticationMessage</div>
+                }
+                else if (TempData["LoginError"] is string loginError)
                 {
                     <div class="hrm-login-error">@loginError</div>
                 }
-                @using (Html.BeginForm("Login", "Account", FormMethod.Post, new { @class = "hrm-login-form" }))
+                @if (Model?.UseSingleSignOn == true)
                 {
-                    @Html.AntiForgeryToken()
-                    @Html.HiddenFor(m => m.ReturnUrl)
-                    @Html.ValidationSummary(true, "", new { @class = "hrm-login-error" })
-                    <div class="form-group">
-                        <label for="Username">Tài khoản</label>
-                        @Html.TextBoxFor(m => m.Username, new { @class = "hrm-control", autocomplete = "username", autofocus = "autofocus", placeholder = "Nhập tài khoản" })
-                        @Html.ValidationMessageFor(m => m.Username, "", new { @class = "hrm-login-error" })
+                    <div class="hrm-login-form">
+                        <a class="hrm-btn hrm-btn-primary hrm-login-submit"
+                           href="@Url.Action("Login", "Account", new { returnUrl = Model.ReturnUrl })">
+                            @(Model.AuthenticationUnavailable ? "Thử kết nối lại" : "Đăng nhập lại")
+                        </a>
                     </div>
-                    <div class="form-group">
-                        <label for="Password">Mật khẩu</label>
-                        @Html.PasswordFor(m => m.Password, new { @class = "hrm-control", autocomplete = "current-password", placeholder = "Nhập mật khẩu" })
-                        @Html.ValidationMessageFor(m => m.Password, "", new { @class = "hrm-login-error" })
-                    </div>
-                    <label class="hrm-check hrm-login-remember">@Html.CheckBoxFor(m => m.RememberMe) <span>Duy trì đăng nhập</span></label>
-                    <button type="submit" class="hrm-btn hrm-btn-primary hrm-login-submit">Đăng nhập</button>
+                }
+                else
+                {
+                    @using (Html.BeginForm("Login", "Account", FormMethod.Post, new { @class = "hrm-login-form" }))
+                    {
+                        @Html.AntiForgeryToken()
+                        @Html.HiddenFor(m => m.ReturnUrl)
+                        @Html.ValidationSummary(true, "", new { @class = "hrm-login-error" })
+                        <div class="form-group">
+                            <label for="Username">Tài khoản</label>
+                            @Html.TextBoxFor(m => m.Username, new { @class = "hrm-control", autocomplete = "username", autofocus = "autofocus", placeholder = "Nhập tài khoản" })
+                            @Html.ValidationMessageFor(m => m.Username, "", new { @class = "hrm-login-error" })
+                        </div>
+                        <div class="form-group">
+                            <label for="Password">Mật khẩu</label>
+                            @Html.PasswordFor(m => m.Password, new { @class = "hrm-control", autocomplete = "current-password", placeholder = "Nhập mật khẩu" })
+                            @Html.ValidationMessageFor(m => m.Password, "", new { @class = "hrm-login-error" })
+                        </div>
+                        <label class="hrm-check hrm-login-remember">@Html.CheckBoxFor(m => m.RememberMe) <span>Duy trì đăng nhập</span></label>
+                        <button type="submit" class="hrm-btn hrm-btn-primary hrm-login-submit">Đăng nhập</button>
+                    }
                 }
             </div>
         </section>

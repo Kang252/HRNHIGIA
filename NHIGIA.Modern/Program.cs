@@ -27,9 +27,10 @@ builder.Services.AddAuthentication(options =>
     {
         options.DefaultAuthenticateScheme = CookieAuthenticationDefaults.AuthenticationScheme;
         options.DefaultSignInScheme = CookieAuthenticationDefaults.AuthenticationScheme;
-        options.DefaultChallengeScheme = keycloakEnabled
-            ? OpenIdConnectDefaults.AuthenticationScheme
-            : CookieAuthenticationDefaults.AuthenticationScheme;
+        // Send anonymous requests through the local login endpoint first. It can
+        // verify that Keycloak is reachable and render a controlled 503 response
+        // instead of allowing an OIDC metadata failure to become an HTTP 500.
+        options.DefaultChallengeScheme = CookieAuthenticationDefaults.AuthenticationScheme;
     })
     .AddCookie(options =>
     {
@@ -207,6 +208,7 @@ else
 }
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddMemoryCache();
+builder.Services.AddSingleton<KeycloakAvailabilityProbe>();
 builder.Services.AddSingleton<HrmDataStore>();
 builder.Services.AddSingleton<IOpenCvFaceMatcher, OpenCvFaceMatcher>();
 builder.Services.AddSingleton<HanetAttendanceSyncService>();
