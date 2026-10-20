@@ -147,6 +147,8 @@ namespace NHIGIA.Modern.Models
         public bool UseSingleSignOn { get; set; }
         public bool AuthenticationUnavailable { get; set; }
         public string AuthenticationMessage { get; set; }
+        public bool LogoutCompleted { get; set; }
+        public bool SingleSignOutIncomplete { get; set; }
     }
 
     public class ScheduleModel

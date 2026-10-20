@@ -11,6 +11,11 @@ namespace NHIGIA.Modern.Controllers;
 
 public sealed class AccountController : Controller
 {
+    private const string LogoutStatusTempDataKey = "Account.LogoutStatus";
+    private const string LogoutCompleteStatus = "complete";
+    private const string LogoutLocalOnlyStatus = "local";
+    private const string SingleSignOutStateKey = "Account.SingleSignOut";
+
     private readonly HrmDataStore _store;
     private readonly ILogger<AccountController> _logger;
     private readonly IConfiguration _configuration;
@@ -44,6 +49,22 @@ public sealed class AccountController : Controller
                 ReturnUrl = returnUrl,
                 UseSingleSignOn = true
             };
+
+            var logoutStatus = TempData.Peek(LogoutStatusTempDataKey) as string;
+            if (string.Equals(logoutStatus, LogoutCompleteStatus, StringComparison.Ordinal) ||
+                string.Equals(logoutStatus, LogoutLocalOnlyStatus, StringComparison.Ordinal))
+            {
+                if (string.Equals(logoutStatus, LogoutCompleteStatus, StringComparison.Ordinal))
+                {
+                    TempData.Remove(LogoutStatusTempDataKey);
+                }
+                model.LogoutCompleted = true;
+                model.SingleSignOutIncomplete = string.Equals(
+                    logoutStatus,
+                    LogoutLocalOnlyStatus,
+                    StringComparison.Ordinal);
+                return View(model);
+            }
 
             if (string.Equals(error, "keycloak", StringComparison.OrdinalIgnoreCase))
             {
@@ -138,23 +159,120 @@ public sealed class AccountController : Controller
     [Authorize]
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Logout()
+    public async Task<IActionResult> Logout(CancellationToken cancellationToken = default)
     {
-        if (KeycloakEnabled)
+        if (!KeycloakEnabled)
         {
-            return SignOut(
-                new AuthenticationProperties { RedirectUri = Url.Action(nameof(Login), "Account") },
-                CookieAuthenticationDefaults.AuthenticationScheme,
-                OpenIdConnectDefaults.AuthenticationScheme);
+            await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+            return RedirectToAction(nameof(Login));
         }
+
+        // Complete the local logout first. The request authentication ticket remains
+        // available to the OIDC handler, so it can still read the saved ID token.
+        // If the external provider is sleeping or unavailable, the HRM session is
+        // nevertheless closed and the user receives a controlled status page.
         await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
-        return RedirectToAction("Login");
+
+        if (!await _keycloakAvailability.IsAvailableAsync(cancellationToken))
+        {
+            _logger.LogWarning(
+                "Đã đăng xuất phiên HRM nhưng Keycloak chưa sẵn sàng. RequestId: {RequestId}",
+                HttpContext.TraceIdentifier);
+            SetLogoutStatus(singleSignOutCompleted: false);
+            return RedirectToAction(nameof(Login));
+        }
+
+        try
+        {
+            SetLogoutStatus(singleSignOutCompleted: false);
+            await HttpContext.SignOutAsync(
+                OpenIdConnectDefaults.AuthenticationScheme,
+                CreateSingleSignOutProperties());
+            return new EmptyResult();
+        }
+        catch (Exception exception) when (
+            !Response.HasStarted &&
+            !(exception is OperationCanceledException && cancellationToken.IsCancellationRequested))
+        {
+            _logger.LogWarning(
+                exception,
+                "Đã đăng xuất phiên HRM nhưng không thể kết thúc phiên Keycloak. RequestId: {RequestId}",
+                HttpContext.TraceIdentifier);
+            SetLogoutStatus(singleSignOutCompleted: false);
+            return RedirectToAction(nameof(Login));
+        }
+    }
+
+    [AllowAnonymous]
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> CompleteSingleSignOut(CancellationToken cancellationToken = default)
+    {
+        await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+
+        if (!KeycloakEnabled)
+        {
+            SetLogoutStatus(singleSignOutCompleted: true);
+            return RedirectToAction(nameof(Login));
+        }
+
+        if (!await _keycloakAvailability.IsAvailableAsync(cancellationToken))
+        {
+            SetLogoutStatus(singleSignOutCompleted: false);
+            return RedirectToAction(nameof(Login));
+        }
+
+        try
+        {
+            SetLogoutStatus(singleSignOutCompleted: false);
+            await HttpContext.SignOutAsync(
+                OpenIdConnectDefaults.AuthenticationScheme,
+                CreateSingleSignOutProperties());
+            return new EmptyResult();
+        }
+        catch (Exception exception) when (
+            !Response.HasStarted &&
+            !(exception is OperationCanceledException && cancellationToken.IsCancellationRequested))
+        {
+            _logger.LogWarning(
+                exception,
+                "Không thể thử lại thao tác kết thúc phiên Keycloak. RequestId: {RequestId}",
+                HttpContext.TraceIdentifier);
+            SetLogoutStatus(singleSignOutCompleted: false);
+            return RedirectToAction(nameof(Login));
+        }
+    }
+
+    [AllowAnonymous]
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public IActionResult ResumeSingleSignOn(string returnUrl = null)
+    {
+        TempData.Remove(LogoutStatusTempDataKey);
+        return RedirectToAction(
+            nameof(Login),
+            new { returnUrl = Url.IsLocalUrl(returnUrl) ? returnUrl : null });
     }
 
     [AllowAnonymous]
     public IActionResult AccessDenied() => View();
 
     private bool KeycloakEnabled => _configuration.GetValue<bool>("Authentication:Keycloak:Enabled");
+
+    private void SetLogoutStatus(bool singleSignOutCompleted) =>
+        TempData[LogoutStatusTempDataKey] = singleSignOutCompleted
+            ? LogoutCompleteStatus
+            : LogoutLocalOnlyStatus;
+
+    private AuthenticationProperties CreateSingleSignOutProperties()
+    {
+        var properties = new AuthenticationProperties
+        {
+            RedirectUri = Url.Action(nameof(Login), "Account")
+        };
+        properties.Items[SingleSignOutStateKey] = "1";
+        return properties;
+    }
 
     private IActionResult KeycloakUnavailable(LoginViewModel model)
     {

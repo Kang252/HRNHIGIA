@@ -28,7 +28,18 @@
             <div class="hrm-login-form-wrap">
                 <h2>Đăng nhập</h2>
                 <p>Sử dụng tài khoản Nhị Gia được cấp để truy cập hệ thống.</p>
-                @if (!string.IsNullOrWhiteSpace(Model?.AuthenticationMessage))
+                @if (Model?.LogoutCompleted == true)
+                {
+                    if (Model.SingleSignOutIncomplete)
+                    {
+                        <div class="hrm-login-warning">Đã đăng xuất khỏi HRM. Dịch vụ đăng nhập tập trung đang gián đoạn nên phiên Keycloak có thể chưa kết thúc. Hãy đóng trình duyệt nếu bạn đang dùng thiết bị chung.</div>
+                    }
+                    else
+                    {
+                        <div class="hrm-login-success">Bạn đã đăng xuất khỏi HRM.</div>
+                    }
+                }
+                else if (!string.IsNullOrWhiteSpace(Model?.AuthenticationMessage))
                 {
                     <div class="hrm-login-error">@Model.AuthenticationMessage</div>
                 }
@@ -38,12 +49,29 @@
                 }
                 @if (Model?.UseSingleSignOn == true)
                 {
-                    <div class="hrm-login-form">
-                        <a class="hrm-btn hrm-btn-primary hrm-login-submit"
-                           href="@Url.Action("Login", "Account", new { returnUrl = Model.ReturnUrl })">
-                            @(Model.AuthenticationUnavailable ? "Thử kết nối lại" : "Đăng nhập lại")
-                        </a>
-                    </div>
+                    if (Model.SingleSignOutIncomplete)
+                    {
+                        @using (Html.BeginForm("CompleteSingleSignOut", "Account", FormMethod.Post, new { @class = "hrm-login-form" }))
+                        {
+                            @Html.AntiForgeryToken()
+                            <button type="submit" class="hrm-btn hrm-btn-primary hrm-login-submit">Hoàn tất đăng xuất SSO</button>
+                        }
+                        @using (Html.BeginForm("ResumeSingleSignOn", "Account", FormMethod.Post, new { @class = "hrm-login-secondary-form" }))
+                        {
+                            @Html.AntiForgeryToken()
+                            @Html.HiddenFor(m => m.ReturnUrl)
+                            <button class="hrm-login-secondary-action" type="submit">Đăng nhập lại vào HRM</button>
+                        }
+                    }
+                    else
+                    {
+                        <div class="hrm-login-form">
+                            <a class="hrm-btn hrm-btn-primary hrm-login-submit"
+                               href="@Url.Action("Login", "Account", new { returnUrl = Model.ReturnUrl })">
+                                @(Model.AuthenticationUnavailable ? "Thử kết nối lại" : "Đăng nhập lại")
+                            </a>
+                        </div>
+                    }
                 }
                 else
                 {

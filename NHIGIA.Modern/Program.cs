@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.DataProtection.KeyManagement;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using Microsoft.IdentityModel.Tokens;
 using NHIGIA.Modern.Infrastructure;
 
@@ -81,6 +82,7 @@ if (keycloakEnabled)
             options.Authority = authority.TrimEnd('/');
             options.ClientId = clientId;
             options.ClientSecret = keycloak["ClientSecret"];
+            options.SignOutScheme = CookieAuthenticationDefaults.AuthenticationScheme;
             // Keycloak local runs on HTTP only during Development. Production metadata must always use HTTPS.
             options.RequireHttpsMetadata = keycloakRequireHttpsMetadata;
             options.CallbackPath = "/signin-oidc";
@@ -176,6 +178,29 @@ if (keycloakEnabled)
                     context.ProtocolMessage.ClientId = clientId;
                 }
 
+                return Task.CompletedTask;
+            };
+            options.Events.OnSignedOutCallbackRedirect = context =>
+            {
+                // The callback is the first point at which the external logout
+                // round trip has completed. Replace the protected pending marker
+                // here so the UI never reports SSO logout too early.
+                var tempData = context.HttpContext.RequestServices
+                    .GetRequiredService<ITempDataDictionaryFactory>()
+                    .GetTempData(context.HttpContext);
+                var expectedCallback = context.Properties?.Items.TryGetValue(
+                    "Account.SingleSignOut",
+                    out var singleSignOutMarker) == true && singleSignOutMarker == "1";
+                var providerReportedError = !string.IsNullOrWhiteSpace(context.ProtocolMessage?.Error);
+                var initiatedByThisBrowser = string.Equals(
+                    tempData.Peek("Account.LogoutStatus") as string,
+                    "local",
+                    StringComparison.Ordinal);
+                if (initiatedByThisBrowser && expectedCallback && !providerReportedError)
+                {
+                    tempData["Account.LogoutStatus"] = "complete";
+                    tempData.Save();
+                }
                 return Task.CompletedTask;
             };
         });
