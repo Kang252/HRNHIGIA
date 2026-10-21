@@ -3,14 +3,16 @@ const assert=require('node:assert/strict');
 const path=require('node:path');
 (async()=>{
     const origin=process.env.HRM_REMOTE_TEST_URL;
+    const authCookieName=process.env.HRM_AUTH_COOKIE_NAME;
     assert(/^http:\/\/127\.0\.0\.1:\d+$/.test(origin),'only isolated loopback host allowed');
+    assert(authCookieName,'authentication cookie name required');
     const browser=await chromium.launch({headless:true,channel:'msedge',args:['--use-fake-ui-for-media-stream','--use-fake-device-for-media-stream']});
     try{
         const context=await browser.newContext({viewport:{width:390,height:844},permissions:['camera','geolocation'],geolocation:{latitude:10.77,longitude:106.69,accuracy:10}});
         // Do not drive public OSM tile servers from automated/headless tests.
         let tileRequests=0;
         await context.route('https://tile.openstreetmap.org/**',route=>{tileRequests++;return route.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256"><rect width="256" height="256" fill="#e7efe8"/><path d="M0 60H256M80 0V256M0 200H256" stroke="#fff" stroke-width="12"/><text x="12" y="140" fill="#687c72">Map test tile</text></svg>'});});
-        await context.addCookies([{name:'NHIGIA.Auth.v3',value:process.env.HRM_REMOTE_TEST_COOKIE,url:origin}]);
+        await context.addCookies([{name:authCookieName,value:process.env.HRM_REMOTE_TEST_COOKIE,url:origin}]);
         const page=await context.newPage(),errors=[];
         page.on('pageerror',e=>errors.push(e.message));
         await page.goto(origin+'/RemoteAttendance');

@@ -59,8 +59,9 @@ những nghiệp vụ chưa có API tương đương, còn NestJS chỉ nhận c
   dùng `NHIGIA.Modern` để giữ cơ chế bảo vệ ảnh hiện hữu.
 
 Không có password, token session, chuỗi kết nối, hoặc khóa nhà cung cấp nào được
-ghi log. Cookie `NHIGIA.Auth.v3` của ASP.NET Core không được NestJS giải mã hay
-parse; đây là dữ liệu Microsoft Data Protection riêng của C#.
+ghi log. Các cookie `NHIGIA.Auth.Local.v1` và `NHIGIA.Auth.Keycloak.v1` của
+ASP.NET Core không được NestJS giải mã hay parse; đây là dữ liệu Microsoft Data
+Protection riêng của C#.
 
 Các endpoint ghi của API (đăng nhập/đăng xuất, thông báo, chấm công và truyền
 thông) chỉ nhận yêu cầu cùng origin từ giao diện NHIGIA, có header

@@ -64,6 +64,7 @@ Mở một PowerShell khác tại thư mục gốc dự án:
 
 ```powershell
 $env:ASPNETCORE_ENVIRONMENT = 'Development'
+$env:Authentication__Mode = 'Keycloak'
 $env:Authentication__Keycloak__Enabled = 'true'
 $env:Authentication__Keycloak__Authority = 'http://localhost:8081/realms/nhigia'
 $env:Authentication__Keycloak__ClientId = 'hrm-web-local'
@@ -173,6 +174,7 @@ KC_HTTP_MANAGEMENT_HEALTH_ENABLED=false
    secrets của service HRM, cùng các biến sau:
 
 ```text
+Authentication__Mode=Keycloak
 Authentication__Keycloak__Enabled=true
 Authentication__Keycloak__Authority=https://<ten-service>.onrender.com/realms/hrm-web
 Authentication__Keycloak__ClientId=hrm-web
@@ -180,6 +182,10 @@ Authentication__Keycloak__ClientSecret=<client-secret>
 Authentication__Keycloak__RequireHttpsMetadata=true
 Authentication__Keycloak__UsernameClaim=preferred_username
 ```
+
+Khi cần tạm quay về đăng nhập tài khoản HRM nội bộ, chỉ đổi
+`Authentication__Mode=Local`. Giữ nguyên các biến Keycloak để có thể bật lại
+bằng `Authentication__Mode=Keycloak` sau khi dịch vụ ổn định.
 
 8. Redeploy HRM. Thử trước với một tài khoản active có username khớp. Chỉ sau
    khi đăng nhập, logout và tài khoản bị khóa đều cho kết quả đúng mới mở cho

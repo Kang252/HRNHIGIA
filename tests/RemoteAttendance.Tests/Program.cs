@@ -182,22 +182,23 @@ try
     for(var i=0;i<40;i++){try{ready=(await client.GetAsync("/Health")).IsSuccessStatusCode;}catch(HttpRequestException){}if(ready)break;await Task.Delay(500);}
     Check(ready,"isolated HTTP host starts");
     var ticket=new TicketDataFormat(protection.CreateProtector("Microsoft.AspNetCore.Authentication.Cookies.CookieAuthenticationMiddleware","Cookies","v2"));
+    var authCookieName=HrmAuthenticationMode.CookieName(usesKeycloak:false);
     string Cookie(HrmUserAccountModel user) => ticket.Protect(new AuthenticationTicket(new ClaimsPrincipal(new ClaimsIdentity(new[]{new Claim(ClaimTypes.NameIdentifier,user.Id.ToString()),new Claim(ClaimTypes.Name,user.Username),new Claim(ClaimTypes.Role,user.RoleCode),new Claim("display_name",user.DisplayName),new Claim("department_id",(user.DepartmentId??0).ToString())},"Cookies")),new AuthenticationProperties{ExpiresUtc=DateTimeOffset.UtcNow.AddMinutes(20)},"Cookies"));
     Check((await client.GetAsync("/RemoteAttendance")).StatusCode==HttpStatusCode.Redirect,"remote page requires login");
     Check((await client.GetAsync("/FaceEnrollment")).StatusCode==HttpStatusCode.Redirect,"face page requires login");
-    client.DefaultRequestHeaders.Add("Cookie","NHIGIA.Auth.v3="+Cookie(owner));
+    client.DefaultRequestHeaders.Add("Cookie",authCookieName+"="+Cookie(owner));
     var html=await client.GetStringAsync("/RemoteAttendance");
     Check(html.Contains("remotePunchForm") && !html.Contains("remotePlanForm"),"attendance page only renders punch form");
     var procedures=await client.GetStringAsync("/Home/LeaveRequests");
     Check(procedures.Contains("remotePlanForm") && !procedures.Contains("remotePunchForm"),"procedures page renders remote registration");
     Check((await client.PostAsync("/RemoteAttendance/CancelPlan",new FormUrlEncodedContent(new Dictionary<string,string>{{"id",planId.ToString()}}))).StatusCode==HttpStatusCode.BadRequest,"mutations require antiforgery");
-    client.DefaultRequestHeaders.Remove("Cookie");client.DefaultRequestHeaders.Add("Cookie","NHIGIA.Auth.v3="+Cookie(outsider));
+    client.DefaultRequestHeaders.Remove("Cookie");client.DefaultRequestHeaders.Add("Cookie",authCookieName+"="+Cookie(outsider));
     Check((await client.GetAsync("/RemoteAttendance/Photo/"+pending.Id)).StatusCode==HttpStatusCode.NotFound,"HTTP photo access denied outside scope");
     Check((await client.GetAsync("/FaceEnrollment/Photo/"+enrollmentId)).StatusCode==HttpStatusCode.NotFound,"HTTP reference photo hidden from unrelated employee");
     Check((await client.GetAsync("/RemoteAttendance/FaceReference/"+pending.Id)).StatusCode==HttpStatusCode.NotFound,"HTTP punch reference hidden outside attendance scope");
     async Task<string> FaceToken(HrmUserAccountModel user)
     {
-        client.DefaultRequestHeaders.Remove("Cookie");client.DefaultRequestHeaders.Add("Cookie","NHIGIA.Auth.v3="+Cookie(user));
+        client.DefaultRequestHeaders.Remove("Cookie");client.DefaultRequestHeaders.Add("Cookie",authCookieName+"="+Cookie(user));
         var faceHtml=await client.GetStringAsync("/FaceEnrollment");
         var match=Regex.Match(faceHtml,"name=\"__RequestVerificationToken\"[^>]*value=\"([^\"]+)\"");
         Check(match.Success,"face page renders anti-forgery token");return WebUtility.HtmlDecode(match.Groups[1].Value);
@@ -231,6 +232,7 @@ try
         browser.ArgumentList.Add(Path.GetFullPath("tests/RemoteAttendance.Tests/browser.cjs"));
         browser.Environment["HRM_REMOTE_TEST_URL"]=url;browser.Environment["HRM_REMOTE_TEST_COOKIE"]=Cookie(owner);browser.Environment["HRM_REMOTE_TEST_OUTPUT"]=artifactPath;
         browser.Environment["HRM_FACE_TEST_COOKIE"]=Cookie(browserFaceOwner);browser.Environment["HRM_FACE_REVIEW_COOKIE"]=Cookie(hr);
+        browser.Environment["HRM_AUTH_COOKIE_NAME"]=authCookieName;
         using var run=Process.Start(browser)!;var stdout=run.StandardOutput.ReadToEndAsync();var stderr=run.StandardError.ReadToEndAsync();await run.WaitForExitAsync();Console.WriteLine(await stdout);Console.WriteLine(await stderr);Check(run.ExitCode==0,"browser mobile/desktop and offline queue");
     }
     Console.WriteLine("Artifacts: "+artifactPath);

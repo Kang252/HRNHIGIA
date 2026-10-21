@@ -257,7 +257,7 @@ public sealed class AccountController : Controller
     [AllowAnonymous]
     public IActionResult AccessDenied() => View();
 
-    private bool KeycloakEnabled => _configuration.GetValue<bool>("Authentication:Keycloak:Enabled");
+    private bool KeycloakEnabled => HrmAuthenticationMode.UsesKeycloak(_configuration);
 
     private void SetLogoutStatus(bool singleSignOutCompleted) =>
         TempData[LogoutStatusTempDataKey] = singleSignOutCompleted

@@ -4,12 +4,14 @@ const path = require('node:path');
 module.exports = async function testFaceEnrollment(browser, origin) {
     assert(/^http:\/\/127\.0\.0\.1:\d+$/.test(origin), 'face tests require an isolated loopback host');
     assert(process.env.HRM_FACE_TEST_COOKIE && process.env.HRM_FACE_REVIEW_COOKIE, 'face test employee and HR cookies required');
+    const authCookieName = process.env.HRM_AUTH_COOKIE_NAME;
+    assert(authCookieName, 'authentication cookie name required');
     const errors = [], output = process.env.HRM_REMOTE_TEST_OUTPUT;
     const employee = await browser.newContext({viewport: {width: 390, height: 844}, permissions: ['camera']});
     const hr = await browser.newContext({viewport: {width: 1440, height: 1000}});
     try {
-        await employee.addCookies([{name: 'NHIGIA.Auth.v3', value: process.env.HRM_FACE_TEST_COOKIE, url: origin}]);
-        await hr.addCookies([{name: 'NHIGIA.Auth.v3', value: process.env.HRM_FACE_REVIEW_COOKIE, url: origin}]);
+        await employee.addCookies([{name: authCookieName, value: process.env.HRM_FACE_TEST_COOKIE, url: origin}]);
+        await hr.addCookies([{name: authCookieName, value: process.env.HRM_FACE_REVIEW_COOKIE, url: origin}]);
         const page = await employee.newPage(), review = await hr.newPage();
         page.on('pageerror', error => errors.push(error.message));
         review.on('pageerror', error => errors.push(error.message));

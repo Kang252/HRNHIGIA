@@ -3,6 +3,7 @@ using System.Net;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.DataProtection;
+using NHIGIA.Modern.Infrastructure;
 
 // Local-only integration check: synthetic authentication tickets never leave loopback.
 var root = Path.GetFullPath(args.Length > 0 ? args[0] : "NHIGIA.Modern");
@@ -10,6 +11,7 @@ var assistantOnly = args.Skip(1).Contains("--assistant-only");
 var communicationsOnly = args.Skip(1).Contains("--communications-only");
 var attendanceOnly = args.Skip(1).Contains("--attendance-only");
 var keys = Path.Combine(Path.GetTempPath(), "nhigia-smoke-" + Guid.NewGuid());
+var authCookieName = HrmAuthenticationMode.CookieName(usesKeycloak: false);
 Directory.CreateDirectory(keys);
 var start = new ProcessStartInfo("dotnet") { WorkingDirectory = root, UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true, CreateNoWindow = true };
 start.ArgumentList.Add(Path.Combine(root, "bin/Release/net10.0/NHIGIA.Modern.dll"));
@@ -44,7 +46,7 @@ try
     string Cookie(string role)
     {
         var identity = new ClaimsIdentity(new[] { new Claim(ClaimTypes.NameIdentifier, "1"), new Claim(ClaimTypes.Name, "local-smoke"), new Claim(ClaimTypes.Role, role), new Claim("display_name", "Local smoke") }, "Cookies");
-        return "NHIGIA.Auth.v3=" + format.Protect(new AuthenticationTicket(new ClaimsPrincipal(identity), new AuthenticationProperties { ExpiresUtc = DateTimeOffset.UtcNow.AddMinutes(5) }, "Cookies"));
+        return authCookieName + "=" + format.Protect(new AuthenticationTicket(new ClaimsPrincipal(identity), new AuthenticationProperties { ExpiresUtc = DateTimeOffset.UtcNow.AddMinutes(5) }, "Cookies"));
     }
     var failures = new List<string>();
     async Task Check(string path, string role, HttpStatusCode expected, params string[] text)

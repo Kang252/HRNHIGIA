@@ -98,6 +98,7 @@ start --optimized
 Thêm các biến sau vào dịch vụ HRM trên Render:
 
 ```text
+Authentication__Mode=Keycloak
 Authentication__Keycloak__Enabled=true
 Authentication__Keycloak__Authority=https://nhigia-sso.onrender.com/realms/hrm-web
 Authentication__Keycloak__ClientId=hrm-web

@@ -78,6 +78,36 @@ var stagingConnection=DatabaseConfiguration.Resolve(new ConfigurationBuilder().A
 Check("Staging accepts exact expected database",stagingConnection.Contains("Initial Catalog=NHIGIA_STAGING",StringComparison.OrdinalIgnoreCase));
 var apiCutoverConnection=DatabaseConfiguration.Resolve(new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string> { ["DB_CONNECTION_STRING"]="Server=localhost;Database=NHIGIA_API_CUTOVER;User Id=test;Password=test;TrustServerCertificate=True" }).Build());
 Check("API connection variable is accepted by the portal",apiCutoverConnection.Contains("Initial Catalog=NHIGIA_API_CUTOVER",StringComparison.OrdinalIgnoreCase));
+var localAuthentication = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string>
+{
+    ["Authentication:Mode"] = "Local",
+    ["Authentication:Keycloak:Enabled"] = "true"
+}).Build();
+Check("Local authentication mode overrides the legacy Keycloak flag", !HrmAuthenticationMode.UsesKeycloak(localAuthentication));
+var keycloakAuthentication = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string>
+{
+    ["Authentication:Mode"] = "Keycloak",
+    ["Authentication:Keycloak:Enabled"] = "false"
+}).Build();
+Check("Keycloak authentication mode can re-enable SSO", HrmAuthenticationMode.UsesKeycloak(keycloakAuthentication));
+var legacyAuthentication = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string>
+{
+    ["Authentication:Keycloak:Enabled"] = "true"
+}).Build();
+Check("Missing authentication mode keeps the legacy flag compatible", HrmAuthenticationMode.UsesKeycloak(legacyAuthentication));
+var invalidAuthenticationModeRejected = false;
+try
+{
+    HrmAuthenticationMode.UsesKeycloak(new ConfigurationBuilder().AddInMemoryCollection(
+        new Dictionary<string,string> { ["Authentication:Mode"] = "invalid" }).Build());
+}
+catch (InvalidOperationException)
+{
+    invalidAuthenticationModeRejected = true;
+}
+Check("Unknown authentication mode is rejected", invalidAuthenticationModeRejected);
+Check("Local and Keycloak sessions use different cookies",
+    HrmAuthenticationMode.CookieName(false) != HrmAuthenticationMode.CookieName(true));
 var tlsOverrideConnection=DatabaseConfiguration.Resolve(new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string> { ["DB_CONNECTION_STRING"]="Server=tenant.sql.example;Database=NHIGIA;User Id=test;Password=test;Encrypt=True;TrustServerCertificate=False", ["DB_TLS_SERVER_NAME"]="certificate.sql.example" }).Build());
 Check("Portal supports a verified SQL certificate hostname override",new SqlConnectionStringBuilder(tlsOverrideConnection).HostNameInCertificate=="certificate.sql.example");
 Console.WriteLine($"Passed {count} policy and payroll tests.");

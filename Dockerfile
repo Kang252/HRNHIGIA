@@ -21,6 +21,10 @@ ENV HRM_OPENCV_ENABLED=true \
     HRM_OPENCV_MODEL_PATH=/opt/opencv/models \
     OPENBLAS_NUM_THREADS=1 \
     OMP_NUM_THREADS=1
+# Keep the production container on the database-backed HRM login while the
+# external identity service is being stabilized. Render can re-enable SSO
+# later with Authentication__Mode=Keycloak without rebuilding the image.
+ENV Authentication__Mode=Local
 # Render assigns PORT at runtime.  Keep 8080 as the local-container default,
 # while binding to Render's assigned port in production.
 ENTRYPOINT ["/bin/sh", "-c", "ASPNETCORE_URLS=\"http://+:${PORT:-8080}\" exec dotnet NHIGIA.Modern.dll"]

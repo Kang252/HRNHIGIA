@@ -16,7 +16,7 @@ builder.Services
     .AddControllersWithViews()
     .AddJsonOptions(options => options.JsonSerializerOptions.PropertyNamingPolicy = null);
 var keycloak = builder.Configuration.GetSection("Authentication:Keycloak");
-var keycloakEnabled = keycloak.GetValue<bool>("Enabled");
+var keycloakEnabled = HrmAuthenticationMode.UsesKeycloak(builder.Configuration);
 var keycloakRequireHttpsMetadata = keycloak.GetValue("RequireHttpsMetadata", true);
 
 if (keycloakEnabled && !keycloakRequireHttpsMetadata && !builder.Environment.IsDevelopment())
@@ -37,7 +37,10 @@ builder.Services.AddAuthentication(options =>
     {
         options.LoginPath = "/Account/Login";
         options.AccessDeniedPath = "/Account/AccessDenied";
-        options.Cookie.Name = "NHIGIA.Auth.v3";
+        // Keep local and SSO sessions separate. Switching authentication mode
+        // must not let a cookie issued by the previous mode bypass the newly
+        // selected login flow.
+        options.Cookie.Name = HrmAuthenticationMode.CookieName(keycloakEnabled);
         options.Cookie.HttpOnly = true;
         options.Cookie.SameSite = SameSiteMode.Lax;
         options.SlidingExpiration = true;
@@ -258,6 +261,10 @@ builder.Services.AddHttpClient("Hanet", client =>
 });
 
 var app = builder.Build();
+
+app.Logger.LogInformation(
+    "Chế độ đăng nhập hiện tại: {AuthenticationMode}",
+    keycloakEnabled ? "Keycloak" : "Local");
 
 app.UseForwardedHeaders();
 

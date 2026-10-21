@@ -5,6 +5,29 @@ using NHIGIA.Modern.Models;
 
 namespace NHIGIA.Modern.Infrastructure;
 
+public static class HrmAuthenticationMode
+{
+    private const string ModePath = "Authentication:Mode";
+
+    public static string CookieName(bool usesKeycloak) =>
+        usesKeycloak ? "NHIGIA.Auth.Keycloak.v1" : "NHIGIA.Auth.Local.v1";
+
+    public static bool UsesKeycloak(IConfiguration configuration)
+    {
+        var mode = configuration[ModePath]?.Trim();
+        if (string.IsNullOrWhiteSpace(mode))
+        {
+            return configuration.GetValue<bool>("Authentication:Keycloak:Enabled");
+        }
+
+        if (string.Equals(mode, "Local", StringComparison.OrdinalIgnoreCase)) return false;
+        if (string.Equals(mode, "Keycloak", StringComparison.OrdinalIgnoreCase)) return true;
+
+        throw new InvalidOperationException(
+            $"{ModePath} chỉ chấp nhận giá trị Local hoặc Keycloak.");
+    }
+}
+
 public static class HrmPasswordHasher
 {
     private const int Iterations = 100000;
