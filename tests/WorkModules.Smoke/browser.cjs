@@ -40,7 +40,7 @@ function snapshot(route,role='ADMIN') {
                 const leave={Id:42,UserId:20,RequestCode:'NP42',DisplayName:'Nguyễn "An"',DepartmentName:'IT',DepartmentId:2,RoleCode:'MANAGER',
                     LeaveType:'Nghỉ phép',StartDate:'2026-09-25',EndDate:'2026-09-25',StatusCode:'PENDING_MANAGER',SessionCode:'Buổi sáng',
                     Reason:'Thử "nội dung" <script>không thực thi</script>',HasAttachment:true,AttachmentName:'Ghi chú.pdf'};
-                const data=u.pathname==='/Hrm/HanetReconciliation'?[{Id:1,WorkDate:'2026-09-25',StatusCode:'SUCCESS',ReceivedCount:2,InsertedCount:1,MappedEvents:1,UnmappedEvents:1,MappedEmployees:1,FinishedAt:'2026-09-25T18:00:00',Message:'fixture'}]:u.pathname==='/Hrm/HanetReconciliationEvents'?[{Id:1,DisplayName:null,PersonId:'P1',AliasId:'A1',DeviceId:'D1',CheckTime:'2026-09-25T08:00:00',ReceivedAt:'2026-09-25T08:00:01',EventType:'checkin',IsMapped:false}]:u.pathname==='/Hrm/AttendanceConfirmations'?[{UserId:20,DisplayName:'Nguyễn An',EmployeeCode:'NV020',DepartmentName:'IT',IsConfirmed:false}]:u.pathname==='/Hrm/AttendancePeriod'?{StatusCode:'OPEN',IsConfirmed:false,EmployeeCount:2,ConfirmedCount:1,PendingAdjustmentCount:0}:u.pathname==='/Hrm/Users'?users:u.pathname==='/Hrm/LeaveRequests'?[leave]:u.pathname==='/Hrm/ApprovalInbox'?
+                const data=u.pathname==='/Hrm/Dashboard'?{TotalEmployees:1,PresentToday:1,PendingApprovals:1,AttendanceToday:[{DisplayName:'Nguyễn An',DepartmentName:'IT',ShiftName:'Ca hành chính',CheckIn:'2026-09-25T08:00:00',CheckOut:null,StatusCode:'IN_PROGRESS'}]}:u.pathname==='/Hrm/LeaveStats'?{AnnualAllowance:12,UsedDays:2,PendingCount:1,ApprovedCount:3}:u.pathname==='/Hrm/Schedules'?[{ShiftName:'Ca hành chính',StartTime:'08:00:00',EndTime:'17:30:00',EffectiveFrom:'2026-01-01',EffectiveTo:null}]:u.pathname==='/Hrm/HanetReconciliation'?[{Id:1,WorkDate:'2026-09-25',StatusCode:'SUCCESS',ReceivedCount:2,InsertedCount:1,MappedEvents:1,UnmappedEvents:1,MappedEmployees:1,FinishedAt:'2026-09-25T18:00:00',Message:'fixture'}]:u.pathname==='/Hrm/HanetReconciliationEvents'?[{Id:1,DisplayName:null,PersonId:'P1',AliasId:'A1',DeviceId:'D1',CheckTime:'2026-09-25T08:00:00',ReceivedAt:'2026-09-25T08:00:01',EventType:'checkin',IsMapped:false}]:u.pathname==='/Hrm/AttendanceConfirmations'?[{UserId:20,DisplayName:'Nguyễn An',EmployeeCode:'NV020',DepartmentName:'IT',IsConfirmed:false}]:u.pathname==='/Hrm/AttendancePeriod'?{StatusCode:'OPEN',IsConfirmed:false,EmployeeCount:2,ConfirmedCount:1,PendingAdjustmentCount:0}:u.pathname==='/Hrm/Users'?users:u.pathname==='/Hrm/LeaveRequests'?[leave]:u.pathname==='/Hrm/ApprovalInbox'?
                     [{Source:'work',Kind:'vehicle',Id:99,Code:'XE99',RequestType:'Đặt xe',EmployeeName:'Nguyễn An',Title:'Công tác',Description:'Cần xe 4 chỗ'}]:[];
                 return route.fulfill({json:{Success:true,Data:data}});
             }
@@ -48,6 +48,7 @@ function snapshot(route,role='ADMIN') {
         });
         async function open(route,role='ADMIN',disableStorage=false) {
             await page.goto(origin+'/Content/hrm-navigation.css'); // Establish a loopback origin for storage.
+            await page.evaluate(nextRoute=>history.replaceState(null,'',nextRoute),route);
             if (disableStorage) await page.evaluate(()=>Object.defineProperty(window,'localStorage',{get(){throw new Error('Storage disabled');},configurable:true}));
             await page.setContent(snapshot(route,role).replace('<head>','<head><base href="'+origin+'/">'),{waitUntil:'networkidle'});
         }
@@ -80,6 +81,33 @@ function snapshot(route,role='ADMIN') {
             if(width===1024) assert.ok(bounds.content>900,'Tablet main content must not be compressed by sidebar');
             console.log('PASS navigation '+width+'px');
         }
+        for (const width of [390,1440]) {
+            await page.setViewportSize({width,height:1000});
+            await open('/','EMPLOYEE');
+            await page.waitForFunction(()=>document.querySelector('#dashboardLeaveRemainingSummary')?.textContent.includes('10 ngày'));
+            const content=page.locator('section.content');
+            assert.ok((await content.innerText()).includes('Chấm công hôm nay của tôi'));
+            assert.ok((await content.innerText()).includes('Nghỉ phép của tôi'));
+            assert.ok((await content.innerText()).includes('Phiếu lương của tôi'));
+            assert.equal((await content.innerText()).includes('Bản tin nội bộ'),false);
+            assert.equal(await content.locator('a[href*="kind=payroll"]').count()>0,true);
+            assert.equal(await content.locator('a[href*="create=leave"]').count()>0,true);
+            assert.equal(await content.locator('a[href="/RemoteAttendance"]').count()>0,true);
+            assert.equal(await page.locator('.sidebar').getByText('Logo mẫu',{exact:true}).count(),0);
+            const sectionTitles=await page.locator('.hrm-menu-section-toggle span').allTextContents();
+            assert.deepEqual(sectionTitles.map(x=>x.trim()),['THÔNG TIN CHUNG','NGHIỆP VỤ NHÂN SỰ','HIỆU SUẤT & HỖ TRỢ','TIỆN ÍCH & ĐIỀU PHỐI']);
+            const layout=await page.evaluate(()=>{
+                const title=document.querySelector('.hrm-menu-section-toggle');
+                const style=getComputedStyle(title);
+                return {width:document.documentElement.scrollWidth,viewport:document.documentElement.clientWidth,shift:document.querySelector('#dashboardPersonalShift')?.textContent||'',titleWeight:Number(style.fontWeight),titleBackground:style.backgroundImage,titleOverflow:title.scrollWidth-title.clientWidth};
+            });
+            assert.ok(layout.width<=layout.viewport+1,'Employee dashboard must not overflow horizontally at '+width+'px');
+            assert.ok(layout.shift.includes('Ca hành chính'),'Employee schedule summary must bind fixture data');
+            assert.ok(layout.titleWeight>=700 && layout.titleBackground!=='none','Menu section titles must remain visually prominent');
+            assert.ok(layout.titleOverflow<=1,'Menu section titles must not overflow');
+            await page.screenshot({path:path.join(snapshotDir,'employee-dashboard-'+width+'.png'),fullPage:true});
+            console.log('PASS employee dashboard '+width+'px');
+        }
         await page.setViewportSize({width:1440,height:1000});
         // Storage denial used to prevent all click handlers from being installed.
         await open('/','ADMIN',true);
@@ -93,6 +121,12 @@ function snapshot(route,role='ADMIN') {
         await page.locator('[data-inbox-index="0"][data-decision="approve"]').click();
         await page.waitForTimeout(100);
         assert.ok(requests.some(x=>x.path==='/Hrm/DecideApproval' && x.body.includes('Id=99')));
+        await open('/Home/LeaveRequests?create=leave','EMPLOYEE');
+        await page.waitForFunction(()=>document.querySelector('#tcCreateModal')?.classList.contains('is-open'));
+        assert.equal(await page.locator('#tcCreateModal').evaluate(node=>node.classList.contains('is-open')),true);
+        assert.equal((await page.locator('#newReqTypeBadge').innerText()).trim(),'Nghỉ phép');
+        await page.evaluate(()=>window.closeCreateModal());
+        console.log('PASS direct leave request opens');
         await open('/Home/LeaveRequests','EMPLOYEE');
         await page.locator('#btnOpenCreateRequest').click();
         await page.waitForTimeout(200);

@@ -110,6 +110,11 @@
     };
 
     load();
+    $(function () {
+        if (new URLSearchParams(window.location.search).get('create') === 'leave' && typeof window.openDirectLeaveModal === 'function') {
+            window.openDirectLeaveModal();
+        }
+    });
 })();
 </script>
 

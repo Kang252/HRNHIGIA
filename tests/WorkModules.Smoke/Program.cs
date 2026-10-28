@@ -108,9 +108,9 @@ try
     }
     await Check("/", "ADMIN", HttpStatusCode.OK, "Tổng quan hệ thống", "Tài khoản nhân sự", "Helpdesk IT", "images/nhigia-header-logo.png", "Mở thông báo", "/Work/Notifications", "hrmNotificationBadge", "hrmRowPreview", "Trợ lý Nhị Gia", "Trò chuyện tự do", "Chỉ dữ liệu SQL bị giới hạn", "/Assistant/Ask", "hrm-assistant.js");
     await Check("/js/hrm-assistant.js", null, HttpStatusCode.OK, "readJsonResponse", "response.text()", "trang lỗi thay vì dữ liệu trợ lý");
-    await CheckMissing("/", "ADMIN", "Ứng dụng eHRM", "hrm-app-grid", "inventory_2");
-    await Check("/", "EMPLOYEE", HttpStatusCode.OK, "Tổng quan của tôi", "KPI của tôi", "Phiếu lương", "Yêu cầu IT");
-    await CheckMissing("/", "EMPLOYEE", "Quản lý nhân sự", "Tuyển dụng", "Điều chuyển nhân sự");
+    await CheckMissing("/", "ADMIN", "Ứng dụng eHRM", "hrm-app-grid", "inventory_2", "Logo mẫu");
+    await Check("/", "EMPLOYEE", HttpStatusCode.OK, "Tổng quan của tôi", "Chấm công hôm nay của tôi", "Nghỉ phép của tôi", "Chức năng thường dùng", "Phiếu lương của tôi", "Xin nghỉ phép", "Chấm công ngoài công ty", "Yêu cầu IT");
+    await CheckMissing("/", "EMPLOYEE", "Quản lý nhân sự", "Tuyển dụng", "Điều chuyển nhân sự", "Logo mẫu", "Bản tin nội bộ", "Thông tin cá nhân");
     await Check("/", "MANAGER", HttpStatusCode.OK, "Tổng quan phòng ban", "Nhân sự phòng ban", "KPI phòng ban", "Đào tạo");
     await CheckMissing("/", "MANAGER", "Tuyển dụng", "Điều chuyển nhân sự");
     await Check("/", "HR", HttpStatusCode.OK, "Điều hành nhân sự", "Tính lương", "Tuyển dụng", "Điều chuyển");
@@ -158,6 +158,7 @@ try
     await Check("/Work?kind=kpi", "ADMIN", HttpStatusCode.OK, "Danh sách chỉ định KPI", "Cách đo / Nguồn dữ liệu", "kpiFilterForm", "SubmitKpiProof", "EvaluateKpiProof");
     await Check("/Home/InternalCommunications", "ADMIN", HttpStatusCode.OK, "Ảnh / tệp", "id=\"preview\"", ".webp", "FormData", "AuthorAvatarUrl", "AuthorJobTitle", "wall-avatar", "Ảnh đại diện");
     await Check("/Home/LeaveRequests", "EMPLOYEE", HttpStatusCode.OK, "name=\"attachment\"", "FormData(this)", "LeaveAttachment", "Tệp cũ chưa lưu nội dung");
+    await Check("/Home/LeaveRequests?create=leave", "EMPLOYEE", HttpStatusCode.OK, "openDirectLeaveModal", "URLSearchParams", "Nghỉ phép");
     await Check("/Work?kind=helpdesk", "EMPLOYEE", HttpStatusCode.OK, "Tạo yêu cầu Helpdesk IT");
     await Check("/Work?kind=overtime", "EMPLOYEE", HttpStatusCode.OK, "Số giờ tăng ca", "Lý do tăng ca");
     await Check("/Work?kind=resignation", "EMPLOYEE", HttpStatusCode.OK, "Ngày làm việc cuối cùng", "Lý do thôi việc", "Yêu cầu nghỉ việc");
