@@ -10,7 +10,7 @@
     const day = s => String(s || '').slice(0,10), time = s => String(s || '').slice(0,5);
     const formatTime = s => String(s || '').replace('T',' ').slice(0,19);
     const map = (lat,lng,radius=0,title='Vị trí chấm công') => lat != null && lng != null ? `<button type="button" class="hrm-btn" data-remote-map data-lat="${Number(lat)}" data-lng="${Number(lng)}" data-radius="${Number(radius)||0}" data-map-title="${esc(title)}">Xem bản đồ</button>` : '';
-    let plans = [], capture = null, stream = null, syncing = false, faceStatus = null, openCvEnabled = false;
+    let plans = [], planLocations = [], capture = null, stream = null, syncing = false, faceStatus = null, openCvEnabled = false;
     const faceMatchLabels = {MATCH:'Đạt ngưỡng so khớp',NO_MATCH:'Chưa đạt ngưỡng so khớp',NO_FACE:'Không tìm thấy khuôn mặt',MULTIPLE_FACES:'Ảnh có nhiều khuôn mặt',LOW_QUALITY:'Ảnh chưa đủ chất lượng',INVALID_IMAGE:'Ảnh không hợp lệ',UNAVAILABLE:'Dịch vụ thử nghiệm chưa sẵn sàng',DISABLED:'Thử nghiệm chưa bật',BUSY:'Máy chủ đang bận',TIMEOUT:'So khớp quá thời gian'};
     function faceTrialState() {
         if (plansOnly) return;
@@ -132,6 +132,34 @@
         const visit=$('remoteKind').querySelector('[value=VISIT]'); visit.disabled=plan?.Mode==='HOME';
         if(visit.disabled && $('remoteKind').value==='VISIT') $('remoteKind').value='IN';
     }
+    function locationsForPlan(plan) {
+        if (Array.isArray(plan?.Locations) && plan.Locations.length) return plan.Locations;
+        return plan?.Latitude != null && plan?.Longitude != null ? [{Name:plan.PlaceName,Latitude:plan.Latitude,Longitude:plan.Longitude,RadiusMeters:plan.RadiusMeters}] : [];
+    }
+    function renderPlanLocations() {
+        const list=$('planLocationList'); if(!list)return;
+        list.innerHTML=planLocations.length?planLocations.map((location,index)=>`<article class="remote-location-item"><div><strong>${esc(location.Name)}</strong><small>${Number(location.Latitude).toFixed(6)}, ${Number(location.Longitude).toFixed(6)} · bán kính ${Number(location.RadiusMeters)} m</small></div><div class="remote-actions">${map(location.Latitude,location.Longitude,location.RadiusMeters,location.Name)}<button type="button" class="hrm-btn" data-edit-location="${index}">Sửa</button><button type="button" class="hrm-btn" data-remove-location="${index}">Xóa</button></div></article>`).join(''):'<p class="hrm-field-note">Chưa thêm vùng địa lý.</p>';
+        const home=$('planMode')?.value==='HOME';
+        if($('planLat'))$('planLat').required=home && planLocations.length===0;
+        if($('planLng'))$('planLng').required=home && planLocations.length===0;
+    }
+    function currentLocation() {
+        const latitude=Number($('planLat').value),longitude=Number($('planLng').value),radius=Number($('planRadius').value),name=$('planLocationName').value.trim()||$('planPlace').value.trim();
+        if(!Number.isFinite(latitude)||!Number.isFinite(longitude)||Math.abs(latitude)>90||Math.abs(longitude)>180)throw new Error('Chọn tọa độ hợp lệ trước khi thêm vị trí.');
+        if(!name)throw new Error('Nhập tên vị trí.');
+        if(!Number.isInteger(radius)||radius<50||radius>2000)throw new Error('Bán kính vị trí từ 50 đến 2.000 m.');
+        return {Name:name,Latitude:latitude,Longitude:longitude,RadiusMeters:radius};
+    }
+    function addCurrentLocation(silent=false) {
+        const latitudeValue=$('planLat').value.trim(),longitudeValue=$('planLng').value.trim();
+        if(!latitudeValue&&!longitudeValue)return false;
+        if(!latitudeValue||!longitudeValue)throw new Error('Vui lòng nhập đủ cả vĩ độ và kinh độ.');
+        const location=currentLocation(),duplicate=planLocations.some(x=>Math.abs(x.Latitude-location.Latitude)<.0000005&&Math.abs(x.Longitude-location.Longitude)<.0000005&&x.RadiusMeters===location.RadiusMeters&&x.Name.toLocaleLowerCase()===location.Name.toLocaleLowerCase());
+        if(!duplicate){if(planLocations.length>=20)throw new Error('Mỗi đăng ký có tối đa 20 vị trí.');planLocations.push(location);}
+        renderPlanLocations();
+        if(!silent)message(duplicate?'Vị trí này đã có trong danh sách.':'Đã thêm vị trí. Có thể chọn tiếp điểm khác trên bản đồ.');
+        return !duplicate;
+    }
     async function load() {
         const data=await api(`State?from=${encodeURIComponent($('remoteFrom').value)}&to=${encodeURIComponent($('remoteTo').value)}`);
         if(data.UserId!==userId) throw new Error('Tài khoản đã thay đổi. Tải lại trang trước khi tiếp tục.');
@@ -152,8 +180,12 @@
         const oldTrip=$('planTrip').value;
         $('planTrip').innerHTML='<option value="">Không liên kết</option>'+data.Trips.map(p=>`<option value="${p.Id}">${esc(p.RequestCode)} · ${day(p.StartDate)} → ${day(p.EndDate)}</option>`).join(''); $('planTrip').value=oldTrip;
         }
-        $('remotePlans').innerHTML=plans.length?plans.map(({Plan:p,CanReview,CanCancel})=>`<article class="remote-item"><header><strong>${esc(p.DisplayName)} · ${p.Mode==='HOME'?'Làm tại nhà':'Đi thị trường'} · #${p.Id}</strong><span class="hrm-badge">${esc(labels[p.StatusCode])}</span></header><p>${esc(p.PlaceName)} · ${day(p.FromDate)} → ${day(p.ToDate)} · ${time(p.WindowStart)}–${time(p.WindowEnd)}</p><p>${p.IsFlexible?'Linh hoạt '+p.RequiredMinutes+' phút/ngày':'Ca theo khung giờ'} · Nghỉ ${p.BreakMinutes} phút · ${p.Latitude!=null?'Bán kính '+p.RadiusMeters+' m':'Đi theo tuyến, ghi GPS thực tế'}</p><p>${esc(p.Note)} ${p.ReviewNote?' / Xử lý: '+esc(p.ReviewNote):''}</p><div class="remote-actions">${map(p.Latitude,p.Longitude,p.RadiusMeters,'Vùng làm việc đã đăng ký')}${p.UserId===userId?`<button type="button" class="hrm-btn" data-copy-plan="${p.Id}">Dùng lại thông tin</button>`:''}${CanReview?`<button class="hrm-btn" data-review="ReviewPlan" data-id="${p.Id}" data-approve="true">Duyệt lịch</button><button class="hrm-btn" data-review="ReviewPlan" data-id="${p.Id}" data-approve="false">Từ chối</button>`:''}${CanCancel?`<button class="hrm-btn" data-cancel-plan="${p.Id}">Hủy lịch</button>`:''}</div></article>`).join(''):'Chưa có đăng ký trong khoảng này.';
-        if ($('remotePunches')) $('remotePunches').innerHTML=data.Punches.length?data.Punches.map(p=>`<article class="remote-item"><header><strong>${esc(p.DisplayName)} · ${esc(labels[p.Kind])}</strong><span class="hrm-badge">${esc(labels[p.StatusCode])}</span></header><p>${formatTime(p.CheckTime)} · ${esc(p.PlaceName)} · Lịch #${p.PlanId}</p><p>GPS: ${p.AccuracyMeters!=null?'sai số ±'+Math.round(p.AccuracyMeters)+' m':'chưa có'}${p.DistanceMeters!=null?' · Cách điểm đăng ký '+Math.round(p.DistanceMeters)+' m':''}</p>${p.ReviewReason?`<p class="remote-note">${esc(p.ReviewReason)}</p>`:''}<p>${esc(p.Note)} ${p.ReviewNote?' / Xử lý: '+esc(p.ReviewNote):''}</p>${p.FaceEnrollmentId?`<p>Danh tính: ${p.FaceVerificationStatus==='MANUAL_APPROVED'?'Đã đối chiếu thủ công':p.FaceVerificationStatus==='MANUAL_REJECTED'?'Đã từ chối khi xác minh':'Chờ đối chiếu thủ công'}</p>${p.CanReview?`<details class="remote-face-compare"><summary>Đối chiếu ảnh mẫu và ảnh chấm công</summary><div><figure><img src="/RemoteAttendance/FaceReference/${p.Id}" alt="Ảnh mẫu đã được HR duyệt; không còn xem được nếu đã thu hồi" loading="lazy"><figcaption>Mẫu đã được HR duyệt</figcaption></figure><figure><img src="/RemoteAttendance/Photo/${p.Id}" alt="Ảnh của lượt chấm đang duyệt" loading="lazy"><figcaption>Ảnh lượt chấm công</figcaption></figure></div><p>Chỉ chấp nhận khi xác minh đúng nhân viên. Nếu mẫu đã bị thu hồi, yêu cầu đăng ký và chấm lại.</p></details>`:''}`:''}${faceMatchResult(p)}<div class="remote-actions">${map(p.Latitude,p.Longitude,p.AccuracyMeters,'Vị trí chấm công · vòng sai số GPS')}<a class="hrm-btn" href="/RemoteAttendance/Photo/${p.Id}" target="_blank" rel="noopener">Xem ảnh</a>${p.CanReview?`<button class="hrm-btn" data-review="ReviewPunch" data-id="${p.Id}" data-approve="true">Chấp nhận lượt</button><button class="hrm-btn" data-review="ReviewPunch" data-id="${p.Id}" data-approve="false">Từ chối</button>`:''}</div></article>`).join(''):'Chưa có lượt chấm trong khoảng này.';
+        $('remotePlans').innerHTML=plans.length?plans.map(({Plan:p,CanReview,CanCancel})=>{
+            const locations=locationsForPlan(p),locationButtons=locations.map(x=>map(x.Latitude,x.Longitude,x.RadiusMeters,x.Name)).join('');
+            const locationText=locations.length?`${locations.length} vùng địa lý đã đăng ký`:'Đi theo tuyến, ghi GPS thực tế';
+            return `<article class="remote-item"><header><strong>${esc(p.DisplayName)} · ${p.Mode==='HOME'?'Làm tại nhà':'Đi thị trường'} · #${p.Id}</strong><span class="hrm-badge">${esc(labels[p.StatusCode])}</span></header><p>${esc(p.PlaceName)} · ${day(p.FromDate)} → ${day(p.ToDate)} · ${time(p.WindowStart)}–${time(p.WindowEnd)}</p><p>${p.IsFlexible?'Linh hoạt '+p.RequiredMinutes+' phút/ngày':'Ca theo khung giờ'} · Nghỉ ${p.BreakMinutes} phút · ${locationText}</p><p>${esc(p.Note)} ${p.ReviewNote?' / Xử lý: '+esc(p.ReviewNote):''}</p><div class="remote-actions">${locationButtons}${p.UserId===userId?`<button type="button" class="hrm-btn" data-copy-plan="${p.Id}">Dùng lại thông tin</button>`:''}${CanReview?`<button class="hrm-btn" data-review="ReviewPlan" data-id="${p.Id}" data-approve="true">Duyệt lịch</button><button class="hrm-btn" data-review="ReviewPlan" data-id="${p.Id}" data-approve="false">Từ chối</button>`:''}${CanCancel?`<button class="hrm-btn" data-cancel-plan="${p.Id}">Hủy lịch</button>`:''}</div></article>`;
+        }).join(''):'Chưa có đăng ký trong khoảng này.';
+        if ($('remotePunches')) $('remotePunches').innerHTML=data.Punches.length?data.Punches.map(p=>`<article class="remote-item"><header><strong>${esc(p.DisplayName)} · ${esc(labels[p.Kind])}</strong><span class="hrm-badge">${esc(labels[p.StatusCode])}</span></header><p>${formatTime(p.CheckTime)} · ${esc(p.PlaceName)} · Lịch #${p.PlanId}</p><p>GPS: ${p.AccuracyMeters!=null?'sai số ±'+Math.round(p.AccuracyMeters)+' m':'chưa có'}${p.DistanceMeters!=null?' · Cách điểm đăng ký '+Math.round(p.DistanceMeters)+' m':''}${p.MatchedLocationName?' · Khớp vùng '+esc(p.MatchedLocationName):''}</p>${p.ReviewReason?`<p class="remote-note">${esc(p.ReviewReason)}</p>`:''}<p>${esc(p.Note)} ${p.ReviewNote?' / Xử lý: '+esc(p.ReviewNote):''}</p>${p.FaceEnrollmentId?`<p>Danh tính: ${p.FaceVerificationStatus==='MANUAL_APPROVED'?'Đã đối chiếu thủ công':p.FaceVerificationStatus==='MANUAL_REJECTED'?'Đã từ chối khi xác minh':'Chờ đối chiếu thủ công'}</p>${p.CanReview?`<details class="remote-face-compare"><summary>Đối chiếu ảnh mẫu và ảnh chấm công</summary><div><figure><img src="/RemoteAttendance/FaceReference/${p.Id}" alt="Ảnh mẫu đã được HR duyệt; không còn xem được nếu đã thu hồi" loading="lazy"><figcaption>Mẫu đã được HR duyệt</figcaption></figure><figure><img src="/RemoteAttendance/Photo/${p.Id}" alt="Ảnh của lượt chấm đang duyệt" loading="lazy"><figcaption>Ảnh lượt chấm công</figcaption></figure></div><p>Chỉ chấp nhận khi xác minh đúng nhân viên. Nếu mẫu đã bị thu hồi, yêu cầu đăng ký và chấm lại.</p></details>`:''}`:''}${faceMatchResult(p)}<div class="remote-actions">${map(p.Latitude,p.Longitude,p.AccuracyMeters,'Vị trí chấm công · vòng sai số GPS')}<a class="hrm-btn" href="/RemoteAttendance/Photo/${p.Id}" target="_blank" rel="noopener">Xem ảnh</a>${p.CanReview?`<button class="hrm-btn" data-review="ReviewPunch" data-id="${p.Id}" data-approve="true">Chấp nhận lượt</button><button class="hrm-btn" data-review="ReviewPunch" data-id="${p.Id}" data-approve="false">Từ chối</button>`:''}</div></article>`).join(''):'Chưa có lượt chấm trong khoảng này.';
     }
 
     if (!plansOnly) {
@@ -196,21 +228,31 @@
         finally { $('remoteSend').disabled=false; }
     };
     }
-    function planMode() { const home=$('planMode').value==='HOME'; $('planLat').required=home; $('planLng').required=home; $('remoteLocation').open=home; $('planTrip').disabled=home; if(home) $('planTrip').value=''; }
+    function planMode() { const home=$('planMode').value==='HOME'; $('remoteLocation').open=home; $('planTrip').disabled=home; if(home) $('planTrip').value=''; renderPlanLocations(); }
     function planMap() { const lat=$('planLat').value,lng=$('planLng').value; $('planMap').hidden=!lat||!lng; if(lat&&lng) $('planMap').href=`https://www.google.com/maps?q=${Number(lat)},${Number(lng)}`; document.dispatchEvent(new Event('remote:mapChanged')); }
     if ($('remotePlanForm')) {
     $('planMode').onchange=planMode;
     $('planLat').oninput=planMap; $('planLng').oninput=planMap; $('planRadius').oninput=planMap;
+    $('planAddLocation').onclick=()=>{try{addCurrentLocation();}catch(error){message(error.message,true);}};
     $('planLocate').onclick=async()=>{ $('planLocate').disabled=true; try {const gps=await locate(); $('planLat').value=gps.latitude; $('planLng').value=gps.longitude; planMap(); message(`Đã lấy tọa độ đăng ký, sai số ±${Math.round(gps.accuracy)} m. Kiểm tra bản đồ trước khi gửi.`);}catch(e){message(e.message,true);}finally{$('planLocate').disabled=false;} };
     $('remotePlanForm').onsubmit=async event=>{
         event.preventDefault(); const button=event.target.querySelector('[type=submit]'); button.disabled=true;
-        try { const body=new FormData(event.target); body.set('IsFlexible',$('planFlexible').checked); body.set('WorkDaysMask',[...$('remotePlanForm').querySelectorAll('.remote-day:checked')].reduce((sum,x)=>sum+Number(x.value),0)); body.set('__RequestVerificationToken',token()); await api('Plan',body); document.dispatchEvent(new Event('remote:planCreated')); message('Đã gửi đăng ký, quản lý sẽ nhận thông báo.'); await load(); }
+        try {
+            addCurrentLocation(true);
+            if($('planMode').value==='HOME'&&!planLocations.length)throw new Error('Làm tại nhà cần đăng ký ít nhất một vị trí.');
+            const body=new FormData(event.target),primary=planLocations[0];
+            body.set('IsFlexible',$('planFlexible').checked); body.set('WorkDaysMask',[...$('remotePlanForm').querySelectorAll('.remote-day:checked')].reduce((sum,x)=>sum+Number(x.value),0)); body.set('__RequestVerificationToken',token());
+            if(primary){body.set('Latitude',primary.Latitude);body.set('Longitude',primary.Longitude);body.set('RadiusMeters',primary.RadiusMeters);}
+            else{body.delete('Latitude');body.delete('Longitude');}
+            planLocations.forEach((location,index)=>{body.append(`Locations[${index}].Name`,location.Name);body.append(`Locations[${index}].Latitude`,location.Latitude);body.append(`Locations[${index}].Longitude`,location.Longitude);body.append(`Locations[${index}].RadiusMeters`,location.RadiusMeters);});
+            await api('Plan',body); document.dispatchEvent(new Event('remote:planCreated')); message('Đã gửi đăng ký, quản lý sẽ nhận thông báo.'); planLocations=[];renderPlanLocations();await load();
+        }
         catch(error) { message(error.message,true); } finally { button.disabled=false; }
     };
     }
     root.addEventListener('click',async event=>{
         const button=event.target.closest('button');
-        if(!button || !button.matches('[data-review],[data-cancel-plan],[data-copy-plan],[data-discard],[data-queue-note],[data-compare-face]')) return;
+        if(!button || !button.matches('[data-review],[data-cancel-plan],[data-copy-plan],[data-discard],[data-queue-note],[data-compare-face],[data-edit-location],[data-remove-location]')) return;
         try {
             if(button.dataset.compareFace) {
                 const owner = button.dataset.faceOwner === 'true';
@@ -232,8 +274,16 @@
                 if (!$('remotePlanForm')) { location.href='/Home/LeaveRequests?remotePlan='+encodeURIComponent(button.dataset.copyPlan)+'#remoteRegistration'; return; }
                 const plan=plans.find(x=>x.Plan.Id===Number(button.dataset.copyPlan))?.Plan; if(!plan) return;
                 for(const input of $('remotePlanForm').elements) if(input.name && !['FromDate','ToDate','__RequestVerificationToken'].includes(input.name)) input.value=plan[input.name] ?? '';
+                planLocations=locationsForPlan(plan).map(x=>({Name:x.Name,Latitude:Number(x.Latitude),Longitude:Number(x.Longitude),RadiusMeters:Number(x.RadiusMeters)}));
                 $('planFlexible').checked=plan.IsFlexible; $('remotePlanForm').querySelectorAll('.remote-day').forEach(x=>x.checked=(plan.WorkDaysMask&Number(x.value))!==0);
                 $('planStart').value=time(plan.WindowStart); $('planEnd').value=time(plan.WindowEnd); planMode(); planMap(); window.openRemoteWorkRequest?.();
+            } else if(button.dataset.editLocation) {
+                const index=Number(button.dataset.editLocation),item=planLocations[index];if(!item)return;
+                $('planLocationName').value=item.Name;$('planLat').value=item.Latitude;$('planLng').value=item.Longitude;$('planRadius').value=item.RadiusMeters;
+                planLocations.splice(index,1);renderPlanLocations();planMap();message('Đã đưa vị trí về biểu mẫu. Chỉnh sửa rồi bấm “Thêm vị trí này”.');
+            } else if(button.dataset.removeLocation) {
+                const index=Number(button.dataset.removeLocation);if(!Number.isInteger(index)||index<0||index>=planLocations.length)return;
+                planLocations.splice(index,1);renderPlanLocations();message('Đã xóa vị trí khỏi đăng ký.');
             } else if(button.dataset.discard) {
                 if(!confirm('Xóa bản chờ chưa đồng bộ trên thiết bị?')) return;
                 await dbOp('queue','delete',button.dataset.discard); await showQueue();

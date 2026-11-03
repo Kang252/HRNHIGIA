@@ -9,6 +9,7 @@
     var isEmployee = User.IsInRole(HrmRoles.Employee);
     var isManager = User.IsInRole(HrmRoles.Manager);
     var canManage = Model.CanManage;
+    var canComplete = User.IsInRole(HrmRoles.Admin) || User.IsInRole(HrmRoles.Hr) || User.IsInRole(HrmRoles.Director);
 }
 
 <div class="resignation-container">
@@ -216,7 +217,7 @@
                                                     </button>
                                                 </form>
                                             }
-                                            else if (item.Status == "APPROVED")
+                                            else if (item.Status == "APPROVED" && canComplete)
                                             {
                                                 <form method="post" asp-controller="Work" asp-action="ResignationAction" style="display:inline;">
                                                     @Html.AntiForgeryToken()
@@ -295,7 +296,7 @@
                         }
                         else
                         {
-                            <input type="hidden" name="EmployeeId" value="@(User.Identity.Name)" />
+                            <input type="hidden" name="EmployeeId" value="@(HrmUser.Current?.Id)" />
                         }
                         <div class="col-md-@(canManage ? "6" : "12")">
                             <div class="form-group">

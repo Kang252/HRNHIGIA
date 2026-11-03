@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.DataProtection;
@@ -45,6 +46,36 @@ builder.Services.AddAuthentication(options =>
         options.Cookie.SameSite = SameSiteMode.Lax;
         options.SlidingExpiration = true;
         options.ExpireTimeSpan = TimeSpan.FromHours(8);
+        options.Events.OnValidatePrincipal = async context =>
+        {
+            var idValue = context.Principal?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (!int.TryParse(idValue, out var userId) || userId <= 0)
+            {
+                context.RejectPrincipal();
+                await context.HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+                return;
+            }
+
+            try
+            {
+                var store = context.HttpContext.RequestServices.GetRequiredService<HrmDataStore>();
+                var user = store.FindUser(userId);
+                if (user == null || !user.IsActive)
+                {
+                    context.RejectPrincipal();
+                    await context.HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+                }
+            }
+            catch (Exception exception)
+            {
+                // A transient database outage must not destroy an otherwise valid
+                // protected cookie. Data endpoints will still enforce their own
+                // database checks; retry active-state validation on the next request.
+                context.HttpContext.RequestServices.GetRequiredService<ILoggerFactory>()
+                    .CreateLogger("Authentication")
+                    .LogWarning(exception, "Không thể kiểm tra trạng thái hoạt động của tài khoản #{UserId}", userId);
+            }
+        };
         options.Events.OnRedirectToLogin = context =>
         {
             if (context.Request.Path.StartsWithSegments("/Assistant", StringComparison.OrdinalIgnoreCase) ||
@@ -290,6 +321,7 @@ try
     store.EnsureSchema(Path.Combine(app.Environment.ContentRootPath, "App_Data", "remote-attendance.sql"));
     store.EnsureSchema(Path.Combine(app.Environment.ContentRootPath, "App_Data", "face-enrollment.sql"));
     store.EnsureSchema(Path.Combine(app.Environment.ContentRootPath, "App_Data", "opencv-face-trial.sql"));
+    store.EnsureSchema(Path.Combine(app.Environment.ContentRootPath, "App_Data", "profile-recruitment-enhancements.sql"));
 }
 catch (Exception exception)
 {

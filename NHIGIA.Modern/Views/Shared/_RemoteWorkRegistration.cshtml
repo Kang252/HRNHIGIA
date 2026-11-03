@@ -28,16 +28,18 @@
                 </div>
                 <label class="remote-check"><input id="planFlexible" type="checkbox" /> Ca linh hoạt: xét đủ phút trong khung giờ, trừ thời gian nghỉ</label>
                 <label for="planTrip">Liên kết đơn công tác đã duyệt (nếu có)</label><select id="planTrip" name="LeaveRequestId" class="hrm-control"><option value="">Không liên kết</option></select>
-                <details class="remote-location" id="remoteLocation"><summary>Vùng địa lý — bắt buộc với làm tại nhà</summary>
-                    <p class="hrm-field-note">Đi thị trường có thể để trống tọa độ để làm việc theo tuyến, ghi nhận vị trí thực tế tại mỗi lượt. Nếu nhập vùng, lượt ngoài vùng sẽ chờ xác minh.</p>
+                <details class="remote-location" id="remoteLocation"><summary>Các vùng địa lý — bắt buộc với làm tại nhà</summary>
+                    <p class="hrm-field-note">Có thể đăng ký nhiều nhà, khách hàng hoặc điểm bán. Hệ thống tự đối chiếu GPS với điểm phù hợp gần nhất; đi thị trường theo tuyến có thể không đăng ký vùng.</p>
                     <div class="remote-fields">
+                        <div><label for="planLocationName">Tên vị trí</label><input id="planLocationName" type="text" maxlength="200" class="hrm-control" placeholder="Nhà / khách hàng / điểm bán" /></div>
                         <div><label for="planLat">Vĩ độ</label><input id="planLat" name="Latitude" type="number" min="-90" max="90" step="any" class="hrm-control" /></div>
                         <div><label for="planLng">Kinh độ</label><input id="planLng" name="Longitude" type="number" min="-180" max="180" step="any" class="hrm-control" /></div>
                         <div><label for="planRadius">Bán kính (m)</label><input id="planRadius" name="RadiusMeters" type="number" min="50" max="2000" value="200" class="hrm-control" /></div>
                     </div>
-                    <div class="remote-actions"><button type="button" class="hrm-btn" id="planLocate">Lấy vị trí hiện tại</button><a id="planMap" class="hrm-btn" target="_blank" rel="noopener noreferrer" hidden>Xem vị trí trên bản đồ</a></div>
+                    <div class="remote-actions"><button type="button" class="hrm-btn" id="planLocate">Lấy vị trí hiện tại</button><button type="button" class="hrm-btn hrm-btn-primary" id="planAddLocation">Thêm vị trí này</button><a id="planMap" class="hrm-btn" target="_blank" rel="noopener noreferrer" hidden>Xem vị trí trên bản đồ</a></div>
                     <div id="planMapCanvas" class="remote-map-canvas" aria-label="Bản đồ chọn địa điểm làm việc"></div>
                     <p id="planMapStatus" class="remote-map-status" role="status">Bấm trên bản đồ hoặc kéo ghim để chọn địa điểm. Vòng tròn hiển thị bán kính cho phép.</p>
+                    <div id="planLocationList" class="remote-location-list" aria-live="polite"></div>
                 </details>
                 <label for="planNote">Kế hoạch công việc</label><textarea id="planNote" name="Note" class="hrm-control" maxlength="2000" rows="2"></textarea>
                 <button class="hrm-btn hrm-btn-primary remote-submit" type="submit">Gửi đăng ký để duyệt</button>

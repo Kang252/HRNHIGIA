@@ -3,7 +3,8 @@
     var today = DateTime.Now;
     var dashboardUser = HrmUser.Current;
     var dashboardCanManage = dashboardUser != null && HrmRoles.CanManagePeople(dashboardUser.RoleCode);
-    var dashboardIsEmployee = dashboardUser != null && dashboardUser.RoleCode == HrmRoles.Employee;
+    var dashboardIsAccountant = dashboardUser != null && dashboardUser.RoleCode == HrmRoles.Accountant;
+    var dashboardIsEmployee = dashboardUser != null && dashboardUser.RoleCode is HrmRoles.Employee or HrmRoles.Accountant;
     var dashboardIsManager = dashboardUser != null && dashboardUser.RoleCode == HrmRoles.Manager;
     var dashboardIsHr = dashboardUser != null && dashboardUser.RoleCode == HrmRoles.Hr;
     var dashboardIsDirector = dashboardUser != null && dashboardUser.RoleCode == HrmRoles.Director;
@@ -13,6 +14,7 @@
     {
         HrmRoles.Manager => "Tổng quan phòng ban",
         HrmRoles.Hr => "Điều hành nhân sự",
+        HrmRoles.Accountant => "Tổng quan kế toán",
         HrmRoles.Director => "Tổng quan điều hành",
         HrmRoles.Admin => "Tổng quan hệ thống",
         _ => "Tổng quan của tôi"
@@ -21,6 +23,7 @@
     {
         HrmRoles.Manager => "Theo dõi nhân sự và các yêu cầu thuộc phòng ban của bạn",
         HrmRoles.Hr => "Quản lý hồ sơ, chính sách và quy trình nhân sự toàn công ty",
+        HrmRoles.Accountant => "Theo dõi chấm công cá nhân và xử lý bảng lương toàn công ty",
         HrmRoles.Director => "Theo dõi chỉ số tổng hợp và các nội dung cần phê duyệt",
         HrmRoles.Admin => "Theo dõi vận hành hệ thống và dữ liệu nhân sự",
         _ => "Theo dõi lịch làm việc, chấm công và quyền lợi cá nhân"
@@ -99,6 +102,19 @@
     </div>
     }
 
+    @if (!dashboardIsEmployee)
+    {
+    <div class="hrm-card hrm-section-gap dashboard-period-card">
+        <div class="hrm-card-header"><div><h2 class="hrm-card-title">Tổng hợp kỳ công 25–24</h2><p id="dashboardPeriodLabel" class="hrm-card-subtitle">Đang tải phạm vi kỳ công…</p></div><a class="hrm-btn" href="@Url.Action("Reports", "Home")">Mở báo cáo</a></div>
+        <div class="hrm-card-body dashboard-period-metrics">
+            <div><span>Tổng giờ làm</span><strong id="dashboardPeriodWorked">--</strong></div>
+            <div><span>Ngày công ghi nhận</span><strong id="dashboardPeriodRecorded">--</strong></div>
+            <div><span>Ngày nghỉ đã duyệt</span><strong id="dashboardPeriodLeave">--</strong></div>
+            <div><span>Thiếu dữ liệu công</span><strong id="dashboardPeriodMissing">--</strong></div>
+        </div>
+    </div>
+    }
+
     <div class="hrm-content-grid">
         <div class="hrm-card">
             <div class="hrm-card-header">
@@ -158,7 +174,7 @@
             <div class="hrm-card-body">
                 <div class="employee-service-grid">
                     <a class="employee-service-link is-primary" href="@Url.Action("LeaveRequests", "Home", new { create = "leave" })"><span><i class="material-icons">event_available</i></span><strong>Xin nghỉ phép</strong><small>Tạo đơn nghỉ mới</small></a>
-                    <a class="employee-service-link" href="@Url.Action("Index", "Work", new { kind = "payroll" })"><span><i class="material-icons">payments</i></span><strong>Phiếu lương</strong><small>Tra cứu lương cá nhân</small></a>
+                    <a class="employee-service-link" href="@Url.Action("Index", "Work", new { kind = "payroll" })"><span><i class="material-icons">payments</i></span><strong>@(dashboardIsAccountant ? "Bảng lương" : "Phiếu lương")</strong><small>@(dashboardIsAccountant ? "Lập và điều chỉnh bảng lương" : "Tra cứu lương cá nhân")</small></a>
                     <a class="employee-service-link" href="@Url.Action("WorkSchedules", "Home")"><span><i class="material-icons">event_note</i></span><strong>Lịch làm việc</strong><small id="dashboardPersonalShift">Xem ca đang áp dụng</small></a>
                     <a class="employee-service-link" href="@Url.Action("Index", "RemoteAttendance")"><span><i class="material-icons">add_location_alt</i></span><strong>Chấm công ngoài công ty</strong><small>Làm tại nhà hoặc đi thị trường</small></a>
                     <a class="employee-service-link" href="@Url.Action("Index", "Work", new { kind = "kpi" })"><span><i class="material-icons">track_changes</i></span><strong>KPI của tôi</strong><small>Theo dõi mục tiêu công việc</small></a>
@@ -244,5 +260,7 @@
     $('.home').addClass('active');var isEmployee=@dashboardIsEmployee.ToString().ToLowerInvariant();function esc(v){return $('<div>').text(v==null?'':v).html();}function statusLabel(v){var m={INSUFFICIENT_HOURS:'Chưa đủ giờ',ON_LEAVE:'Nghỉ đã duyệt',IN_PROGRESS:'Đang cập nhật',ON_TIME:'Đúng giờ',LATE:'Đi muộn',EARLY:'Về sớm',LATE_EARLY:'Muộn / về sớm',MISSING_CHECK:'Thiếu dữ liệu',MISSING_SCHEDULE:'Chưa có lịch'};return m[v]||v;}
     $.get('@Url.Action("Dashboard","Hrm")').done(function(r){var d=r.Data||{},a=d.AttendanceToday||[],personal=a.length?a[0]:null,total=d.TotalEmployees||0,present=d.PresentToday||0,mapped=Math.max(0,total-(d.UnmappedHanetUsers||0)),progress=total?Math.round(mapped*100/total):0;$('#dashboardEmployees').text(total);$('#dashboardPresent').text(present);$('#dashboardLate').text(d.LateOrEarlyToday||0);$('#dashboardPending').text(d.PendingApprovals||0);$('#dashboardOnTime').text(a.filter(function(x){return x.StatusCode==='ON_TIME';}).length);$('#dashboardLateMetric').text(d.LateOrEarlyToday||0);$('#dashboardRecorded').text(present);$('#dashboardMissing').text(Math.max(0,total-present-(d.OnLeaveToday||0)));$('#dashboardSyncText').text(progress+'%');$('#dashboardSyncProgress').css('width',progress+'%');if(isEmployee){$('#dashboardPersonalStatus').text(personal?statusLabel(personal.StatusCode):'Chưa chấm công');$('#dashboardPersonalCheckIn').text(personal&&personal.CheckIn?moment(personal.CheckIn).format('HH:mm'):'--:--');$('#dashboardPersonalCheckOut').text(personal&&personal.CheckOut?moment(personal.CheckOut).format('HH:mm'):'--:--');}if(a.length)$('#dashboardAttendance').html(a.map(function(x){return '<tr><td><strong>'+esc(x.DisplayName)+'</strong><small class="hrm-cell-note">'+esc(x.DepartmentName)+'</small></td><td>'+esc(x.ShiftName||'--')+'</td><td>'+(x.CheckIn?moment(x.CheckIn).format('HH:mm'):'--')+'</td><td>'+(x.CheckOut?moment(x.CheckOut).format('HH:mm'):'--')+'</td><td><span class="hrm-badge '+(x.StatusCode==='ON_TIME'?'hrm-badge-success':'hrm-badge-warning')+'">'+esc(statusLabel(x.StatusCode))+'</span></td></tr>';}).join(''));var news=d.Communications||[];if(news.length)$('#dashboardNews').html(news.map(function(x){return '<article style="padding:0 0 14px;margin-bottom:14px;border-bottom:1px solid #edf0f4"><strong>'+esc(x.Title)+'</strong><small class="hrm-cell-note">'+esc(x.AuthorName)+' · '+moment(x.PublishedAt).format('DD/MM HH:mm')+'</small></article>';}).join('')+'<a class="hrm-btn" style="width:100%" href="@Url.Action("InternalCommunications","Home")">Mở bảng tin nội bộ</a>');});
     if(isEmployee){$.get('@Url.Action("LeaveStats","Hrm")').done(function(r){var s=r.Data||{},remaining=Math.max(0,(s.AnnualAllowance||0)-(s.UsedDays||0));$('#dashboardLeaveRemainingSummary').text(remaining+' ngày');$('#dashboardPersonalLeave').text(remaining+' ngày');$('#dashboardPersonalLeaveUsed').text((s.UsedDays||0)+' ngày');$('#dashboardPersonalPending').text(s.PendingCount||0);$('#dashboardPersonalApproved').text(s.ApprovedCount||0);});$.get('@Url.Action("Schedules","Hrm")').done(function(r){var today=moment().startOf('day'),schedule=(r.Data||[]).filter(function(x){return !moment(x.EffectiveFrom).isAfter(today)&&(!x.EffectiveTo||!moment(x.EffectiveTo).isBefore(today));})[0];if(schedule)$('#dashboardPersonalShift').text(schedule.ShiftName+' · '+String(schedule.StartTime).substring(0,5)+'–'+String(schedule.EndTime).substring(0,5));});}
+    else{$.get('@Url.Action("Summary","Reports")').done(function(r){var d=r.Data||{},mins=d.WorkedMinutes||0;$('#dashboardPeriodLabel').text('Từ '+moment(d.FromDate).format('DD/MM/YYYY')+' đến '+moment(d.ToDate).format('DD/MM/YYYY'));$('#dashboardPeriodWorked').text(Math.floor(mins/60)+'h '+(mins%60)+'m');$('#dashboardPeriodRecorded').text(d.RecordedWorkdays||0);$('#dashboardPeriodLeave').text(d.OnLeaveDays||0);$('#dashboardPeriodMissing').text(d.MissingAttendanceCount||0);});}
 })();
 </script>
+<style>.dashboard-period-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.dashboard-period-metrics>div{padding:12px 14px;border:1px solid #e5eaf1;border-radius:10px;background:#f8fafc}.dashboard-period-metrics span{display:block;color:#667085;font-size:12px}.dashboard-period-metrics strong{display:block;margin-top:6px;font-size:20px;color:#182230}@@media(max-width:800px){.dashboard-period-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}</style>

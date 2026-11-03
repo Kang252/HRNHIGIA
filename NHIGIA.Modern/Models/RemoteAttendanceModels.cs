@@ -25,12 +25,26 @@ public class RemoteWorkPlan
     [ModelBinder(BinderType = typeof(InvariantCoordinateBinder))]
     public double? Longitude { get; set; }
     public int RadiusMeters { get; set; } = 200;
+    public List<RemoteWorkLocation> Locations { get; set; } = [];
     public int? LeaveRequestId { get; set; }
     public string Note { get; set; }
     public string StatusCode { get; set; }
     public string ReviewNote { get; set; }
     public int? ReviewedBy { get; set; }
     public DateTime? ReviewedAt { get; set; }
+}
+
+public class RemoteWorkLocation
+{
+    public long Id { get; set; }
+    public long PlanId { get; set; }
+    public string Name { get; set; }
+    [ModelBinder(BinderType = typeof(InvariantCoordinateBinder))]
+    public double Latitude { get; set; }
+    [ModelBinder(BinderType = typeof(InvariantCoordinateBinder))]
+    public double Longitude { get; set; }
+    public int RadiusMeters { get; set; } = 200;
+    public int SortOrder { get; set; }
 }
 
 public class RemotePunchRequest
@@ -65,6 +79,8 @@ public class RemotePunch : RemotePunchRequest
     public string ReviewReason { get; set; }
     public string ReviewNote { get; set; }
     public double? DistanceMeters { get; set; }
+    public long? MatchedLocationId { get; set; }
+    public string MatchedLocationName { get; set; }
     public bool CanReview { get; set; }
     public long? FaceEnrollmentId { get; set; }
     public string FaceVerificationStatus { get; set; }

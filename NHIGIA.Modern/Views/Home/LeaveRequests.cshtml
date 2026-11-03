@@ -84,7 +84,7 @@
     var currentUserId=@(currentHrmUser == null ? 0 : currentHrmUser.Id);
     var currentUserRole='@(currentHrmUser == null ? "" : currentHrmUser.RoleCode)';
     function esc(v){return HrmRequestForm.escapeHtml(v);} function d(v){return v?moment(v).format('DD/MM/YYYY'):'';}
-    var labels={PENDING_MANAGER:(currentUserRole==='MANAGER'?'Chờ Giám đốc duyệt':'Chờ Trưởng phòng duyệt'),PENDING_HR:(currentUserRole==='MANAGER'?'Chờ Giám đốc duyệt':'Chờ Trưởng phòng duyệt'),APPROVED:'Đã duyệt',REJECTED:'Từ chối',CANCELLED:'Đã hủy'};
+    var labels={PENDING_MANAGER:'Chờ Trưởng phòng duyệt',PENDING_HR:'Chờ HR/Giám đốc duyệt',APPROVED:'Đã duyệt',REJECTED:'Từ chối',CANCELLED:'Đã hủy'};
     function getStatusLabel(s){return labels[s]||s;}
     function cls(s){return s==='APPROVED'?'hrm-badge-success':s==='REJECTED'||s==='CANCELLED'?'hrm-badge-danger':'hrm-badge-warning';}
     function leavePreview(x){

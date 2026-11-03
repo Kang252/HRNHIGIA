@@ -1,0 +1,50 @@
+@model RecruitmentCvImportPreviewModel
+@{
+    ViewData["Title"] = "Kiểm tra dữ liệu CV";
+}
+
+<div class="container-fluid cv-import-preview-page">
+    <div class="hrm-page-header">
+        <div>
+            <h1 class="hrm-page-title">Kiểm tra dữ liệu CV</h1>
+            <p class="hrm-page-subtitle">Hệ thống đã đọc <strong>@Model.CvFileName</strong>. Vui lòng kiểm tra trước khi tạo hồ sơ ứng viên.</p>
+        </div>
+        <a class="hrm-btn" href="@Url.Action("Index", "Work", new { kind = "recruitment" })#candidate-inbox"><i class="material-icons">arrow_back</i> Quay lại tuyển dụng</a>
+    </div>
+
+    <form method="post" asp-controller="RecruitmentImport" asp-action="Confirm" class="hrm-card cv-import-card">
+        @Html.AntiForgeryToken()
+        <input asp-for="DraftId" type="hidden" />
+        <input asp-for="RecruitmentWorkItemId" type="hidden" />
+        <div asp-validation-summary="All" class="alert alert-danger"></div>
+        <div class="cv-import-notice"><i class="material-icons">fact_check</i><span>Kết quả quét chỉ là dữ liệu gợi ý. HR chịu trách nhiệm kiểm tra tên, liên hệ và nội dung chuyên môn trước khi lưu.</span></div>
+        <div class="cv-import-grid">
+            <label>Họ và tên *<input asp-for="FullName" class="form-control" maxlength="200" required /></label>
+            <label>Email<input asp-for="Email" class="form-control" type="email" maxlength="200" /></label>
+            <label>Số điện thoại<input asp-for="Phone" class="form-control" maxlength="50" /></label>
+            <label>Ngày sinh<input asp-for="DateOfBirth" class="form-control" type="date" /></label>
+            <label class="wide">Địa chỉ<input asp-for="Address" class="form-control" maxlength="500" /></label>
+            <label>Vị trí hiện tại / mong muốn<input asp-for="CurrentPosition" class="form-control" maxlength="200" /></label>
+            <label>Mức lương mong muốn<input asp-for="ExpectedSalary" class="form-control" maxlength="100" /></label>
+            <label class="wide">Học vấn<textarea asp-for="Education" class="form-control" rows="3" maxlength="2000"></textarea></label>
+            <label class="wide">Kinh nghiệm<textarea asp-for="ExperienceSummary" class="form-control" rows="5" maxlength="4000"></textarea></label>
+            <label class="wide">Kỹ năng<textarea asp-for="Skills" class="form-control" rows="3" maxlength="2000"></textarea></label>
+        </div>
+        <details class="cv-extracted-preview">
+            <summary>Nội dung đã đọc từ CV</summary>
+            <pre>@Model.ExtractedTextPreview</pre>
+        </details>
+        <div class="cv-import-actions">
+            <button class="hrm-btn hrm-btn-primary" type="submit"><i class="material-icons">person_add</i> Tạo hồ sơ ứng viên</button>
+        </div>
+    </form>
+    <form method="post" asp-controller="RecruitmentImport" asp-action="Cancel" class="cv-cancel-form">
+        @Html.AntiForgeryToken()
+        <input type="hidden" name="draftId" value="@Model.DraftId" />
+        <button class="hrm-btn" type="submit"><i class="material-icons">close</i> Hủy bản nhập</button>
+    </form>
+</div>
+
+<style>
+    .cv-import-preview-page{max-width:1080px;margin:0 auto;padding-bottom:40px}.cv-import-card{padding:24px}.cv-import-notice{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;margin-bottom:20px;border:1px solid #bfdbfe;border-radius:10px;background:#eff6ff;color:#1e4f8f}.cv-import-notice i{font-size:20px}.cv-import-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.cv-import-grid label{display:flex;flex-direction:column;gap:6px;color:#334155;font-size:13px;font-weight:700}.cv-import-grid .wide{grid-column:1/-1}.cv-import-grid textarea{resize:vertical}.cv-extracted-preview{margin-top:20px;border:1px solid #e2e8f0;border-radius:10px;background:#f8fafc;padding:12px 14px}.cv-extracted-preview summary{cursor:pointer;font-weight:700;color:#475569}.cv-extracted-preview pre{margin:12px 0 0;max-height:280px;overflow:auto;white-space:pre-wrap;font:12px/1.55 ui-monospace,SFMono-Regular,Consolas,monospace;color:#475569}.cv-import-actions{display:flex;justify-content:flex-end;margin-top:20px}.cv-cancel-form{display:flex;justify-content:flex-end;margin-top:10px}@@media(max-width:720px){.cv-import-grid{grid-template-columns:1fr}.cv-import-grid .wide{grid-column:auto}}
+</style>

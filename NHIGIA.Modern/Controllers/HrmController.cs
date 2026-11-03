@@ -422,15 +422,16 @@ public sealed class HrmController : BaseController
     [HttpGet]
     public IActionResult Attendance(DateTime? fromDate, DateTime? toDate) => Execute(() =>
     {
-        var to = (toDate ?? HrmDataStore.CurrentVietnamTime()).Date;
-        var from = (fromDate ?? to.AddDays(-30)).Date;
+        var currentPeriod = AttendancePeriodRange.Current();
+        var to = (toDate ?? currentPeriod.ToDate).Date;
+        var from = (fromDate ?? currentPeriod.FromDate).Date;
         if (to < from || (to - from).TotalDays > 366) throw new InvalidOperationException("Khoảng lọc tối đa là 366 ngày.");
         return Store.GetAttendance(CurrentHrmUser, from, to);
     });
 
     [HttpGet]
     public IActionResult AttendancePeriod(string period) => Execute(() =>
-        Store.GetAttendancePeriod(string.IsNullOrWhiteSpace(period) ? HrmDataStore.CurrentVietnamTime().ToString("yyyy-MM") : period, CurrentHrmUser));
+        Store.GetAttendancePeriod(string.IsNullOrWhiteSpace(period) ? AttendancePeriodRange.Current().Period : period, CurrentHrmUser));
 
     [HttpPost, ValidateAntiForgeryToken]
     public IActionResult ConfirmAttendancePeriod(string period) => Execute(() =>
@@ -442,7 +443,7 @@ public sealed class HrmController : BaseController
 
     [HttpGet, HrmAuthorize(HrmRoles.Admin, HrmRoles.Hr, HrmRoles.Director, HrmRoles.Manager)]
     public IActionResult AttendanceConfirmations(string period) => Execute(() =>
-        Store.GetAttendanceConfirmations(string.IsNullOrWhiteSpace(period) ? HrmDataStore.CurrentVietnamTime().ToString("yyyy-MM") : period, CurrentHrmUser));
+        Store.GetAttendanceConfirmations(string.IsNullOrWhiteSpace(period) ? AttendancePeriodRange.Current().Period : period, CurrentHrmUser));
 
     [HttpPost, ValidateAntiForgeryToken, HrmAuthorize(HrmRoles.Admin, HrmRoles.Hr, HrmRoles.Director, HrmRoles.Manager)]
     public IActionResult RemindAttendanceConfirmations(string period) => Execute(() =>
@@ -453,7 +454,7 @@ public sealed class HrmController : BaseController
 
     [HttpGet]
     public IActionResult AttendanceAdjustments(string period) => Execute(() =>
-        Store.GetAttendanceAdjustments(CurrentHrmUser, string.IsNullOrWhiteSpace(period) ? HrmDataStore.CurrentVietnamTime().ToString("yyyy-MM") : period));
+        Store.GetAttendanceAdjustments(CurrentHrmUser, string.IsNullOrWhiteSpace(period) ? AttendancePeriodRange.Current().Period : period));
 
     [HttpPost, ValidateAntiForgeryToken]
     public IActionResult CreateAttendanceAdjustment(AttendanceAdjustmentModel request) => Execute(() =>
@@ -789,8 +790,9 @@ public sealed class HrmController : BaseController
     [HttpGet]
     public FileContentResult AttendanceCsv(DateTime? fromDate, DateTime? toDate)
     {
-        var to = (toDate ?? HrmDataStore.CurrentVietnamTime()).Date;
-        var from = (fromDate ?? to.AddDays(-30)).Date;
+        var currentPeriod = AttendancePeriodRange.Current();
+        var to = (toDate ?? currentPeriod.ToDate).Date;
+        var from = (fromDate ?? currentPeriod.FromDate).Date;
         var rows = Store.GetAttendance(CurrentHrmUser, from, to);
         var csv = new StringBuilder("Ngay,Nhan vien,Phong ban,Ca,Check-in,Check-out,Phut cong,Di muon,Ve som,Trang thai,Nghi da duyet,Buoi nghi\r\n");
         foreach (var row in rows)
@@ -806,8 +808,9 @@ public sealed class HrmController : BaseController
     {
         try
         {
-            var to = (toDate ?? HrmDataStore.CurrentVietnamTime()).Date;
-            var from = (fromDate ?? to.AddDays(-30)).Date;
+            var currentPeriod = AttendancePeriodRange.Current();
+            var to = (toDate ?? currentPeriod.ToDate).Date;
+            var from = (fromDate ?? currentPeriod.FromDate).Date;
             if (to < from || (to - from).TotalDays > 62) throw new InvalidOperationException("Khoảng xuất bảng chấm công tối đa là 63 ngày.");
             var rows = Store.GetAttendance(CurrentHrmUser, from, to);
             var employees = rows.GroupBy(x => x.UserId).Select(group => group.OrderByDescending(x => x.WorkDate).First()).OrderBy(x => x.DisplayName).ToList();
@@ -830,15 +833,15 @@ public sealed class HrmController : BaseController
             sheet.Cell("B7").Value = employees.Count;
             sheet.Cell("A8").Value = "Nghỉ đã duyệt: xem ghi chú ô ngày công; giờ quét thiết bị được giữ nguyên.";
 
-            var headers = new[] { "ID", "Tên", "Chức vụ", "Phòng ban", "MSNV" };
+            var headers = new[] { "ID", "Tên", "Chức vụ", "Phòng ban", "MSNV", "Tổng giờ làm" };
             for (var index = 0; index < headers.Length; index++) sheet.Cell(11, index + 1).Value = headers[index];
             for (var index = 0; index < dates.Count; index++)
             {
-                var column = 6 + index * 2;
+                var column = 7 + index * 2;
                 sheet.Range(11, column, 11, column + 1).Merge();
                 sheet.Cell(11, column).Value = dates[index].ToString("yyyy-MM-dd");
             }
-            var lastColumn = 5 + dates.Count * 2;
+            var lastColumn = 6 + dates.Count * 2;
             var header = sheet.Range(11, 1, 11, lastColumn);
             header.Style.Fill.SetBackgroundColor(XLColor.FromHtml("#6FA8DC"));
             header.Style.Font.SetBold();
@@ -856,9 +859,12 @@ public sealed class HrmController : BaseController
                 sheet.Cell(rowNumber, 3).Value = employee.JobTitle ?? string.Empty;
                 sheet.Cell(rowNumber, 4).Value = employee.DepartmentName ?? string.Empty;
                 sheet.Cell(rowNumber, 5).Value = employee.EmployeeCode ?? string.Empty;
+                var totalWorkedMinutes = rows.Where(x => x.UserId == employee.UserId && !x.IsProvisional).Sum(x => x.WorkedMinutes);
+                sheet.Cell(rowNumber, 6).Value = totalWorkedMinutes / 1440d;
+                sheet.Cell(rowNumber, 6).Style.NumberFormat.Format = "[h]:mm";
                 for (var dateIndex = 0; dateIndex < dates.Count; dateIndex++)
                 {
-                    var column = 6 + dateIndex * 2;
+                    var column = 7 + dateIndex * 2;
                     if (!byEmployeeDate.TryGetValue((employee.UserId, dates[dateIndex]), out var attendance))
                     {
                         sheet.Cell(rowNumber, column).Value = "-";
@@ -903,10 +909,11 @@ public sealed class HrmController : BaseController
             sheet.Column(3).Width = 22;
             sheet.Column(4).Width = 24;
             sheet.Column(5).Width = 13;
-            for (var column = 6; column <= lastColumn; column++) sheet.Column(column).Width = 8;
+            sheet.Column(6).Width = 14;
+            for (var column = 7; column <= lastColumn; column++) sheet.Column(column).Width = 8;
             sheet.Row(11).Height = 24;
             sheet.SheetView.FreezeRows(11);
-            sheet.SheetView.FreezeColumns(5);
+            sheet.SheetView.FreezeColumns(6);
             sheet.PageSetup.PageOrientation = XLPageOrientation.Landscape;
             sheet.PageSetup.FitToPages(1, 0);
 

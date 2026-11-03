@@ -45,7 +45,10 @@ public sealed class WorkItem
     public string EmployeeName { get; set; }
     public string DepartmentName { get; set; }
     public string KpiType { get; set; } = "ASSIGNED";
+    public string KpiPeriodType { get; set; } = "QUARTER";
     public string Quarter { get; set; } = "Quý 1-2026";
+    public DateTime? PeriodStart { get; set; }
+    public DateTime? PeriodEnd { get; set; }
     public string ProofNote { get; set; }
     public bool IsAchieved => Target > 0 && Actual >= Target;
     public decimal CompletionRate => Target > 0 ? Math.Min(200, ((Actual ?? 0) * 100m) / Target.Value) : 0;
@@ -59,6 +62,8 @@ public sealed class WorkItem
     public int AssetDisposed { get; set; }
     public int AssetDamaged { get; set; }
     public string ParticipantNames { get; set; }
+    public int? ApprovedByUserId { get; set; }
+    public DateTime? ApprovedAt { get; set; }
     public List<int> ParticipantIds { get; set; } = new();
 
     public string RecordCode => FormatCode(Kind, Id);
@@ -265,12 +270,13 @@ public sealed class PayrollItemDetail
     public string DepartmentName { get; set; }
     public string Branch { get; set; }
     public decimal BaseSalary { get; set; }
+    public decimal ProductSalary { get; set; }
     public decimal KpiSalary { get; set; }
     public decimal SalesSalary { get; set; }
     public decimal OtSalary { get; set; }
     public decimal TotalAllowance { get; set; }
     public decimal Bonus { get; set; }
-    public decimal GrossIncome => BaseSalary + KpiSalary + SalesSalary + OtSalary + TotalAllowance + Bonus;
+    public decimal GrossIncome => BaseSalary + ProductSalary + KpiSalary + SalesSalary + OtSalary + TotalAllowance + Bonus;
     public decimal SocialInsurance { get; set; }
     public decimal HealthInsurance { get; set; }
     public decimal UnemploymentInsurance { get; set; }
@@ -279,12 +285,37 @@ public sealed class PayrollItemDetail
     public decimal Advance { get; set; }
     public decimal Deduction { get; set; }
     public decimal NetSalary { get; set; }
+    public DateTime? PaymentDueDate { get; set; }
+    public DateTime? ApprovedAt { get; set; }
+    public int? ApprovedByUserId { get; set; }
     public string Status { get; set; } = "DRAFT";
     public string StatusText { get; set; }
     public string StatusBadge { get; set; }
     public string LastActionNote { get; set; }
     public DateTime? UpdatedAt { get; set; }
     public DateTime CreatedAt { get; set; }
+}
+
+public sealed class PayrollManualEditRequest
+{
+    public int Id { get; set; }
+    [Range(0, 1000000000)] public decimal BaseSalary { get; set; }
+    [Range(0, 1000000000)] public decimal ProductSalary { get; set; }
+    [Range(0, 1000000000)] public decimal SalesSalary { get; set; }
+    [Range(0, 1000000000)] public decimal KpiSalary { get; set; }
+    [Range(0, 1000000000)] public decimal OtSalary { get; set; }
+    [Range(0, 1000000000)] public decimal TotalAllowance { get; set; }
+    [Range(0, 1000000000)] public decimal Bonus { get; set; }
+    [Range(0, 1000000000)] public decimal SocialInsurance { get; set; }
+    [Range(0, 1000000000)] public decimal HealthInsurance { get; set; }
+    [Range(0, 1000000000)] public decimal UnemploymentInsurance { get; set; }
+    [Range(0, 1000000000)] public decimal PersonalIncomeTax { get; set; }
+    [Range(0, 1000000000)] public decimal Advance { get; set; }
+    [Range(0, 1000000000)] public decimal Deduction { get; set; }
+
+    public decimal GrossIncome => BaseSalary + ProductSalary + SalesSalary + KpiSalary + OtSalary + TotalAllowance + Bonus;
+    public decimal TotalDeductions => SocialInsurance + HealthInsurance + UnemploymentInsurance + PersonalIncomeTax + Advance + Deduction;
+    public decimal NetSalary => Math.Max(0, GrossIncome - TotalDeductions);
 }
 
 public sealed class PayrollAllowanceItem

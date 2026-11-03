@@ -4,8 +4,8 @@
     var canEditKpi = Model.CanManage;
     var isManager = User.IsInRole(HrmRoles.Manager);
     var isEmployee = User.IsInRole(HrmRoles.Employee);
-    var startYear = 2026;
-    var endYear = Math.Max(DateTime.Now.Year + 14, 2040);
+    var startYear = Math.Max(2000, DateTime.Now.Year - 5);
+    var endYear = DateTime.Now.Year + 14;
 }
 
     <div class="kpi-container">
@@ -410,7 +410,8 @@
                                                                data-employee="@(item.EmployeeId?.ToString() ?? "")"
                                                                data-dept="@(item.DepartmentId?.ToString() ?? "")"
                                                                data-type="@(item.KpiType ?? "ASSIGNED")"
-                                                               data-quarter="@(item.Quarter ?? "Quý 3-2026")"
+                                                               data-period-type="@(item.KpiPeriodType ?? Model.PeriodType)"
+                                                               data-quarter="@(item.Quarter ?? Model.FromQuarter)"
                                                                data-desc="@(item.Description ?? "")"
                                                                data-status="@(item.Status ?? "WAITING_RESULT")">
                                                                 <i class="material-icons" style="font-size:16px;">edit</i> Chỉnh sửa KPI
@@ -533,6 +534,7 @@
                 <form method="post" asp-controller="Work" asp-action="Create">
                     @Html.AntiForgeryToken()
                     <input type="hidden" name="Kind" value="kpi" />
+                    <input type="hidden" name="KpiPeriodType" value="@Model.PeriodType" />
                     <div class="modal-header kpi-modal-header">
                         <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
                         <h4 class="modal-title" id="modalCreateKpiTitle"><i class="material-icons">add_chart</i> Tạo tiêu chí KPI mới</h4>
@@ -630,12 +632,33 @@
                                 <div class="form-group">
                                     <label for="createKpiQuarter" style="font-weight:600;">Kỳ áp dụng</label>
                                     <select id="createKpiQuarter" name="Quarter" class="form-control">
-                                        @for (int y = startYear; y <= endYear; y++)
+                                        @if (Model.PeriodType == "MONTH")
                                         {
-                                            for (int q = 1; q <= 4; q++)
+                                            for (int y = startYear; y <= endYear; y++)
                                             {
-                                                var qVal = $"Quý {q}-{y}";
-                                                <option value="@qVal" selected="@(qVal == "Quý 3-2026")">@qVal</option>
+                                                for (int m = 1; m <= 12; m++)
+                                                {
+                                                    var value = $"Tháng {m:00}-{y}";
+                                                    <option value="@value" selected="@(value == Model.FromQuarter)">@value</option>
+                                                }
+                                            }
+                                        }
+                                        else if (Model.PeriodType == "YEAR")
+                                        {
+                                            for (int y = startYear; y <= endYear; y++)
+                                            {
+                                                <option value="@y" selected="@(y.ToString() == Model.FromQuarter)">@y</option>
+                                            }
+                                        }
+                                        else
+                                        {
+                                            for (int y = startYear; y <= endYear; y++)
+                                            {
+                                                for (int q = 1; q <= 4; q++)
+                                                {
+                                                    var value = $"Quý {q}-{y}";
+                                                    <option value="@value" selected="@(value == Model.FromQuarter)">@value</option>
+                                                }
                                             }
                                         }
                                     </select>
@@ -664,6 +687,7 @@
                 <form method="post" asp-controller="Work" asp-action="UpdateKpi">
                     @Html.AntiForgeryToken()
                     <input type="hidden" name="Kind" value="kpi" />
+                    <input type="hidden" name="KpiPeriodType" id="editKpiPeriodType" value="@Model.PeriodType" />
                     <input type="hidden" name="Id" id="editKpiId" value="" />
                     <input type="hidden" name="Status" id="editKpiStatus" value="" />
                     <div class="modal-header kpi-modal-header">
@@ -756,12 +780,33 @@
                                 <div class="form-group">
                                     <label for="editKpiQuarter" style="font-weight:600;">Kỳ áp dụng</label>
                                     <select id="editKpiQuarter" name="Quarter" class="form-control">
-                                        @for (int y = startYear; y <= endYear; y++)
+                                        @if (Model.PeriodType == "MONTH")
                                         {
-                                            for (int q = 1; q <= 4; q++)
+                                            for (int y = startYear; y <= endYear; y++)
                                             {
-                                                var qVal = $"Quý {q}-{y}";
-                                                <option value="@qVal">@qVal</option>
+                                                for (int m = 1; m <= 12; m++)
+                                                {
+                                                    var value = $"Tháng {m:00}-{y}";
+                                                    <option value="@value">@value</option>
+                                                }
+                                            }
+                                        }
+                                        else if (Model.PeriodType == "YEAR")
+                                        {
+                                            for (int y = startYear; y <= endYear; y++)
+                                            {
+                                                <option value="@y">@y</option>
+                                            }
+                                        }
+                                        else
+                                        {
+                                            for (int y = startYear; y <= endYear; y++)
+                                            {
+                                                for (int q = 1; q <= 4; q++)
+                                                {
+                                                    var value = $"Quý {q}-{y}";
+                                                    <option value="@value">@value</option>
+                                                }
                                             }
                                         }
                                     </select>
@@ -1558,7 +1603,8 @@
             $('#editTypeAssigned').prop('checked', true);
             toggleEditKpiType('ASSIGNED');
         }
-        $('#editKpiQuarter').val(btn.attr('data-quarter') || btn.data('quarter') || 'Quý 3-2026');
+        $('#editKpiPeriodType').val(btn.attr('data-period-type') || btn.data('period-type') || '@Model.PeriodType');
+        $('#editKpiQuarter').val(btn.attr('data-quarter') || btn.data('quarter') || '@Model.FromQuarter');
         $('#editKpiDescription').val(btn.attr('data-desc') || btn.data('desc') || '');
         $('#editKpiStatus').val(btn.attr('data-status') || btn.data('status') || 'WAITING_RESULT');
         showModalSafe('modalEditKpi');

@@ -15,7 +15,8 @@ public sealed class WorkItemStore
     public void Load(WorkPage page, HrmUserAccountModel actor)
     {
         using var db = Open();
-        var canSeeAll = actor.RoleCode == HrmRoles.Admin || actor.RoleCode == HrmRoles.Hr || actor.RoleCode == HrmRoles.Director;
+        var canSeeAll = actor.RoleCode == HrmRoles.Admin || actor.RoleCode == HrmRoles.Hr || actor.RoleCode == HrmRoles.Director ||
+            page.Kind == "payroll" && actor.RoleCode == HrmRoles.Accountant;
         var isManager = actor.RoleCode == HrmRoles.Manager;
         var canManageDepartment = isManager && page.CanManage;
         page.Items = db.Query<WorkItem>(@"SELECT w.*, u.DisplayName EmployeeName, d.Name DepartmentName,
@@ -157,6 +158,9 @@ public sealed class WorkItemStore
     }
     public int Create(WorkItem item, IReadOnlyCollection<int> participantIds = null)
     {
+        if (item == null) throw new InvalidOperationException("Dữ liệu công việc không hợp lệ.");
+        if (item.Kind == "kpi") item.Status = "WAITING_RESULT";
+
         using var db = Open();
         using var transaction = db.BeginTransaction();
         if (item.Kind == "meeting")
@@ -167,9 +171,9 @@ public sealed class WorkItemStore
             if (conflict > 0) throw new InvalidOperationException("Phòng họp vừa được đặt trong khung giờ này. Vui lòng chọn thời gian cách ít nhất 10 phút.");
         }
         var id = db.QuerySingle<int>(@"INSERT dbo.HrmWorkItem
-            (Kind,Title,Description,Category,Reference,WorkLocation,JobLevel,ExperienceRequired,EducationRequired,GenderRequirement,AgeRange,SalaryRange,SkillRequirements,Benefits,RecruitmentProcess,RecruitmentReason,StartDate,ContractType,ProbationPeriod,RecruitmentChannel,ContactName,ContactEmail,ContactPhone,ContactAddress,Keywords,EmployeeId,DepartmentId,DueDate,StartAt,EndAt,Location,Destination,Target,Actual,Weight,Priority,Status,CreatedBy,KpiType,Quarter,ProofNote)
+            (Kind,Title,Description,Category,Reference,WorkLocation,JobLevel,ExperienceRequired,EducationRequired,GenderRequirement,AgeRange,SalaryRange,SkillRequirements,Benefits,RecruitmentProcess,RecruitmentReason,StartDate,ContractType,ProbationPeriod,RecruitmentChannel,ContactName,ContactEmail,ContactPhone,ContactAddress,Keywords,EmployeeId,DepartmentId,DueDate,StartAt,EndAt,Location,Destination,Target,Actual,Weight,Priority,Status,CreatedBy,KpiType,KpiPeriodType,Quarter,PeriodStart,PeriodEnd,ProofNote)
             OUTPUT INSERTED.Id VALUES
-            (@Kind,@Title,@Description,@Category,@Reference,@WorkLocation,@JobLevel,@ExperienceRequired,@EducationRequired,@GenderRequirement,@AgeRange,@SalaryRange,@SkillRequirements,@Benefits,@RecruitmentProcess,@RecruitmentReason,@StartDate,@ContractType,@ProbationPeriod,@RecruitmentChannel,@ContactName,@ContactEmail,@ContactPhone,@ContactAddress,@Keywords,@EmployeeId,@DepartmentId,@DueDate,@StartAt,@EndAt,@Location,@Destination,@Target,@Actual,@Weight,@Priority,@Status,@CreatedBy,@KpiType,@Quarter,@ProofNote)", item, transaction);
+            (@Kind,@Title,@Description,@Category,@Reference,@WorkLocation,@JobLevel,@ExperienceRequired,@EducationRequired,@GenderRequirement,@AgeRange,@SalaryRange,@SkillRequirements,@Benefits,@RecruitmentProcess,@RecruitmentReason,@StartDate,@ContractType,@ProbationPeriod,@RecruitmentChannel,@ContactName,@ContactEmail,@ContactPhone,@ContactAddress,@Keywords,@EmployeeId,@DepartmentId,@DueDate,@StartAt,@EndAt,@Location,@Destination,@Target,@Actual,@Weight,@Priority,@Status,@CreatedBy,@KpiType,@KpiPeriodType,@Quarter,@PeriodStart,@PeriodEnd,@ProofNote)", item, transaction);
         if (item.Kind is "meeting" or "vehicle" && participantIds?.Count > 0)
         {
             foreach (var userId in participantIds.Distinct())
@@ -192,8 +196,9 @@ public sealed class WorkItemStore
         var changed = db.Execute(@"UPDATE dbo.HrmWorkItem SET Title=@Title, Description=@Description,
                 Category=@Category, Reference=@Reference, EmployeeId=@EmployeeId, DepartmentId=@DepartmentId,
                 DueDate=@DueDate, Target=@Target, Actual=@Actual, Weight=@Weight,
-                KpiType=COALESCE(@KpiType, KpiType), Quarter=COALESCE(@Quarter, Quarter),
-                ProofNote=COALESCE(@ProofNote, ProofNote), Status=COALESCE(@Status, Status),
+                KpiType=COALESCE(@KpiType, KpiType), KpiPeriodType=@KpiPeriodType,
+                Quarter=@Quarter, PeriodStart=@PeriodStart, PeriodEnd=@PeriodEnd,
+                ProofNote=COALESCE(@ProofNote, ProofNote),
                 UpdatedAt=SYSUTCDATETIME()
             WHERE Id=@Id AND Kind='kpi'", item, transaction) > 0;
         if (changed) AddAudit(db, transaction, actorId, "UPDATE", item.Id, "Cập nhật KPI", ipAddress);
@@ -266,8 +271,31 @@ public sealed class WorkItemStore
         var changed = db.Execute(@"UPDATE dbo.HrmWorkItem SET Title=@Title, Description=@Description,
                 Category=@Category, Reference=@Reference, EmployeeId=@EmployeeId, DueDate=@DueDate,
                 Target=@Target, Actual=@Actual, UpdatedAt=SYSUTCDATETIME()
-            WHERE Id=@Id AND Kind='payroll' AND Status IN ('DRAFT','REJECTED')", item, transaction) > 0;
+            WHERE Id=@Id AND Kind='payroll' AND Status IN ('DRAFT','REJECTED')
+              AND EXISTS(SELECT 1 FROM dbo.HrmUserAccount a WHERE a.Id=@ActorId AND a.IsActive=1 AND a.RoleCode IN ('ADMIN','ACCOUNTANT'))",
+            new { item.Id, item.Title, item.Description, item.Category, item.Reference, item.EmployeeId, item.DueDate, item.Target, item.Actual, ActorId = actorId }, transaction) > 0;
         if (changed) AddAudit(db, transaction, actorId, "UPDATE", item.Id, "Cập nhật bảng lương nháp", ipAddress);
+        transaction.Commit();
+        return changed;
+    }
+
+    public bool UpdatePayrollAmounts(PayrollManualEditRequest request, int actorId, string ipAddress)
+    {
+        using var db = Open();
+        using var transaction = db.BeginTransaction();
+        var item = db.QuerySingleOrDefault<WorkItem>(@"SELECT TOP 1 w.Id,w.Keywords,w.Status
+            FROM dbo.HrmWorkItem w WITH(UPDLOCK,HOLDLOCK)
+            WHERE w.Id=@Id AND w.Kind='payroll' AND w.Status IN ('DRAFT','REJECTED')
+              AND EXISTS(SELECT 1 FROM dbo.HrmUserAccount a WHERE a.Id=@ActorId AND a.IsActive=1 AND a.RoleCode IN ('ADMIN','ACCOUNTANT'))",
+            new { request.Id, ActorId = actorId }, transaction);
+        if (item == null) return false;
+        var metadata = PayrollStoredValues.UpdateManualAmounts(item.Keywords, request);
+        var changed = db.Execute(@"UPDATE dbo.HrmWorkItem SET Target=@BaseSalary,Actual=@NetSalary,Keywords=@Metadata,
+                UpdatedAt=SYSUTCDATETIME(),LastActionNote=N'Kế toán cập nhật thủ công các thành phần lương'
+            WHERE Id=@Id AND Status IN ('DRAFT','REJECTED')",
+            new { request.Id, request.BaseSalary, request.NetSalary, Metadata = metadata }, transaction) > 0;
+        if (changed) AddAudit(db, transaction, actorId, "MANUAL_EDIT", request.Id,
+            $"Kế toán cập nhật bảng lương; thực nhận {request.NetSalary:N0}", ipAddress);
         transaction.Commit();
         return changed;
     }
@@ -276,11 +304,29 @@ public sealed class WorkItemStore
     {
         using var db = Open();
         using var transaction = db.BeginTransaction();
+        var role = db.ExecuteScalar<string>("SELECT RoleCode FROM dbo.HrmUserAccount WHERE Id=@ActorId AND IsActive=1", new { ActorId = actorId }, transaction);
+        var allowed = newStatus switch
+        {
+            "PENDING_APPROVAL" => PayrollPolicy.CanEdit(role),
+            "APPROVED" or "REJECTED" => PayrollPolicy.CanApprove(role),
+            "LOCKED" or "PUBLISHED" or "PAID" or "RESOLVED" => PayrollPolicy.CanPublishOrPay(role),
+            "DISPUTED" => employeeId == actorId,
+            _ => false
+        };
+        if (!allowed) return false;
+        var approvedAt = newStatus == "APPROVED" ? HrmDataStore.CurrentVietnamTime() : (DateTime?)null;
+        var paymentDueDate = approvedAt.HasValue ? PayrollPolicy.AddBusinessDays(approvedAt.Value, 2) : (DateTime?)null;
         var changed = db.Execute(@"UPDATE dbo.HrmWorkItem SET Status=@NewStatus,
-                LastActionNote=@Note, UpdatedAt=SYSUTCDATETIME()
+                LastActionNote=@Note, UpdatedAt=SYSUTCDATETIME(),
+                ApprovedByUserId=CASE WHEN @NewStatus='APPROVED' THEN @ActorId WHEN @NewStatus IN ('PENDING_APPROVAL','REJECTED') THEN NULL ELSE ApprovedByUserId END,
+                ApprovedAt=CASE WHEN @NewStatus='APPROVED' THEN @ApprovedAt WHEN @NewStatus IN ('PENDING_APPROVAL','REJECTED') THEN NULL ELSE ApprovedAt END,
+                DueDate=CASE WHEN @NewStatus='APPROVED' THEN @PaymentDueDate WHEN @NewStatus IN ('PENDING_APPROVAL','REJECTED') THEN NULL ELSE DueDate END
             WHERE Id=@Id AND Kind='payroll' AND Status=@ExpectedStatus
+              AND (@NewStatus<>'PAID' OR DueDate<=@Today)
               AND (@EmployeeId IS NULL OR EmployeeId=@EmployeeId)",
-            new { Id = id, ExpectedStatus = expectedStatus, NewStatus = newStatus, Note = string.IsNullOrWhiteSpace(note) ? null : note.Trim(), EmployeeId = employeeId }, transaction) > 0;
+            new { Id = id, ExpectedStatus = expectedStatus, NewStatus = newStatus, Note = string.IsNullOrWhiteSpace(note) ? null : note.Trim(),
+                EmployeeId = employeeId, ActorId = actorId, ApprovedAt = approvedAt, PaymentDueDate = paymentDueDate,
+                Today = HrmDataStore.CurrentVietnamTime().Date }, transaction) > 0;
         if (changed) AddAudit(db, transaction, actorId, action, id, $"Bảng lương: {expectedStatus} -> {newStatus}. {note}".Trim(), ipAddress);
         if (changed) NotifyWorkChange(db, transaction, id, newStatus, note);
         transaction.Commit();
@@ -564,11 +610,57 @@ public sealed class WorkItemStore
         using var transaction = db.BeginTransaction();
         if (status is not ("APPROVED" or "REJECTED" or "RESOLVED")) return false;
         var expected = status == "RESOLVED" ? "APPROVED" : "PENDING";
+        var actorRole = db.QuerySingleOrDefault<string>(
+            "SELECT RoleCode FROM dbo.HrmUserAccount WHERE Id=@ActorId AND IsActive=1",
+            new { ActorId = actorId }, transaction);
+        if (status == "RESOLVED" && actorRole is not (HrmRoles.Admin or HrmRoles.Hr or HrmRoles.Director))
+            return false;
+
+        var resignation = db.QuerySingleOrDefault<WorkItem>(@"SELECT Id,EmployeeId,CreatedBy
+            FROM dbo.HrmWorkItem WITH(UPDLOCK,HOLDLOCK)
+            WHERE Id=@Id AND Kind='resignation' AND Status=@Expected",
+            new { Id = id, Expected = expected }, transaction);
+        if (resignation == null) return false;
+        var employeeId = resignation.EmployeeId ?? resignation.CreatedBy;
+        if (status == "RESOLVED")
+        {
+            var outstandingAssets = db.ExecuteScalar<int>(@"SELECT COUNT(1) FROM dbo.HrmWorkItem
+                WHERE Kind='assets' AND EmployeeId=@EmployeeId AND Status IN ('ALLOCATED','ALLOCATING','RECOVERING')",
+                new { EmployeeId = employeeId }, transaction);
+            var outstandingUniforms = db.ExecuteScalar<int>(@"SELECT COUNT(1) FROM dbo.HrmEmployeeUniform
+                WHERE UserId=@EmployeeId AND StatusCode='ISSUED'",
+                new { EmployeeId = employeeId }, transaction);
+            if (outstandingAssets > 0 || outstandingUniforms > 0)
+                throw new InvalidOperationException(
+                    $"Chưa thể hoàn tất thôi việc: còn {outstandingAssets} tài sản và {outstandingUniforms} trang phục chưa thu hồi.");
+        }
         var changed = db.Execute(@"UPDATE w SET Status=@Status, LastActionNote=@Note, UpdatedAt=SYSDATETIME()
             FROM dbo.HrmWorkItem w WHERE w.Id=@Id AND w.Status=@Expected AND w.Kind='resignation'
               AND COALESCE(w.EmployeeId,w.CreatedBy)<>@ActorId" + ApproveRecordScope,
             new { Id=id, Status=status, Note=note, Expected=expected, ActorId=actorId }, transaction) > 0;
-        if (changed) AddAudit(db, transaction, actorId, status == "APPROVED" ? "APPROVE" : (status == "REJECTED" ? "REJECT" : "UPDATE"), id, $"{status}: {note}", ipAddress);
+        if (changed && status == "RESOLVED")
+        {
+            db.Execute(@"UPDATE dbo.HrmEmployeeProfile
+                    SET EmploymentStatus=N'Đã thôi việc',UpdatedAt=SYSDATETIME()
+                    WHERE UserId=@EmployeeId;
+                UPDATE dbo.HrmEmployeeSchedule SET StatusCode='INACTIVE',UpdatedAt=SYSDATETIME()
+                    WHERE UserId=@EmployeeId AND StatusCode='ACTIVE';
+                UPDATE dbo.HrmRemoteWorkPlan SET StatusCode='CANCELLED'
+                    WHERE UserId=@EmployeeId AND StatusCode IN ('PENDING','APPROVED');
+                UPDATE dbo.HrmFaceEnrollment SET StatusCode='REVOKED',PhotoProtected=NULL,
+                    RevokedAt=SYSUTCDATETIME(),RevokedBy=@ActorId,
+                    ReviewNote=COALESCE(NULLIF(@Note,''),N'Thu hồi khi hoàn tất thôi việc')
+                    WHERE UserId=@EmployeeId AND StatusCode IN ('PENDING','ACTIVE');
+                UPDATE dbo.HrmHanetPersonMap SET IsActive=0,UpdatedAt=SYSDATETIME()
+                    WHERE UserId=@EmployeeId AND IsActive=1;
+                UPDATE dbo.HrmEmployeeSoftwareAccount SET IsActive=0,UpdatedAt=SYSDATETIME(),UpdatedByUserId=@ActorId
+                    WHERE UserId=@EmployeeId AND IsActive=1;
+                UPDATE dbo.HrmUserAccount SET IsActive=0,UpdatedAt=SYSDATETIME()
+                    WHERE Id=@EmployeeId;",
+                new { EmployeeId = employeeId, ActorId = actorId, Note = note?.Trim() }, transaction);
+        }
+        if (changed) AddAudit(db, transaction, actorId, status == "APPROVED" ? "APPROVE" : (status == "REJECTED" ? "REJECT" : "COMPLETE_OFFBOARDING"), id,
+            status == "RESOLVED" ? $"Hoàn tất thôi việc nhân viên #{employeeId}; đã khóa tài khoản và thu hồi quyền truy cập. {note}".Trim() : $"{status}: {note}", ipAddress);
         if (changed) NotifyWorkChange(db, transaction, id, status, note);
         transaction.Commit();
         return changed;
@@ -1497,6 +1589,9 @@ public sealed class WorkItemStore
             Branch = item.Category ?? "TP. Hồ Chí Minh",
             BaseSalary = item.Target ?? 0,
             NetSalary = item.Actual ?? 0,
+            PaymentDueDate = item.DueDate,
+            ApprovedAt = item.ApprovedAt,
+            ApprovedByUserId = item.ApprovedByUserId,
             Status = item.Status ?? "DRAFT",
             LastActionNote = item.LastActionNote,
             UpdatedAt = item.UpdatedAt,
@@ -1510,6 +1605,7 @@ public sealed class WorkItemStore
                 using var doc = System.Text.Json.JsonDocument.Parse(item.Keywords);
                 var root = doc.RootElement;
                 if (root.TryGetProperty("baseSalary", out var pBase)) detail.BaseSalary = pBase.GetDecimal();
+                if (root.TryGetProperty("productSalary", out var pProduct)) detail.ProductSalary = pProduct.GetDecimal();
                 if (root.TryGetProperty("kpiSalary", out var pKpi)) detail.KpiSalary = pKpi.GetDecimal();
                 if (root.TryGetProperty("salesSalary", out var pSales)) detail.SalesSalary = pSales.GetDecimal();
                 if (root.TryGetProperty("otSalary", out var pOt)) detail.OtSalary = pOt.GetDecimal();
@@ -1681,12 +1777,24 @@ public sealed class WorkItemStore
         using var transaction = db.BeginTransaction();
         try
         {
+            actionType = actionType?.ToUpperInvariant();
+            var role = db.ExecuteScalar<string>("SELECT RoleCode FROM dbo.HrmUserAccount WHERE Id=@ActorId AND IsActive=1", new { ActorId = actorId }, transaction);
+            if (actionType is "APPROVE" or "REJECT")
+            {
+                if (!PayrollPolicy.CanApprove(role)) return false;
+            }
+            else if (actionType is "FINALIZE" or "PUBLISH" or "PAY")
+            {
+                if (!PayrollPolicy.CanPublishOrPay(role)) return false;
+            }
+            else return false;
+
             string newStatus;
             string allowedStatus;
             string auditAction;
             string defaultLog;
 
-            switch (actionType?.ToUpperInvariant())
+            switch (actionType)
             {
                 case "FINALIZE":
                     newStatus = "PENDING_APPROVAL";
@@ -1722,16 +1830,24 @@ public sealed class WorkItemStore
                     return false;
             }
 
+            var approvedAt = newStatus == "APPROVED" ? HrmDataStore.CurrentVietnamTime() : (DateTime?)null;
+            var paymentDueDate = approvedAt.HasValue ? PayrollPolicy.AddBusinessDays(approvedAt.Value, 2) : (DateTime?)null;
             var sql = $@"UPDATE dbo.HrmWorkItem 
                 SET Status = @NewStatus, 
                     LastActionNote = COALESCE(@Note, LastActionNote), 
-                    UpdatedAt = SYSUTCDATETIME()
+                    UpdatedAt = SYSUTCDATETIME(),
+                    ApprovedByUserId=CASE WHEN @NewStatus='APPROVED' THEN @ActorId WHEN @NewStatus IN ('PENDING_APPROVAL','REJECTED') THEN NULL ELSE ApprovedByUserId END,
+                    ApprovedAt=CASE WHEN @NewStatus='APPROVED' THEN @ApprovedAt WHEN @NewStatus IN ('PENDING_APPROVAL','REJECTED') THEN NULL ELSE ApprovedAt END,
+                    DueDate=CASE WHEN @NewStatus='APPROVED' THEN @PaymentDueDate WHEN @NewStatus IN ('PENDING_APPROVAL','REJECTED') THEN NULL ELSE DueDate END
                 OUTPUT INSERTED.Id
                 WHERE Kind = 'payroll' 
                   AND (Quarter = @Period OR @Period IS NULL)
-                  AND Status IN ({allowedStatus})";
+                  AND Status IN ({allowedStatus})
+                  AND (@NewStatus<>'PAID' OR DueDate<=@Today)";
 
-            var changedIds = db.Query<int>(sql, new { NewStatus = newStatus, Note = note, Period = period }, transaction).ToList();
+            var changedIds = db.Query<int>(sql, new { NewStatus = newStatus, Note = note, Period = period,
+                ActorId = actorId, ApprovedAt = approvedAt, PaymentDueDate = paymentDueDate,
+                Today = HrmDataStore.CurrentVietnamTime().Date }, transaction).ToList();
             var affected = changedIds.Count;
             foreach (var id in changedIds) NotifyWorkChange(db, transaction, id, newStatus, note);
 
@@ -1754,12 +1870,19 @@ public sealed class WorkItemStore
 
     public bool SavePayrollComponent(WorkItem item, int actorId, string ipAddress)
     {
-        if (item.Kind is not ("payroll-allowance" or "payroll-deduction" or "payroll-advance") || item.Target < 0) return false;
+        if (item.Kind is not ("payroll-allowance" or "payroll-deduction" or "payroll-advance") || item.Target is null or < 0 || !item.EmployeeId.HasValue) return false;
         item.Quarter = string.IsNullOrWhiteSpace(item.Quarter) ? HrmDataStore.CurrentVietnamTime().ToString("yyyy-MM") : item.Quarter;
         using var db = Open();
         using var transaction = db.BeginTransaction();
         try
         {
+            var role = db.ExecuteScalar<string>("SELECT RoleCode FROM dbo.HrmUserAccount WHERE Id=@ActorId AND IsActive=1",
+                new { ActorId = actorId }, transaction);
+            if (!PayrollPolicy.CanEdit(role)) return false;
+            if (!DateTime.TryParseExact(item.Quarter + "-01", "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture,
+                    System.Globalization.DateTimeStyles.None, out _)) return false;
+            if (db.ExecuteScalar<int>("SELECT COUNT(1) FROM dbo.HrmUserAccount WHERE Id=@Id AND IsActive=1",
+                    new { Id = item.EmployeeId.Value }, transaction) == 0) return false;
             var id = db.QuerySingle<int>(@"INSERT dbo.HrmWorkItem
                 (Kind,Title,Description,Reference,WorkLocation,Category,JobLevel,SalaryRange,Quarter,EmployeeId,DepartmentId,StartDate,Target,Status,Priority,CreatedBy,CreatedAt)
                 OUTPUT INSERTED.Id VALUES

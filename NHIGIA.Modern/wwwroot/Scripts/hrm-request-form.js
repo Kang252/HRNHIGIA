@@ -69,9 +69,10 @@
     function canApprove(item, role, actorId, departmentId) {
         if (!item || !['ADMIN', 'HR', 'DIRECTOR', 'MANAGER'].includes(role)) return false;
         if (Number(item.UserId) === Number(actorId)) return false;
-        if (role === 'MANAGER' && (item.RoleCode !== 'EMPLOYEE' || item.StatusCode !== 'PENDING_MANAGER' || !departmentId ||
-            Number(item.DepartmentId) !== Number(departmentId))) return false;
-        return item.StatusCode === 'PENDING_MANAGER' || item.StatusCode === 'PENDING_HR';
+        if (role === 'ADMIN') return item.StatusCode === 'PENDING_MANAGER' || item.StatusCode === 'PENDING_HR';
+        if (role === 'MANAGER') return item.RoleCode === 'EMPLOYEE' && item.StatusCode === 'PENDING_MANAGER' &&
+            !!departmentId && Number(item.DepartmentId) === Number(departmentId);
+        return item.StatusCode === 'PENDING_HR';
     }
 
     root.HrmRequestForm = { escapeHtml: escapeHtml, employeeLabel: employeeLabel, employeeId: employeeId,

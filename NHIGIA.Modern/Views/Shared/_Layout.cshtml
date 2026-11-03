@@ -3,7 +3,7 @@
     var role = user?.RoleCode ?? string.Empty;
     var canManage = HrmRoles.CanManagePeople(role);
     var canConfigure = role == HrmRoles.Admin || role == HrmRoles.Hr || role == HrmRoles.Director;
-    var isEmployee = role == HrmRoles.Employee;
+    var isEmployee = role is HrmRoles.Employee or HrmRoles.Accountant;
     var isManager = role == HrmRoles.Manager;
     var isDirector = role == HrmRoles.Director;
     var workKind = ViewContext.RouteData.Values["controller"]?.ToString() == "Work" ? ((Model as WorkPage)?.Kind ?? "") : "";
@@ -115,7 +115,7 @@
                         <li class="@(action == "Approvals" ? "active" : "")"><a asp-controller="Home" asp-action="Approvals"><i class="material-icons">fact_check</i><span>Phê duyệt</span></a></li>
                     }
                     <li class="@(action == "InternalCommunications" ? "active" : "")"><a asp-controller="Home" asp-action="InternalCommunications"><i class="material-icons">campaign</i><span>Truyền thông nội bộ</span></a></li>
-                    @if (canConfigure)
+                    @if (canManage)
                     {
                         <li class="@(action == "Reports" ? "active" : "")"><a asp-controller="Home" asp-action="Reports"><i class="material-icons">analytics</i><span>Báo cáo</span></a></li>
                         @if (role == HrmRoles.Admin && Configuration.GetValue<bool>("Features:HanetIntegrationUiEnabled"))
@@ -125,7 +125,7 @@
                     }
                     <li class="header hrm-menu-section" data-menu-section="performance"><button class="hrm-menu-section-toggle" type="button" aria-expanded="true"><span>HIỆU SUẤT & HỖ TRỢ</span><i class="material-icons" aria-hidden="true">expand_more</i></button></li>
                     <li class="@(workKind == "kpi" ? "active" : "")"><a asp-controller="Work" asp-action="Index" asp-route-kind="kpi"><i class="material-icons">track_changes</i><span>@(isEmployee ? "KPI của tôi" : isManager ? "KPI phòng ban" : "KPI")</span></a></li>
-                    <li class="@(workKind == "payroll" ? "active" : "")"><a asp-controller="Work" asp-action="Index" asp-route-kind="payroll"><i class="material-icons">payments</i><span>@(isDirector || role == HrmRoles.Admin ? "Duyệt bảng lương" : canConfigure ? "Tính lương" : "Phiếu lương")</span></a></li>
+                    <li class="@(workKind == "payroll" ? "active" : "")"><a asp-controller="Work" asp-action="Index" asp-route-kind="payroll"><i class="material-icons">payments</i><span>@(isDirector || role == HrmRoles.Admin ? "Duyệt bảng lương" : role == HrmRoles.Accountant ? "Lập bảng lương" : role == HrmRoles.Hr ? "Theo dõi bảng lương" : "Phiếu lương")</span></a></li>
                     @if (canConfigure) {
                     <li class="@(workKind == "recruitment" ? "active" : "")"><a asp-controller="Work" asp-action="Index" asp-route-kind="recruitment"><i class="material-icons">person_search</i><span>Tuyển dụng</span></a></li>
                     }

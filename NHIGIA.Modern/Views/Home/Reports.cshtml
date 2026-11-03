@@ -1,30 +1,40 @@
 <div class="container-fluid">
     <div class="hrm-page-header">
-        <div><h1 class="hrm-page-title">Báo cáo nhân sự</h1><p class="hrm-page-subtitle">Tổng hợp chấm công, nghỉ phép và tình trạng nhân sự</p></div>
-        <a id="reportExport" class="hrm-btn hrm-btn-primary"><i class="material-icons">file_download</i> Xuất CSV chấm công</a>
+        <div><h1 class="hrm-page-title">Báo cáo nhân sự</h1><p class="hrm-page-subtitle">Tổng hợp theo kỳ công từ ngày 25 tháng trước đến ngày 24 tháng kết thúc kỳ</p></div>
+        <a id="reportExport" class="hrm-btn hrm-btn-primary"><i class="material-icons">file_download</i> Xuất Excel kỳ công</a>
     </div>
     <div class="hrm-grid hrm-grid-4">
         <div class="hrm-card hrm-stat"><div class="hrm-stat-label">Nhân sự trong phạm vi</div><div id="rEmployees" class="hrm-stat-value">--</div></div>
-        <div class="hrm-card hrm-stat"><div class="hrm-stat-label">Có mặt hôm nay</div><div id="rPresent" class="hrm-stat-value">--</div></div>
+        <div class="hrm-card hrm-stat"><div class="hrm-stat-label">Tổng giờ làm</div><div id="rWorked" class="hrm-stat-value">--</div></div>
+        <div class="hrm-card hrm-stat"><div class="hrm-stat-label">Ngày công đã ghi nhận</div><div id="rRecorded" class="hrm-stat-value">--</div></div>
         <div class="hrm-card hrm-stat"><div class="hrm-stat-label">Đi muộn / về sớm</div><div id="rLate" class="hrm-stat-value">--</div></div>
-        <div class="hrm-card hrm-stat"><div class="hrm-stat-label">Đơn chờ duyệt</div><div id="rPending" class="hrm-stat-value">--</div></div>
+    </div>
+    <div class="hrm-grid hrm-grid-4 hrm-section-gap">
+        <div class="hrm-card hrm-stat"><div class="hrm-stat-label">Ngày nghỉ đã duyệt</div><div id="rLeave" class="hrm-stat-value">--</div></div>
+        <div class="hrm-card hrm-stat"><div class="hrm-stat-label">Thiếu dữ liệu công</div><div id="rMissing" class="hrm-stat-value">--</div></div>
+        <div class="hrm-card hrm-stat"><div class="hrm-stat-label">Đơn nghỉ chờ duyệt</div><div id="rPending" class="hrm-stat-value">--</div></div>
+        <div class="hrm-card hrm-stat"><div class="hrm-stat-label">CV nhận trong kỳ</div><div id="rCandidates" class="hrm-stat-value">--</div></div>
+        <div class="hrm-card hrm-stat"><div class="hrm-stat-label">Hồ sơ thôi việc hoàn tất</div><div id="rResignations" class="hrm-stat-value">--</div></div>
     </div>
     <div class="hrm-card hrm-section-gap">
         <div class="hrm-toolbar"><div class="hrm-field"><label>TỪ NGÀY</label><input id="rFrom" class="hrm-control" type="date" /></div><div class="hrm-field"><label>ĐẾN NGÀY</label><input id="rTo" class="hrm-control" type="date" /></div><button id="rLoad" class="hrm-btn hrm-btn-primary">Lập báo cáo</button></div>
-        <div class="hrm-table-wrap"><table class="hrm-table"><thead><tr><th>Nhân viên</th><th>Ngày</th><th>Ca</th><th>Vào</th><th>Ra</th><th>Đi muộn</th><th>Về sớm</th></tr></thead><tbody id="rRows"></tbody></table></div>
+        <div class="hrm-table-wrap"><table class="hrm-table"><thead><tr><th>Nhân viên</th><th>Ngày</th><th>Ca</th><th>Vào</th><th>Ra</th><th>Giờ làm</th><th>Đi muộn</th><th>Về sớm</th></tr></thead><tbody id="rRows"></tbody></table></div>
+        <div class="hrm-card-body" style="border-top:1px solid #e5eaf1"><strong>Cơ cấu hình thức lao động</strong><div id="rEmployment" class="report-status-list"></div></div>
     </div>
 </div>
 <script>
 (function(){
     $('.reports_menu').addClass('active');
-    $('#rFrom').val(moment().startOf('month').format('YYYY-MM-DD')); $('#rTo').val(moment().format('YYYY-MM-DD'));
+    function defaultRange(){var today=moment().startOf('day'),endMonth=today.date()>=25?today.clone().add(1,'month'):today.clone();return {from:endMonth.clone().subtract(1,'month').date(25),to:endMonth.clone().date(24)};}
+    var initial=defaultRange();$('#rFrom').val(initial.from.format('YYYY-MM-DD')); $('#rTo').val(initial.to.format('YYYY-MM-DD'));
     function esc(v){return $('<div>').text(v==null?'':v).html();}
     function load(){
         var query={fromDate:$('#rFrom').val(),toDate:$('#rTo').val()};
-        $('#reportExport').attr('href','@Url.Action("AttendanceCsv","Hrm")?fromDate='+query.fromDate+'&toDate='+query.toDate);
-        $.get('@Url.Action("Attendance","Hrm")',query).done(function(r){var items=r.Data||[];$('#rRows').html(items.length?items.map(function(x){return '<tr><td>'+esc(x.DisplayName)+'</td><td>'+moment(x.WorkDate).format('DD/MM/YYYY')+'</td><td>'+esc(x.ShiftName||'--')+'</td><td>'+(x.CheckIn?moment(x.CheckIn).format('HH:mm'):'--')+'</td><td>'+(x.CheckOut?moment(x.CheckOut).format('HH:mm'):'--')+'</td><td>'+x.LateMinutes+' phút</td><td>'+x.EarlyMinutes+' phút</td></tr>';}).join(''):'<tr><td colspan="7"><div class="hrm-empty">Chưa có dữ liệu.</div></td></tr>');});
-        $.get('@Url.Action("Dashboard","Hrm")').done(function(r){var d=r.Data||{};$('#rEmployees').text(d.TotalEmployees);$('#rPresent').text(d.PresentToday);$('#rLate').text(d.LateOrEarlyToday);$('#rPending').text(d.PendingApprovals);});
+        $('#reportExport').attr('href','@Url.Action("AttendanceXlsx","Hrm")?fromDate='+query.fromDate+'&toDate='+query.toDate);
+        $.get('@Url.Action("Attendance","Hrm")',query).done(function(r){var items=r.Data||[];$('#rRows').html(items.length?items.map(function(x){var mins=x.IsProvisional?null:(x.WorkedMinutes||0);return '<tr><td>'+esc(x.DisplayName)+'</td><td>'+moment(x.WorkDate).format('DD/MM/YYYY')+'</td><td>'+esc(x.ShiftName||'--')+'</td><td>'+(x.CheckIn?moment(x.CheckIn).format('HH:mm'):'--')+'</td><td>'+(x.CheckOut?moment(x.CheckOut).format('HH:mm'):'--')+'</td><td>'+(mins===null?'Đang tính':Math.floor(mins/60)+'h '+(mins%60)+'m')+'</td><td>'+(x.LateMinutes||0)+' phút</td><td>'+(x.EarlyMinutes||0)+' phút</td></tr>';}).join(''):'<tr><td colspan="8"><div class="hrm-empty">Chưa có dữ liệu.</div></td></tr>');});
+        $.get('@Url.Action("Summary","Reports")',query).done(function(r){var d=r.Data||{},mins=d.WorkedMinutes||0;$('#rEmployees').text(d.EmployeeCount||0);$('#rWorked').text(Math.floor(mins/60)+'h '+(mins%60)+'m');$('#rRecorded').text(d.RecordedWorkdays||0);$('#rLate').text(d.LateOrEarlyCount||0);$('#rLeave').text(Number(d.OnLeaveDays||0).toLocaleString('vi-VN'));$('#rMissing').text(d.MissingAttendanceCount||0);$('#rPending').text(d.PendingLeaveCount||0);$('#rCandidates').text(d.RecruitmentCandidateCount||0);$('#rResignations').text(d.CompletedResignationCount||0);var statuses=d.EmploymentStatuses||[];$('#rEmployment').html(statuses.length?statuses.map(function(x){return '<span class="hrm-badge hrm-badge-neutral">'+esc(x.Status)+': <strong>'+Number(x.Count||0)+'</strong></span>';}).join(''):'Chưa có dữ liệu hình thức lao động.');});
     }
     $('#rLoad').click(load); load();
 })();
 </script>
+<style>.report-status-list{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.report-status-list .hrm-badge{padding:7px 10px}</style>

@@ -25,11 +25,22 @@ Check(RemoteAttendancePolicy.CanReview(manager,1,1,HrmRoles.Employee),"manager r
 Check(!RemoteAttendancePolicy.CanReview(manager,1,2,HrmRoles.Employee),"cross department denied");
 Check(!RemoteAttendancePolicy.CanReview(manager,3,1,HrmRoles.Manager),"manager cannot review peer manager");
 Check(!RemoteAttendancePolicy.CanReview(new(){Id=2,RoleCode=HrmRoles.Manager,IsActive=true},1,null,HrmRoles.Employee),"unassigned manager denied");
+var augustPeriod=AttendancePeriodRange.ForDate(new DateTime(2026,8,25));
+Check(augustPeriod.Period=="2026-09" && augustPeriod.FromDate==new DateTime(2026,8,25) && augustPeriod.ToDate==new DateTime(2026,9,24),"attendance period rolls 25th into ending month");
+var decemberPeriod=AttendancePeriodRange.ForDate(new DateTime(2026,12,31));
+Check(decemberPeriod.Period=="2027-01" && decemberPeriod.FromDate==new DateTime(2026,12,25) && decemberPeriod.ToDate==new DateTime(2027,1,24),"attendance period handles year boundary");
 var home=Plan();home.Mode="HOME";
 Reject(()=>RemoteAttendancePolicy.ValidatePlan(home),"WFH requires approved coordinates");
 home.Latitude=10.77; home.Longitude=106.69; home.RadiusMeters=200;
 RemoteAttendancePolicy.ValidatePlan(home);
 Check(RemoteAttendancePolicy.Evaluate(home,Punch(),now).Reason=="","inside home geofence accepted");
+var multi=Plan();multi.Mode="HOME";multi.Locations=[
+    new RemoteWorkLocation{Id=11,Name="Nhà",Latitude=10.70,Longitude=106.60,RadiusMeters=100},
+    new RemoteWorkLocation{Id=12,Name="Điểm bán",Latitude=10.77,Longitude=106.69,RadiusMeters=100}
+];
+RemoteAttendancePolicy.ValidatePlan(multi);
+var multiResult=RemoteAttendancePolicy.Evaluate(multi,Punch(),now);
+Check(multiResult.Reason=="" && multiResult.MatchedLocationId==12 && multiResult.MatchedLocationName=="Điểm bán","nearest registered geofence is selected and retained");
 var outside=Punch();outside.Latitude=10.78;
 Check(RemoteAttendancePolicy.Evaluate(home,outside,now).Reason.Contains("Ngoài vùng"),"outside geofence goes to review");
 var weak=Punch();weak.AccuracyMeters=201;

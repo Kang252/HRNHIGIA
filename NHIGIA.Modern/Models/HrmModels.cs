@@ -8,6 +8,7 @@ namespace NHIGIA.Modern.Models
     {
         public const string Admin = "ADMIN";
         public const string Hr = "HR";
+        public const string Accountant = "ACCOUNTANT";
         public const string Director = "DIRECTOR";
         public const string Manager = "MANAGER";
         public const string Employee = "EMPLOYEE";
@@ -18,6 +19,7 @@ namespace NHIGIA.Modern.Models
             {
                 case Admin: return "Quản trị hệ thống";
                 case Hr: return "Quản trị nhân sự";
+                case Accountant: return "Kế toán";
                 case Director: return "Giám đốc";
                 case Manager: return "Trưởng phòng";
                 default: return "Nhân viên";
@@ -408,6 +410,8 @@ namespace NHIGIA.Modern.Models
     public class AttendancePeriodModel
     {
         public string Period { get; set; }
+        public DateTime FromDate { get; set; }
+        public DateTime ToDate { get; set; }
         public string StatusCode { get; set; } = "OPEN";
         public bool IsConfirmed { get; set; }
         public DateTime? SubmittedAt { get; set; }

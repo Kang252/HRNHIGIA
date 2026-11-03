@@ -166,7 +166,8 @@
     var taxCode = val(Model?.PersonalTaxCode, "8" + ((userId * 19374 + 38291054) % 900000000 + 100000000).ToString());
     var healthInsurance = val(Model?.HealthInsuranceNumber, "DN479" + ((userId * 231 + 84210) % 90000000 + 10000000).ToString());
     var socialInsurance = val(Model?.SocialInsuranceNumber, "79" + ((userId * 457 + 192837) % 90000000 + 10000000).ToString());
-    var employmentStatus = val(Model?.EmploymentStatus, "Chính thức");
+    var employmentStatus = val(Model?.EmploymentStatus, "Nhân viên chính thức");
+    var profileExtras = ViewBag.ProfileExtras as EmployeeProfileExtrasModel ?? new EmployeeProfileExtrasModel { UserId = userId };
     var salaryRank = "Bậc " + ((userId % 5) + 1);
     var mainShift = "Ca hành chính (08:00 - 17:30)";
     var secondaryShift = (userId % 2 == 0) ? "Không đăng ký ca phụ" : "Ca bán hàng chiều (Thứ 2, 4, 6)";
@@ -299,8 +300,13 @@
 }
 
 <link rel="stylesheet" href="~/Content/hrm-profile-slide5.css" asp-append-version="true" />
+<style>
+    .profile-extra-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.profile-extra-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding:16px;border:1px solid #dbe5f1;border-radius:10px;background:#f8fafc}.profile-extra-form label{display:flex;flex-direction:column;gap:5px;font-size:12px;font-weight:700;color:#475569}.profile-extra-form .wide{grid-column:1/-1}.profile-extra-actions{display:flex;justify-content:flex-end;align-items:end}.profile-extra-actions .hrm-btn{min-height:38px}.profile-secret{display:inline-flex;align-items:center;gap:7px}.profile-secret-value{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;word-break:break-all}.profile-extra-empty{padding:24px;text-align:center;color:#64748b}.profile-extra-alert{margin-bottom:14px;padding:11px 14px;border-radius:9px;font-weight:600}.profile-extra-alert.ok{background:#ecfdf5;color:#047857}.profile-extra-alert.error{background:#fef2f2;color:#b91c1c}@@media(max-width:850px){.profile-extra-grid,.profile-extra-form{grid-template-columns:1fr}.profile-extra-form .wide{grid-column:auto}}
+</style>
 
 <div class="container-fluid s5-profile-wrapper">
+    @if (TempData["ProfileSuccess"] != null) { <div class="profile-extra-alert ok">@TempData["ProfileSuccess"]</div> }
+    @if (TempData["ProfileError"] != null) { <div class="profile-extra-alert error">@TempData["ProfileError"]</div> }
     <!-- Breadcrumb / Header Actions -->
     <div class="s5-top-bar">
         <div class="s5-breadcrumb">
@@ -593,6 +599,18 @@
                     <button type="button" class="s5-tab-btn">
                         <svg class="s5-tab-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-5-7.4M8 11l4 4 9-10" /></svg>
                         <span>Exit Checklist</span>
+                    </button>
+                </li>
+                <li class="s5-tab-item" data-tab="tab-equipment">
+                    <button type="button" class="s5-tab-btn">
+                        <i class="material-icons">inventory_2</i>
+                        <span>Tài sản &amp; Trang phục</span>
+                    </button>
+                </li>
+                <li class="s5-tab-item" data-tab="tab-software">
+                    <button type="button" class="s5-tab-btn">
+                        <i class="material-icons">admin_panel_settings</i>
+                        <span>Tài khoản phần mềm</span>
                     </button>
                 </li>
             </ul>
@@ -1269,6 +1287,92 @@
                 </div>
             </div>
 
+            <div id="tab-equipment" class="s5-tab-pane">
+                <div class="s5-card">
+                    <div class="s5-card-header"><h3 class="s5-card-title">Tài sản đang bàn giao</h3></div>
+                    @if (profileExtras.Assets.Count == 0)
+                    {
+                        <div class="profile-extra-empty">Chưa có tài sản nào đang được bàn giao cho nhân viên.</div>
+                    }
+                    else
+                    {
+                        <div class="s5-table-responsive"><table class="s5-table"><thead><tr><th>Mã</th><th>Tài sản</th><th>Nhóm</th><th>Ngày cấp</th><th>Tình trạng</th><th>Trạng thái</th></tr></thead><tbody>
+                        @foreach (var asset in profileExtras.Assets)
+                        {
+                            <tr><td><strong>@asset.Reference</strong></td><td>@asset.Title</td><td>@asset.Category</td><td>@(asset.IssuedAt?.ToString("dd/MM/yyyy") ?? "-")</td><td>@(asset.Condition ?? "-")</td><td>@asset.Status</td></tr>
+                        }
+                        </tbody></table></div>
+                    }
+                </div>
+                <div class="s5-card">
+                    <div class="s5-card-header"><h3 class="s5-card-title">Trang phục đã cấp</h3></div>
+                    @if (profileExtras.Uniforms.Count == 0)
+                    {
+                        <div class="profile-extra-empty">Chưa có lịch sử cấp trang phục.</div>
+                    }
+                    else
+                    {
+                        <div class="s5-table-responsive"><table class="s5-table"><thead><tr><th>Trang phục</th><th>Size</th><th>Số lượng</th><th>Ngày cấp</th><th>Ngày trả</th><th>Trạng thái</th>@if(profileExtras.CanManage){<th>Thao tác</th>}</tr></thead><tbody>
+                        @foreach (var uniform in profileExtras.Uniforms)
+                        {
+                            <tr><td><strong>@uniform.ItemName</strong><small style="display:block;color:#64748b">@uniform.Notes</small></td><td>@(uniform.Size ?? "-")</td><td>@uniform.Quantity</td><td>@uniform.IssuedDate.ToString("dd/MM/yyyy")</td><td>@(uniform.ReturnedDate?.ToString("dd/MM/yyyy") ?? "-")</td><td>@(uniform.StatusCode == "RETURNED" ? "Đã trả" : uniform.StatusCode == "LOST" ? "Thất lạc" : "Đang cấp")</td>
+                            @if(profileExtras.CanManage){<td><form method="post" asp-action="DeleteEmployeeUniform" onsubmit="return confirm('Xác nhận đã thu hồi trang phục này?')">@Html.AntiForgeryToken()<input type="hidden" name="id" value="@uniform.Id"/><input type="hidden" name="userId" value="@userId"/><button type="submit" class="hrm-btn" title="Thu hồi"><i class="material-icons">assignment_return</i></button></form></td>}
+                            </tr>
+                        }
+                        </tbody></table></div>
+                    }
+                    @if (profileExtras.CanManage)
+                    {
+                        <form method="post" asp-action="SaveEmployeeUniform" class="profile-extra-form" style="margin-top:16px">
+                            @Html.AntiForgeryToken()<input type="hidden" name="UserId" value="@userId"/>
+                            <label>Tên trang phục *<input class="form-control" name="ItemName" maxlength="150" required placeholder="Áo sơ mi / Đồng phục..."/></label>
+                            <label>Kích cỡ<input class="form-control" name="Size" maxlength="50" placeholder="S, M, L, XL..."/></label>
+                            <label>Số lượng<input class="form-control" name="Quantity" type="number" min="1" max="1000" value="1" required/></label>
+                            <label>Ngày cấp<input class="form-control" name="IssuedDate" type="date" value="@DateTime.Today.ToString("yyyy-MM-dd")" required/></label>
+                            <label>Trạng thái<select class="form-control" name="StatusCode"><option value="ISSUED">Đang cấp</option><option value="RETURNED">Đã trả</option><option value="LOST">Thất lạc</option></select></label>
+                            <label>Ngày trả<input class="form-control" name="ReturnedDate" type="date"/></label>
+                            <label class="wide">Ghi chú<input class="form-control" name="Notes" maxlength="500"/></label>
+                            <div class="profile-extra-actions wide"><button class="hrm-btn hrm-btn-primary" type="submit"><i class="material-icons">add</i> Lưu trang phục</button></div>
+                        </form>
+                    }
+                </div>
+            </div>
+
+            <div id="tab-software" class="s5-tab-pane">
+                <div class="s5-card">
+                    <div class="s5-card-header"><h3 class="s5-card-title">Tài khoản phần mềm</h3></div>
+                    @if (profileExtras.SoftwareAccounts.Count == 0)
+                    {
+                        <div class="profile-extra-empty">Chưa có tài khoản phần mềm nào được ghi nhận.</div>
+                    }
+                    else
+                    {
+                        <div class="s5-table-responsive"><table class="s5-table"><thead><tr><th>Phần mềm</th><th>Đăng nhập</th><th>User</th><th>Mật khẩu</th><th>Phân quyền</th><th>Trạng thái</th>@if(profileExtras.CanManage){<th>Thao tác</th>}</tr></thead><tbody>
+                        @foreach (var account in profileExtras.SoftwareAccounts)
+                        {
+                            <tr><td><strong>@account.SoftwareName</strong>@if(!string.IsNullOrWhiteSpace(account.LoginUrl)){<small style="display:block"><a href="@account.LoginUrl" rel="noopener noreferrer" target="_blank">Mở trang đăng nhập</a></small>}</td><td>@(account.LoginMethod ?? "-")</td><td>@(account.Username ?? "-")</td><td><span class="profile-secret"><span class="profile-secret-value" id="secret-@account.Id">@(account.HasPassword ? "••••••••" : "-")</span>@if(account.HasPassword && profileExtras.CanRevealPasswords){<button type="button" class="hrm-btn reveal-software-secret" data-id="@account.Id" data-user-id="@userId" aria-label="Xem mật khẩu"><i class="material-icons">visibility</i></button>}</span></td><td>@(account.PermissionScope ?? "-")</td><td>@(account.IsActive ? "Đang dùng" : "Đã khóa")</td>
+                            @if(profileExtras.CanManage){<td><form method="post" asp-action="DeleteEmployeeSoftwareAccount" onsubmit="return confirm('Xác nhận thu hồi tài khoản phần mềm này?')">@Html.AntiForgeryToken()<input type="hidden" name="id" value="@account.Id"/><input type="hidden" name="userId" value="@userId"/><button type="submit" class="hrm-btn" title="Thu hồi"><i class="material-icons">lock</i></button></form></td>}
+                            </tr>
+                        }
+                        </tbody></table></div>
+                    }
+                    @if (profileExtras.CanManage)
+                    {
+                        <form method="post" asp-action="SaveEmployeeSoftwareAccount" class="profile-extra-form" style="margin-top:16px" autocomplete="off">
+                            @Html.AntiForgeryToken()<input type="hidden" name="UserId" value="@userId"/><input type="hidden" name="IsActive" value="true"/>
+                            <label>Tên phần mềm *<input class="form-control" name="SoftwareName" maxlength="150" required placeholder="Microsoft 365, CRM..."/></label>
+                            <label>Link đăng nhập<input class="form-control" name="LoginUrl" type="url" maxlength="500" placeholder="https://..."/></label>
+                            <label>Hình thức đăng nhập<input class="form-control" name="LoginMethod" maxlength="100" placeholder="Email / SSO / Tài khoản riêng"/></label>
+                            <label>User<input class="form-control" name="Username" maxlength="200" autocomplete="off"/></label>
+                            <label>Password<input class="form-control" name="Password" type="password" maxlength="500" autocomplete="new-password"/></label>
+                            <label>Phân quyền<input class="form-control" name="PermissionScope" maxlength="500" placeholder="Nhân viên / Quản trị / Chỉ xem..."/></label>
+                            <div class="profile-extra-actions wide"><button class="hrm-btn hrm-btn-primary" type="submit"><i class="material-icons">add</i> Lưu tài khoản</button></div>
+                        </form>
+                    }
+                    <form id="revealSoftwareSecretForm" method="post">@Html.AntiForgeryToken()</form>
+                </div>
+            </div>
+
         </main>
     </div>
 </div>
@@ -1299,6 +1403,32 @@
                 if (targetPane) {
                     targetPane.classList.add("active");
                 }
+            });
+        });
+
+        const requestedTab = new URLSearchParams(window.location.search).get("tab");
+        const tabMap = { equipment: "tab-equipment", software: "tab-software" };
+        if (tabMap[requestedTab]) {
+            document.querySelector('.s5-tab-item[data-tab="' + tabMap[requestedTab] + '"]')?.click();
+        }
+
+        document.querySelectorAll(".reveal-software-secret").forEach(button => {
+            button.addEventListener("click", async function () {
+                const target = document.getElementById("secret-" + this.dataset.id);
+                if (!target || this.dataset.revealed === "1") return;
+                const token = document.querySelector('#revealSoftwareSecretForm input[name="__RequestVerificationToken"]')?.value;
+                const body = new URLSearchParams({ id: this.dataset.id, userId: this.dataset.userId, __RequestVerificationToken: token || "" });
+                this.disabled = true;
+                try {
+                    const response = await fetch('@Url.Action("RevealEmployeeSoftwarePassword", "Home")', { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body });
+                    const result = await response.json();
+                    if (!response.ok || !result.success) throw new Error(result.message || "Không thể xem mật khẩu.");
+                    target.textContent = result.password;
+                    this.dataset.revealed = "1";
+                    this.querySelector("i").textContent = "visibility_off";
+                    setTimeout(() => { target.textContent = "••••••••"; this.dataset.revealed = "0"; this.querySelector("i").textContent = "visibility"; }, 30000);
+                } catch (error) { alert(error.message); }
+                finally { this.disabled = false; }
             });
         });
 

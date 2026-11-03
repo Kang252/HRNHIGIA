@@ -18,9 +18,11 @@ Check("Employee cannot approve", !LeaveRequestPolicy.CanApprove(Actor("EMPLOYEE"
 Check("Even admin cannot self-approve", !LeaveRequestPolicy.CanApprove(Actor("ADMIN",2,20), pending));
 pending.RoleCode="MANAGER";
 Check("Manager cannot approve peer", !LeaveRequestPolicy.CanApprove(Actor("MANAGER"), pending));
-Check("Director approves manager", LeaveRequestPolicy.CanApprove(Actor("DIRECTOR"), pending));
+Check("Director cannot bypass short-leave manager stage", !LeaveRequestPolicy.CanApprove(Actor("DIRECTOR"), pending));
 pending.RoleCode="EMPLOYEE"; pending.StatusCode="PENDING_HR";
 Check("Manager cannot skip HR stage", !LeaveRequestPolicy.CanApprove(Actor("MANAGER"), pending));
+Check("HR approves long leave", LeaveRequestPolicy.CanApprove(Actor("HR"), pending));
+Check("Director approves long leave", LeaveRequestPolicy.CanApprove(Actor("DIRECTOR"), pending));
 foreach (var status in new[]{"APPROVED","REJECTED","CANCELLED"}) {
  pending.StatusCode=status; Check("Final state cannot be approved again: "+status, !LeaveRequestPolicy.CanApprove(Actor("ADMIN"),pending));
 }
@@ -46,6 +48,11 @@ var crossover=Leave();crossover.StartDate=new(2025,12,31);crossover.EndDate=new(
 Check("Cross-year leave clipped to selected year",LeaveRequestPolicy.UsedAnnualDays([crossover],[],2026)==2);
 var draft=new CreateLeaveRequest {LeaveType="Nghỉ phép",StartDate=new(2026,9,25),EndDate=new(2026,9,25),SessionCode="Cả ngày",Reason=new string('a',2000)};
 Check("Detailed request longer than old SQL limit accepted",LeaveRequestPolicy.Validate(draft)==null);
+var threeDayDraft = new CreateLeaveRequest { LeaveType="Nghỉ phép",StartDate=new(2026,9,25),EndDate=new(2026,9,29),SessionCode="Cả ngày",Reason="Nghỉ 3 ngày làm việc" };
+Check("Three workdays route to department manager", LeaveRequestPolicy.RequestedDays(threeDayDraft,[],20)==3m && LeaveRequestPolicy.InitialStatus(threeDayDraft,[],20,"EMPLOYEE")=="PENDING_MANAGER");
+var fourDayDraft = new CreateLeaveRequest { LeaveType="Nghỉ phép",StartDate=new(2026,9,25),EndDate=new(2026,9,30),SessionCode="Cả ngày",Reason="Nghỉ 4 ngày làm việc" };
+Check("More than three workdays route to HR or director", LeaveRequestPolicy.RequestedDays(fourDayDraft,[],20)==4m && LeaveRequestPolicy.InitialStatus(fourDayDraft,[],20,"EMPLOYEE")=="PENDING_HR");
+Check("Manager leave routes to HR or director", LeaveRequestPolicy.InitialStatus(threeDayDraft,[],20,"MANAGER")=="PENDING_HR");
 draft.EndDate=draft.StartDate.AddDays(-1);Check("Reverse dates rejected",LeaveRequestPolicy.Validate(draft)!=null);
 draft.EndDate=draft.StartDate;draft.SessionCode="bad";Check("Invalid leave session rejected",LeaveRequestPolicy.Validate(draft)!=null);
 var missingPayroll = PayrollStoredValues.Parse(null);
@@ -65,6 +72,19 @@ using (var document = System.Text.Json.JsonDocument.Parse(updated)) {
 var rejectedMetadata = false;
 try { PayrollStoredValues.UpdateComputedAmounts("broken",0,0,0,0); } catch (System.Text.Json.JsonException) { rejectedMetadata = true; }
 Check("Malformed payroll is not overwritten on save", rejectedMetadata);
+var manualPayroll = new PayrollManualEditRequest { BaseSalary=1000,ProductSalary=200,SalesSalary=300,KpiSalary=400,OtSalary=100,TotalAllowance=50,Bonus=25,SocialInsurance=80,HealthInsurance=15,UnemploymentInsurance=10,PersonalIncomeTax=20,Advance=100,Deduction=30 };
+var manualJson = PayrollStoredValues.UpdateManualAmounts("{\"custom\":{\"retain\":true}}", manualPayroll);
+using (var manualDocument = System.Text.Json.JsonDocument.Parse(manualJson)) {
+ Check("Manual payroll edit preserves unrelated metadata", manualDocument.RootElement.GetProperty("custom").GetProperty("retain").GetBoolean());
+ Check("Manual payroll edit stores product and sales separately", manualDocument.RootElement.GetProperty("productSalary").GetDecimal()==200 && manualDocument.RootElement.GetProperty("salesSalary").GetDecimal()==300);
+ Check("Manual payroll edit calculates net amount", manualDocument.RootElement.GetProperty("netSalary").GetDecimal()==manualPayroll.NetSalary);
+}
+Check("Only accountant or admin edits payroll", PayrollPolicy.CanEdit("ACCOUNTANT") && PayrollPolicy.CanEdit("ADMIN") && !PayrollPolicy.CanEdit("HR") && !PayrollPolicy.CanEdit("DIRECTOR"));
+Check("Only director or admin approves payroll", PayrollPolicy.CanApprove("DIRECTOR") && PayrollPolicy.CanApprove("ADMIN") && !PayrollPolicy.CanApprove("HR") && !PayrollPolicy.CanApprove("ACCOUNTANT"));
+Check("Payroll due date skips weekend", PayrollPolicy.AddBusinessDays(new DateTime(2026,10,30),2)==new DateTime(2026,11,3));
+Check("KPI month resolves exact range", KpiPeriodPolicy.TryResolve("MONTH","Tháng 02-2026",out var monthPeriod) && monthPeriod.Start==new DateTime(2026,2,1) && monthPeriod.End==new DateTime(2026,2,28));
+Check("KPI quarter resolves exact range", KpiPeriodPolicy.TryResolve("QUARTER","Quý 4-2026",out var quarterPeriod) && quarterPeriod.Start==new DateTime(2026,10,1) && quarterPeriod.End==new DateTime(2026,12,31));
+Check("KPI year resolves exact range", KpiPeriodPolicy.TryResolve("YEAR","2026",out var yearPeriod) && yearPeriod.Start==new DateTime(2026,1,1) && yearPeriod.End==new DateTime(2026,12,31));
 Check("Incomplete insurance total stays unknown", new PayrollInsuranceItem { BhxhComp=100, BhytComp=20 }.TotalComp == null);
 var stagingMissingGuard = false;
 try { DatabaseConfiguration.Resolve(new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string> { ["ASPNETCORE_ENVIRONMENT"]="Staging", ["ConnectionStrings:MainConnectionString"]="Server=localhost;Database=NHIGIA_STAGING;User Id=test;Password=test;TrustServerCertificate=True" }).Build()); }

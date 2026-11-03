@@ -2719,9 +2719,8 @@ textarea.tc-form-control {
 
     function getStatusLabel(s, requesterRole) {
         switch (s) {
-            case 'PENDING_MANAGER':
-            case 'PENDING_HR':
-                return (requesterRole === 'MANAGER') ? 'Chờ Giám đốc duyệt' : 'Chờ Trưởng phòng duyệt';
+            case 'PENDING_MANAGER': return 'Chờ Trưởng phòng duyệt';
+            case 'PENDING_HR': return 'Chờ HR/Giám đốc duyệt';
             case 'APPROVED': return 'Chấp thuận';
             case 'REJECTED': return 'Từ chối';
             case 'CANCELLED': return 'Đã hủy';
@@ -3027,8 +3026,8 @@ textarea.tc-form-control {
         // Timeline Step 1
         $('#step1Info').text('Gửi lúc ' + fmtDateTime(x.CreatedAt) + ' bởi ' + (x.DisplayName || 'Nhân viên'));
 
-        var isManagerRequester = (x.RoleCode === 'MANAGER');
-        var approverTitle = isManagerRequester ? 'Giám đốc' : 'Trưởng phòng';
+        var approverTitle = x.StatusCode === 'PENDING_HR' || (x.StatusCode !== 'PENDING_MANAGER' && !!x.ApprovedByHrId)
+            ? 'HR/Giám đốc' : 'Trưởng phòng';
         // Timeline Step 2: Trưởng phòng/Giám đốc phê duyệt
         $('#step2Title').text(approverTitle + ' phê duyệt');
         var s2 = $('#step2Item').removeClass('is-done is-current is-rejected');

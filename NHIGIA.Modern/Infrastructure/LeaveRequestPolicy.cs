@@ -10,11 +10,45 @@ public static class LeaveRequestPolicy
          (actor.RoleCode == HrmRoles.Manager && actor.DepartmentId.HasValue && actor.DepartmentId == target.DepartmentId));
 
     public static bool CanApprove(HrmUserAccountModel actor, LeaveRequestModel request) =>
-        actor != null && request != null && actor.Id != request.UserId &&
-        request.StatusCode is "PENDING_MANAGER" or "PENDING_HR" &&
-        (HrmRoles.CanPublishCompanyWide(actor.RoleCode) ||
-         (actor.RoleCode == HrmRoles.Manager && request.StatusCode == "PENDING_MANAGER" &&
-          request.RoleCode == HrmRoles.Employee && actor.DepartmentId.HasValue && actor.DepartmentId == request.DepartmentId));
+        actor != null && request != null && actor.Id != request.UserId && (request.StatusCode switch
+        {
+            "PENDING_MANAGER" => actor.RoleCode == HrmRoles.Admin ||
+                actor.RoleCode == HrmRoles.Manager && request.RoleCode == HrmRoles.Employee &&
+                actor.DepartmentId.HasValue && actor.DepartmentId == request.DepartmentId,
+            "PENDING_HR" => actor.RoleCode is HrmRoles.Admin or HrmRoles.Hr or HrmRoles.Director,
+            _ => false
+        });
+
+    public static decimal RequestedDays(CreateLeaveRequest request, IEnumerable<ScheduleModel> schedules, int userId)
+    {
+        if (request == null || request.StartDate == default || request.EndDate < request.StartDate) return 0;
+        var assigned = (schedules ?? []).Where(x => x.UserId == userId && x.StatusCode == "ACTIVE").ToList();
+        var hasAssignedSchedule = assigned.Any(x => x.EffectiveFrom.Date <= request.EndDate.Date &&
+            (!x.EffectiveTo.HasValue || x.EffectiveTo.Value.Date >= request.StartDate.Date));
+        var leaveMask = AttendanceLeavePolicy.SessionMask(request.SessionCode);
+        decimal total = 0;
+        for (var day = request.StartDate.Date; day <= request.EndDate.Date; day = day.AddDays(1))
+        {
+            var shift = assigned.Where(x => x.EffectiveFrom.Date <= day &&
+                    (!x.EffectiveTo.HasValue || x.EffectiveTo.Value.Date >= day) &&
+                    (x.WorkDaysMask & (1 << (int)day.DayOfWeek)) != 0)
+                .OrderByDescending(x => x.EffectiveFrom).ThenByDescending(x => x.Id).FirstOrDefault();
+            if (hasAssignedSchedule && shift == null) continue;
+            if (!hasAssignedSchedule && day.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday) continue;
+            var workMask = shift == null ? 3 :
+                shift.EndTime > shift.StartTime && shift.EndTime <= TimeSpan.FromHours(12) ? 1 :
+                shift.EndTime > shift.StartTime && shift.StartTime >= TimeSpan.FromHours(13.5) ? 2 : 3;
+            var mask = leaveMask & workMask;
+            total += mask == 3 ? 1m : mask == 0 ? 0m : .5m;
+        }
+        return total;
+    }
+
+    public static string InitialStatus(CreateLeaveRequest request, IEnumerable<ScheduleModel> schedules, int userId, string ownerRole)
+    {
+        var days = RequestedDays(request, schedules, userId);
+        return ownerRole == HrmRoles.Employee && days <= 3m ? "PENDING_MANAGER" : "PENDING_HR";
+    }
 
     public static string Validate(CreateLeaveRequest request)
     {

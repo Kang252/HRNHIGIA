@@ -9,9 +9,15 @@
     var isEmp = currentUser?.RoleCode == HrmRoles.Employee;
     var isDir = currentUser?.RoleCode == HrmRoles.Director;
     var isAdmin = currentUser?.RoleCode == HrmRoles.Admin;
-    var isHr = currentUser?.RoleCode == HrmRoles.Hr;
-    var isHrOrAdm = isAdmin || isHr;
+    var isAccountant = currentUser?.RoleCode == HrmRoles.Accountant;
+    var canOperatePayroll = isAdmin || isAccountant;
     var canApprove = isDir || isAdmin;
+    var payrollToday = DateTime.UtcNow.AddHours(7).Date;
+    var publishedPayrollItems = periodItems.Where(x => x.Status == "PUBLISHED").ToList();
+    var canMarkPaid = publishedPayrollItems.Count > 0
+        && publishedPayrollItems.All(x => x.PaymentDueDate.HasValue && x.PaymentDueDate.Value.Date <= payrollToday);
+    var paymentDueDate = publishedPayrollItems.Where(x => x.PaymentDueDate.HasValue)
+        .Select(x => x.PaymentDueDate.Value.Date).DefaultIfEmpty().Max();
     string StoredAmount(decimal? value) => value?.ToString("N0") ?? "Chưa có dữ liệu";
 
     // Xác định trạng thái của kỳ lương hiện tại
@@ -647,7 +653,7 @@
             </a>
 
             <!-- Các nút hành động theo vai trò và trạng thái kỳ lương -->
-            @if (canApprove || isHrOrAdm)
+            @if (canApprove || canOperatePayroll)
             {
                 @if (batchStatus == "PENDING_APPROVAL" && canApprove)
                 {
@@ -658,28 +664,38 @@
                         <i class="material-icons" style="font-size:18px;">replay</i> Điều chỉnh lại
                     </button>
                 }
-                else if ((batchStatus == "DRAFT" || batchStatus == "REJECTED") && isHrOrAdm)
+                else if ((batchStatus == "DRAFT" || batchStatus == "REJECTED") && canOperatePayroll)
                 {
                     <button type="button" class="btn-payroll btn-payroll-finalize" onclick="openPayrollModal('modalBatchFinalize', event)">
-                        <i class="material-icons" style="font-size:18px;">send</i> Duyệt chốt bảng lương
+                        <i class="material-icons" style="font-size:18px;">send</i> Trình Giám đốc duyệt
                     </button>
                 }
-                else if (batchStatus == "APPROVED" && (isHrOrAdm || canApprove))
+                else if (batchStatus == "APPROVED" && canOperatePayroll)
                 {
                     <button type="button" class="btn-payroll btn-payroll-publish" onclick="openPayrollModal('modalBatchPublish', event)">
                         <i class="material-icons" style="font-size:18px;">mark_email_read</i> Phát hành phiếu lương
                     </button>
                 }
-                else if (batchStatus == "PUBLISHED" && isHrOrAdm)
+                else if (batchStatus == "PUBLISHED" && canOperatePayroll)
                 {
-                    <form method="post" asp-controller="Work" asp-action="BatchPayrollAction" style="display:inline;" onsubmit="return confirm('Xác nhận đã hoàn tất chi trả tiền lương cho toàn bộ nhân viên kỳ này?');">
-                        @Html.AntiForgeryToken()
-                        <input type="hidden" name="period" value="@currentPeriod" />
-                        <input type="hidden" name="actionType" value="PAY" />
-                        <button type="submit" class="btn-payroll btn-payroll-pay">
-                            <i class="material-icons" style="font-size:18px;">done_all</i> Xác nhận đã chi trả
+                    @if (canMarkPaid)
+                    {
+                        <form method="post" asp-controller="Work" asp-action="BatchPayrollAction" style="display:inline;" onsubmit="return confirm('Xác nhận đã hoàn tất chi trả tiền lương cho toàn bộ nhân viên kỳ này?');">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="period" value="@currentPeriod" />
+                            <input type="hidden" name="actionType" value="PAY" />
+                            <button type="submit" class="btn-payroll btn-payroll-pay">
+                                <i class="material-icons" style="font-size:18px;">done_all</i> Xác nhận đã chi trả
+                            </button>
+                        </form>
+                    }
+                    else
+                    {
+                        <button type="button" class="btn-payroll btn-payroll-pay" disabled title="Chỉ xác nhận chi trả từ ngày đến hạn">
+                            <i class="material-icons" style="font-size:18px;">schedule</i>
+                            Chờ đến @(paymentDueDate == default ? "ngày dự kiến trả" : paymentDueDate.ToString("dd/MM/yyyy"))
                         </button>
-                    </form>
+                    }
                 }
             }
         </div>
@@ -737,7 +753,7 @@
                 <div>
                     <div class="payroll-flow-step-num">2</div>
                     <div class="payroll-flow-step-name">Duyệt chốt bảng lương</div>
-                    <div class="payroll-flow-step-desc">Kế toán & HR đối soát các thành phần cấu thành và chốt bảng lương trình Ban Giám đốc.</div>
+                    <div class="payroll-flow-step-desc">Kế toán nhập và điều chỉnh thủ công các thành phần lương, sau đó trình Ban Giám đốc.</div>
                 </div>
                 <div style="margin-top:8px;">
                     <span class="label label-@(batchStatus is "APPROVED" or "PUBLISHED" or "PAID" ? "success" : batchStatus == "REJECTED" ? "danger" : batchStatus == "PENDING_APPROVAL" ? "info" : "default")" style="font-size:10.5px;">
@@ -756,7 +772,7 @@
                         <span style="font-size:10.5px; font-weight:700; color:#86198f; background:#f5d0fe; padding:2px 8px; border-radius:10px;">Ban Giám đốc</span>
                     </div>
                     <div class="payroll-flow-step-name" style="color:#701a75; margin-top:4px;">Duyệt bảng lương</div>
-                    <div class="payroll-flow-step-desc">Ban Giám đốc ra quyết định phê duyệt hoặc yêu cầu điều chỉnh lại.</div>
+                    <div class="payroll-flow-step-desc">Ban Giám đốc phê duyệt hoặc trả lại; hạn thanh toán được tự động đặt sau 2 ngày làm việc.</div>
                 </div>
                 <div class="diamond-branches">
                     <div class="diamond-branch-yes @(batchStatus is "APPROVED" or "PUBLISHED" or "PAID" ? "style='background:#a7f3d0; border-color:#059669;'" : "")">
@@ -1057,6 +1073,7 @@
                                 <th>Tạm ứng</th>
                                 <th>Khấu trừ</th>
                                 <th>Thực nhận (Net)</th>
+                                <th>Ngày dự kiến trả</th>
                                 <th class="th-center">Trạng thái</th>
                                 <th class="th-center">Thao tác</th>
                             </tr>
@@ -1065,7 +1082,7 @@
                             @if (periodItems.Count == 0)
                             {
                                 <tr>
-                                    <td colspan="16" style="text-align:center; padding:40px 20px; color:#64748b;">
+                                    <td colspan="17" style="text-align:center; padding:40px 20px; color:#64748b;">
                                         <i class="material-icons" style="font-size:40px; color:#cbd5e1; display:block; margin-bottom:8px;">inbox</i>
                                         Không tìm thấy bản ghi lương nào phù hợp điều kiện lọc.
                                     </td>
@@ -1097,7 +1114,7 @@
                                         <td style="font-weight:600; color:#0f172a;">
                                             @item.BaseSalary.ToString("N0")
                                         </td>
-                                        <td>@(item.SalesSalary > 0 ? item.SalesSalary.ToString("N0") : "—")</td>
+                                        <td>@(item.ProductSalary > 0 ? item.ProductSalary.ToString("N0") : "—")</td>
                                         <td>@(item.SalesSalary > 0 ? item.SalesSalary.ToString("N0") : "—")</td>
                                         <td>@(item.KpiSalary > 0 ? item.KpiSalary.ToString("N0") : "—")</td>
                                         <td style="color:#0284c7; font-weight:600;">@(item.TotalAllowance > 0 ? item.TotalAllowance.ToString("N0") : "—")</td>
@@ -1108,6 +1125,17 @@
                                         <td style="color:#dc2626;">@(item.Deduction > 0 ? item.Deduction.ToString("N0") : "—")</td>
                                         <td>
                                             <span class="net-salary-highlight">@item.NetSalary.ToString("N0") đ</span>
+                                        </td>
+                                        <td>
+                                            @if (item.PaymentDueDate.HasValue)
+                                            {
+                                                <strong>@item.PaymentDueDate.Value.ToString("dd/MM/yyyy")</strong>
+                                                <small class="text-muted" style="display:block;">Sau 2 ngày làm việc</small>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">Chờ Giám đốc duyệt</span>
+                                            }
                                         </td>
                                         <td class="td-center">
                                             <span class="badge @(item.Status switch {
@@ -1126,6 +1154,12 @@
                                             <button type="button" class="btn btn-sm btn-default" style="padding:3px 8px; font-size:11.5px; border-radius:6px; color:#2563eb; border-color:#93c5fd;" onclick="viewPayslipDetail(@jsonItem)" title="Xem phiếu lương chi tiết">
                                                 <i class="material-icons" style="font-size:15px; vertical-align:text-bottom;">visibility</i> Phiếu lương
                                             </button>
+                                            @if (canOperatePayroll && (item.Status is "DRAFT" or "REJECTED"))
+                                            {
+                                                <button type="button" class="btn btn-sm btn-warning" style="padding:3px 8px; font-size:11.5px; border-radius:6px; margin-top:4px;" onclick="openPayrollEdit(@jsonItem)" title="Kế toán nhập hoặc sửa tay các thành phần lương">
+                                                    <i class="material-icons" style="font-size:15px; vertical-align:text-bottom;">edit</i> Sửa lương
+                                                </button>
+                                            }
                                         </td>
                                     </tr>
                                     stt++;
@@ -1146,7 +1180,7 @@
                     <i class="material-icons" style="color:#0284c7;">card_giftcard</i>
                     <span>Danh sách phụ cấp của nhân viên theo kỳ lương (@currentPeriod)</span>
                 </div>
-                @if (isHrOrAdm)
+                @if (canOperatePayroll)
                 {
                     <button type="button" class="btn btn-sm btn-primary" onclick="openPayrollModal('modalAddAllowance', event)" style="display:inline-flex; align-items:center; gap:6px; border-radius:8px; font-weight:600;">
                         <i class="material-icons" style="font-size:18px;">add_circle</i> + Tạo mới phụ cấp
@@ -1312,7 +1346,7 @@
                     <i class="material-icons" style="color:#dc2626;">remove_circle_outline</i>
                     <span>Các khoản khấu trừ, vi phạm quy chế & đồng phục (Kỳ @currentPeriod)</span>
                 </div>
-                @if (isHrOrAdm)
+                @if (canOperatePayroll)
                 {
                     <button type="button" class="btn btn-sm btn-danger" onclick="openPayrollModal('modalAddDeduction', event)" style="display:inline-flex; align-items:center; gap:6px; border-radius:8px; font-weight:600;">
                         <i class="material-icons" style="font-size:18px;">add_circle</i> + Tạo mới khoản khấu trừ
@@ -1366,7 +1400,7 @@
                     <i class="material-icons" style="color:#2563eb;">price_change</i>
                     <span>Danh sách tạm ứng lương của nhân viên (Kỳ @currentPeriod)</span>
                 </div>
-                @if (isHrOrAdm)
+                @if (canOperatePayroll)
                 {
                     <button type="button" class="btn btn-sm btn-primary" onclick="openPayrollModal('modalAddAdvance', event)" style="display:inline-flex; align-items:center; gap:6px; border-radius:8px; font-weight:600;">
                         <i class="material-icons" style="font-size:18px;">add_circle</i> + Tạo mới tạm ứng lương
@@ -1414,6 +1448,53 @@
         </div>
     }
 </div>
+
+@if (canOperatePayroll)
+{
+    <div class="modal fade" id="modalEditPayroll" tabindex="-1" role="dialog" aria-labelledby="modalEditPayrollTitle" aria-hidden="true">
+        <div class="modal-dialog modal-lg" role="document">
+            <div class="modal-content">
+                <form method="post" asp-controller="Work" asp-action="UpdatePayrollAmounts" id="payrollManualEditForm">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="Id" id="editPayrollId" />
+                    <input type="hidden" name="period" value="@currentPeriod" />
+                    <div class="modal-header" style="background:#f8fafc; border-bottom:1px solid #e2e8f0;">
+                        <button type="button" class="close" onclick="closePayrollModal('modalEditPayroll', event)" aria-label="Đóng"><span aria-hidden="true">&times;</span></button>
+                        <h4 class="modal-title" id="modalEditPayrollTitle"><i class="material-icons" style="vertical-align:text-bottom;color:#d97706;">edit_note</i> Kế toán sửa bảng lương</h4>
+                    </div>
+                    <div class="modal-body">
+                        <div class="alert alert-info" style="font-size:13px;">
+                            <strong id="editPayrollEmployee">Nhân viên</strong> · Chỉ được sửa khi bảng lương đang là bản nháp hoặc bị trả lại. Thực nhận được tính lại từ các trường bên dưới.
+                        </div>
+                        <div class="row">
+                            <div class="col-sm-4 form-group"><label>Lương cơ bản</label><input class="form-control payroll-money" type="number" min="0" max="1000000000" step="1" name="BaseSalary" id="editBaseSalary" required /></div>
+                            <div class="col-sm-4 form-group"><label>Lương sản phẩm</label><input class="form-control payroll-money" type="number" min="0" max="1000000000" step="1" name="ProductSalary" id="editProductSalary" required /></div>
+                            <div class="col-sm-4 form-group"><label>Lương doanh số</label><input class="form-control payroll-money" type="number" min="0" max="1000000000" step="1" name="SalesSalary" id="editSalesSalary" required /></div>
+                            <div class="col-sm-4 form-group"><label>Lương KPI</label><input class="form-control payroll-money" type="number" min="0" max="1000000000" step="1" name="KpiSalary" id="editKpiSalary" required /></div>
+                            <div class="col-sm-4 form-group"><label>Lương OT</label><input class="form-control payroll-money" type="number" min="0" max="1000000000" step="1" name="OtSalary" id="editOtSalary" required /></div>
+                            <div class="col-sm-4 form-group"><label>Tổng phụ cấp</label><input class="form-control payroll-money" type="number" min="0" max="1000000000" step="1" name="TotalAllowance" id="editTotalAllowance" required /></div>
+                            <div class="col-sm-4 form-group"><label>Thưởng</label><input class="form-control payroll-money" type="number" min="0" max="1000000000" step="1" name="Bonus" id="editBonus" required /></div>
+                            <div class="col-sm-4 form-group"><label>BHXH</label><input class="form-control payroll-money" type="number" min="0" max="1000000000" step="1" name="SocialInsurance" id="editSocialInsurance" required /></div>
+                            <div class="col-sm-4 form-group"><label>BHYT</label><input class="form-control payroll-money" type="number" min="0" max="1000000000" step="1" name="HealthInsurance" id="editHealthInsurance" required /></div>
+                            <div class="col-sm-4 form-group"><label>BHTN</label><input class="form-control payroll-money" type="number" min="0" max="1000000000" step="1" name="UnemploymentInsurance" id="editUnemploymentInsurance" required /></div>
+                            <div class="col-sm-4 form-group"><label>Thuế TNCN</label><input class="form-control payroll-money" type="number" min="0" max="1000000000" step="1" name="PersonalIncomeTax" id="editPersonalIncomeTax" required /></div>
+                            <div class="col-sm-4 form-group"><label>Tạm ứng</label><input class="form-control payroll-money" type="number" min="0" max="1000000000" step="1" name="Advance" id="editAdvance" required /></div>
+                            <div class="col-sm-4 form-group"><label>Khấu trừ khác</label><input class="form-control payroll-money" type="number" min="0" max="1000000000" step="1" name="Deduction" id="editDeduction" required /></div>
+                        </div>
+                        <div style="display:flex;justify-content:flex-end;gap:24px;padding:12px 16px;background:#f8fafc;border-radius:8px;">
+                            <span>Tổng thu nhập: <strong id="editGrossPreview">0 đ</strong></span>
+                            <span>Thực nhận: <strong id="editNetPreview" style="color:#059669;">0 đ</strong></span>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-default" onclick="closePayrollModal('modalEditPayroll', event)">Hủy</button>
+                        <button type="submit" class="btn btn-warning"><i class="material-icons" style="font-size:16px;vertical-align:text-bottom;">save</i> Lưu số liệu kế toán</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+}
 
 <!-- ========================================================================= -->
 <!-- MODAL 1: PHIẾU LƯƠNG ĐIỆN TỬ CHÍNH THỨC (CORPORATE PAYSLIP)               -->
@@ -1602,7 +1683,7 @@
                 </div>
                 <div class="modal-body" style="padding:22px;">
                     <p style="font-size:13.5px; color:#1e293b;">
-                        Bảng lương kỳ <strong>@currentPeriod</strong> sẽ chuyển về trạng thái <strong>Cần điều chỉnh</strong> để bộ phận HR/Kế toán rà soát lại số liệu theo đúng quy trình.
+                        Bảng lương kỳ <strong>@currentPeriod</strong> sẽ chuyển về trạng thái <strong>Cần điều chỉnh</strong> để kế toán sửa lại số liệu và trình duyệt lại.
                     </p>
                     <div class="form-group">
                         <label style="font-weight:700; font-size:13px; color:#b91c1c; margin-bottom:6px;">Lý do yêu cầu điều chỉnh lại (bắt buộc):</label>
@@ -1619,7 +1700,7 @@
 </div>
 
 <!-- ========================================================================= -->
-<!-- MODAL 4: DUYỆT CHỐT BẢNG LƯƠNG (BATCH FINALIZE CHO HR / KẾ TOÁN)          -->
+<!-- MODAL 4: KẾ TOÁN CHỐT VÀ TRÌNH BAN GIÁM ĐỐC DUYỆT                         -->
 <!-- ========================================================================= -->
 <div class="modal fade" id="modalBatchFinalize" tabindex="-1" role="dialog" aria-hidden="true">
     <div class="modal-dialog" role="document">
@@ -1634,7 +1715,7 @@
                 </div>
                 <div class="modal-body" style="padding:22px;">
                     <p style="font-size:13.5px; color:#1e293b;">
-                        Xác nhận hoàn tất đối soát số liệu lương cơ bản, KPI, phụ cấp, OT, BHXH và thuế TNCN cho kỳ <strong>@currentPeriod</strong> để trình Ban Giám đốc phê duyệt?
+                        Xác nhận kế toán đã hoàn tất nhập/sửa số liệu lương cơ bản, KPI, phụ cấp, OT, BHXH và thuế TNCN kỳ <strong>@currentPeriod</strong> để trình Ban Giám đốc phê duyệt?
                     </p>
                 </div>
                 <div class="modal-footer" style="background:#f8fafc;">
@@ -1907,6 +1988,55 @@
         return "Bằng chữ: " + result;
     }
 
+    function payrollNumber(value) {
+        var parsed = Number(value || 0);
+        return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+    }
+
+    function updatePayrollEditPreview() {
+        var incomeIds = ['editBaseSalary','editProductSalary','editSalesSalary','editKpiSalary','editOtSalary','editTotalAllowance','editBonus'];
+        var deductionIds = ['editSocialInsurance','editHealthInsurance','editUnemploymentInsurance','editPersonalIncomeTax','editAdvance','editDeduction'];
+        var gross = incomeIds.reduce(function (sum, id) { return sum + payrollNumber(document.getElementById(id)?.value); }, 0);
+        var deductions = deductionIds.reduce(function (sum, id) { return sum + payrollNumber(document.getElementById(id)?.value); }, 0);
+        var net = Math.max(0, gross - deductions);
+        var grossEl = document.getElementById('editGrossPreview');
+        var netEl = document.getElementById('editNetPreview');
+        if (grossEl) grossEl.textContent = gross.toLocaleString('vi-VN') + ' đ';
+        if (netEl) netEl.textContent = net.toLocaleString('vi-VN') + ' đ';
+    }
+
+    function openPayrollEdit(item) {
+        if (!item) return;
+        var values = {
+            editPayrollId: item.Id,
+            editBaseSalary: item.BaseSalary,
+            editProductSalary: item.ProductSalary,
+            editSalesSalary: item.SalesSalary,
+            editKpiSalary: item.KpiSalary,
+            editOtSalary: item.OtSalary,
+            editTotalAllowance: item.TotalAllowance,
+            editBonus: item.Bonus,
+            editSocialInsurance: item.SocialInsurance,
+            editHealthInsurance: item.HealthInsurance,
+            editUnemploymentInsurance: item.UnemploymentInsurance,
+            editPersonalIncomeTax: item.PersonalIncomeTax,
+            editAdvance: item.Advance,
+            editDeduction: item.Deduction
+        };
+        Object.keys(values).forEach(function (id) {
+            var input = document.getElementById(id);
+            if (input) input.value = payrollNumber(values[id]);
+        });
+        var employee = document.getElementById('editPayrollEmployee');
+        if (employee) employee.textContent = (item.EmployeeName || 'Nhân viên') + ' · ' + (item.EmployeeCode || '');
+        updatePayrollEditPreview();
+        openPayrollModal('modalEditPayroll');
+    }
+
+    document.querySelectorAll('#payrollManualEditForm .payroll-money').forEach(function (input) {
+        input.addEventListener('input', updatePayrollEditPreview);
+    });
+
     function viewPayslipDetail(item) {
         if (!item) return;
 
@@ -1919,7 +2049,7 @@
 
         document.getElementById('psBaseSalary').textContent = (item.BaseSalary || 0).toLocaleString('vi-VN');
         document.getElementById('psKpiSalary').textContent = (item.KpiSalary || 0).toLocaleString('vi-VN');
-        document.getElementById('psSalesSalary').textContent = (item.SalesSalary || 0).toLocaleString('vi-VN');
+        document.getElementById('psSalesSalary').textContent = ((item.ProductSalary || 0) + (item.SalesSalary || 0)).toLocaleString('vi-VN');
         document.getElementById('psOtSalary').textContent = (item.OtSalary || 0).toLocaleString('vi-VN');
         document.getElementById('psAllowance').textContent = (item.TotalAllowance || 0).toLocaleString('vi-VN');
         document.getElementById('psBonus').textContent = (item.Bonus || 0).toLocaleString('vi-VN');

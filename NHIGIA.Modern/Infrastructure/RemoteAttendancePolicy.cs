@@ -20,6 +20,7 @@ public static class RemoteAttendancePolicy
 
     public static void ValidatePlan(RemoteWorkPlan plan)
     {
+        plan.Locations ??= [];
         if (plan.Mode is not ("FIELD" or "HOME")) throw new InvalidOperationException("Loại lịch không hợp lệ.");
         if (plan.FromDate == default || plan.ToDate < plan.FromDate || (plan.ToDate - plan.FromDate).TotalDays > 92)
             throw new InvalidOperationException("Chọn khoảng đăng ký tối đa 93 ngày.");
@@ -30,8 +31,18 @@ public static class RemoteAttendancePolicy
         if (plan.BreakMinutes < 0 || plan.BreakMinutes >= minutes || plan.RequiredMinutes < 1 || plan.RequiredMinutes > minutes - plan.BreakMinutes)
             throw new InvalidOperationException("Số phút làm việc/nghỉ không phù hợp khung giờ.");
         ValidateCoordinates(plan.Latitude, plan.Longitude);
-        if (plan.Mode == "HOME" && !plan.Latitude.HasValue) throw new InvalidOperationException("Lịch làm tại nhà cần tọa độ đăng ký.");
         if (plan.RadiusMeters is < 50 or > 2000) throw new InvalidOperationException("Bán kính từ 50 đến 2.000 m.");
+        if (plan.Locations.Count > 20) throw new InvalidOperationException("Mỗi đăng ký có tối đa 20 vị trí làm việc.");
+        foreach (var location in plan.Locations)
+        {
+            ValidateCoordinates(location.Latitude, location.Longitude);
+            if (string.IsNullOrWhiteSpace(location.Name) || location.Name.Length > 200)
+                throw new InvalidOperationException("Tên vị trí phải có từ 1 đến 200 ký tự.");
+            if (location.RadiusMeters is < 50 or > 2000)
+                throw new InvalidOperationException("Bán kính từng vị trí từ 50 đến 2.000 m.");
+        }
+        if (plan.Mode == "HOME" && plan.Locations.Count == 0 && !plan.Latitude.HasValue)
+            throw new InvalidOperationException("Lịch làm tại nhà cần ít nhất một vị trí đăng ký.");
         if (string.IsNullOrWhiteSpace(plan.PlaceName) || plan.PlaceName.Length > 200 || (plan.Note?.Length ?? 0) > 2000)
             throw new InvalidOperationException("Nhập địa điểm/tuyến tối đa 200 ký tự và ghi chú tối đa 2.000 ký tự.");
     }
@@ -45,7 +56,8 @@ public static class RemoteAttendancePolicy
         return 6371000 * 2 * Math.Asin(Math.Sqrt(Math.Clamp(a, 0, 1)));
     }
 
-    public static (DateTime CheckTime, double? Distance, string Reason) Evaluate(RemoteWorkPlan plan, RemotePunchRequest punch, DateTimeOffset now)
+    public static (DateTime CheckTime, double? Distance, long? MatchedLocationId, string MatchedLocationName, string Reason) Evaluate(
+        RemoteWorkPlan plan, RemotePunchRequest punch, DateTimeOffset now)
     {
         if (punch.ClientId == Guid.Empty || punch.Kind is not ("IN" or "OUT" or "VISIT"))
             throw new InvalidOperationException("Lượt chấm không hợp lệ.");
@@ -68,18 +80,42 @@ public static class RemoteAttendancePolicy
             issues.Add("Ngoài khung giờ đăng ký");
         if (delayed) issues.Add("Đồng bộ trễ/offline; cần xác minh thời điểm thiết bị");
         double? distance = null;
+        long? matchedLocationId = null;
+        string matchedLocationName = null;
         if (!punch.Latitude.HasValue || !punch.AccuracyMeters.HasValue) issues.Add("Thiếu vị trí hoặc độ chính xác GPS");
         else
         {
             if (punch.AccuracyMeters > 100) issues.Add("GPS chưa đủ chính xác");
-            if (plan.Latitude.HasValue)
+            var locations = plan.Locations?.Where(x => double.IsFinite(x.Latitude) && double.IsFinite(x.Longitude)).ToList() ?? [];
+            if (locations.Count == 0 && plan.Latitude.HasValue)
+                locations.Add(new RemoteWorkLocation
+                {
+                    Name = plan.PlaceName, Latitude = plan.Latitude.Value, Longitude = plan.Longitude.Value,
+                    RadiusMeters = plan.RadiusMeters
+                });
+            if (locations.Count > 0)
             {
-                distance = Distance(punch.Latitude.Value, punch.Longitude.Value, plan.Latitude.Value, plan.Longitude.Value);
-                if (distance + punch.AccuracyMeters > plan.RadiusMeters) issues.Add("Ngoài vùng hoặc GPS giao ranh giới vùng đăng ký");
+                var distances = locations.Select(x => new
+                    {
+                        Location = x,
+                        Distance = Distance(punch.Latitude.Value, punch.Longitude.Value, x.Latitude, x.Longitude)
+                    })
+                    .OrderBy(x => x.Distance)
+                    .ToList();
+                var nearest = distances[0];
+                var matching = distances.FirstOrDefault(x => x.Distance + punch.AccuracyMeters.Value <= x.Location.RadiusMeters);
+                distance = nearest.Distance;
+                if (matching != null)
+                {
+                    distance = matching.Distance;
+                    matchedLocationId = matching.Location.Id > 0 ? matching.Location.Id : null;
+                    matchedLocationName = matching.Location.Name;
+                }
+                else issues.Add("Ngoài vùng đăng ký (không thuộc bất kỳ vị trí nào) hoặc GPS giao ranh giới vùng");
             }
         }
         if (issues.Count > 0 && string.IsNullOrWhiteSpace(punch.Note))
             throw new InvalidOperationException("Vui lòng bổ sung ghi chú để quản lý xác minh: " + string.Join("; ", issues));
-        return (checkTime, distance, string.Join("; ", issues));
+        return (checkTime, distance, matchedLocationId, matchedLocationName, string.Join("; ", issues));
     }
 }

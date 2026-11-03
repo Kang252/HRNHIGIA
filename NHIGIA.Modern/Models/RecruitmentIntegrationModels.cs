@@ -28,6 +28,13 @@ public sealed class RecruitmentCandidateModel
     public string FullName { get; set; }
     public string Email { get; set; }
     public string Phone { get; set; }
+    public DateTime? DateOfBirth { get; set; }
+    public string Address { get; set; }
+    public string CurrentPosition { get; set; }
+    public string Education { get; set; }
+    public string ExperienceSummary { get; set; }
+    public string Skills { get; set; }
+    public string ExpectedSalary { get; set; }
     public DateTime? AppliedAt { get; set; }
     public string StatusCode { get; set; }
     public string CvFileName { get; set; }
@@ -40,12 +47,20 @@ public sealed class RecruitmentCandidateModel
 public sealed class RecruitmentCandidatePayload
 {
     public string ProviderCode { get; set; }
+    public int? RecruitmentWorkItemId { get; set; }
     public string ExternalApplicationId { get; set; }
     public string ExternalJobId { get; set; }
     public string JobReference { get; set; }
     public string FullName { get; set; }
     public string Email { get; set; }
     public string Phone { get; set; }
+    public DateTime? DateOfBirth { get; set; }
+    public string Address { get; set; }
+    public string CurrentPosition { get; set; }
+    public string Education { get; set; }
+    public string ExperienceSummary { get; set; }
+    public string Skills { get; set; }
+    public string ExpectedSalary { get; set; }
     public DateTime? AppliedAt { get; set; }
     public string StatusCode { get; set; }
     public string CvFileName { get; set; }
@@ -64,4 +79,31 @@ public sealed class RecruitmentCandidateFileModel
     public byte[] Content { get; set; }
     public string Url { get; set; }
     public string ProviderCode { get; set; }
+}
+
+public class RecruitmentCvImportPreviewModel
+{
+    public Guid DraftId { get; set; }
+    public int? RecruitmentWorkItemId { get; set; }
+    public string PositionTitle { get; set; }
+    [Required, StringLength(200)] public string FullName { get; set; }
+    [EmailAddress, StringLength(200)] public string Email { get; set; }
+    [StringLength(50)] public string Phone { get; set; }
+    public DateTime? DateOfBirth { get; set; }
+    [StringLength(500)] public string Address { get; set; }
+    [StringLength(200)] public string CurrentPosition { get; set; }
+    [StringLength(2000)] public string Education { get; set; }
+    [StringLength(4000)] public string ExperienceSummary { get; set; }
+    [StringLength(2000)] public string Skills { get; set; }
+    [StringLength(100)] public string ExpectedSalary { get; set; }
+    public string CvFileName { get; set; }
+    public string ExtractedTextPreview { get; set; }
+}
+
+public sealed class RecruitmentCvImportDraftModel : RecruitmentCvImportPreviewModel
+{
+    public int CreatedByUserId { get; set; }
+    public byte[] CvContent { get; set; }
+    public string CvContentType { get; set; }
+    public DateTime ExpiresAt { get; set; }
 }

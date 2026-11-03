@@ -1,6 +1,7 @@
 using System.Data;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using Dapper;
 using Microsoft.AspNetCore.DataProtection;
 using NHIGIA.Modern.Models;
@@ -31,6 +32,7 @@ public sealed class RecruitmentIntegrationStore
         page.RecruitmentCandidates = db.Query<RecruitmentCandidateModel>(@"
             SELECT c.Id,c.ProviderCode,c.ExternalApplicationId,c.ExternalJobId,c.RecruitmentWorkItemId,
                    w.Title PositionTitle,w.Reference PositionReference,c.FullName,c.Email,c.Phone,c.AppliedAt,
+                   c.DateOfBirth,c.Address,c.CurrentPosition,c.Education,c.ExperienceSummary,c.Skills,c.ExpectedSalary,
                    c.StatusCode,c.CvFileName,c.CvContentType,c.CvUrl,
                    CONVERT(bit,CASE WHEN c.CvContent IS NULL THEN 0 ELSE 1 END) HasCvContent,c.ReceivedAt
             FROM dbo.HrmRecruitmentCandidate c
@@ -99,6 +101,17 @@ public sealed class RecruitmentIntegrationStore
 
     public RecruitmentCandidateSaveResult SaveCandidate(RecruitmentCandidatePayload payload)
     {
+        PrepareCandidate(payload);
+        using var db = Open();
+        using var tx = db.BeginTransaction(IsolationLevel.Serializable);
+        var result = SaveCandidateCore(db, tx, payload);
+        tx.Commit();
+        return result;
+    }
+
+    private static void PrepareCandidate(RecruitmentCandidatePayload payload)
+    {
+        ArgumentNullException.ThrowIfNull(payload);
         payload.ProviderCode = NormalizeProvider(payload.ProviderCode);
         payload.ExternalApplicationId = Clean(payload.ExternalApplicationId, 200);
         payload.ExternalJobId = Clean(payload.ExternalJobId, 200);
@@ -106,6 +119,12 @@ public sealed class RecruitmentIntegrationStore
         payload.FullName = Clean(payload.FullName, 200);
         payload.Email = Clean(payload.Email, 200);
         payload.Phone = Clean(payload.Phone, 50);
+        payload.Address = Clean(payload.Address, 500);
+        payload.CurrentPosition = Clean(payload.CurrentPosition, 200);
+        payload.Education = Clean(payload.Education, 2000);
+        payload.ExperienceSummary = Clean(payload.ExperienceSummary, 4000);
+        payload.Skills = Clean(payload.Skills, 2000);
+        payload.ExpectedSalary = Clean(payload.ExpectedSalary, 100);
         payload.StatusCode = Clean(payload.StatusCode, 50) ?? "NEW";
         payload.CvFileName = CleanFileName(payload.CvFileName);
         payload.CvContentType = Clean(payload.CvContentType, 150);
@@ -116,15 +135,23 @@ public sealed class RecruitmentIntegrationStore
         if (payload.CvContent?.Length > 0 && !IsSupportedCv(payload.CvFileName, payload.CvContentType))
             throw new InvalidOperationException("CV chỉ hỗ trợ tệp PDF, DOC hoặc DOCX.");
         payload.ExternalApplicationId ??= Sha256($"{payload.ProviderCode}|{payload.ExternalJobId}|{payload.Email}|{payload.Phone}|{payload.AppliedAt:O}|{payload.RawPayload}");
+    }
 
-        using var db = Open();
-        using var tx = db.BeginTransaction(IsolationLevel.Serializable);
-        var workItemId = db.QuerySingleOrDefault<int?>(@"
+    private static RecruitmentCandidateSaveResult SaveCandidateCore(
+        Microsoft.Data.SqlClient.SqlConnection db,
+        Microsoft.Data.SqlClient.SqlTransaction tx,
+        RecruitmentCandidatePayload payload)
+    {
+        var workItemId = payload.RecruitmentWorkItemId.HasValue
+            ? db.QuerySingleOrDefault<int?>("SELECT Id FROM dbo.HrmWorkItem WHERE Id=@Id AND Kind='recruitment'", new { Id = payload.RecruitmentWorkItemId }, tx)
+            : db.QuerySingleOrDefault<int?>(@"
             SELECT TOP 1 w.Id FROM dbo.HrmWorkItem w
             LEFT JOIN dbo.HrmRecruitmentJobMap m ON m.RecruitmentWorkItemId=w.Id AND m.ProviderCode=@ProviderCode
             WHERE w.Kind='recruitment' AND ((@ExternalJobId IS NOT NULL AND m.ExternalJobId=@ExternalJobId)
                 OR (@JobReference IS NOT NULL AND w.Reference=@JobReference))
             ORDER BY CASE WHEN m.ExternalJobId=@ExternalJobId THEN 0 ELSE 1 END,w.Id DESC", payload, tx);
+        if (payload.RecruitmentWorkItemId.HasValue && !workItemId.HasValue)
+            throw new InvalidOperationException("Vị trí tuyển dụng không tồn tại.");
 
         var existingId = db.QuerySingleOrDefault<long?>(@"
             SELECT Id FROM dbo.HrmRecruitmentCandidate WITH (UPDLOCK,HOLDLOCK)
@@ -134,6 +161,10 @@ public sealed class RecruitmentIntegrationStore
             db.Execute(@"UPDATE dbo.HrmRecruitmentCandidate SET
                 RecruitmentWorkItemId=COALESCE(RecruitmentWorkItemId,@WorkItemId),ExternalJobId=COALESCE(@ExternalJobId,ExternalJobId),
                 FullName=COALESCE(@FullName,FullName),Email=COALESCE(@Email,Email),Phone=COALESCE(@Phone,Phone),
+                DateOfBirth=COALESCE(@DateOfBirth,DateOfBirth),Address=COALESCE(@Address,Address),
+                CurrentPosition=COALESCE(@CurrentPosition,CurrentPosition),Education=COALESCE(@Education,Education),
+                ExperienceSummary=COALESCE(@ExperienceSummary,ExperienceSummary),Skills=COALESCE(@Skills,Skills),
+                ExpectedSalary=COALESCE(@ExpectedSalary,ExpectedSalary),
                 AppliedAt=COALESCE(@AppliedAt,AppliedAt),StatusCode=COALESCE(@StatusCode,StatusCode),
                 CvFileName=COALESCE(@CvFileName,CvFileName),CvContentType=COALESCE(@CvContentType,CvContentType),
                 CvContent=COALESCE(@CvContent,CvContent),CvUrl=COALESCE(@CvUrl,CvUrl),RawPayload=@RawPayload,UpdatedAt=SYSDATETIME()
@@ -145,6 +176,13 @@ public sealed class RecruitmentIntegrationStore
                 payload.FullName,
                 payload.Email,
                 payload.Phone,
+                payload.DateOfBirth,
+                payload.Address,
+                payload.CurrentPosition,
+                payload.Education,
+                payload.ExperienceSummary,
+                payload.Skills,
+                payload.ExpectedSalary,
                 payload.AppliedAt,
                 payload.StatusCode,
                 payload.CvFileName,
@@ -154,15 +192,16 @@ public sealed class RecruitmentIntegrationStore
                 payload.RawPayload
             }, tx);
             UpdateStatus(db, tx, payload.ProviderCode, $"Đã cập nhật hồ sơ {payload.FullName ?? payload.ExternalApplicationId}.");
-            tx.Commit();
             return new RecruitmentCandidateSaveResult(existingId.Value, false, workItemId);
         }
 
         var candidateId = db.ExecuteScalar<long>(@"
             INSERT dbo.HrmRecruitmentCandidate(ProviderCode,ExternalApplicationId,ExternalJobId,RecruitmentWorkItemId,
-                FullName,Email,Phone,AppliedAt,StatusCode,CvFileName,CvContentType,CvContent,CvUrl,RawPayload)
+                FullName,Email,Phone,DateOfBirth,Address,CurrentPosition,Education,ExperienceSummary,Skills,ExpectedSalary,
+                AppliedAt,StatusCode,CvFileName,CvContentType,CvContent,CvUrl,RawPayload)
             OUTPUT INSERTED.Id VALUES(@ProviderCode,@ExternalApplicationId,@ExternalJobId,@WorkItemId,
-                @FullName,@Email,@Phone,@AppliedAt,@StatusCode,@CvFileName,@CvContentType,@CvContent,@CvUrl,@RawPayload)", new
+                @FullName,@Email,@Phone,@DateOfBirth,@Address,@CurrentPosition,@Education,@ExperienceSummary,@Skills,@ExpectedSalary,
+                @AppliedAt,@StatusCode,@CvFileName,@CvContentType,@CvContent,@CvUrl,@RawPayload)", new
         {
             payload.ProviderCode,
             payload.ExternalApplicationId,
@@ -171,6 +210,13 @@ public sealed class RecruitmentIntegrationStore
             payload.FullName,
             payload.Email,
             payload.Phone,
+            payload.DateOfBirth,
+            payload.Address,
+            payload.CurrentPosition,
+            payload.Education,
+            payload.ExperienceSummary,
+            payload.Skills,
+            payload.ExpectedSalary,
             payload.AppliedAt,
             payload.StatusCode,
             payload.CvFileName,
@@ -187,8 +233,113 @@ public sealed class RecruitmentIntegrationStore
             Message = $"{payload.FullName ?? "Ứng viên mới"} từ {payload.ProviderCode}" + (workItemId.HasValue ? " đã được ghép vào vị trí tuyển dụng." : " cần được ghép vào vị trí tuyển dụng.")
         }, tx);
         UpdateStatus(db, tx, payload.ProviderCode, $"Đã nhận hồ sơ {payload.FullName ?? payload.ExternalApplicationId}.");
-        tx.Commit();
         return new RecruitmentCandidateSaveResult(candidateId, true, workItemId);
+    }
+
+    public Guid CreateCvImportDraft(RecruitmentCvImportPreviewModel preview, byte[] content, string contentType, int actorId)
+    {
+        if (preview == null) throw new ArgumentNullException(nameof(preview));
+        if (content == null || content.Length == 0 || content.Length > 10 * 1024 * 1024)
+            throw new InvalidDataException("Tệp CV trống hoặc vượt quá giới hạn 10 MB.");
+        var draftId = Guid.NewGuid();
+        using var db = Open();
+        using var tx = db.BeginTransaction();
+        if (preview.RecruitmentWorkItemId.HasValue && db.ExecuteScalar<int>(
+                "SELECT COUNT(1) FROM dbo.HrmWorkItem WHERE Id=@Id AND Kind='recruitment'",
+                new { Id = preview.RecruitmentWorkItemId.Value }, tx) == 0)
+            throw new InvalidOperationException("Vị trí tuyển dụng không tồn tại.");
+        db.Execute("DELETE dbo.HrmRecruitmentImportDraft WHERE ExpiresAt<SYSDATETIME()", transaction: tx);
+        db.Execute(@"INSERT dbo.HrmRecruitmentImportDraft
+            (Id,CreatedByUserId,RecruitmentWorkItemId,FullName,Email,Phone,DateOfBirth,Address,CurrentPosition,
+             Education,ExperienceSummary,Skills,ExpectedSalary,CvFileName,CvContentType,CvContent,ExtractedTextPreview,ExpiresAt)
+            VALUES(@Id,@CreatedByUserId,@RecruitmentWorkItemId,@FullName,@Email,@Phone,@DateOfBirth,@Address,@CurrentPosition,
+             @Education,@ExperienceSummary,@Skills,@ExpectedSalary,@CvFileName,@CvContentType,@CvContent,@ExtractedTextPreview,DATEADD(MINUTE,30,SYSDATETIME()))", new
+        {
+            Id = draftId,
+            CreatedByUserId = actorId,
+            preview.RecruitmentWorkItemId,
+            preview.FullName,
+            preview.Email,
+            preview.Phone,
+            preview.DateOfBirth,
+            preview.Address,
+            preview.CurrentPosition,
+            preview.Education,
+            preview.ExperienceSummary,
+            preview.Skills,
+            preview.ExpectedSalary,
+            preview.CvFileName,
+            CvContentType = Clean(contentType, 150) ?? "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            CvContent = content,
+            preview.ExtractedTextPreview
+        }, tx);
+        tx.Commit();
+        return draftId;
+    }
+
+    public RecruitmentCvImportDraftModel GetCvImportDraft(Guid draftId, int actorId)
+    {
+        using var db = Open();
+        return db.QuerySingleOrDefault<RecruitmentCvImportDraftModel>(@"SELECT d.*,w.Title PositionTitle
+            FROM dbo.HrmRecruitmentImportDraft d
+            LEFT JOIN dbo.HrmWorkItem w ON w.Id=d.RecruitmentWorkItemId AND w.Kind='recruitment'
+            WHERE d.Id=@DraftId AND d.CreatedByUserId=@ActorId AND d.ExpiresAt>=SYSDATETIME()",
+            new { DraftId = draftId, ActorId = actorId });
+    }
+
+    public RecruitmentCandidateSaveResult CompleteCvImport(RecruitmentCvImportPreviewModel input, int actorId, string ipAddress)
+    {
+        using var db = Open();
+        using var tx = db.BeginTransaction(IsolationLevel.Serializable);
+        var draft = db.QuerySingleOrDefault<RecruitmentCvImportDraftModel>(@"SELECT d.*,w.Title PositionTitle
+            FROM dbo.HrmRecruitmentImportDraft d WITH(UPDLOCK,HOLDLOCK)
+            LEFT JOIN dbo.HrmWorkItem w ON w.Id=d.RecruitmentWorkItemId AND w.Kind='recruitment'
+            WHERE d.Id=@DraftId AND d.CreatedByUserId=@ActorId AND d.ExpiresAt>=SYSDATETIME()",
+            new { DraftId = input.DraftId, ActorId = actorId }, tx)
+            ?? throw new InvalidOperationException("Bản xem trước đã hết hạn. Vui lòng tải lại CV.");
+        var payload = new RecruitmentCandidatePayload
+        {
+            ProviderCode = "MANUAL",
+            ExternalApplicationId = $"manual:{draft.DraftId:N}",
+            RecruitmentWorkItemId = input.RecruitmentWorkItemId,
+            FullName = input.FullName,
+            Email = input.Email,
+            Phone = input.Phone,
+            DateOfBirth = input.DateOfBirth,
+            Address = input.Address,
+            CurrentPosition = input.CurrentPosition,
+            Education = input.Education,
+            ExperienceSummary = input.ExperienceSummary,
+            Skills = input.Skills,
+            ExpectedSalary = input.ExpectedSalary,
+            AppliedAt = DateTime.UtcNow,
+            StatusCode = "NEW",
+            CvFileName = draft.CvFileName,
+            CvContentType = draft.CvContentType,
+            CvContent = draft.CvContent,
+            RawPayload = JsonSerializer.Serialize(new { source = "manual-docx", importedBy = actorId, draft = draft.DraftId })
+        };
+        PrepareCandidate(payload);
+        var saved = SaveCandidateCore(db, tx, payload);
+        db.Execute("DELETE dbo.HrmRecruitmentImportDraft WHERE Id=@Id AND CreatedByUserId=@ActorId",
+            new { Id = draft.DraftId, ActorId = actorId }, tx);
+        db.Execute(@"INSERT dbo.HrmAuditLog(UserId,ActionCode,EntityType,EntityId,Detail,IpAddress)
+            VALUES(@UserId,'IMPORT','HrmRecruitmentCandidate',@EntityId,@Detail,@IpAddress)", new
+        {
+            UserId = actorId,
+            EntityId = saved.CandidateId.ToString(),
+            Detail = $"Nhập CV Word thủ công: {draft.CvFileName}",
+            IpAddress = ipAddress
+        }, tx);
+        tx.Commit();
+        return saved;
+    }
+
+    public void DeleteCvImportDraft(Guid draftId, int actorId)
+    {
+        using var db = Open();
+        db.Execute("DELETE dbo.HrmRecruitmentImportDraft WHERE Id=@DraftId AND CreatedByUserId=@ActorId",
+            new { DraftId = draftId, ActorId = actorId });
     }
 
     public RecruitmentCandidateFileModel GetCandidateFile(long id)

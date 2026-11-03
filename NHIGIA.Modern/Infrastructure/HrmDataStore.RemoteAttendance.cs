@@ -21,13 +21,62 @@ public partial class HrmDataStore
         if (to < from || (to - from).TotalDays > 100) throw new InvalidOperationException("Khoảng xem tối đa 100 ngày.");
     }
 
+    private static List<RemoteWorkLocation> NormalizeRemoteLocations(RemoteWorkPlan plan)
+    {
+        var locations = (plan.Locations ?? [])
+            .Where(x => x != null)
+            .Select((x, index) => new RemoteWorkLocation
+            {
+                Name = string.IsNullOrWhiteSpace(x.Name) ? plan.PlaceName?.Trim() : x.Name.Trim(),
+                Latitude = x.Latitude,
+                Longitude = x.Longitude,
+                RadiusMeters = x.RadiusMeters,
+                SortOrder = index
+            })
+            .GroupBy(x => (Math.Round(x.Latitude, 6), Math.Round(x.Longitude, 6), x.RadiusMeters, x.Name), StringTupleComparer.Instance)
+            .Select(x => x.First())
+            .ToList();
+        if (locations.Count == 0 && plan.Latitude.HasValue && plan.Longitude.HasValue)
+            locations.Add(new RemoteWorkLocation
+            {
+                Name = plan.PlaceName?.Trim(), Latitude = plan.Latitude.Value, Longitude = plan.Longitude.Value,
+                RadiusMeters = plan.RadiusMeters, SortOrder = 0
+            });
+        for (var index = 0; index < locations.Count; index++) locations[index].SortOrder = index;
+        return locations;
+    }
+
+    private static void LoadRemoteLocations(IDbConnection db, IList<RemoteWorkPlan> plans, IDbTransaction tx = null)
+    {
+        if (plans.Count == 0) return;
+        var byPlan = db.Query<RemoteWorkLocation>(@"SELECT Id,PlanId,Name,Latitude,Longitude,RadiusMeters,SortOrder
+                FROM dbo.HrmRemoteWorkLocation WHERE PlanId IN @Ids ORDER BY PlanId,SortOrder,Id",
+                new { Ids = plans.Select(x => x.Id).ToArray() }, tx)
+            .ToLookup(x => x.PlanId);
+        foreach (var plan in plans)
+            plan.Locations = byPlan[plan.Id].ToList();
+    }
+
+    private sealed class StringTupleComparer : IEqualityComparer<(double Latitude, double Longitude, int Radius, string Name)>
+    {
+        public static readonly StringTupleComparer Instance = new();
+        public bool Equals((double Latitude, double Longitude, int Radius, string Name) x,
+            (double Latitude, double Longitude, int Radius, string Name) y) =>
+            x.Latitude == y.Latitude && x.Longitude == y.Longitude && x.Radius == y.Radius &&
+            string.Equals(x.Name, y.Name, StringComparison.OrdinalIgnoreCase);
+        public int GetHashCode((double Latitude, double Longitude, int Radius, string Name) value) =>
+            HashCode.Combine(value.Latitude, value.Longitude, value.Radius, StringComparer.OrdinalIgnoreCase.GetHashCode(value.Name ?? string.Empty));
+    }
+
     public IList<RemoteWorkPlan> GetRemotePlans(HrmUserAccountModel actor, DateTime from, DateTime to)
     {
         ValidateRemoteRange(from, to);
         using var db = OpenConnection();
-        return db.Query<RemoteWorkPlan>(@"SELECT p.*,u.DisplayName,u.DepartmentId,u.RoleCode FROM dbo.HrmRemoteWorkPlan p
+        var plans = db.Query<RemoteWorkPlan>(@"SELECT p.*,u.DisplayName,u.DepartmentId,u.RoleCode FROM dbo.HrmRemoteWorkPlan p
             JOIN dbo.HrmUserAccount u ON u.Id=p.UserId WHERE p.ToDate>=@From AND p.FromDate<=@To AND " + RemoteScope +
             " ORDER BY p.Id DESC", RemoteFilter(actor, from, to)).ToList();
+        LoadRemoteLocations(db, plans);
+        return plans;
     }
 
     public IList<RemotePunch> GetRemotePunches(HrmUserAccountModel actor, DateTime from, DateTime to)
@@ -36,7 +85,7 @@ public partial class HrmDataStore
         using var db = OpenConnection();
         var rows = db.Query<RemotePunch>(@"SELECT TOP (500) p.Id,p.ClientId,p.UserId,p.PlanId,p.Kind,p.CapturedAt,p.CheckTime,
             p.ReceivedAt,p.WasOffline,p.Latitude,p.Longitude,p.AccuracyMeters,p.DistanceMeters,p.PlaceName,p.Note,
-            p.StatusCode,p.ReviewReason,p.ReviewNote,p.FaceEnrollmentId,p.FaceVerificationStatus,
+            p.StatusCode,p.ReviewReason,p.ReviewNote,p.MatchedLocationId,p.MatchedLocationName,p.FaceEnrollmentId,p.FaceVerificationStatus,
             p.FaceMatchStatus,p.FaceMatchScore,p.FaceMatchThreshold,p.FaceMatchModelVersion,p.FaceComparedAt,p.FaceMatchConsentAt,
             u.DisplayName,u.DepartmentId,u.RoleCode
             FROM dbo.HrmRemotePunch p JOIN dbo.HrmUserAccount u ON u.Id=p.UserId
@@ -55,6 +104,14 @@ public partial class HrmDataStore
 
     public long CreateRemotePlan(RemoteWorkPlan plan, HrmUserAccountModel actor, string ip)
     {
+        plan.Locations = NormalizeRemoteLocations(plan);
+        if (plan.Locations.Count > 0)
+        {
+            var primary = plan.Locations[0];
+            plan.Latitude = primary.Latitude;
+            plan.Longitude = primary.Longitude;
+            plan.RadiusMeters = primary.RadiusMeters;
+        }
         RemoteAttendancePolicy.ValidatePlan(plan);
         if (plan.FromDate.Date < CurrentVietnamTime().Date.AddDays(-7)) throw new InvalidOperationException("Không thể đăng ký lùi quá 7 ngày.");
         using var db = OpenConnection();
@@ -72,6 +129,12 @@ public partial class HrmDataStore
             WindowStart,WindowEnd,IsFlexible,RequiredMinutes,BreakMinutes,Latitude,Longitude,RadiusMeters,LeaveRequestId,Note)
             OUTPUT INSERTED.Id VALUES(@UserId,@Mode,@PlaceName,@FromDate,@ToDate,@WorkDaysMask,@WindowStart,@WindowEnd,
             @IsFlexible,@RequiredMinutes,@BreakMinutes,@Latitude,@Longitude,@RadiusMeters,@LeaveRequestId,@Note)", plan, tx);
+        foreach (var location in plan.Locations)
+            db.Execute(@"INSERT dbo.HrmRemoteWorkLocation(PlanId,Name,Latitude,Longitude,RadiusMeters,SortOrder)
+                VALUES(@PlanId,@Name,@Latitude,@Longitude,@RadiusMeters,@SortOrder)", new
+            {
+                PlanId = id, location.Name, location.Latitude, location.Longitude, location.RadiusMeters, location.SortOrder
+            }, tx);
         AddAudit(db, actor.Id, "CREATE", "RemoteWorkPlan", id.ToString(), "Đăng ký làm việc ngoài công ty", ip, tx);
         NotifyRemoteReviewers(db, tx, actor.Id, "Đăng ký làm việc ngoài công ty", actor.DisplayName + " gửi đăng ký cần duyệt.");
         tx.Commit();
@@ -134,6 +197,7 @@ public partial class HrmDataStore
         var plan = db.QuerySingleOrDefault<RemoteWorkPlan>("SELECT * FROM dbo.HrmRemoteWorkPlan WITH(HOLDLOCK) WHERE Id=@PlanId AND UserId=@UserId",
             new { punch.PlanId, UserId = actor.Id }, tx);
         if (plan == null) throw new InvalidOperationException("Không tìm thấy đăng ký của bạn.");
+        LoadRemoteLocations(db, new List<RemoteWorkPlan> { plan }, tx);
         var evaluated = RemoteAttendancePolicy.Evaluate(plan, punch, DateTimeOffset.UtcNow);
         // A human-approved reference is not a biometric match. Never auto-approve without a real provider result.
         if (enrollmentId.HasValue)
@@ -141,13 +205,14 @@ public partial class HrmDataStore
         EnsureRemotePeriodOpen(db, tx, evaluated.CheckTime);
         var status = string.IsNullOrEmpty(evaluated.Reason) ? "APPROVED" : "PENDING";
         var id = db.ExecuteScalar<long>(@"INSERT dbo.HrmRemotePunch(ClientId,UserId,PlanId,Kind,CapturedAt,CheckTime,WasOffline,
-            Latitude,Longitude,AccuracyMeters,DistanceMeters,PlaceName,Note,PhotoContent,PhotoContentType,StatusCode,ReviewReason,IncludedAt,FaceEnrollmentId,FaceVerificationStatus,
+            Latitude,Longitude,AccuracyMeters,DistanceMeters,MatchedLocationId,MatchedLocationName,PlaceName,Note,PhotoContent,PhotoContentType,StatusCode,ReviewReason,IncludedAt,FaceEnrollmentId,FaceVerificationStatus,
             FaceMatchConsentAt,FaceMatchConsentVersion)
             OUTPUT INSERTED.Id VALUES(@ClientId,@UserId,@PlanId,@Kind,@CapturedAt,@CheckTime,@WasOffline,@Latitude,@Longitude,
-            @AccuracyMeters,@Distance,@PlaceName,@Note,@Photo,'image/jpeg',@Status,@Reason,CASE WHEN @Status='APPROVED' THEN SYSDATETIME() END,@EnrollmentId,@FaceStatus,
+            @AccuracyMeters,@Distance,@MatchedLocationId,@MatchedLocationName,@PlaceName,@Note,@Photo,'image/jpeg',@Status,@Reason,CASE WHEN @Status='APPROVED' THEN SYSDATETIME() END,@EnrollmentId,@FaceStatus,
             CASE WHEN @MatchConsent=1 THEN SYSUTCDATETIME() END,CASE WHEN @MatchConsent=1 THEN @ConsentVersion END)",
             new { punch.ClientId, UserId = actor.Id, punch.PlanId, punch.Kind, punch.CapturedAt, evaluated.CheckTime, punch.WasOffline,
-                punch.Latitude, punch.Longitude, punch.AccuracyMeters, evaluated.Distance, punch.PlaceName, punch.Note, Photo = photo, Status = status, evaluated.Reason,
+                punch.Latitude, punch.Longitude, punch.AccuracyMeters, evaluated.Distance, evaluated.MatchedLocationId, evaluated.MatchedLocationName,
+                punch.PlaceName, punch.Note, Photo = photo, Status = status, evaluated.Reason,
                 EnrollmentId = enrollmentId, FaceStatus = enrollmentId.HasValue ? "MANUAL_REQUIRED" : null,
                 MatchConsent = enrollmentId.HasValue && punch.FaceMatchConsent, ConsentVersion = FaceMatchConsentVersion }, tx);
         if (status == "APPROVED" && punch.Kind != "VISIT") InvalidateRemoteConfirmation(db, tx, actor.Id, evaluated.CheckTime);
@@ -211,13 +276,14 @@ public partial class HrmDataStore
 
     private static void EnsureRemotePeriodOpen(IDbConnection db, IDbTransaction tx, DateTime day)
     {
+        var period = AttendancePeriodRange.ForDate(day).Period;
         var status = db.QuerySingleOrDefault<string>("SELECT StatusCode FROM dbo.HrmAttendancePeriod WITH(UPDLOCK,HOLDLOCK) WHERE Period=@Period",
-            new { Period = day.ToString("yyyy-MM") }, tx);
+            new { Period = period }, tx);
         if (status == "LOCKED") throw new InvalidOperationException("Kỳ công đã khóa. HR cần mở khóa trước khi tiếp nhận/xác minh lượt chấm.");
     }
 
     private static void InvalidateRemoteConfirmation(IDbConnection db, IDbTransaction tx, int userId, DateTime day) =>
-        db.Execute("DELETE FROM dbo.HrmAttendancePeriodConfirmation WHERE UserId=@userId AND Period=@Period", new { userId, Period = day.ToString("yyyy-MM") }, tx);
+        db.Execute("DELETE FROM dbo.HrmAttendancePeriodConfirmation WHERE UserId=@userId AND Period=@Period", new { userId, Period = AttendancePeriodRange.ForDate(day).Period }, tx);
 
     private static void ValidateReviewNote(string note)
     {

@@ -84,6 +84,12 @@ public sealed class HomeController : BaseController
         }
 
         var profile = Store.GetEmployeeProfile(targetId);
+        if (profile != null)
+        {
+            var canManageExtras = CurrentHrmUser.RoleCode is HrmRoles.Admin or HrmRoles.Hr or HrmRoles.Director;
+            var canRevealPasswords = CurrentHrmUser.RoleCode == HrmRoles.Admin || targetId == CurrentHrmUser.Id;
+            ViewBag.ProfileExtras = Store.GetEmployeeProfileExtras(targetId, canManageExtras, canRevealPasswords);
+        }
         return profile == null ? NotFound() : View(profile);
     }
 
@@ -205,7 +211,7 @@ public sealed class HomeController : BaseController
     }
 
     [HttpGet]
-    [HrmAuthorize(HrmRoles.Hr, HrmRoles.Director)]
+    [HrmAuthorize(HrmRoles.Admin, HrmRoles.Hr, HrmRoles.Director)]
     public IActionResult EditEmployeeProfile(int id)
     {
         if (!Store.GetVisibleUsers(CurrentHrmUser).Any(x => x.Id == id)) return Forbid();
@@ -217,7 +223,7 @@ public sealed class HomeController : BaseController
     }
 
     [HttpPost, ValidateAntiForgeryToken]
-    [HrmAuthorize(HrmRoles.Hr, HrmRoles.Director)]
+    [HrmAuthorize(HrmRoles.Admin, HrmRoles.Hr, HrmRoles.Director)]
     public async Task<IActionResult> EditEmployeeProfile(EmployeeProfileModel profile, IFormFile avatarFile = null)
     {
         if (!Store.GetVisibleUsers(CurrentHrmUser).Any(x => x.Id == profile.UserId)) return Forbid();
@@ -227,6 +233,8 @@ public sealed class HomeController : BaseController
         if (profile.AnnualLeaveDays is < 0 or > 365) ModelState.AddModelError(nameof(profile.AnnualLeaveDays), "Số ngày phép phải từ 0 đến 365.");
         if (profile.ContractStartDate.HasValue && profile.ContractEndDate < profile.ContractStartDate)
             ModelState.AddModelError(nameof(profile.ContractEndDate), "Ngày kết thúc hợp đồng phải sau ngày bắt đầu.");
+        if (!EmployeeProfileOptions.EmploymentStatuses.Contains(profile.EmploymentStatus ?? string.Empty))
+            ModelState.AddModelError(nameof(profile.EmploymentStatus), "Hình thức lao động không hợp lệ.");
         foreach (var email in new[] { profile.PersonalEmail, profile.CompanyEmail, profile.EmergencyContactEmail }.Where(x => !string.IsNullOrWhiteSpace(x)))
             if (!System.Net.Mail.MailAddress.TryCreate(email, out _)) ModelState.AddModelError("", $"Email '{email}' không hợp lệ.");
 
@@ -284,6 +292,84 @@ public sealed class HomeController : BaseController
         }
     }
 
+    [HttpPost, ValidateAntiForgeryToken]
+    [HrmAuthorize(HrmRoles.Admin, HrmRoles.Hr, HrmRoles.Director)]
+    public IActionResult SaveEmployeeUniform(EmployeeUniformModel input)
+    {
+        if (!CanManageProfileExtras(input.UserId)) return Forbid();
+        try
+        {
+            Store.SaveEmployeeUniform(input, CurrentHrmUser, HttpContext.Connection.RemoteIpAddress?.ToString());
+            TempData["ProfileSuccess"] = "Đã lưu thông tin trang phục.";
+        }
+        catch (Exception exception)
+        {
+            TempData["ProfileError"] = exception.Message;
+        }
+        return RedirectToAction(nameof(MyProfile), new { id = input.UserId, tab = "equipment" });
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    [HrmAuthorize(HrmRoles.Admin, HrmRoles.Hr, HrmRoles.Director)]
+    public IActionResult DeleteEmployeeUniform(int id, int userId)
+    {
+        if (!CanManageProfileExtras(userId)) return Forbid();
+        Store.DeleteEmployeeUniform(id, userId, CurrentHrmUser, HttpContext.Connection.RemoteIpAddress?.ToString());
+        TempData["ProfileSuccess"] = "Đã ghi nhận thu hồi trang phục.";
+        return RedirectToAction(nameof(MyProfile), new { id = userId, tab = "equipment" });
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    [HrmAuthorize(HrmRoles.Admin, HrmRoles.Hr, HrmRoles.Director)]
+    public IActionResult SaveEmployeeSoftwareAccount(EmployeeSoftwareAccountModel input)
+    {
+        if (!CanManageProfileExtras(input.UserId)) return Forbid();
+        try
+        {
+            Store.SaveEmployeeSoftwareAccount(input, CurrentHrmUser, HttpContext.Connection.RemoteIpAddress?.ToString());
+            TempData["ProfileSuccess"] = "Đã lưu tài khoản phần mềm. Mật khẩu được mã hóa trong hệ thống.";
+        }
+        catch (Exception exception)
+        {
+            TempData["ProfileError"] = exception.Message;
+        }
+        return RedirectToAction(nameof(MyProfile), new { id = input.UserId, tab = "software" });
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
+    public IActionResult RevealEmployeeSoftwarePassword(int id, int userId)
+    {
+        var elevated = CurrentHrmUser.RoleCode == HrmRoles.Admin;
+        if (userId != CurrentHrmUser.Id && !elevated) return Forbid();
+        if (Store.GetEmployeeProfile(userId) == null) return NotFound();
+        try
+        {
+            var password = Store.RevealEmployeeSoftwarePassword(id, userId, CurrentHrmUser, HttpContext.Connection.RemoteIpAddress?.ToString());
+            return Json(new { success = !string.IsNullOrEmpty(password), password, message = string.IsNullOrEmpty(password) ? "Tài khoản chưa lưu mật khẩu." : (string)null });
+        }
+        catch (Exception exception)
+        {
+            return BadRequest(new { success = false, message = exception.Message });
+        }
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    [HrmAuthorize(HrmRoles.Admin, HrmRoles.Hr, HrmRoles.Director)]
+    public IActionResult DeleteEmployeeSoftwareAccount(int id, int userId)
+    {
+        if (!CanManageProfileExtras(userId)) return Forbid();
+        Store.DeleteEmployeeSoftwareAccount(id, userId, CurrentHrmUser, HttpContext.Connection.RemoteIpAddress?.ToString());
+        TempData["ProfileSuccess"] = "Đã thu hồi tài khoản phần mềm.";
+        return RedirectToAction(nameof(MyProfile), new { id = userId, tab = "software" });
+    }
+
+    private bool CanManageProfileExtras(int userId)
+    {
+        if (userId <= 0 || CurrentHrmUser.RoleCode is not (HrmRoles.Admin or HrmRoles.Hr or HrmRoles.Director)) return false;
+        return Store.GetEmployeeProfile(userId) != null;
+    }
+
     private void PrepareEmployeeProfileForm(int employeeId)
     {
         ViewBag.Departments = Store.GetDepartments();
@@ -301,7 +387,7 @@ public sealed class HomeController : BaseController
     [HrmAuthorize(HrmRoles.Admin, HrmRoles.Hr, HrmRoles.Director, HrmRoles.Manager)]
     public IActionResult Approvals() { ViewBag.Title = "Phê duyệt yêu cầu"; return View(); }
 
-    [HrmAuthorize(HrmRoles.Admin, HrmRoles.Hr, HrmRoles.Director)]
+    [HrmAuthorize(HrmRoles.Admin, HrmRoles.Hr, HrmRoles.Director, HrmRoles.Manager)]
     public IActionResult Reports() { ViewBag.Title = "Báo cáo nhân sự"; return View(); }
 
     [HrmAuthorize(HrmRoles.Admin)]

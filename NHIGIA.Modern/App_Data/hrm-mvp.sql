@@ -611,10 +611,36 @@ IF COL_LENGTH('dbo.HrmWorkItem', 'AssetDamaged') IS NULL
     ALTER TABLE dbo.HrmWorkItem ADD AssetDamaged INT NOT NULL CONSTRAINT DF_HrmWorkItem_AssetDamaged DEFAULT (0);
 IF COL_LENGTH('dbo.HrmWorkItem', 'KpiType') IS NULL
     ALTER TABLE dbo.HrmWorkItem ADD KpiType NVARCHAR(30) NULL;
+IF COL_LENGTH('dbo.HrmWorkItem', 'KpiPeriodType') IS NULL
+    ALTER TABLE dbo.HrmWorkItem ADD KpiPeriodType NVARCHAR(20) NULL;
 IF COL_LENGTH('dbo.HrmWorkItem', 'Quarter') IS NULL
     ALTER TABLE dbo.HrmWorkItem ADD Quarter NVARCHAR(30) NULL;
+IF COL_LENGTH('dbo.HrmWorkItem', 'PeriodStart') IS NULL
+    ALTER TABLE dbo.HrmWorkItem ADD PeriodStart DATE NULL;
+IF COL_LENGTH('dbo.HrmWorkItem', 'PeriodEnd') IS NULL
+    ALTER TABLE dbo.HrmWorkItem ADD PeriodEnd DATE NULL;
 IF COL_LENGTH('dbo.HrmWorkItem', 'ProofNote') IS NULL
     ALTER TABLE dbo.HrmWorkItem ADD ProofNote NVARCHAR(2000) NULL;
+IF COL_LENGTH('dbo.HrmWorkItem', 'ApprovedByUserId') IS NULL
+    ALTER TABLE dbo.HrmWorkItem ADD ApprovedByUserId INT NULL;
+IF COL_LENGTH('dbo.HrmWorkItem', 'ApprovedAt') IS NULL
+    ALTER TABLE dbo.HrmWorkItem ADD ApprovedAt DATETIME2 NULL;
+GO
+
+UPDATE dbo.HrmWorkItem
+SET KpiPeriodType = CASE
+    WHEN Quarter LIKE N'Tháng %' THEN 'MONTH'
+    WHEN Quarter LIKE N'Năm %' OR Quarter NOT LIKE N'%Quý%' AND TRY_CONVERT(INT, Quarter) IS NOT NULL THEN 'YEAR'
+    ELSE 'QUARTER'
+END
+WHERE Kind='kpi' AND (KpiPeriodType IS NULL OR KpiPeriodType NOT IN ('MONTH','QUARTER','YEAR'));
+GO
+
+IF NOT EXISTS (
+    SELECT 1 FROM sys.foreign_keys
+    WHERE name='FK_HrmWorkItem_ApprovedByUser' AND parent_object_id=OBJECT_ID('dbo.HrmWorkItem'))
+    ALTER TABLE dbo.HrmWorkItem WITH CHECK ADD CONSTRAINT FK_HrmWorkItem_ApprovedByUser
+        FOREIGN KEY (ApprovedByUserId) REFERENCES dbo.HrmUserAccount(Id);
 GO
 
 IF OBJECT_ID('dbo.HrmTrainingEnrollment', 'U') IS NULL

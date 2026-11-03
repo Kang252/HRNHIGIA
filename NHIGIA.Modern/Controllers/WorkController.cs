@@ -22,16 +22,19 @@ public sealed class WorkController : Controller
     private WorkPage Page(string kind, string q = null)
     {
         var configure = User.IsInRole(HrmRoles.Admin) || User.IsInRole(HrmRoles.Hr) || User.IsInRole(HrmRoles.Director);
+        var payrollOperator = User.IsInRole(HrmRoles.Admin) || User.IsInRole(HrmRoles.Accountant);
+        var canSeeCompanyPayroll = configure || User.IsInRole(HrmRoles.Accountant);
         var managePeople = configure || User.IsInRole(HrmRoles.Manager);
         var page = new WorkPage
         {
             Kind = kind,
-            CanManage = kind is "kpi" or "training" or "overtime" or "resignation" or "assets" or "vehicle" or "meeting" or "business-trip" ? managePeople : configure,
+            CanManage = kind == "payroll" ? canSeeCompanyPayroll :
+                kind is "kpi" or "training" or "overtime" or "resignation" or "assets" or "vehicle" or "meeting" or "business-trip" ? managePeople : configure,
             CanCreate = kind switch
             {
                 "helpdesk" or "overtime" or "resignation" or "recruitment" or "transfer" or "vehicle" or "meeting" => true,
-                "training" or "business-trip" => managePeople,
-                "payroll" => User.IsInRole(HrmRoles.Admin) || User.IsInRole(HrmRoles.Hr),
+                "kpi" or "training" or "business-trip" => managePeople,
+                "payroll" => payrollOperator,
                 _ => configure
             },
             Query = q
@@ -52,7 +55,7 @@ public sealed class WorkController : Controller
             "business-trip" => ("Phân công công tác", "Phân công nhân viên, địa điểm và thời gian thực hiện công tác."),
             _ => (null, null)
         };
-        if (kind == "payroll" && !configure)
+        if (kind == "payroll" && !canSeeCompanyPayroll)
             (page.Title, page.Subtitle) = ("Phiếu lương", "Xem phiếu lương đã phát hành và gửi phản hồi khi có sai lệch.");
         if (User.IsInRole(HrmRoles.Employee))
         {
@@ -82,7 +85,7 @@ public sealed class WorkController : Controller
         }
         else if (kind == "payroll" && (User.IsInRole(HrmRoles.Director) || User.IsInRole(HrmRoles.Admin)))
         {
-            (page.Title, page.Subtitle) = ("Duyệt bảng lương", "Kiểm tra bảng lương do HR trình và phê duyệt trước khi phát hành.");
+            (page.Title, page.Subtitle) = ("Duyệt bảng lương", "Kiểm tra bảng lương do Kế toán trình và phê duyệt trước khi phát hành.");
         }
         return page.Title == null ? null : page;
     }
@@ -133,22 +136,21 @@ public sealed class WorkController : Controller
         }
         if (kind == "kpi")
         {
-            page.PeriodType = string.IsNullOrWhiteSpace(periodType) ? "QUARTER" : periodType;
-            if (page.PeriodType == "YEAR")
+            page.PeriodType = KpiPeriodPolicy.NormalizeType(periodType);
+            var now = HrmDataStore.CurrentVietnamTime();
+            var defaultFrom = page.PeriodType switch
             {
-                page.FromQuarter = string.IsNullOrWhiteSpace(fromQuarter) || fromQuarter.Contains("2025") ? "2026" : fromQuarter;
-                page.ToQuarter = string.IsNullOrWhiteSpace(toQuarter) || toQuarter.Contains("2025") ? "2026" : toQuarter;
-            }
-            else if (page.PeriodType == "MONTH")
-            {
-                page.FromQuarter = string.IsNullOrWhiteSpace(fromQuarter) || fromQuarter.Contains("2025") ? "Tháng 01-2026" : fromQuarter;
-                page.ToQuarter = string.IsNullOrWhiteSpace(toQuarter) || toQuarter.Contains("2025") ? "Tháng 12-2026" : toQuarter;
-            }
-            else
-            {
-                page.FromQuarter = string.IsNullOrWhiteSpace(fromQuarter) || fromQuarter.Contains("2025") ? "Quý 1-2026" : fromQuarter;
-                page.ToQuarter = string.IsNullOrWhiteSpace(toQuarter) || toQuarter.Contains("2025") ? "Quý 4-2026" : toQuarter;
-            }
+                KpiPeriodPolicy.Month => $"Tháng {now.Month:00}-{now.Year}",
+                KpiPeriodPolicy.Year => now.Year.ToString(),
+                _ => $"Quý {((now.Month - 1) / 3) + 1}-{now.Year}"
+            };
+            var fromPeriod = KpiPeriodPolicy.ResolveOrDefault(page.PeriodType, fromQuarter, now);
+            var toPeriod = KpiPeriodPolicy.ResolveOrDefault(page.PeriodType, toQuarter, now);
+            if (string.IsNullOrWhiteSpace(fromQuarter)) fromPeriod = KpiPeriodPolicy.ResolveOrDefault(page.PeriodType, defaultFrom, now);
+            if (string.IsNullOrWhiteSpace(toQuarter)) toPeriod = fromPeriod;
+            if (fromPeriod.Start > toPeriod.End) (fromPeriod, toPeriod) = (toPeriod, fromPeriod);
+            page.FromQuarter = fromPeriod.Label;
+            page.ToQuarter = toPeriod.Label;
             page.KpiTypeFilter = string.IsNullOrWhiteSpace(kpiType) ? "ASSIGNED" : kpiType.ToUpperInvariant();
         }
         else if (kind == "training")
@@ -166,15 +168,20 @@ public sealed class WorkController : Controller
         if (kind == "kpi")
         {
             var kpiList = page.Items.Where(x => x.Kind == "kpi").ToList();
+            var fromPeriod = KpiPeriodPolicy.ResolveOrDefault(page.PeriodType, page.FromQuarter, HrmDataStore.CurrentVietnamTime());
+            var toPeriod = KpiPeriodPolicy.ResolveOrDefault(page.PeriodType, page.ToQuarter, HrmDataStore.CurrentVietnamTime());
             var activeKpis = page.KpiTypeFilter == "PLAN"
                 ? kpiList.Where(x => x.KpiType == "PLAN" || (!x.EmployeeId.HasValue && x.DepartmentId.HasValue)).ToList()
                 : kpiList.Where(x => x.KpiType == "ASSIGNED" || x.EmployeeId.HasValue || (x.KpiType != "PLAN" && !x.DepartmentId.HasValue)).ToList();
+            activeKpis = activeKpis.Where(x =>
+                KpiPeriodPolicy.ResolveItem(x).Type == page.PeriodType &&
+                KpiPeriodPolicy.MatchesRange(x, fromPeriod, toPeriod)).ToList();
 
             page.TotalAssignedKpiCount = activeKpis.Count;
             page.ProvenKpiCount = activeKpis.Count(x => x.Status is "PROVEN" or "APPROVED");
             var evaluatedCount = activeKpis.Count(x => x.Actual.HasValue && (x.Status is "PROVEN" or "APPROVED" or "NEEDS_REVISION" or "WAITING_PROOF"));
             var achievedCount = activeKpis.Count(x => x.Actual.HasValue && x.Target.HasValue && x.Actual >= x.Target && (x.Status is "PROVEN" or "APPROVED"));
-            page.KpiPassRate = evaluatedCount > 0 ? (int)Math.Round((double)achievedCount * 100 / evaluatedCount) : (page.ProvenKpiCount > 0 ? 73 : 0);
+            page.KpiPassRate = evaluatedCount > 0 ? (int)Math.Round((double)achievedCount * 100 / evaluatedCount) : 0;
             page.KpiAverageExecutionRate = activeKpis.Any(x => x.Target > 0)
                 ? (int)Math.Round(activeKpis.Where(x => x.Target > 0).Average(x => (double)x.CompletionRate))
                 : 0;
@@ -183,7 +190,7 @@ public sealed class WorkController : Controller
         }
         if (kind == "payroll" && editId.HasValue)
         {
-            if (!(User.IsInRole(HrmRoles.Admin) || User.IsInRole(HrmRoles.Hr))) return Forbid();
+            if (!PayrollPolicy.CanEdit(_user.Current.RoleCode)) return Forbid();
             var item = page.Items.FirstOrDefault(x => x.Id == editId && x.Status is "DRAFT" or "REJECTED");
             if (item == null) return NotFound();
             page.Draft = item;
@@ -208,7 +215,7 @@ public sealed class WorkController : Controller
     }
 
     [HttpPost, ValidateAntiForgeryToken]
-    public IActionResult Create([Bind("Kind,Title,Description,Category,Reference,WorkLocation,JobLevel,ExperienceRequired,EducationRequired,GenderRequirement,AgeRange,SalaryRange,SkillRequirements,Benefits,RecruitmentProcess,RecruitmentReason,StartDate,ContractType,ProbationPeriod,RecruitmentChannel,ContactName,ContactEmail,ContactPhone,ContactAddress,Keywords,EmployeeId,DepartmentId,DueDate,StartAt,EndAt,Location,Destination,Target,Actual,Weight,Priority,KpiType,Quarter,ProofNote,Status,ParticipantIds")] WorkItem draft)
+    public IActionResult Create([Bind("Kind,Title,Description,Category,Reference,WorkLocation,JobLevel,ExperienceRequired,EducationRequired,GenderRequirement,AgeRange,SalaryRange,SkillRequirements,Benefits,RecruitmentProcess,RecruitmentReason,StartDate,ContractType,ProbationPeriod,RecruitmentChannel,ContactName,ContactEmail,ContactPhone,ContactAddress,Keywords,EmployeeId,DepartmentId,DueDate,StartAt,EndAt,Location,Destination,Target,Actual,Weight,Priority,KpiType,KpiPeriodType,Quarter,PeriodStart,PeriodEnd,ProofNote,ParticipantIds")] WorkItem draft)
     {
         if (draft.Kind == "assets") return SaveAssetItem(draft);
         var page = Page(draft.Kind);
@@ -217,8 +224,12 @@ public sealed class WorkController : Controller
         if (draft.Kind == "kpi")
         {
             draft.KpiType = string.IsNullOrWhiteSpace(draft.KpiType) ? "ASSIGNED" : draft.KpiType;
-            draft.Quarter = string.IsNullOrWhiteSpace(draft.Quarter) || draft.Quarter.Contains("2025") ? "Quý 3-2026" : draft.Quarter;
-            if (!draft.DueDate.HasValue) draft.DueDate = new DateTime(2026, 12, 31);
+            var period = KpiPeriodPolicy.ResolveOrDefault(draft.KpiPeriodType, draft.Quarter, HrmDataStore.CurrentVietnamTime());
+            draft.KpiPeriodType = period.Type;
+            draft.Quarter = period.Label;
+            draft.PeriodStart = period.Start;
+            draft.PeriodEnd = period.End;
+            draft.DueDate = period.End;
         }
         else if (draft.Kind == "overtime")
         {
@@ -239,10 +250,11 @@ public sealed class WorkController : Controller
         if (draft.Kind == "kpi") ValidateKpi(draft, page);
         if (draft.Kind == "transfer" && (!draft.DepartmentId.HasValue || !draft.DueDate.HasValue))
             ModelState.AddModelError("", "Vui lòng chọn phòng ban mới và ngày dự kiến.");
-        if (draft.Kind == "payroll" && (!draft.EmployeeId.HasValue || string.IsNullOrWhiteSpace(draft.Category) || !draft.Target.HasValue || !draft.Actual.HasValue || !draft.DueDate.HasValue))
-            ModelState.AddModelError("", "Kỳ lương cần nhân viên, kỳ tính lương, tổng thu nhập, thực nhận và ngày thanh toán.");
-        if (draft.Kind == "payroll" && draft.Actual > draft.Target)
-            ModelState.AddModelError("", "Số tiền thực nhận không được lớn hơn tổng thu nhập.");
+        if (draft.Kind == "payroll") draft.DueDate = null;
+        if (draft.Kind == "payroll" && (!draft.EmployeeId.HasValue || string.IsNullOrWhiteSpace(draft.Category) || !draft.Target.HasValue || !draft.Actual.HasValue))
+            ModelState.AddModelError("", "Kỳ lương cần nhân viên, kỳ tính lương, tổng thu nhập và thực nhận.");
+        if (draft.Kind == "payroll" && (draft.Actual < 0 || draft.Target < 0))
+            ModelState.AddModelError("", "Số tiền lương không được là số âm.");
         if (draft.Kind == "recruitment" && (!draft.DepartmentId.HasValue || !draft.Target.HasValue || draft.Target <= 0 || !draft.DueDate.HasValue))
             ModelState.AddModelError("", "Nhu cầu tuyển dụng cần phòng ban, số lượng và hạn tuyển.");
         if (draft.Kind == "training" && !draft.DueDate.HasValue)
@@ -334,7 +346,7 @@ public sealed class WorkController : Controller
             "assets" => draft.EmployeeId.HasValue ? "ASSIGNED" : "AVAILABLE",
             "transfer" or "overtime" => "PENDING",
             "resignation" => page.CanManage ? "APPROVED" : "PENDING",
-            "kpi" => string.IsNullOrWhiteSpace(draft.Status) ? "WAITING_RESULT" : draft.Status,
+            "kpi" => "WAITING_RESULT",
             "payroll" => "DRAFT",
             "training" => "PLANNED",
             "meeting" or "vehicle" when page.CanManage => "APPROVED",
@@ -388,6 +400,8 @@ public sealed class WorkController : Controller
     {
         var page = Page("resignation");
         if (page == null || !page.CanManage) return Forbid();
+        if (command == "COMPLETE" && _user.Current.RoleCode is not (HrmRoles.Admin or HrmRoles.Hr or HrmRoles.Director))
+            return Forbid();
         var status = command switch
         {
             "APPROVE" => "APPROVED",
@@ -399,7 +413,16 @@ public sealed class WorkController : Controller
         var defaultNote = status == "APPROVED" ? "Phê duyệt đơn xin thôi việc"
             : status == "REJECTED" ? "Từ chối đơn xin thôi việc"
             : "Hoàn tất thủ tục bàn giao";
-        var changed = _store.UpdateResignationStatus(id, status, string.IsNullOrWhiteSpace(note) ? defaultNote : note, _user.Current.Id, ClientIp);
+        bool changed;
+        try
+        {
+            changed = _store.UpdateResignationStatus(id, status, string.IsNullOrWhiteSpace(note) ? defaultNote : note, _user.Current.Id, ClientIp);
+        }
+        catch (InvalidOperationException exception)
+        {
+            TempData["WorkError"] = exception.Message;
+            return RedirectToAction("Index", new { kind = "resignation" });
+        }
         if (changed)
             TempData["WorkSuccess"] = status == "APPROVED" ? $"Đã phê duyệt yêu cầu thôi việc #{id:D5}."
                 : status == "REJECTED" ? $"Đã từ chối yêu cầu thôi việc #{id:D5}."
@@ -551,7 +574,7 @@ public sealed class WorkController : Controller
     }
 
     [HttpPost, ValidateAntiForgeryToken]
-    public IActionResult UpdateKpi([Bind("Id,Kind,Title,Description,Category,Reference,EmployeeId,DepartmentId,DueDate,Target,Actual,Weight,Priority,KpiType,Quarter,ProofNote,Status")] WorkItem draft)
+    public IActionResult UpdateKpi([Bind("Id,Kind,Title,Description,Category,Reference,EmployeeId,DepartmentId,DueDate,Target,Actual,Weight,Priority,KpiType,KpiPeriodType,Quarter,PeriodStart,PeriodEnd,ProofNote")] WorkItem draft)
     {
         if (draft.Kind != "kpi") return NotFound();
         var page = Page("kpi");
@@ -564,6 +587,12 @@ public sealed class WorkController : Controller
             ModelState.AddModelError("", "Nhân viên được chọn không hợp lệ.");
         if (draft.DepartmentId.HasValue && !page.Departments.Any(x => x.Id == draft.DepartmentId))
             ModelState.AddModelError("", "Phòng ban được chọn không hợp lệ.");
+        var period = KpiPeriodPolicy.ResolveOrDefault(draft.KpiPeriodType, draft.Quarter, HrmDataStore.CurrentVietnamTime());
+        draft.KpiPeriodType = period.Type;
+        draft.Quarter = period.Label;
+        draft.PeriodStart = period.Start;
+        draft.PeriodEnd = period.End;
+        draft.DueDate = period.End;
         ValidateKpi(draft, page, draft.Id);
         if (!page.Available || !ModelState.IsValid) return View("Index", page);
         if (!_store.UpdateKpi(draft, _user.Current.Id, ClientIp))
@@ -634,10 +663,11 @@ public sealed class WorkController : Controller
     public IActionResult UpdatePayroll([Bind("Id,Kind,Title,Description,Category,Reference,EmployeeId,DueDate,Target,Actual")] WorkItem draft)
     {
         if (draft.Kind != "payroll") return NotFound();
-        if (!(User.IsInRole(HrmRoles.Admin) || User.IsInRole(HrmRoles.Hr))) return Forbid();
+        if (!PayrollPolicy.CanEdit(_user.Current.RoleCode)) return Forbid();
         var page = Page("payroll");
         page.EditId = draft.Id;
         page.Draft = draft;
+        draft.DueDate = null;
         Load(page);
         ValidatePayroll(draft, page);
         if (!page.Available || !ModelState.IsValid) return View("Index", page);
@@ -651,24 +681,47 @@ public sealed class WorkController : Controller
     }
 
     [HttpPost, ValidateAntiForgeryToken]
+    public IActionResult UpdatePayrollAmounts(PayrollManualEditRequest request, string period)
+    {
+        if (!PayrollPolicy.CanEdit(_user.Current.RoleCode)) return Forbid();
+        if (!ModelState.IsValid || request.Id <= 0)
+        {
+            TempData["WorkError"] = "Số liệu bảng lương không hợp lệ. Các khoản tiền phải là số không âm.";
+            return RedirectToAction("Index", new { kind = "payroll", pyPeriod = period });
+        }
+        try
+        {
+            if (!_store.UpdatePayrollAmounts(request, _user.Current.Id, ClientIp))
+                TempData["WorkError"] = "Bảng lương không còn ở trạng thái kế toán được phép chỉnh sửa.";
+            else
+                TempData["WorkSuccess"] = $"Kế toán đã cập nhật thủ công bảng lương #{request.Id:D5}.";
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            TempData["WorkError"] = "Dữ liệu thành phần lương hiện tại bị lỗi định dạng; hệ thống không ghi đè để bảo vệ lịch sử.";
+        }
+        return RedirectToAction("Index", new { kind = "payroll", pyPeriod = period });
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
     public IActionResult PayrollAction(int id, string command, string note)
     {
         var role = _user.Current.RoleCode;
-        var isAdmin = role == HrmRoles.Admin;
-        var isHr = role == HrmRoles.Hr;
-        var isDirector = role == HrmRoles.Director;
+        var canEdit = PayrollPolicy.CanEdit(role);
+        var canApprove = PayrollPolicy.CanApprove(role);
+        var canPublishOrPay = PayrollPolicy.CanPublishOrPay(role);
         var rule = command?.ToLowerInvariant() switch
         {
-            "submit" when isAdmin || isHr => ("DRAFT", "PENDING_APPROVAL", "SUBMIT", (int?)null),
-            "resubmit" when isAdmin || isHr => ("REJECTED", "PENDING_APPROVAL", "SUBMIT", (int?)null),
-            "approve" when isAdmin || isDirector => ("PENDING_APPROVAL", "APPROVED", "APPROVE", (int?)null),
-            "reject" when isAdmin || isDirector => ("PENDING_APPROVAL", "REJECTED", "REJECT", (int?)null),
-            "lock" when isAdmin || isHr => ("APPROVED", "LOCKED", "LOCK", (int?)null),
-            "publish" when isAdmin || isHr => ("LOCKED", "PUBLISHED", "PUBLISH", (int?)null),
-            "pay" when isAdmin || isHr => ("PUBLISHED", "PAID", "PAY", (int?)null),
+            "submit" when canEdit => ("DRAFT", "PENDING_APPROVAL", "SUBMIT", (int?)null),
+            "resubmit" when canEdit => ("REJECTED", "PENDING_APPROVAL", "SUBMIT", (int?)null),
+            "approve" when canApprove => ("PENDING_APPROVAL", "APPROVED", "APPROVE", (int?)null),
+            "reject" when canApprove => ("PENDING_APPROVAL", "REJECTED", "REJECT", (int?)null),
+            "lock" when canPublishOrPay => ("APPROVED", "LOCKED", "LOCK", (int?)null),
+            "publish" when canPublishOrPay => ("LOCKED", "PUBLISHED", "PUBLISH", (int?)null),
+            "pay" when canPublishOrPay => ("PUBLISHED", "PAID", "PAY", (int?)null),
             "dispute" => ("PUBLISHED", "DISPUTED", "DISPUTE", (int?)_user.Current.Id),
             "disputepaid" => ("PAID", "DISPUTED", "DISPUTE", (int?)_user.Current.Id),
-            "resolve" when isAdmin || isHr => ("DISPUTED", "RESOLVED", "RESOLVE", (int?)null),
+            "resolve" when canEdit => ("DISPUTED", "RESOLVED", "RESOLVE", (int?)null),
             _ => ((string)null, null, null, (int?)null)
         };
         if (rule.Item1 == null) return Forbid();
@@ -686,12 +739,12 @@ public sealed class WorkController : Controller
 
     private void ValidatePayroll(WorkItem draft, WorkPage page)
     {
-        if (!draft.EmployeeId.HasValue || string.IsNullOrWhiteSpace(draft.Category) || !draft.Target.HasValue || !draft.Actual.HasValue || !draft.DueDate.HasValue)
-            ModelState.AddModelError("", "Kỳ lương cần nhân viên, kỳ tính lương, tổng thu nhập, thực nhận và ngày thanh toán.");
+        if (!draft.EmployeeId.HasValue || string.IsNullOrWhiteSpace(draft.Category) || !draft.Target.HasValue || !draft.Actual.HasValue)
+            ModelState.AddModelError("", "Kỳ lương cần nhân viên, kỳ tính lương, tổng thu nhập và thực nhận.");
         if (draft.EmployeeId.HasValue && !page.People.Any(x => x.Id == draft.EmployeeId))
             ModelState.AddModelError("", "Nhân viên được chọn không hợp lệ.");
-        if (draft.Target < 0 || draft.Actual < 0 || draft.Actual > draft.Target)
-            ModelState.AddModelError("", "Số tiền thực nhận phải từ 0 đến tổng thu nhập.");
+        if (draft.Target < 0 || draft.Actual < 0)
+            ModelState.AddModelError("", "Số tiền lương không được là số âm.");
     }
 
     private void ValidateKpi(WorkItem draft, WorkPage page, int? excludeId = null)
@@ -708,8 +761,12 @@ public sealed class WorkController : Controller
         }
         if (draft.EmployeeId.HasValue && draft.DepartmentId.HasValue)
             ModelState.AddModelError("", "Mỗi tiêu chí KPI chỉ giao cho một nhân viên hoặc một phòng ban.");
-        if (!draft.DueDate.HasValue)
-            draft.DueDate = new DateTime(2026, 12, 31);
+        var period = KpiPeriodPolicy.ResolveOrDefault(draft.KpiPeriodType, draft.Quarter, HrmDataStore.CurrentVietnamTime());
+        draft.KpiPeriodType = period.Type;
+        draft.Quarter = period.Label;
+        draft.PeriodStart = period.Start;
+        draft.PeriodEnd = period.End;
+        draft.DueDate = period.End;
         if (string.IsNullOrWhiteSpace(draft.Reference))
             draft.Reference = $"KPI-{DateTime.Now:yyyyMMdd}-{Random.Shared.Next(100, 999)}";
         if (string.IsNullOrWhiteSpace(draft.Category))
@@ -722,7 +779,9 @@ public sealed class WorkController : Controller
             .Where(item => item.Kind == "kpi" && item.Id != excludeId
                 && (draft.EmployeeId.HasValue
                     ? item.EmployeeId == draft.EmployeeId
-                    : !item.EmployeeId.HasValue && item.DepartmentId == draft.DepartmentId))
+                    : !item.EmployeeId.HasValue && item.DepartmentId == draft.DepartmentId)
+                && KpiPeriodPolicy.ResolveItem(item).Start == period.Start
+                && KpiPeriodPolicy.ResolveItem(item).End == period.End)
             .Sum(item => item.Weight ?? 0);
         if (assignedWeight + draft.Weight > 100)
             ModelState.AddModelError("", $"Tổng tỷ trọng KPI của đối tượng nhận không được vượt 100% (hiện có {assignedWeight:N0}%).");
@@ -1072,13 +1131,13 @@ public sealed class WorkController : Controller
         if (page == null) return Forbid();
 
         period = string.IsNullOrWhiteSpace(period) ? HrmDataStore.CurrentVietnamTime().ToString("yyyy-MM") : period;
-        var isDirector = User.IsInRole(HrmRoles.Director) || User.IsInRole(HrmRoles.Admin);
-        var isHrOrAdmin = User.IsInRole(HrmRoles.Hr) || User.IsInRole(HrmRoles.Admin);
+        var role = _user.Current.RoleCode;
+        var canApprove = PayrollPolicy.CanApprove(role);
+        var canOperate = PayrollPolicy.CanEdit(role);
 
         var cmd = (actionType ?? "").ToUpperInvariant();
-        if ((cmd == "APPROVE" || cmd == "REJECT") && !isDirector) return Forbid();
-        if ((cmd == "FINALIZE" || cmd == "PAY") && !isHrOrAdmin) return Forbid();
-        if (cmd == "PUBLISH" && !isDirector && !isHrOrAdmin) return Forbid();
+        if ((cmd == "APPROVE" || cmd == "REJECT") && !canApprove) return Forbid();
+        if ((cmd == "FINALIZE" || cmd == "PUBLISH" || cmd == "PAY") && !canOperate) return Forbid();
 
         if (!_store.BatchPayrollAction(period, cmd, note, _user.Current.Id, ClientIp))
         {
@@ -1105,7 +1164,7 @@ public sealed class WorkController : Controller
     public IActionResult SavePayrollComponent([Bind("Kind,Title,Description,Reference,WorkLocation,Category,JobLevel,SalaryRange,Quarter,EmployeeId,DepartmentId,StartDate,Target,Status,Priority")] WorkItem draft)
     {
         var page = Page("payroll");
-        if (page == null || (!User.IsInRole(HrmRoles.Admin) && !User.IsInRole(HrmRoles.Hr))) return Forbid();
+        if (page == null || !PayrollPolicy.CanEdit(_user.Current.RoleCode)) return Forbid();
 
         if (string.IsNullOrWhiteSpace(draft.Title))
         {
@@ -1145,7 +1204,7 @@ public sealed class WorkController : Controller
 
         var csv = new System.Text.StringBuilder();
         csv.Append('\uFEFF');
-        csv.AppendLine("STT,Mã nhân viên,Họ và tên,Email,Phòng ban,Chi nhánh,Lương cơ bản,Lương KPI,Lương doanh số,Lương OT,Tổng phụ cấp,Thưởng,Tổng thu nhập,BHXH (8%),BHYT (1.5%),BHTN (1%),Tổng bảo hiểm (10.5%),Thuế TNCN,Tạm ứng,Khấu trừ,Thực nhận (Net),Trạng thái");
+        csv.AppendLine("STT,Mã nhân viên,Họ và tên,Email,Phòng ban,Chi nhánh,Lương cơ bản,Lương sản phẩm,Lương doanh số,Lương KPI,Lương OT,Tổng phụ cấp,Thưởng,Tổng thu nhập,BHXH (8%),BHYT (1.5%),BHTN (1%),Tổng bảo hiểm (10.5%),Thuế TNCN,Tạm ứng,Khấu trừ,Thực nhận (Net),Ngày dự kiến trả,Trạng thái");
 
         int idx = 1;
         foreach (var item in page.PayrollItems)
@@ -1157,8 +1216,9 @@ public sealed class WorkController : Controller
                 $"\"{item.DepartmentName}\"," +
                 $"\"{item.Branch}\"," +
                 $"{item.BaseSalary}," +
-                $"{item.KpiSalary}," +
+                $"{item.ProductSalary}," +
                 $"{item.SalesSalary}," +
+                $"{item.KpiSalary}," +
                 $"{item.OtSalary}," +
                 $"{item.TotalAllowance}," +
                 $"{item.Bonus}," +
@@ -1171,6 +1231,7 @@ public sealed class WorkController : Controller
                 $"{item.Advance}," +
                 $"{item.Deduction}," +
                 $"{item.NetSalary}," +
+                $"\"{item.PaymentDueDate:dd/MM/yyyy}\"," +
                 $"\"{item.StatusText}\"");
             idx++;
         }
