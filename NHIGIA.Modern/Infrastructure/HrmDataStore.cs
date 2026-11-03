@@ -40,11 +40,52 @@ namespace NHIGIA.Modern.Infrastructure
         {
             if (string.IsNullOrWhiteSpace(scriptPath) || !File.Exists(scriptPath)) return;
             var script = File.ReadAllText(scriptPath, System.Text.Encoding.UTF8);
-            var batches = Regex.Split(script, @"^\s*GO\s*$", RegexOptions.Multiline | RegexOptions.IgnoreCase);
+            var batches = Regex.Split(script, @"^\s*GO\s*$", RegexOptions.Multiline | RegexOptions.IgnoreCase)
+                .Where(x => !string.IsNullOrWhiteSpace(x)).ToArray();
+            var failures = new List<Exception>();
             using (var connection = OpenConnection())
             {
-                foreach (var batch in batches.Where(x => !string.IsNullOrWhiteSpace(x))) connection.Execute(batch, commandTimeout: 120);
+                for (var index = 0; index < batches.Length; index++)
+                {
+                    try
+                    {
+                        connection.Execute(batches[index], commandTimeout: 120);
+                    }
+                    catch (Exception exception)
+                    {
+                        failures.Add(new InvalidOperationException(
+                            $"Migration {Path.GetFileName(scriptPath)} thất bại tại batch {index + 1}/{batches.Length}.", exception));
+                    }
+                }
             }
+            if (failures.Count > 0)
+                throw new AggregateException($"Migration {Path.GetFileName(scriptPath)} có {failures.Count} batch thất bại.", failures);
+        }
+
+        public IReadOnlyList<string> GetMissingRequiredSchema()
+        {
+            const string sql = @"SELECT Requirement FROM (VALUES
+                (N'HrmUserAccount.UpdatedAt', CASE WHEN COL_LENGTH('dbo.HrmUserAccount','UpdatedAt') IS NULL THEN 1 ELSE 0 END),
+                (N'HrmWorkItem.KpiPeriodType', CASE WHEN COL_LENGTH('dbo.HrmWorkItem','KpiPeriodType') IS NULL THEN 1 ELSE 0 END),
+                (N'HrmWorkItem.PeriodStart', CASE WHEN COL_LENGTH('dbo.HrmWorkItem','PeriodStart') IS NULL THEN 1 ELSE 0 END),
+                (N'HrmWorkItem.PeriodEnd', CASE WHEN COL_LENGTH('dbo.HrmWorkItem','PeriodEnd') IS NULL THEN 1 ELSE 0 END),
+                (N'HrmWorkItem.ApprovedAt', CASE WHEN COL_LENGTH('dbo.HrmWorkItem','ApprovedAt') IS NULL THEN 1 ELSE 0 END),
+                (N'HrmRemoteWorkLocation', CASE WHEN OBJECT_ID('dbo.HrmRemoteWorkLocation','U') IS NULL THEN 1 ELSE 0 END),
+                (N'HrmRemotePunch.MatchedLocationId', CASE WHEN COL_LENGTH('dbo.HrmRemotePunch','MatchedLocationId') IS NULL THEN 1 ELSE 0 END),
+                (N'HrmRemotePunch.MatchedLocationName', CASE WHEN COL_LENGTH('dbo.HrmRemotePunch','MatchedLocationName') IS NULL THEN 1 ELSE 0 END),
+                (N'HrmRecruitmentCandidate.DateOfBirth', CASE WHEN COL_LENGTH('dbo.HrmRecruitmentCandidate','DateOfBirth') IS NULL THEN 1 ELSE 0 END),
+                (N'HrmRecruitmentCandidate.Address', CASE WHEN COL_LENGTH('dbo.HrmRecruitmentCandidate','Address') IS NULL THEN 1 ELSE 0 END),
+                (N'HrmRecruitmentCandidate.CurrentPosition', CASE WHEN COL_LENGTH('dbo.HrmRecruitmentCandidate','CurrentPosition') IS NULL THEN 1 ELSE 0 END),
+                (N'HrmRecruitmentCandidate.Education', CASE WHEN COL_LENGTH('dbo.HrmRecruitmentCandidate','Education') IS NULL THEN 1 ELSE 0 END),
+                (N'HrmRecruitmentCandidate.ExperienceSummary', CASE WHEN COL_LENGTH('dbo.HrmRecruitmentCandidate','ExperienceSummary') IS NULL THEN 1 ELSE 0 END),
+                (N'HrmRecruitmentCandidate.Skills', CASE WHEN COL_LENGTH('dbo.HrmRecruitmentCandidate','Skills') IS NULL THEN 1 ELSE 0 END),
+                (N'HrmRecruitmentCandidate.ExpectedSalary', CASE WHEN COL_LENGTH('dbo.HrmRecruitmentCandidate','ExpectedSalary') IS NULL THEN 1 ELSE 0 END),
+                (N'HrmRecruitmentImportDraft', CASE WHEN OBJECT_ID('dbo.HrmRecruitmentImportDraft','U') IS NULL THEN 1 ELSE 0 END),
+                (N'HrmEmployeeUniform', CASE WHEN OBJECT_ID('dbo.HrmEmployeeUniform','U') IS NULL THEN 1 ELSE 0 END),
+                (N'HrmEmployeeSoftwareAccount', CASE WHEN OBJECT_ID('dbo.HrmEmployeeSoftwareAccount','U') IS NULL THEN 1 ELSE 0 END)
+            ) required(Requirement,IsMissing) WHERE IsMissing=1 ORDER BY Requirement;";
+            using var connection = OpenConnection();
+            return connection.Query<string>(sql).ToList();
         }
 
         public HrmUserAccountModel FindUser(string username)

@@ -36,6 +36,10 @@ BEGIN
 END;
 GO
 
+IF COL_LENGTH('dbo.HrmUserAccount', 'UpdatedAt') IS NULL
+    ALTER TABLE dbo.HrmUserAccount ADD UpdatedAt DATETIME2 NULL;
+GO
+
 IF OBJECT_ID('dbo.HrmEmployeeProfile', 'U') IS NULL
 BEGIN
     CREATE TABLE dbo.HrmEmployeeProfile (

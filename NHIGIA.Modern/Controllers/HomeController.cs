@@ -9,9 +9,15 @@ namespace NHIGIA.Modern.Controllers;
 public sealed class HomeController : BaseController
 {
     private readonly IConfiguration _configuration;
+    private readonly ILogger<HomeController> _logger;
 
-    public HomeController(HrmDataStore store, HrmUserAccessor userAccessor, IConfiguration configuration)
-        : base(store, userAccessor) => _configuration = configuration;
+    public HomeController(HrmDataStore store, HrmUserAccessor userAccessor, IConfiguration configuration,
+        ILogger<HomeController> logger)
+        : base(store, userAccessor)
+    {
+        _configuration = configuration;
+        _logger = logger;
+    }
 
     public IActionResult Index() { ViewBag.Title = "Tổng quan"; return View(); }
     public IActionResult CompanyInformation(string section = "introduction", string brand = "nhigia")
@@ -88,7 +94,21 @@ public sealed class HomeController : BaseController
         {
             var canManageExtras = CurrentHrmUser.RoleCode is HrmRoles.Admin or HrmRoles.Hr or HrmRoles.Director;
             var canRevealPasswords = CurrentHrmUser.RoleCode == HrmRoles.Admin || targetId == CurrentHrmUser.Id;
-            ViewBag.ProfileExtras = Store.GetEmployeeProfileExtras(targetId, canManageExtras, canRevealPasswords);
+            try
+            {
+                ViewBag.ProfileExtras = Store.GetEmployeeProfileExtras(targetId, canManageExtras, canRevealPasswords);
+            }
+            catch (Exception exception)
+            {
+                _logger.LogError(exception, "Không thể tải tài sản, trang phục và tài khoản phần mềm của nhân viên #{UserId}", targetId);
+                ViewBag.ProfileExtras = new EmployeeProfileExtrasModel
+                {
+                    UserId = targetId,
+                    CanManage = canManageExtras,
+                    CanRevealPasswords = canRevealPasswords
+                };
+                ViewBag.ProfileExtrasError = "Dữ liệu tài sản, trang phục và tài khoản phần mềm đang được nâng cấp. Hồ sơ chính vẫn có thể sử dụng bình thường.";
+            }
         }
         return profile == null ? NotFound() : View(profile);
     }

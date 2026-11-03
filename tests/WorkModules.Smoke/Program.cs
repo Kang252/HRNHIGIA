@@ -28,7 +28,7 @@ try
     var ready = false;
     for (int i = 0; i < 30; i++)
     {
-        try { ready = (await client.GetAsync("/Health")).IsSuccessStatusCode; } catch (HttpRequestException) { }
+        try { ready = (await client.GetAsync("/Health/Live")).IsSuccessStatusCode; } catch (HttpRequestException) { }
         if (ready) break;
         await Task.Delay(500);
     }

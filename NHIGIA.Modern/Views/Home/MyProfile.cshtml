@@ -307,6 +307,7 @@
 <div class="container-fluid s5-profile-wrapper">
     @if (TempData["ProfileSuccess"] != null) { <div class="profile-extra-alert ok">@TempData["ProfileSuccess"]</div> }
     @if (TempData["ProfileError"] != null) { <div class="profile-extra-alert error">@TempData["ProfileError"]</div> }
+    @if (ViewBag.ProfileExtrasError != null) { <div class="profile-extra-alert error">@ViewBag.ProfileExtrasError</div> }
     <!-- Breadcrumb / Header Actions -->
     <div class="s5-top-bar">
         <div class="s5-breadcrumb">

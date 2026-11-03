@@ -33,12 +33,6 @@ BEGIN
  CREATE INDEX IX_HrmRemoteWorkLocation_Plan ON dbo.HrmRemoteWorkLocation(PlanId,SortOrder,Id);
 END;
 GO
-INSERT dbo.HrmRemoteWorkLocation(PlanId,Name,Latitude,Longitude,RadiusMeters,SortOrder)
-SELECT p.Id,p.PlaceName,p.Latitude,p.Longitude,p.RadiusMeters,0
-FROM dbo.HrmRemoteWorkPlan p
-WHERE p.Latitude IS NOT NULL AND p.Longitude IS NOT NULL
-  AND NOT EXISTS(SELECT 1 FROM dbo.HrmRemoteWorkLocation x WHERE x.PlanId=p.Id);
-GO
 IF OBJECT_ID('dbo.HrmRemotePunch','U') IS NULL
 BEGIN
  CREATE TABLE dbo.HrmRemotePunch (
@@ -64,4 +58,11 @@ IF OBJECT_ID('dbo.HrmRemotePunch','U') IS NOT NULL AND COL_LENGTH('dbo.HrmRemote
 GO
 IF OBJECT_ID('dbo.HrmRemotePunch','U') IS NOT NULL AND COL_LENGTH('dbo.HrmRemotePunch','MatchedLocationName') IS NULL
  ALTER TABLE dbo.HrmRemotePunch ADD MatchedLocationName NVARCHAR(200) NULL;
+GO
+INSERT dbo.HrmRemoteWorkLocation(PlanId,Name,Latitude,Longitude,RadiusMeters,SortOrder)
+SELECT p.Id,p.PlaceName,p.Latitude,p.Longitude,
+  CASE WHEN p.RadiusMeters<50 THEN 50 WHEN p.RadiusMeters>2000 THEN 2000 ELSE p.RadiusMeters END,0
+FROM dbo.HrmRemoteWorkPlan p
+WHERE p.Latitude IS NOT NULL AND p.Longitude IS NOT NULL
+  AND NOT EXISTS(SELECT 1 FROM dbo.HrmRemoteWorkLocation x WHERE x.PlanId=p.Id);
 GO

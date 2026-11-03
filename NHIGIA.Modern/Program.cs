@@ -314,18 +314,28 @@ app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Home}/{action=Index}/{id?}");
 
-try
+var schemaFiles = new[]
 {
-    var store = app.Services.GetRequiredService<HrmDataStore>();
-    store.EnsureSchema(Path.Combine(app.Environment.ContentRootPath, "App_Data", "hrm-mvp.sql"));
-    store.EnsureSchema(Path.Combine(app.Environment.ContentRootPath, "App_Data", "remote-attendance.sql"));
-    store.EnsureSchema(Path.Combine(app.Environment.ContentRootPath, "App_Data", "face-enrollment.sql"));
-    store.EnsureSchema(Path.Combine(app.Environment.ContentRootPath, "App_Data", "opencv-face-trial.sql"));
-    store.EnsureSchema(Path.Combine(app.Environment.ContentRootPath, "App_Data", "profile-recruitment-enhancements.sql"));
-}
-catch (Exception exception)
+    "hrm-mvp.sql",
+    "remote-attendance.sql",
+    "face-enrollment.sql",
+    "opencv-face-trial.sql",
+    "profile-recruitment-enhancements.sql"
+};
+var schemaStore = app.Services.GetRequiredService<HrmDataStore>();
+foreach (var schemaFile in schemaFiles)
 {
-    app.Logger.LogError(exception, "Không thể khởi tạo schema HRM");
+    try
+    {
+        schemaStore.EnsureSchema(Path.Combine(app.Environment.ContentRootPath, "App_Data", schemaFile));
+    }
+    catch (Exception exception)
+    {
+        // Migrations are additive and independently idempotent. Continue with
+        // the remaining modules so one legacy-data issue cannot hide every
+        // later schema, while retaining the exact failing file in Render logs.
+        app.Logger.LogError(exception, "Không thể khởi tạo schema HRM từ {SchemaFile}", schemaFile);
+    }
 }
 
 app.Run();
