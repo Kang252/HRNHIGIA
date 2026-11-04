@@ -6,6 +6,18 @@
     var isEmployee = User.IsInRole(HrmRoles.Employee);
     var startYear = Math.Max(2000, DateTime.Now.Year - 5);
     var endYear = DateTime.Now.Year + 14;
+    var reopenCreateKpi = ViewBag.OpenCreateKpiModal == true;
+    var createDraft = reopenCreateKpi ? Model.Draft : new WorkItem
+    {
+        Kind = "kpi",
+        KpiType = "ASSIGNED",
+        KpiPeriodType = Model.PeriodType,
+        Quarter = Model.FromQuarter,
+        Category = "%",
+        Weight = 10
+    };
+    var createTargetValue = createDraft.Target?.ToString(System.Globalization.CultureInfo.InvariantCulture);
+    var createWeightValue = createDraft.Weight?.ToString(System.Globalization.CultureInfo.InvariantCulture);
 }
 
     <div class="kpi-container">
@@ -135,7 +147,7 @@
 
                 @if (Model.CanManage)
                 {
-                    <button type="button" id="btnOpenCreateKpi" class="hrm-btn hrm-btn-primary kpi-create-btn" onclick="window.openCreateKpiModal()" data-toggle="modal" data-target="#modalCreateKpi">
+                    <button type="button" id="btnOpenCreateKpi" class="hrm-btn hrm-btn-primary kpi-create-btn">
                         <i class="material-icons">add</i> Tạo KPI mới
                     </button>
                 }
@@ -528,13 +540,13 @@
     </div>
 
     <!-- MODAL 3: TẠO KPI MỚI (Slide 11: Cá nhân vs Kế hoạch) -->
-    <div class="modal fade" id="modalCreateKpi" tabindex="-1" role="dialog" aria-labelledby="modalCreateKpiTitle">
+    <div class="modal fade" id="modalCreateKpi" tabindex="-1" role="dialog" aria-labelledby="modalCreateKpiTitle" data-reopen="@(reopenCreateKpi ? "true" : "false")">
         <div class="modal-dialog modal-lg" role="document">
             <div class="modal-content kpi-modal-content">
                 <form method="post" asp-controller="Work" asp-action="Create">
                     @Html.AntiForgeryToken()
                     <input type="hidden" name="Kind" value="kpi" />
-                    <input type="hidden" name="KpiPeriodType" value="@Model.PeriodType" />
+                    <input type="hidden" name="KpiPeriodType" value="@createDraft.KpiPeriodType" />
                     <div class="modal-header kpi-modal-header">
                         <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
                         <h4 class="modal-title" id="modalCreateKpiTitle"><i class="material-icons">add_chart</i> Tạo tiêu chí KPI mới</h4>
@@ -545,7 +557,7 @@
                             <label style="font-weight:600; color:#1e293b; display:block; margin-bottom:8px;">Phân loại KPI *</label>
                             <div class="kpi-type-selector">
                                 <label class="kpi-type-option">
-                                    <input type="radio" name="KpiType" value="ASSIGNED" checked onchange="toggleCreateKpiType('ASSIGNED')" />
+                                    <input type="radio" name="KpiType" value="ASSIGNED" checked="@(createDraft.KpiType != "PLAN")" onchange="toggleCreateKpiType('ASSIGNED')" />
                                     <div class="kpi-type-box">
                                         <i class="material-icons">person</i>
                                         <div>
@@ -555,7 +567,7 @@
                                     </div>
                                 </label>
                                 <label class="kpi-type-option">
-                                    <input type="radio" name="KpiType" value="PLAN" onchange="toggleCreateKpiType('PLAN')" />
+                                    <input type="radio" name="KpiType" value="PLAN" checked="@(createDraft.KpiType == "PLAN")" onchange="toggleCreateKpiType('PLAN')" />
                                     <div class="kpi-type-box">
                                         <i class="material-icons">corporate_fare</i>
                                         <div>
@@ -571,13 +583,13 @@
                             <div class="col-md-8">
                                 <div class="form-group">
                                     <label for="createKpiTitle" style="font-weight:600;">Tên mục tiêu / Tiêu chí KPI *</label>
-                                    <input id="createKpiTitle" name="Title" class="form-control" required placeholder="Ví dụ: Đạt doanh thu dự án 90%, Xử lý 100 khách hàng..." />
+                                    <input id="createKpiTitle" name="Title" value="@createDraft.Title" class="form-control" required placeholder="Ví dụ: Đạt doanh thu dự án 90%, Xử lý 100 khách hàng..." />
                                 </div>
                             </div>
                             <div class="col-md-4">
                                 <div class="form-group">
                                     <label for="createKpiReference" style="font-weight:600;">Mã KPI</label>
-                                    <input id="createKpiReference" name="Reference" class="form-control" placeholder="Ví dụ: KPI-IT-001" />
+                                    <input id="createKpiReference" name="Reference" value="@createDraft.Reference" class="form-control" placeholder="Ví dụ: KPI-IT-001" />
                                 </div>
                             </div>
                         </div>
@@ -590,7 +602,7 @@
                                         <option value="">-- Chọn nhân viên --</option>
                                         @foreach (var person in Model.People)
                                         {
-                                            <option value="@person.Id">@person.DisplayName (@person.DepartmentName)</option>
+                                            <option value="@person.Id" selected="@(createDraft.EmployeeId == person.Id)">@person.DisplayName (@person.DepartmentName)</option>
                                         }
                                     </select>
                                 </div>
@@ -602,7 +614,7 @@
                                         <option value="">-- Chọn phòng ban --</option>
                                         @foreach (var dept in Model.Departments)
                                         {
-                                            <option value="@dept.Id">@dept.Name</option>
+                                            <option value="@dept.Id" selected="@(createDraft.DepartmentId == dept.Id)">@dept.Name</option>
                                         }
                                     </select>
                                 </div>
@@ -613,19 +625,19 @@
                             <div class="col-md-3">
                                 <div class="form-group">
                                     <label for="createKpiTarget" style="font-weight:600;">Chỉ tiêu (Target) *</label>
-                                    <input type="number" step="0.01" min="0.01" max="1000000000" id="createKpiTarget" name="Target" class="form-control" required placeholder="Ví dụ: 10, 100..." />
+                                    <input type="number" step="0.01" min="0.01" max="1000000000" id="createKpiTarget" name="Target" value="@createTargetValue" class="form-control" required placeholder="Ví dụ: 10, 100..." />
                                 </div>
                             </div>
                             <div class="col-md-3">
                                 <div class="form-group">
                                     <label for="createKpiCategory" style="font-weight:600;">Đơn vị đo *</label>
-                                    <input id="createKpiCategory" name="Category" class="form-control" required placeholder="%, VNĐ, hồ sơ, giờ…" value="%" />
+                                    <input id="createKpiCategory" name="Category" class="form-control" required placeholder="%, VNĐ, hồ sơ, giờ…" value="@createDraft.Category" />
                                 </div>
                             </div>
                             <div class="col-md-3">
                                 <div class="form-group">
                                     <label for="createKpiWeight" style="font-weight:600;">Trọng số (%) *</label>
-                                    <input type="number" step="0.01" min="1" max="100" id="createKpiWeight" name="Weight" class="form-control" required placeholder="1 - 100" value="10" />
+                                    <input type="number" step="0.01" min="1" max="100" id="createKpiWeight" name="Weight" class="form-control" required placeholder="1 - 100" value="@createWeightValue" />
                                 </div>
                             </div>
                             <div class="col-md-3">
@@ -639,7 +651,7 @@
                                                 for (int m = 1; m <= 12; m++)
                                                 {
                                                     var value = $"Tháng {m:00}-{y}";
-                                                    <option value="@value" selected="@(value == Model.FromQuarter)">@value</option>
+                                                    <option value="@value" selected="@(value == createDraft.Quarter)">@value</option>
                                                 }
                                             }
                                         }
@@ -647,7 +659,7 @@
                                         {
                                             for (int y = startYear; y <= endYear; y++)
                                             {
-                                                <option value="@y" selected="@(y.ToString() == Model.FromQuarter)">@y</option>
+                                                <option value="@y" selected="@(y.ToString() == createDraft.Quarter)">@y</option>
                                             }
                                         }
                                         else
@@ -657,7 +669,7 @@
                                                 for (int q = 1; q <= 4; q++)
                                                 {
                                                     var value = $"Quý {q}-{y}";
-                                                    <option value="@value" selected="@(value == Model.FromQuarter)">@value</option>
+                                                    <option value="@value" selected="@(value == createDraft.Quarter)">@value</option>
                                                 }
                                             }
                                         }
@@ -668,7 +680,7 @@
 
                         <div class="form-group">
                             <label for="createKpiDescription" style="font-weight:600;">Cách đo / Nguồn dữ liệu</label>
-                            <textarea id="createKpiDescription" name="Description" class="form-control" rows="3" placeholder="Mô tả công thức tính, nguồn số liệu đối chiếu và tiêu chuẩn nghiệm thu..."></textarea>
+                            <textarea id="createKpiDescription" name="Description" class="form-control" rows="3" placeholder="Mô tả công thức tính, nguồn số liệu đối chiếu và tiêu chuẩn nghiệm thu...">@createDraft.Description</textarea>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -1671,5 +1683,13 @@
             e.preventDefault();
             window.openEditKpiModal(this);
         });
+
+        @if (reopenCreateKpi)
+        {
+            <text>
+            toggleCreateKpiType('@(createDraft.KpiType == "PLAN" ? "PLAN" : "ASSIGNED")');
+            window.openCreateKpiModal();
+            </text>
+        }
     });
 </script>

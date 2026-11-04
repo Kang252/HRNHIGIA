@@ -189,6 +189,27 @@ public sealed class WorkItemStore
         return id;
     }
 
+    public int CreateKpi(WorkItem item)
+    {
+        if (item == null || item.Kind != "kpi")
+            throw new InvalidOperationException("Dữ liệu KPI không hợp lệ.");
+
+        item.Status = "WAITING_RESULT";
+        using var db = Open();
+        using var transaction = db.BeginTransaction();
+        var id = db.QuerySingle<int>(@"INSERT dbo.HrmWorkItem
+            (Kind,Title,Description,Category,Reference,EmployeeId,DepartmentId,DueDate,
+             Target,Actual,Weight,Priority,Status,CreatedBy,KpiType,KpiPeriodType,
+             Quarter,PeriodStart,PeriodEnd,ProofNote)
+            OUTPUT INSERTED.Id VALUES
+            (@Kind,@Title,@Description,@Category,@Reference,@EmployeeId,@DepartmentId,@DueDate,
+             @Target,@Actual,@Weight,@Priority,@Status,@CreatedBy,@KpiType,@KpiPeriodType,
+             @Quarter,@PeriodStart,@PeriodEnd,@ProofNote)", item, transaction);
+        NotifyWorkChange(db, transaction, id, "CREATED");
+        transaction.Commit();
+        return id;
+    }
+
     public bool UpdateKpi(WorkItem item, int actorId, string ipAddress)
     {
         using var db = Open();

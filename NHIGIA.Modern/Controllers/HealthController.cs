@@ -40,6 +40,10 @@ public sealed class HealthController : ControllerBase
     public IActionResult Database()
     {
         try { return Ok(new { Status = _store.CanConnect() ? "OK" : "FAILED" }); }
-        catch (Exception exception) { return StatusCode(503, new { Status = "FAILED", Message = exception.Message }); }
+        catch (Exception exception)
+        {
+            _logger.LogError(exception, "Không thể kết nối cơ sở dữ liệu HRM");
+            return StatusCode(503, new { Status = "FAILED", Component = "Database" });
+        }
     }
 }

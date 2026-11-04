@@ -4,7 +4,9 @@ services:
     runtime: docker
     dockerfilePath: ./Dockerfile
     autoDeployTrigger: commit
-    healthCheckPath: /Health
+    # SQL connectivity is critical for login and HRM workflows. Full schema
+    # readiness remains available separately at /Health.
+    healthCheckPath: /Health/Database
     envVars:
       - key: ASPNETCORE_ENVIRONMENT
         value: Production

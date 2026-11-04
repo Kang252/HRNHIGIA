@@ -223,7 +223,15 @@ public sealed class WorkController : Controller
         if (!page.CanCreate) return Forbid();
         if (draft.Kind == "kpi")
         {
-            draft.KpiType = string.IsNullOrWhiteSpace(draft.KpiType) ? "ASSIGNED" : draft.KpiType;
+            draft.KpiType = string.IsNullOrWhiteSpace(draft.KpiType)
+                ? "ASSIGNED"
+                : draft.KpiType.Trim().ToUpperInvariant();
+            if (draft.KpiType == "ASSIGNED")
+                draft.DepartmentId = null;
+            else if (draft.KpiType == "PLAN")
+                draft.EmployeeId = null;
+            else
+                ModelState.AddModelError("", "Phân loại KPI không hợp lệ.");
             var period = KpiPeriodPolicy.ResolveOrDefault(draft.KpiPeriodType, draft.Quarter, HrmDataStore.CurrentVietnamTime());
             draft.KpiPeriodType = period.Type;
             draft.Quarter = period.Label;
@@ -289,7 +297,10 @@ public sealed class WorkController : Controller
         if (draft.Kind == "business-trip" && (!draft.EmployeeId.HasValue || string.IsNullOrWhiteSpace(draft.Destination)))
             ModelState.AddModelError("", "Phân công công tác cần nhân viên và địa điểm công tác.");
         if (!page.Available || !ModelState.IsValid)
+        {
+            if (draft.Kind == "kpi") ViewBag.OpenCreateKpiModal = true;
             return draft.Kind == "recruitment" ? View("CreateRecruitmentPosition", page) : View("Index", page);
+        }
         draft.CreatedBy = _user.Current.Id;
         if (draft.Kind == "resignation")
         {
@@ -357,14 +368,27 @@ public sealed class WorkController : Controller
             draft.EmployeeId = _user.Current.Id;
         try
         {
-            var id = _store.Create(draft, participantIds);
+            var id = draft.Kind == "kpi"
+                ? _store.CreateKpi(draft)
+                : _store.Create(draft, participantIds);
             TempData["WorkSuccess"] = $"Đã lưu #{id:D5} vào hệ thống.";
             return RedirectToAction("Index", new { kind = draft.Kind, otTab = draft.Kind == "overtime" ? "my-calendar" : null, otMonth = draft.DueDate?.ToString("yyyy-MM"), trTab = draft.Kind == "transfer" ? "requests" : null });
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Cannot save work item");
-            ModelState.AddModelError("", ex is InvalidOperationException ? ex.Message : "Không thể lưu dữ liệu. Vui lòng thử lại.");
+            _logger.LogError(ex, "Cannot save work item {Kind}; TraceIdentifier={TraceIdentifier}",
+                draft.Kind, HttpContext.TraceIdentifier);
+            if (draft.Kind == "kpi")
+            {
+                ViewBag.OpenCreateKpiModal = true;
+                ModelState.AddModelError("", ex is InvalidOperationException
+                    ? ex.Message
+                    : $"Không thể lưu KPI. Mã lỗi: {HttpContext.TraceIdentifier}.");
+            }
+            else
+            {
+                ModelState.AddModelError("", ex is InvalidOperationException ? ex.Message : "Không thể lưu dữ liệu. Vui lòng thử lại.");
+            }
             return View("Index", page);
         }
     }
@@ -583,6 +607,15 @@ public sealed class WorkController : Controller
         Load(page);
         if (!page.CanManage) return Forbid();
         if (!page.Items.Any(x => x.Id == draft.Id)) return NotFound();
+        draft.KpiType = string.IsNullOrWhiteSpace(draft.KpiType)
+            ? "ASSIGNED"
+            : draft.KpiType.Trim().ToUpperInvariant();
+        if (draft.KpiType == "ASSIGNED")
+            draft.DepartmentId = null;
+        else if (draft.KpiType == "PLAN")
+            draft.EmployeeId = null;
+        else
+            ModelState.AddModelError("", "Phân loại KPI không hợp lệ.");
         if (draft.EmployeeId.HasValue && !page.People.Any(x => x.Id == draft.EmployeeId))
             ModelState.AddModelError("", "Nhân viên được chọn không hợp lệ.");
         if (draft.DepartmentId.HasValue && !page.Departments.Any(x => x.Id == draft.DepartmentId))

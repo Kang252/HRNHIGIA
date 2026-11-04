@@ -323,18 +323,46 @@ var schemaFiles = new[]
     "profile-recruitment-enhancements.sql"
 };
 var schemaStore = app.Services.GetRequiredService<HrmDataStore>();
-foreach (var schemaFile in schemaFiles)
+var canRunSchemaMigrations = false;
+for (var connectionAttempt = 1; connectionAttempt <= 2 && !canRunSchemaMigrations; connectionAttempt++)
 {
     try
     {
-        schemaStore.EnsureSchema(Path.Combine(app.Environment.ContentRootPath, "App_Data", schemaFile));
+        // Probe before iterating so an unavailable database does not multiply
+        // the connection timeout by every schema file before Render binds PORT.
+        canRunSchemaMigrations = schemaStore.CanConnect();
     }
     catch (Exception exception)
     {
-        // Migrations are additive and independently idempotent. Continue with
-        // the remaining modules so one legacy-data issue cannot hide every
-        // later schema, while retaining the exact failing file in Render logs.
-        app.Logger.LogError(exception, "Không thể khởi tạo schema HRM từ {SchemaFile}", schemaFile);
+        app.Logger.LogError(exception,
+            "Không thể kết nối cơ sở dữ liệu để chạy migration (lần {Attempt}/2)",
+            connectionAttempt);
+        if (connectionAttempt == 1) Thread.Sleep(TimeSpan.FromSeconds(1));
+    }
+}
+
+if (canRunSchemaMigrations)
+{
+    foreach (var schemaFile in schemaFiles)
+    {
+        for (var attempt = 1; attempt <= 2; attempt++)
+        {
+            try
+            {
+                schemaStore.EnsureSchema(Path.Combine(app.Environment.ContentRootPath, "App_Data", schemaFile));
+                break;
+            }
+            catch (Exception exception)
+            {
+                // Migrations are additive and independently idempotent. Retry
+                // once for a transient SQL failure, then continue so one legacy
+                // data issue cannot hide every later schema.
+                app.Logger.LogError(exception,
+                    "Không thể khởi tạo schema HRM từ {SchemaFile} (lần {Attempt}/2)",
+                    schemaFile, attempt);
+                if (attempt == 1) Thread.Sleep(TimeSpan.FromSeconds(1));
+            }
+        }
     }
 }
 

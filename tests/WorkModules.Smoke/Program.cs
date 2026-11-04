@@ -33,6 +33,12 @@ try
         await Task.Delay(500);
     }
     if (!ready) throw new Exception("Local test host failed to start.");
+    var databaseHealth = await client.GetAsync("/Health/Database");
+    var databaseHealthBody = await databaseHealth.Content.ReadAsStringAsync();
+    if (databaseHealth.StatusCode != HttpStatusCode.ServiceUnavailable ||
+        !databaseHealthBody.Contains("Database") || databaseHealthBody.Contains("Message"))
+        throw new Exception("Database health check did not fail safely for an unavailable SQL dependency.");
+    Console.WriteLine("PASS database health dependency and safe response");
     using (var proxyRequest = new HttpRequestMessage(HttpMethod.Get, "/Work?kind=kpi"))
     {
         proxyRequest.Headers.Add("X-Forwarded-Proto", "https");
@@ -175,6 +181,34 @@ try
     await Check("/Work?kind=offboarding", "HR", HttpStatusCode.Redirect);
     await Check("/Work?kind=kpi", "MANAGER", HttpStatusCode.OK, "KPI phòng ban", "Chưa kết nối");
     await Check("/Work?kind=assets&asTab=list", "MANAGER", HttpStatusCode.OK, "Tài sản phòng ban", "Chưa kết nối", "Danh sách tài sản trong hệ thống", "Cấp phát", "Thu hồi", "readonly", "Hệ thống tự cấp mã kế tiếp");
+    // A failed KPI save must retain the draft, explain the failure, and reopen
+    // exactly the same modal instead of looking like the submit did nothing.
+    using (var kpiGet = new HttpRequestMessage(HttpMethod.Get, "/Work?kind=kpi"))
+    {
+        var auth = Cookie("ADMIN");
+        kpiGet.Headers.Add("Cookie", auth);
+        var editor = await client.SendAsync(kpiGet);
+        var editorHtml = await editor.Content.ReadAsStringAsync();
+        var tokenMatch = System.Text.RegularExpressions.Regex.Match(editorHtml, "name=\"__RequestVerificationToken\"[^>]*value=\"([^\"]+)\"");
+        if (!tokenMatch.Success) throw new Exception("KPI editor missing anti-forgery field.");
+        if (editorHtml.Contains("data-target=\"#modalCreateKpi\"") || editorHtml.Contains("onclick=\"window.openCreateKpiModal"))
+            throw new Exception("KPI create button still has duplicate modal triggers.");
+        using var save = new HttpRequestMessage(HttpMethod.Post, "/Work/Create");
+        save.Headers.Add("Cookie", auth);
+        save.Content = new FormUrlEncodedContent(new Dictionary<string,string> {
+            ["__RequestVerificationToken"] = WebUtility.HtmlDecode(tokenMatch.Groups[1].Value),
+            ["Kind"]="kpi", ["KpiType"]="ASSIGNED", ["KpiPeriodType"]="QUARTER", ["Quarter"]="Quý 4-2026",
+            ["Title"]="KPI retention test", ["EmployeeId"]="1", ["Target"]="75", ["Category"]="%", ["Weight"]="10",
+            ["Description"]="Keep KPI draft"
+        });
+        var saved = await client.SendAsync(save);
+        var failedHtml = await saved.Content.ReadAsStringAsync();
+        if (saved.StatusCode != HttpStatusCode.OK || !failedHtml.Contains("KPI retention test") ||
+            !failedHtml.Contains("Keep KPI draft") || !failedHtml.Contains("data-reopen=\"true\"") ||
+            !WebUtility.HtmlDecode(failedHtml).Contains("Chưa kết nối được cơ sở dữ liệu"))
+            throw new Exception("Failed KPI save lost draft, error message, or modal reopen state.");
+        Console.WriteLine("PASS failed KPI save retains fields and reopens one modal");
+    }
     // Failed saves must return the editor with user-entered fields; no SQL can be reached by this host.
     using (var assetGet = new HttpRequestMessage(HttpMethod.Get, "/Work?kind=assets&asTab=list"))
     {
