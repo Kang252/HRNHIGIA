@@ -40,7 +40,12 @@ function snapshot(route,role='ADMIN') {
                 const leave={Id:42,UserId:20,RequestCode:'NP42',DisplayName:'Nguyễn "An"',DepartmentName:'IT',DepartmentId:2,RoleCode:'MANAGER',
                     LeaveType:'Nghỉ phép',StartDate:'2026-09-25',EndDate:'2026-09-25',StatusCode:'PENDING_MANAGER',SessionCode:'Buổi sáng',
                     Reason:'Thử "nội dung" <script>không thực thi</script>',HasAttachment:true,AttachmentName:'Ghi chú.pdf'};
-                const data=u.pathname==='/Hrm/Dashboard'?{TotalEmployees:1,PresentToday:1,PendingApprovals:1,AttendanceToday:[{DisplayName:'Nguyễn An',DepartmentName:'IT',ShiftName:'Ca hành chính',CheckIn:'2026-09-25T08:00:00',CheckOut:null,StatusCode:'IN_PROGRESS'}]}:u.pathname==='/Hrm/LeaveStats'?{AnnualAllowance:12,UsedDays:2,PendingCount:1,ApprovedCount:3}:u.pathname==='/Hrm/Schedules'?[{ShiftName:'Ca hành chính',StartTime:'08:00:00',EndTime:'17:30:00',EffectiveFrom:'2026-01-01',EffectiveTo:null}]:u.pathname==='/Hrm/HanetReconciliation'?[{Id:1,WorkDate:'2026-09-25',StatusCode:'SUCCESS',ReceivedCount:2,InsertedCount:1,MappedEvents:1,UnmappedEvents:1,MappedEmployees:1,FinishedAt:'2026-09-25T18:00:00',Message:'fixture'}]:u.pathname==='/Hrm/HanetReconciliationEvents'?[{Id:1,DisplayName:null,PersonId:'P1',AliasId:'A1',DeviceId:'D1',CheckTime:'2026-09-25T08:00:00',ReceivedAt:'2026-09-25T08:00:01',EventType:'checkin',IsMapped:false}]:u.pathname==='/Hrm/AttendanceConfirmations'?[{UserId:20,DisplayName:'Nguyễn An',EmployeeCode:'NV020',DepartmentName:'IT',IsConfirmed:false}]:u.pathname==='/Hrm/AttendancePeriod'?{StatusCode:'OPEN',IsConfirmed:false,EmployeeCount:2,ConfirmedCount:1,PendingAdjustmentCount:0}:u.pathname==='/Hrm/Users'?users:u.pathname==='/Hrm/LeaveRequests'?[leave]:u.pathname==='/Hrm/ApprovalInbox'?
+                const attendance=[
+                    {UserId:20,PersonId:'HN-020',EmployeeCode:'NV020',DisplayName:'Nguyễn "An" <script>window.__attendanceXss=true</script>',JobTitle:'Nhân viên IT',DepartmentName:'IT',WorkDate:'2026-11-01',ShiftName:'Ca hành chính',CheckIn:'2026-11-01T08:00:00',CheckOut:'2026-11-01T16:00:00',LastSeen:'2026-11-01T16:00:00',WorkedMinutes:480,LateMinutes:0,EarlyMinutes:0,EventCount:2,StatusCode:'ON_TIME',Source:'HANET',IsProvisional:false},
+                    {UserId:20,PersonId:'HN-020',EmployeeCode:'NV020',DisplayName:'Nguyễn "An" <script>window.__attendanceXss=true</script>',JobTitle:'Nhân viên IT',DepartmentName:'IT',WorkDate:'2026-11-02',ShiftName:'Ca hành chính',CheckIn:'2026-11-02T08:00:00',CheckOut:'2026-11-02T16:30:00',LastSeen:'2026-11-02T16:30:00',WorkedMinutes:510,LateMinutes:0,EarlyMinutes:0,EventCount:2,StatusCode:'ON_TIME',Source:'HANET',IsProvisional:false},
+                    {UserId:20,PersonId:'HN-020',EmployeeCode:'NV020',DisplayName:'Nguyễn "An" <script>window.__attendanceXss=true</script>',JobTitle:'Nhân viên IT',DepartmentName:'IT',WorkDate:'2026-11-03',ShiftName:'Ca hành chính',CheckIn:'2026-11-03T08:00:00',CheckOut:null,LastSeen:'2026-11-03T09:30:00',WorkedMinutes:90,LateMinutes:0,EarlyMinutes:0,EventCount:1,StatusCode:'IN_PROGRESS',Source:'HANET',IsProvisional:true}
+                ];
+                const data=u.pathname==='/Hrm/Dashboard'?{TotalEmployees:1,PresentToday:1,PendingApprovals:1,AttendanceToday:[{DisplayName:'Nguyễn An',DepartmentName:'IT',ShiftName:'Ca hành chính',CheckIn:'2026-09-25T08:00:00',CheckOut:null,StatusCode:'IN_PROGRESS'}]}:u.pathname==='/Hrm/LeaveStats'?{AnnualAllowance:12,UsedDays:2,PendingCount:1,ApprovedCount:3}:u.pathname==='/Hrm/Schedules'?[{ShiftName:'Ca hành chính',StartTime:'08:00:00',EndTime:'17:30:00',EffectiveFrom:'2026-01-01',EffectiveTo:null}]:u.pathname==='/Hrm/HanetReconciliation'?[{Id:1,WorkDate:'2026-09-25',StatusCode:'SUCCESS',ReceivedCount:2,InsertedCount:1,MappedEvents:1,UnmappedEvents:1,MappedEmployees:1,FinishedAt:'2026-09-25T18:00:00',Message:'fixture'}]:u.pathname==='/Hrm/HanetReconciliationEvents'?[{Id:1,DisplayName:null,PersonId:'P1',AliasId:'A1',DeviceId:'D1',CheckTime:'2026-09-25T08:00:00',ReceivedAt:'2026-09-25T08:00:01',EventType:'checkin',IsMapped:false}]:u.pathname==='/Hrm/Attendance'?attendance:u.pathname==='/Hrm/AttendanceConfirmations'?[{UserId:20,DisplayName:'Nguyễn An',EmployeeCode:'NV020',DepartmentName:'IT',IsConfirmed:false}]:u.pathname==='/Hrm/AttendancePeriod'?{StatusCode:'OPEN',IsConfirmed:false,EmployeeCount:2,ConfirmedCount:1,PendingAdjustmentCount:0}:u.pathname==='/Hrm/Users'?users:u.pathname==='/Hrm/LeaveRequests'?[leave]:u.pathname==='/Hrm/ApprovalInbox'?
                     [{Source:'work',Kind:'vehicle',Id:99,Code:'XE99',RequestType:'Đặt xe',EmployeeName:'Nguyễn An',Title:'Công tác',Description:'Cần xe 4 chỗ'}]:[];
                 return route.fulfill({json:{Success:true,Data:data}});
             }
@@ -172,6 +177,24 @@ function snapshot(route,role='ADMIN') {
         await page.waitForFunction(()=>document.querySelector('#attendanceConfirmationRows')?.textContent.includes('Nguyễn An'));
         assert.ok((await page.locator('#attendanceConfirmationRows').textContent()).includes('Nguyễn An'));
         console.log('PASS attendance confirmation list');
+        await page.waitForFunction(()=>document.querySelector('#attendanceRows')?.textContent.includes('16h 30m'));
+        const attendanceMatrix=await page.evaluate(()=>({
+            headers:[...document.querySelectorAll('#attendanceHead th')].map(x=>x.textContent.trim()),
+            rows:document.querySelectorAll('#attendanceRows tr').length,
+            text:document.querySelector('#attendanceRows')?.textContent||'',
+            executablePayload:!!document.querySelector('#attendanceRows script')||window.__attendanceXss===true,
+            pageWidth:document.documentElement.scrollWidth,
+            viewportWidth:document.documentElement.clientWidth,
+            tableScrollable:(()=>{const wrap=document.querySelector('#attendanceRows')?.closest('.hrm-table-wrap');return !!wrap&&wrap.scrollWidth>wrap.clientWidth;})()
+        }));
+        assert.ok(attendanceMatrix.headers.includes('Vào')&&attendanceMatrix.headers.includes('Ra'),'Attendance matrix must expose Vào/Ra subcolumns');
+        assert.ok(attendanceMatrix.headers.some(x=>x.includes('Tổng thời gian')),'Attendance matrix must expose total working time');
+        assert.equal(attendanceMatrix.rows,1,'Attendance matrix must group one employee into one row');
+        assert.ok(attendanceMatrix.text.includes('16h 30m'),'Attendance total must exclude the provisional 90 minutes');
+        assert.equal(attendanceMatrix.executablePayload,false,'Attendance matrix must escape employee-provided HTML');
+        assert.equal(attendanceMatrix.pageWidth<=attendanceMatrix.viewportWidth+1,true,'Attendance matrix must not overflow the whole document');
+        assert.equal(attendanceMatrix.tableScrollable,true,'Attendance matrix must scroll inside its table wrapper');
+        console.log('PASS attendance employee matrix totals, grouped rows, scrolling and escaped content');
         await page.setViewportSize({width:390,height:844});
         await open('/Home/Approvals','MANAGER');
         const mobileLayout=await page.evaluate(()=>({width:document.documentElement.scrollWidth,search:document.querySelector('.tc-search-box').getBoundingClientRect().height}));

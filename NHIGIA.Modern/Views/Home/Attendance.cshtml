@@ -27,7 +27,7 @@
     </div>
 
     <div class="hrm-grid attendance-summary-grid">
-        <div class="hrm-card hrm-stat"><div class="hrm-stat-top"><span class="hrm-stat-label">Đã chấm công</span><span class="hrm-stat-icon green"><i class="material-icons">how_to_reg</i></span></div><div id="attendanceTotal" class="hrm-stat-value">--</div><div class="hrm-stat-note">Bản ghi trong khoảng đã chọn</div></div>
+        <div class="hrm-card hrm-stat"><div class="hrm-stat-top"><span class="hrm-stat-label">Nhân viên có dữ liệu</span><span class="hrm-stat-icon green"><i class="material-icons">how_to_reg</i></span></div><div id="attendanceTotal" class="hrm-stat-value">--</div><div class="hrm-stat-note">Số nhân viên trong khoảng đã chọn</div></div>
         <div class="hrm-card hrm-stat"><div class="hrm-stat-top"><span class="hrm-stat-label">Tổng giờ làm</span><span class="hrm-stat-icon"><i class="material-icons">schedule</i></span></div><div id="attendanceTotalHours" class="hrm-stat-value">--</div><div class="hrm-stat-note">Chỉ cộng các ngày đã chốt</div></div>
         <div class="hrm-card hrm-stat"><div class="hrm-stat-top"><span class="hrm-stat-label">Đúng giờ</span><span class="hrm-stat-icon"><i class="material-icons">check_circle</i></span></div><div id="attendanceOnTime" class="hrm-stat-value">--</div><div class="hrm-stat-note">Theo giờ bắt đầu được phân</div></div>
         <div class="hrm-card hrm-stat"><div class="hrm-stat-top"><span class="hrm-stat-label">Đi muộn</span><span class="hrm-stat-icon orange"><i class="material-icons">watch_later</i></span></div><div id="attendanceLate" class="hrm-stat-value">--</div><div class="hrm-stat-note">Ngoài thời gian cho phép</div></div>
@@ -44,17 +44,18 @@
         </div>
         <div class="hrm-card-header" style="border-top:1px solid #e5eaf1">
             <div class="hrm-tabs attendance-tabs" role="tablist" aria-label="Kiểu hiển thị chấm công">
-                <button class="hrm-tab active" type="button" role="tab" aria-selected="true" data-attendance-view="detail">Chấm công chi tiết</button>
+                <button class="hrm-tab active" type="button" role="tab" aria-selected="true" data-attendance-view="matrix">Bảng công theo nhân viên</button>
+                <button class="hrm-tab" type="button" role="tab" aria-selected="false" data-attendance-view="detail">Nhật ký chi tiết</button>
                 <button class="hrm-tab" type="button" role="tab" aria-selected="false" data-attendance-view="daily">Tổng hợp theo ngày</button>
                 <button class="hrm-tab" type="button" role="tab" aria-selected="false" data-attendance-view="device">Dữ liệu thiết bị</button>
             </div>
             <span id="attendanceSourceBadge" class="hrm-badge hrm-badge-neutral">Đang tải dữ liệu...</span>
         </div>
-        <div class="hrm-table-wrap">
-            <table class="hrm-table">
-                <thead id="attendanceHead"><tr><th>Nhân viên</th><th>Ngày</th><th>Lịch làm việc</th><th>Giờ vào</th><th>Giờ ra</th><th>Thời gian làm</th><th>Trạng thái</th><th>Nguồn</th></tr></thead>
+        <div id="attendanceTableWrap" class="hrm-table-wrap attendance-matrix-wrap">
+            <table id="attendanceTable" class="hrm-table attendance-matrix-mode">
+                <thead id="attendanceHead"><tr><th>ID</th><th>Tên</th><th>Chức vụ</th><th>Phòng ban</th><th>MSNV</th><th>Tổng thời gian làm việc</th></tr></thead>
                 <tbody id="attendanceRows">
-                    <tr><td colspan="8"><div class="hrm-empty"><i class="material-icons">fingerprint</i><strong id="attendanceEmptyTitle">Chưa có dữ liệu chấm công</strong><br /><span id="attendanceEmptyDetail">Dữ liệu sẽ hiển thị sau khi thiết bị chấm công được kết nối.</span></div></td></tr>
+                    <tr><td colspan="6"><div class="hrm-empty"><i class="material-icons">fingerprint</i><strong id="attendanceEmptyTitle">Chưa có dữ liệu chấm công</strong><br /><span id="attendanceEmptyDetail">Dữ liệu sẽ hiển thị sau khi thiết bị chấm công được kết nối.</span></div></td></tr>
                 </tbody>
             </table>
         </div>
@@ -64,17 +65,63 @@
 
 <script>
 (function(){
-    $('.attendance_menu').addClass('active');var all=[],view='detail',attendanceRequest=null,lastLoadedAt=0,attendanceRows=document.getElementById('attendanceRows');
+    $('.attendance_menu').addClass('active');var all=[],view='matrix',attendanceRequest=null,lastLoadedAt=0,attendanceRows=document.getElementById('attendanceRows');
     function esc(v){return $('<div>').text(v==null?'':v).html();}
+    function attr(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
     function status(v){var map={INSUFFICIENT_HOURS:'Chưa đủ giờ',ON_LEAVE:'Nghỉ đã duyệt',IN_PROGRESS:'Đang cập nhật',ON_TIME:'Đúng giờ',LATE:'Đi muộn',EARLY:'Về sớm',LATE_EARLY:'Muộn / về sớm',MISSING_CHECK:'Thiếu dữ liệu',MISSING_SCHEDULE:'Thiếu lịch'};return map[v]||v||'Chưa xác định';}
     function cls(v){return v==='ON_TIME'?'hrm-badge-success':v==='IN_PROGRESS'||v==='ON_LEAVE'?'hrm-badge-blue':(v||'').indexOf('MISSING')===0?'hrm-badge-neutral':'hrm-badge-warning';}
     function hasScans(x){return (x.EventCount||0)>0;}
     function approvedLeave(x){return x.ApprovedLeave||x.StatusCode==='ON_LEAVE';}
     function leaveNote(x){return approvedLeave(x)?'<small class="hrm-cell-note attendance-leave-note">Nghỉ '+esc(x.LeaveSession||'đã duyệt')+(x.LeaveDescription?' · '+esc(x.LeaveDescription):'')+'</small>':'';}
     function statusBadge(x){return '<span class="hrm-badge '+cls(x.StatusCode)+'">'+esc(status(x.StatusCode))+'</span>'+(approvedLeave(x)&&x.StatusCode!=='ON_LEAVE'?'<span class="hrm-badge hrm-badge-blue attendance-leave-badge">Nghỉ đã duyệt</span>':'');}
-    function filtered(){var key=($('#attendanceSearch').val()||'').toLocaleLowerCase().trim(),state=$('#attendanceStatus').val();return all.filter(function(x){return(!key||((x.DisplayName||'')+' '+(x.EmployeeCode||'')+' '+(x.PersonId||'')+' '+(x.DepartmentName||'')).toLocaleLowerCase().indexOf(key)>=0)&&(!state||x.StatusCode===state||(state==='APPROVED_LEAVE'&&approvedLeave(x))||((state==='LATE'||state==='EARLY')&&x.StatusCode==='LATE_EARLY')||(state==='MISSING_CHECK'&&x.StatusCode==='MISSING_SCHEDULE'));});}
+    function statusMatches(x,state){return !state||x.StatusCode===state||(state==='APPROVED_LEAVE'&&approvedLeave(x))||((state==='LATE'||state==='EARLY')&&x.StatusCode==='LATE_EARLY')||(state==='MISSING_CHECK'&&x.StatusCode==='MISSING_SCHEDULE');}
+    function searchMatches(x,key){return !key||((x.DisplayName||'')+' '+(x.EmployeeCode||'')+' '+(x.PersonId||'')+' '+(x.DepartmentName||'')+' '+(x.JobTitle||'')).toLocaleLowerCase().indexOf(key)>=0;}
+    function filtered(){var key=($('#attendanceSearch').val()||'').toLocaleLowerCase().trim(),state=$('#attendanceStatus').val();return all.filter(function(x){return searchMatches(x,key)&&statusMatches(x,state);});}
     function empty(title,detail,cols){$('#attendanceRows').html('<tr><td colspan="'+cols+'"><div class="hrm-empty"><i class="material-icons">fingerprint</i><strong>'+title+'</strong><br><span>'+detail+'</span></div></td></tr>');}
+    function employeeKey(x){return x.UserId!==undefined&&x.UserId!==null?'user:'+x.UserId:'person:'+(x.PersonId||x.EmployeeCode||x.DisplayName||'unknown');}
+    function employeeGroups(){
+        var key=($('#attendanceSearch').val()||'').toLocaleLowerCase().trim(),state=$('#attendanceStatus').val(),groups={};
+        all.forEach(function(x){var id=employeeKey(x),g=groups[id]||(groups[id]={employee:x,rows:[]});g.rows.push(x);});
+        return Object.keys(groups).map(function(id){return groups[id];}).filter(function(g){return searchMatches(g.employee,key)&&(!state||g.rows.some(function(x){return statusMatches(x,state);}));}).sort(function(a,b){return String(a.employee.DisplayName||'').localeCompare(String(b.employee.DisplayName||''),'vi');});
+    }
+    function matrixDates(){
+        var start=moment($('#attendanceFrom').val(),'YYYY-MM-DD',true),end=moment($('#attendanceTo').val(),'YYYY-MM-DD',true),dates=[];
+        if(!start.isValid()||!end.isValid()||end.isBefore(start))return dates;
+        for(var day=start.clone();!day.isAfter(end,'day');day.add(1,'day'))dates.push(day.clone());
+        return dates;
+    }
+    function matrixCell(x,isCheckIn){
+        if(!x)return '<td class="matrix-time-cell matrix-missing">-</td>';
+        var noScans=!hasScans(x),leave=approvedLeave(x),value,cellClass='matrix-time-cell',title=[moment(x.WorkDate).format('DD/MM/YYYY'),x.ShiftName||'Chưa có lịch',status(x.StatusCode),x.Source||'Thiết bị'];
+        if(x.LeaveDescription)title.push(x.LeaveDescription);
+        if(leave&&noScans){value=isCheckIn?'Nghỉ':'Đã duyệt';cellClass+=' matrix-leave';}
+        else if(isCheckIn){value=x.CheckIn?moment(x.CheckIn).format('HH:mm'):'-';if((x.LateMinutes||0)>0)cellClass+=' matrix-warning';else if(!x.CheckIn)cellClass+=' matrix-missing';}
+        else if(x.CheckOut){value=moment(x.CheckOut).format('HH:mm');if((x.EarlyMinutes||0)>0)cellClass+=' matrix-warning';}
+        else if(x.IsProvisional){value='Tạm tính';cellClass+=' matrix-provisional';}
+        else{value='-';cellClass+=' matrix-warning';}
+        return '<td class="'+cellClass+'" title="'+attr(title.join(' · '))+'">'+esc(value)+'</td>';
+    }
+    function renderMatrix(){
+        var dates=matrixDates(),groups=employeeGroups();
+        $('#attendanceTable').addClass('attendance-matrix-mode');$('#attendanceTableWrap').addClass('attendance-matrix-wrap');
+        if(dates.length>63){
+            $('#attendanceHead').html('<tr><th>ID</th><th>Tên</th><th>Chức vụ</th><th>Phòng ban</th><th>MSNV</th><th>Tổng thời gian làm việc</th></tr>');
+            empty('Khoảng ngày quá dài','Bảng theo nhân viên hỗ trợ tối đa 63 ngày. Hãy thu hẹp khoảng ngày hoặc mở tab Nhật ký chi tiết.',6);return;
+        }
+        var fixed='<th rowspan="2" class="matrix-sticky matrix-col-id">ID</th><th rowspan="2" class="matrix-sticky matrix-col-name">Tên</th><th rowspan="2" class="matrix-sticky matrix-col-job">Chức vụ</th><th rowspan="2" class="matrix-sticky matrix-col-department">Phòng ban</th><th rowspan="2" class="matrix-sticky matrix-col-code">MSNV</th><th rowspan="2" class="matrix-sticky matrix-col-total">Tổng thời gian làm việc</th>';
+        var dateHeads=dates.map(function(d){return '<th class="matrix-date-head" colspan="2">'+d.format('DD/MM/YYYY')+'</th>';}).join('');
+        var subHeads=dates.map(function(){return '<th class="matrix-sub-head">Vào</th><th class="matrix-sub-head">Ra</th>';}).join('');
+        $('#attendanceHead').html('<tr class="matrix-head-primary">'+fixed+dateHeads+'</tr><tr class="matrix-head-secondary">'+subHeads+'</tr>');
+        if(!groups.length){empty('Chưa có dữ liệu chấm công','Không có nhân viên phù hợp với bộ lọc đã chọn.',6+dates.length*2);return;}
+        $('#attendanceRows').html(groups.map(function(g,index){
+            var employee=g.employee,byDate={};g.rows.forEach(function(x){var day=moment(x.WorkDate).format('YYYY-MM-DD');if(!byDate[day]||hasScans(x))byDate[day]=x;});
+            var total=g.rows.filter(function(x){return !x.IsProvisional;}).reduce(function(sum,x){return sum+(Number(x.WorkedMinutes)||0);},0);
+            var cells=dates.map(function(d){var x=byDate[d.format('YYYY-MM-DD')];return matrixCell(x,true)+matrixCell(x,false);}).join('');
+            return '<tr class="matrix-row"><td class="matrix-sticky matrix-col-id">'+(index+1)+'</td><td class="matrix-sticky matrix-col-name"><strong>'+esc(employee.DisplayName||'--')+'</strong></td><td class="matrix-sticky matrix-col-job">'+esc(employee.JobTitle||'--')+'</td><td class="matrix-sticky matrix-col-department">'+esc(employee.DepartmentName||'--')+'</td><td class="matrix-sticky matrix-col-code">'+esc(employee.EmployeeCode||employee.PersonId||'--')+'</td><td class="matrix-sticky matrix-col-total"><strong>'+formatMinutes(total)+'</strong></td>'+cells+'</tr>';
+        }).join(''));
+    }
     function renderDetail(items){
+        $('#attendanceTable').removeClass('attendance-matrix-mode');$('#attendanceTableWrap').removeClass('attendance-matrix-wrap');
         $('#attendanceHead').html('<tr><th>Nhân viên</th><th>Ngày</th><th>Lịch làm việc</th><th>Giờ vào</th><th>Giờ ra</th><th>Thời gian làm</th><th>Trạng thái</th><th>Nguồn</th></tr>');
         if(!items.length){empty('Chưa có dữ liệu chấm công','Không có bản ghi phù hợp với bộ lọc đã chọn.',8);return;}
         $('#attendanceRows').html(items.map(function(x){
@@ -87,6 +134,7 @@
         }).join(''));
     }
     function renderDaily(items){
+        $('#attendanceTable').removeClass('attendance-matrix-mode');$('#attendanceTableWrap').removeClass('attendance-matrix-wrap');
         var days={};
         items.forEach(function(x){
             var key=moment(x.WorkDate).format('YYYY-MM-DD'),d=days[key]||(days[key]={date:x.WorkDate,employees:{},leaveEmployees:{},onTime:0,late:0,missing:0,first:null,last:null});
@@ -104,19 +152,20 @@
         $('#attendanceRows').html(rows.map(function(d){return '<tr><td><strong>'+moment(d.date).format('DD/MM/YYYY')+'</strong></td><td>'+Object.keys(d.employees).length+'</td><td><span class="hrm-badge hrm-badge-blue">'+Object.keys(d.leaveEmployees).length+'</span></td><td><span class="hrm-badge hrm-badge-success">'+d.onTime+'</span></td><td>'+d.late+'</td><td>'+d.missing+'</td><td>'+(d.first?d.first.format('HH:mm'):'--')+'</td><td>'+(d.last?d.last.format('HH:mm'):'--')+'</td></tr>';}).join(''));
     }
     function renderDevice(items){
+        $('#attendanceTable').removeClass('attendance-matrix-mode');$('#attendanceTableWrap').removeClass('attendance-matrix-wrap');
         items=items.filter(hasScans);
         $('#attendanceHead').html('<tr><th>Nhân viên</th><th>Person ID HANET</th><th>Ngày ghi nhận</th><th>Lần quét đầu</th><th>Lần quét gần nhất</th><th>Giờ ra đã chốt</th><th>Số lượt</th><th>Tình trạng</th></tr>');
         if(!items.length){empty('Chưa có dữ liệu thiết bị','Không có lượt chấm công từ thiết bị phù hợp với bộ lọc đã chọn.',8);return;}
         $('#attendanceRows').html(items.map(function(x){return '<tr><td><strong>'+esc(x.DisplayName)+'</strong><small class="hrm-cell-note">'+esc(x.DepartmentName||'--')+'</small></td><td><code>'+esc(x.PersonId||'Chưa ánh xạ')+'</code></td><td>'+moment(x.WorkDate).format('DD/MM/YYYY')+'</td><td>'+(x.CheckIn?moment(x.CheckIn).format('HH:mm:ss'):'--')+'</td><td>'+(x.LastSeen?moment(x.LastSeen).format('HH:mm:ss'):'--')+'</td><td>'+(x.CheckOut?moment(x.CheckOut).format('HH:mm:ss'):'Chưa chốt')+'</td><td>'+(x.EventCount||0)+'</td><td>'+statusBadge(x)+leaveNote(x)+'</td></tr>';}).join(''));
     }
     function formatMinutes(value){value=Math.max(0,Number(value)||0);return Math.floor(value/60)+'h '+Math.round(value%60)+'m';}
-    function render(){var items=filtered();$('#attendanceTotal').text(all.filter(hasScans).length);$('#attendanceTotalHours').text(formatMinutes(all.filter(function(x){return !x.IsProvisional;}).reduce(function(sum,x){return sum+(x.WorkedMinutes||0);},0)));$('#attendanceOnTime').text(all.filter(function(x){return x.StatusCode==='ON_TIME';}).length);$('#attendanceLate').text(all.filter(function(x){return(x.LateMinutes||0)>0;}).length);$('#attendanceMissing').text(all.filter(function(x){return(x.StatusCode||'').indexOf('MISSING')===0;}).length);if(view==='daily')renderDaily(items);else if(view==='device')renderDevice(items);else renderDetail(items);}
+    function render(){var items=filtered(),employees={};all.forEach(function(x){employees[employeeKey(x)]=true;});$('#attendanceTotal').text(Object.keys(employees).length);$('#attendanceTotalHours').text(formatMinutes(all.filter(function(x){return !x.IsProvisional;}).reduce(function(sum,x){return sum+(x.WorkedMinutes||0);},0)));$('#attendanceOnTime').text(all.filter(function(x){return x.StatusCode==='ON_TIME';}).length);$('#attendanceLate').text(all.filter(function(x){return(x.LateMinutes||0)>0;}).length);$('#attendanceMissing').text(all.filter(function(x){return(x.StatusCode||'').indexOf('MISSING')===0;}).length);if(view==='matrix')renderMatrix();else if(view==='daily')renderDaily(items);else if(view==='device')renderDevice(items);else renderDetail(items);}
     function load(){
         if(attendanceRequest)attendanceRequest.abort();
         var badge=$('#attendanceSourceBadge').text('Đang tải dữ liệu...').removeClass('hrm-badge-success hrm-badge-warning').addClass('hrm-badge-neutral');
         attendanceRequest=$.get('@Url.Action("Attendance","Hrm")',{fromDate:$('#attendanceFrom').val(),toDate:$('#attendanceTo').val()})
             .done(function(r){all=r.Data||[];var sources={};all.forEach(function(x){sources[x.Source||'Thiết bị']=true;});var names=Object.keys(sources);badge.text(all.length?(names.join(', ')+' · '+all.length+' bản ghi'):'Không có dữ liệu trong kỳ').toggleClass('hrm-badge-success',all.length>0).toggleClass('hrm-badge-neutral',!all.length);render();})
-            .fail(function(x,state){if(state==='abort')return;badge.text('Lỗi tải dữ liệu').removeClass('hrm-badge-neutral').addClass('hrm-badge-warning');empty('Không thể tải dữ liệu',(x.responseJSON&&x.responseJSON.Message)||'Vui lòng tải lại trang.',8);})
+            .fail(function(x,state){if(state==='abort')return;badge.text('Lỗi tải dữ liệu').removeClass('hrm-badge-neutral').addClass('hrm-badge-warning');empty('Không thể tải dữ liệu',(x.responseJSON&&x.responseJSON.Message)||'Vui lòng tải lại trang.',view==='matrix'?6:8);})
             .always(function(){attendanceRequest=null;lastLoadedAt=Date.now();});
     }
     function refreshOnReturn(){if(document.hidden||document.getElementById('attendanceRows')!==attendanceRows||attendanceRequest||Date.now()-lastLoadedAt<1000)return;load();}
@@ -141,8 +190,30 @@
 <style>
 .attendance-summary-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:16px}
 .attendance-tabs .hrm-tab{cursor:pointer}.attendance-tabs .hrm-tab:focus-visible{outline:2px solid #1769e0;outline-offset:2px}#attendanceSourceBadge{white-space:nowrap}.hrm-table code{font-size:12px;color:#35506f;background:#f1f5f9;padding:3px 6px;border-radius:5px}.attendance-leave-note{color:#1769e0}.attendance-leave-badge{display:table;margin-top:5px}
+.attendance-matrix-wrap{max-width:100%;max-height:min(68vh,760px);overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable}
+#attendanceTable.attendance-matrix-mode{width:max-content;min-width:100%;border-collapse:separate;border-spacing:0;table-layout:fixed}
+#attendanceTable.attendance-matrix-mode th,#attendanceTable.attendance-matrix-mode td{box-sizing:border-box;border-right:1px solid #d9e2ec;border-bottom:1px solid #d9e2ec;vertical-align:middle}
+#attendanceTable.attendance-matrix-mode thead th{position:sticky;z-index:4;color:#24415f;background:#d8ebfa;text-align:center;white-space:nowrap}
+#attendanceTable.attendance-matrix-mode .matrix-head-primary th{top:0;height:42px}
+#attendanceTable.attendance-matrix-mode .matrix-head-secondary th{top:42px;height:38px;background:#eaf4fb}
+#attendanceTable.attendance-matrix-mode .matrix-sticky{position:sticky;z-index:3;background:#fff;text-align:left}
+#attendanceTable.attendance-matrix-mode thead .matrix-sticky{z-index:7;background:#d8ebfa;text-align:center}
+#attendanceTable.attendance-matrix-mode .matrix-row:nth-child(even) .matrix-sticky{background:#f8fbfe}
+#attendanceTable.attendance-matrix-mode .matrix-col-id{left:0;width:56px;min-width:56px;text-align:center}
+#attendanceTable.attendance-matrix-mode .matrix-col-name{left:56px;width:190px;min-width:190px}
+#attendanceTable.attendance-matrix-mode .matrix-col-job{left:246px;width:160px;min-width:160px}
+#attendanceTable.attendance-matrix-mode .matrix-col-department{left:406px;width:190px;min-width:190px}
+#attendanceTable.attendance-matrix-mode .matrix-col-code{left:596px;width:120px;min-width:120px}
+#attendanceTable.attendance-matrix-mode .matrix-col-total{left:716px;width:142px;min-width:142px;text-align:center;box-shadow:5px 0 9px -8px #152a3f}
+#attendanceTable.attendance-matrix-mode .matrix-date-head{width:144px;min-width:144px}
+#attendanceTable.attendance-matrix-mode .matrix-sub-head,#attendanceTable.attendance-matrix-mode .matrix-time-cell{width:72px;min-width:72px;text-align:center;white-space:nowrap}
+#attendanceTable.attendance-matrix-mode .matrix-time-cell{font-variant-numeric:tabular-nums}
+#attendanceTable.attendance-matrix-mode .matrix-warning{color:#b45309;background:#fff7e6;font-weight:700}
+#attendanceTable.attendance-matrix-mode .matrix-provisional{color:#1769e0;background:#eef6ff;font-size:12px}
+#attendanceTable.attendance-matrix-mode .matrix-leave{color:#1769e0;background:#edf5ff;font-size:12px;font-weight:700}
+#attendanceTable.attendance-matrix-mode .matrix-missing{color:#8291a3}
 .attendance-period-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:end}.attendance-period-actions label{font-weight:600}.attendance-period-actions .hrm-control{margin-top:5px}.attendance-confirmations{margin-top:18px}.attendance-confirmations summary{cursor:pointer;font-weight:700}
 .attendance-period-actions #confirmAttendancePeriod{display:inline-flex;align-items:center;gap:6px;transition:background-color .18s ease,border-color .18s ease,color .18s ease}.attendance-period-actions #confirmAttendancePeriod.attendance-confirmed,.attendance-period-actions #confirmAttendancePeriod.attendance-confirmed:disabled{color:#fff;background:#16834b;border-color:#16834b;opacity:1;cursor:default}.attendance-workflow-message{margin-top:12px;padding:10px 12px;border-radius:8px;font-size:13px}.attendance-workflow-message.is-success{color:#17633b;background:#eaf8ef;border:1px solid #bce5ca}.attendance-workflow-message.is-error{color:#9f2626;background:#fff0f0;border:1px solid #f2c2c2}
 @@media(max-width:1100px){.attendance-summary-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
-@@media(max-width:700px){.attendance-summary-grid{grid-template-columns:minmax(0,1fr)}.hrm-card-header{align-items:flex-start;gap:10px}.attendance-tabs{width:100%}#attendanceSourceBadge{margin-left:5px}}
+@@media(max-width:700px){.attendance-summary-grid{grid-template-columns:minmax(0,1fr)}.hrm-card-header{align-items:flex-start;gap:10px}.attendance-tabs{width:100%}#attendanceSourceBadge{margin-left:5px}#attendanceTable.attendance-matrix-mode tbody .matrix-sticky{position:static}#attendanceTable.attendance-matrix-mode thead .matrix-sticky{left:auto}#attendanceTable.attendance-matrix-mode .matrix-col-total{box-shadow:none}}
 </style>
