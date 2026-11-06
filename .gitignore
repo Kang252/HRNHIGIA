@@ -73,7 +73,13 @@ _[Ss]cripts
 *.nupkg
 *.ncrunchsolution
 *.dot[Cc]over
-/.vs
+# IDE and local workspace state
+**/.vs/
+/.vscode/
+
+# Local audit/test artifacts and sensitive operational exports
+/.tmp*/
+/outputs/
 
 # Local deployment secrets
 NHIGIA.Web/Web.config
