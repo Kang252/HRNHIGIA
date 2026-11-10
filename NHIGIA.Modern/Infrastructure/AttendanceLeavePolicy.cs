@@ -140,15 +140,31 @@ public static class AttendanceLeavePolicy
 
         // LastSeen remains raw; it also restores checkout if this projection is refreshed after shift end.
         row.CheckOut = !row.HasExplicitPunches && row.EventCount > 1 && row.LastSeen.HasValue && row.LastSeen != row.CheckIn ? row.LastSeen : row.CheckOut;
-        row.WorkedMinutes = row.CheckIn.HasValue && row.CheckOut.HasValue
-            ? Math.Max(0, (int)((row.ApprovedLeave && row.CheckOut > expectedEnd ? expectedEnd : row.CheckOut.Value) -
-                (row.ApprovedLeave && row.CheckIn < expectedStart ? expectedStart : row.CheckIn.Value)).TotalMinutes) : 0;
+        if (row.CheckIn.HasValue && row.CheckOut.HasValue)
+        {
+            var actualStart = row.ApprovedLeave && row.CheckIn < expectedStart ? expectedStart : row.CheckIn.Value;
+            var actualEnd = row.ApprovedLeave && row.CheckOut > expectedEnd ? expectedEnd : row.CheckOut.Value;
+            row.WorkedMinutes = FixedWorkedMinutes(actualStart, actualEnd, noon, row.WorkDate.Date.AddHours(13.5), overnight);
+        }
         row.EarlyMinutes = row.CheckOut.HasValue ? Math.Max(0, (int)(expectedEnd - row.CheckOut.Value).TotalMinutes) : 0;
         if (!row.CheckIn.HasValue || !row.CheckOut.HasValue) row.StatusCode = "MISSING_CHECK";
         else if (row.LateMinutes > 0 && row.EarlyMinutes > 0) row.StatusCode = "LATE_EARLY";
         else if (row.LateMinutes > 0) row.StatusCode = "LATE";
         else if (row.EarlyMinutes > 0) row.StatusCode = "EARLY";
         else row.StatusCode = "ON_TIME";
+    }
+
+    private static int FixedWorkedMinutes(DateTime actualStart, DateTime actualEnd,
+        DateTime lunchStart, DateTime lunchEnd, bool overnight)
+    {
+        if (actualEnd <= actualStart) return 0;
+        var elapsedMinutes = (int)(actualEnd - actualStart).TotalMinutes;
+        if (overnight) return elapsedMinutes;
+
+        var overlapStart = actualStart > lunchStart ? actualStart : lunchStart;
+        var overlapEnd = actualEnd < lunchEnd ? actualEnd : lunchEnd;
+        var lunchMinutes = overlapEnd > overlapStart ? (int)(overlapEnd - overlapStart).TotalMinutes : 0;
+        return Math.Max(0, elapsedMinutes - lunchMinutes);
     }
 
     private static void DescribeLeave(AttendanceRecordModel row, IReadOnlyList<LeaveRequestModel> leaves, int mask)

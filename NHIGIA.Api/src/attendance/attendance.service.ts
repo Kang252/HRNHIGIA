@@ -681,6 +681,7 @@ function calculateAttendance(
   let expectedEnd = end;
   const overnight = vietnamDatePart(end) !== vietnamDatePart(start);
   const noon = vietnamDateTime(record.workDate, "12:00");
+  const lunchEnd = vietnamDateTime(record.workDate, "13:30");
   const split = overnight
     ? new Date(
         start.getTime() +
@@ -691,7 +692,7 @@ function calculateAttendance(
     : noon;
   const afternoonStart = overnight
     ? new Date(split.getTime() + record.breakMinutes * 60000)
-    : vietnamDateTime(record.workDate, "13:30");
+    : lunchEnd;
 
   if ((leaveMask & 1) !== 0 && start.getTime() < split.getTime())
     expectedStart =
@@ -783,9 +784,12 @@ function calculateAttendance(
       record.approvedLeave && checkOut.getTime() > expectedEnd.getTime()
         ? expectedEnd
         : checkOut;
-    record.workedMinutes = Math.max(
-      0,
-      Math.floor((actualEnd.getTime() - actualStart.getTime()) / 60000),
+    record.workedMinutes = fixedWorkedMinutes(
+      actualStart,
+      actualEnd,
+      noon,
+      lunchEnd,
+      overnight,
     );
   }
   record.earlyMinutes = checkOut
@@ -804,6 +808,28 @@ function calculateAttendance(
           : record.earlyMinutes > 0
             ? "EARLY"
             : "ON_TIME";
+}
+
+function fixedWorkedMinutes(
+  actualStart: Date,
+  actualEnd: Date,
+  lunchStart: Date,
+  lunchEnd: Date,
+  overnight: boolean,
+): number {
+  if (actualEnd.getTime() <= actualStart.getTime()) return 0;
+  const elapsedMinutes = Math.floor(
+    (actualEnd.getTime() - actualStart.getTime()) / 60000,
+  );
+  if (overnight) return elapsedMinutes;
+
+  const overlapStart = Math.max(actualStart.getTime(), lunchStart.getTime());
+  const overlapEnd = Math.min(actualEnd.getTime(), lunchEnd.getTime());
+  const lunchMinutes =
+    overlapEnd > overlapStart
+      ? Math.floor((overlapEnd - overlapStart) / 60000)
+      : 0;
+  return Math.max(0, elapsedMinutes - lunchMinutes);
 }
 
 function describeLeave(

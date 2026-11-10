@@ -437,7 +437,7 @@ IF NOT EXISTS (SELECT 1 FROM dbo.HrmEmployeeProfile p INNER JOIN dbo.HrmUserAcco
     SELECT Id, 'NG000', N'Quản trị hệ thống', N'Đang làm việc', 'admin@nhigia.local', 'NG000', 12 FROM dbo.HrmUserAccount WHERE Username='admin';
 GO
 
-IF NOT EXISTS (SELECT 1 FROM dbo.HrmShiftTemplate WHERE Code='HC') INSERT dbo.HrmShiftTemplate(Code, Name, StartTime, EndTime, BreakMinutes, GraceMinutes, IsOvernight) VALUES ('HC', N'Ca hành chính', '08:00', '17:30', 60, 0, 0);
+IF NOT EXISTS (SELECT 1 FROM dbo.HrmShiftTemplate WHERE Code='HC') INSERT dbo.HrmShiftTemplate(Code, Name, StartTime, EndTime, BreakMinutes, GraceMinutes, IsOvernight) VALUES ('HC', N'Ca hành chính', '08:00', '17:30', 90, 0, 0);
 IF NOT EXISTS (SELECT 1 FROM dbo.HrmShiftTemplate WHERE Code='SANG') INSERT dbo.HrmShiftTemplate(Code, Name, StartTime, EndTime, BreakMinutes, GraceMinutes, IsOvernight) VALUES ('SANG', N'Ca Thứ 7 buổi sáng', '08:00', '12:00', 0, 0, 0);
 IF NOT EXISTS (SELECT 1 FROM dbo.HrmShiftTemplate WHERE Code='DEM') INSERT dbo.HrmShiftTemplate(Code, Name, StartTime, EndTime, BreakMinutes, GraceMinutes, IsOvernight) VALUES ('DEM', N'Ca Thứ 7 buổi chiều', '13:30', '17:30', 0, 0, 0);
 GO
@@ -490,10 +490,15 @@ SET Name = CASE Code
 END,
 StartTime = CASE Code WHEN 'HC' THEN '08:00' WHEN 'SANG' THEN '08:00' WHEN 'DEM' THEN '13:30' END,
 EndTime = CASE Code WHEN 'HC' THEN '17:30' WHEN 'SANG' THEN '12:00' WHEN 'DEM' THEN '17:30' END,
-BreakMinutes = CASE Code WHEN 'HC' THEN 60 ELSE 0 END,
+BreakMinutes = CASE Code WHEN 'HC' THEN 90 ELSE 0 END,
 GraceMinutes = 0,
 IsOvernight = 0
 WHERE Code IN ('HC', 'SANG', 'DEM');
+
+UPDATE dbo.HrmEmployeeSchedule
+SET BreakMinutes = 90
+WHERE ShiftName = N'Ca hành chính'
+  AND StartTime = '08:00' AND EndTime = '17:30' AND BreakMinutes = 60;
 
 UPDATE dbo.HrmHanetSettings
 SET LastSyncMessage = N'Chưa cấu hình thông tin ứng dụng HANET'

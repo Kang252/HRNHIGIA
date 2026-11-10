@@ -199,7 +199,32 @@ var tests = new List<(string Name, Action Run)>
         Equal(day.AddHours(8), row.CheckIn);
         Equal(day.AddHours(17.5), row.CheckOut);
         Equal(day.AddHours(17.5), row.LastSeen);
+        Equal(480, row.WorkedMinutes);
         Equal("HANET", row.Source);
+    }),
+    ("Fixed shift subtracts only the lunch overlap", () =>
+    {
+        var row = Single(Project([Punch(1, day, 11.5, 13)], [Schedule()], []));
+        Equal(30, row.WorkedMinutes);
+    }),
+    ("Morning fixed shift does not subtract lunch after checkout", () =>
+    {
+        var actual = Punch(1, day, 8, 12);
+        actual.ScheduledEnd = TimeSpan.FromHours(12);
+        var row = Single(Project([actual], [Schedule(end: 12, breakMinutes: 0)], []));
+        Equal(240, row.WorkedMinutes);
+    }),
+    ("Afternoon fixed shift does not subtract lunch before checkin", () =>
+    {
+        var actual = Punch(1, day, 13.5, 17.5);
+        actual.ScheduledStart = TimeSpan.FromHours(13.5);
+        var row = Single(Project([actual], [Schedule(start: 13.5, breakMinutes: 0)], []));
+        Equal(240, row.WorkedMinutes);
+    }),
+    ("Punch interval entirely inside lunch has no worked minutes", () =>
+    {
+        var row = Single(Project([Punch(1, day, 12.25, 13)], [Schedule()], []));
+        Equal(0, row.WorkedMinutes);
     }),
     ("Remainder shift honours its configured late grace", () =>
     {

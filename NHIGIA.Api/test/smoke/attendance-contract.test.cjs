@@ -195,12 +195,46 @@ test("attendance restores HANET checkout after a shift and retains late/early st
     hasExplicitPunches: false,
     isFlexible: false,
     requiredMinutes: 0,
-    workedMinutes: 535,
+    workedMinutes: 445,
     lateMinutes: 5,
     earlyMinutes: 30,
     statusCode: "LATE_EARLY",
     source: "HANET",
   });
+});
+
+test("attendance subtracts only the overlap with the 12:00-13:30 lunch break", () => {
+  const records = projectAttendance(
+    [
+      {
+        UserId: 42,
+        EmployeeCode: "HN-42",
+        DisplayName: "Smoke Test",
+        JobTitle: "Nhân viên",
+        DepartmentName: "Công nghệ thông tin",
+        WorkDate: "2026-10-01",
+        ShiftName: "Ca hành chính",
+        ScheduledStart: "08:00:00",
+        ScheduledEnd: "17:30:00",
+        GraceMinutes: 0,
+        BreakMinutes: 60,
+        HasExplicitPunches: 1,
+        IsFlexible: 0,
+        RequiredMinutes: 0,
+        CheckIn: "2026-10-01T11:30:00",
+        CheckOut: "2026-10-01T13:00:00",
+        LastSeen: "2026-10-01T13:00:00",
+        EventCount: 2,
+        Source: "HANET",
+      },
+    ],
+    [],
+    [],
+    range("2026-10-01", "2026-10-01"),
+    new Date("2026-10-01T18:00:00+07:00"),
+  );
+
+  assert.equal(records[0].workedMinutes, 30);
 });
 
 test("a full-day approved leave adds a scheduled attendance record without punches", () => {
