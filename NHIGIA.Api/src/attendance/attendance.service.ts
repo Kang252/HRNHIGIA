@@ -133,6 +133,15 @@ interface LeaveRow {
   SessionCode: string | null;
 }
 
+interface ApprovedOvertimeRow {
+  UserId: number;
+  WorkDate: string;
+  StartAt: string | null;
+  EndAt: string | null;
+  TimeRange: string | null;
+  StatusCode: string;
+}
+
 interface AttendancePeriodRow {
   Period: string;
   StatusCode: string | null;
@@ -176,10 +185,11 @@ export class AttendanceService {
       scope,
       identity,
     };
-    const [attendance, schedules, leaves] = await Promise.all([
+    const [attendance, schedules, leaves, overtime] = await Promise.all([
       queryRawAttendance(pool, queryArgs),
       querySchedules(pool, queryArgs),
       queryApprovedLeaves(pool, queryArgs),
+      queryApprovedOvertime(pool, queryArgs),
     ]);
 
     return {
@@ -196,6 +206,7 @@ export class AttendanceService {
         leaves,
         range,
         new Date(),
+        overtime,
       ),
     };
   }
@@ -296,6 +307,15 @@ async function queryApprovedLeaves(
 ): Promise<LeaveRow[]> {
   const request = scopeRequest(pool, args);
   const result = await request.query<LeaveRow>(approvedLeavesSql);
+  return result.recordset;
+}
+
+async function queryApprovedOvertime(
+  pool: sql.ConnectionPool,
+  args: QueryArguments,
+): Promise<ApprovedOvertimeRow[]> {
+  const request = scopeRequest(pool, args);
+  const result = await request.query<ApprovedOvertimeRow>(approvedOvertimeSql);
   return result.recordset;
 }
 
@@ -441,6 +461,20 @@ WHERE r.StatusCode='APPROVED' AND r.StartDate<=@ToDate AND r.EndDate>=@FromDate
   AND (@CanSeeAll=1 OR r.UserId=@ActorId
        OR (@IsManager=1 AND u.DepartmentId=@DepartmentId));`;
 
+const approvedOvertimeSql = `
+SELECT COALESCE(w.EmployeeId,w.CreatedBy) AS UserId,
+  CONVERT(char(10),w.DueDate,23) AS WorkDate,
+  CONVERT(char(19),w.StartAt,126) AS StartAt,
+  CONVERT(char(19),w.EndAt,126) AS EndAt,
+  w.Priority AS TimeRange,w.Status AS StatusCode
+FROM dbo.HrmWorkItem w
+INNER JOIN dbo.HrmUserAccount u ON u.Id=COALESCE(w.EmployeeId,w.CreatedBy)
+WHERE w.Kind='overtime' AND w.Status='APPROVED'
+  AND w.DueDate>=@FromDate AND w.DueDate<DATEADD(day,1,@ToDate)
+  AND (@TargetUserId IS NULL OR u.Id=@TargetUserId)
+  AND (@CanSeeAll=1 OR u.Id=@ActorId
+       OR (@IsManager=1 AND u.DepartmentId=@DepartmentId));`;
+
 const attendancePeriodSql = `
 SELECT @Period AS Period,COALESCE(p.StatusCode,'OPEN') AS StatusCode,
   CONVERT(bit,CASE WHEN c.UserId IS NULL THEN 0 ELSE 1 END) AS IsConfirmed,
@@ -479,6 +513,7 @@ export function projectAttendance(
   leaveRows: LeaveRow[],
   range: AttendanceRange,
   now: Date,
+  overtimeRows: ApprovedOvertimeRow[] = [],
 ): AttendanceRecord[] {
   const records = new Map<string, AttendanceRecord>();
   for (const rawRow of rawRows) {
@@ -491,6 +526,7 @@ export function projectAttendance(
 
   const schedulesByUser = groupBy(scheduleRows, (schedule) => schedule.UserId);
   const leavesByUser = groupBy(leaveRows, (leave) => leave.UserId);
+  const overtimeByUser = groupBy(overtimeRows, (overtime) => overtime.UserId);
   for (const [userId, leaves] of leavesByUser) {
     for (const workDate of datesInRange(range.fromDate, range.toDate)) {
       const key = attendanceKey(userId, workDate);
@@ -537,7 +573,12 @@ export function projectAttendance(
         statusCode: "MISSING_SCHEDULE",
         source: "Nghỉ đã duyệt",
       };
-      calculateAttendance(record, activeLeaves, now);
+      calculateAttendance(
+        record,
+        activeLeaves,
+        approvedOvertimeForDate(overtimeByUser.get(userId) ?? [], workDate),
+        now,
+      );
       if (record.approvedLeave) records.set(key, record);
     }
   }
@@ -561,6 +602,10 @@ export function projectAttendance(
       record,
       activeLeavesForDate(
         leavesByUser.get(record.userId) ?? [],
+        record.workDate,
+      ),
+      approvedOvertimeForDate(
+        overtimeByUser.get(record.userId) ?? [],
         record.workDate,
       ),
       now,
@@ -650,6 +695,7 @@ function recordFromSchedule(
 function calculateAttendance(
   record: AttendanceRecord,
   leaves: LeaveRow[],
+  overtimeRows: ApprovedOvertimeRow[],
   now: Date,
 ): void {
   record.lateMinutes = 0;
@@ -666,9 +712,14 @@ function calculateAttendance(
     (mask, leave) => mask | leaveSessionMask(leave.SessionCode),
     0,
   );
+  const authorizedOvertime = resolveOvertimeWindows(overtimeRows);
   const scheduledStart = record.scheduledStart;
   const scheduledEnd = record.scheduledEnd;
   if (!scheduledStart || !scheduledEnd) {
+    if (authorizedOvertime.length > 0) {
+      calculateOvertimeOnly(record, authorizedOvertime, now);
+      return;
+    }
     describeLeave(record, leaves, leaveMask);
     record.statusCode = leaveMask === 3 ? "ON_LEAVE" : "MISSING_SCHEDULE";
     return;
@@ -714,6 +765,11 @@ function calculateAttendance(
 
   record.expectedStartAt = vietnamLocalIso(expectedStart);
   record.expectedEndAt = vietnamLocalIso(expectedEnd);
+  const authorizedEnd = authorizedOvertime.reduce(
+    (latest, interval) =>
+      interval.end.getTime() > latest.getTime() ? interval.end : latest,
+    expectedEnd,
+  );
   const checkIn = parseVietnamLocalDateTime(record.checkIn);
   let checkOut = parseVietnamLocalDateTime(record.checkOut);
   const lastSeen = parseVietnamLocalDateTime(record.lastSeen);
@@ -727,18 +783,26 @@ function calculateAttendance(
       checkOut && checkOut.getTime() < expectedEnd.getTime()
         ? checkOut
         : expectedEnd;
-    record.workedMinutes =
-      checkIn && checkOut
-        ? Math.max(
-            0,
-            Math.floor((actualEnd.getTime() - actualStart.getTime()) / 60000) -
-              (record.approvedLeave ? 0 : record.breakMinutes),
-          )
-        : 0;
+    if (checkIn && checkOut) {
+      const baseMinutes =
+        actualEnd.getTime() > actualStart.getTime()
+          ? Math.floor((actualEnd.getTime() - actualStart.getTime()) / 60000)
+          : 0;
+      const allAuthorizedMinutes = authorizedMinutes(checkIn, checkOut, [
+        { start: expectedStart, end: expectedEnd },
+        ...authorizedOvertime,
+      ]);
+      const overtimeMinutes = Math.max(0, allAuthorizedMinutes - baseMinutes);
+      record.workedMinutes =
+        Math.max(
+          0,
+          baseMinutes - (record.approvedLeave ? 0 : record.breakMinutes),
+        ) + overtimeMinutes;
+    }
     const target = record.approvedLeave
       ? Math.ceil(record.requiredMinutes / 2)
       : record.requiredMinutes;
-    record.isProvisional = now.getTime() < expectedEnd.getTime();
+    record.isProvisional = now.getTime() < authorizedEnd.getTime();
     record.statusCode = record.isProvisional
       ? "IN_PROGRESS"
       : !checkIn || !checkOut
@@ -759,7 +823,7 @@ function calculateAttendance(
         ),
       )
     : 0;
-  if (now.getTime() < expectedEnd.getTime()) {
+  if (now.getTime() < authorizedEnd.getTime()) {
     record.isProvisional = true;
     record.checkOut = null;
     record.statusCode = "IN_PROGRESS";
@@ -776,20 +840,14 @@ function calculateAttendance(
     record.checkOut = vietnamLocalIso(lastSeen);
   }
   if (checkIn && checkOut) {
-    const actualStart =
-      record.approvedLeave && checkIn.getTime() < expectedStart.getTime()
-        ? expectedStart
-        : checkIn;
-    const actualEnd =
-      record.approvedLeave && checkOut.getTime() > expectedEnd.getTime()
-        ? expectedEnd
-        : checkOut;
-    record.workedMinutes = fixedWorkedMinutes(
-      actualStart,
-      actualEnd,
-      noon,
-      lunchEnd,
-      overnight,
+    // Preserve raw punches for audit while clipping payable time to the shift
+    // and approved overtime windows. Gaps between windows remain unpaid.
+    record.workedMinutes = authorizedMinutes(
+      checkIn,
+      checkOut,
+      [{ start: expectedStart, end: expectedEnd }, ...authorizedOvertime],
+      overnight ? null : noon,
+      overnight ? null : lunchEnd,
     );
   }
   record.earlyMinutes = checkOut
@@ -810,26 +868,116 @@ function calculateAttendance(
             : "ON_TIME";
 }
 
-function fixedWorkedMinutes(
+interface WorkInterval {
+  start: Date;
+  end: Date;
+}
+
+function calculateOvertimeOnly(
+  record: AttendanceRecord,
+  authorized: WorkInterval[],
+  now: Date,
+): void {
+  const expectedStart = authorized
+    .map((interval) => interval.start)
+    .reduce((earliest, value) =>
+      value.getTime() < earliest.getTime() ? value : earliest,
+    );
+  const expectedEnd = authorized
+    .map((interval) => interval.end)
+    .reduce((latest, value) =>
+      value.getTime() > latest.getTime() ? value : latest,
+    );
+  record.shiftName = "Tăng ca đã duyệt";
+  record.expectedStartAt = vietnamLocalIso(expectedStart);
+  record.expectedEndAt = vietnamLocalIso(expectedEnd);
+  if (now.getTime() < expectedEnd.getTime()) {
+    record.isProvisional = true;
+    record.checkOut = null;
+    record.statusCode = "IN_PROGRESS";
+    return;
+  }
+  const checkIn = parseVietnamLocalDateTime(record.checkIn);
+  const checkOut = parseVietnamLocalDateTime(record.checkOut);
+  if (checkIn && checkOut) {
+    record.workedMinutes = authorizedMinutes(
+      checkIn,
+      checkOut,
+      authorized,
+      vietnamDateTime(record.workDate, "12:00"),
+      vietnamDateTime(record.workDate, "13:30"),
+    );
+  }
+  record.statusCode = checkIn && checkOut ? "ON_TIME" : "MISSING_CHECK";
+}
+
+function resolveOvertimeWindows(rows: ApprovedOvertimeRow[]): WorkInterval[] {
+  const windows: WorkInterval[] = [];
+  for (const row of rows) {
+    let start = parseVietnamLocalDateTime(row.StartAt);
+    let end = parseVietnamLocalDateTime(row.EndAt);
+    if (!start || !end || vietnamDatePart(start) !== row.WorkDate) {
+      const match = /^\s*(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})\s*$/.exec(
+        row.TimeRange ?? "",
+      );
+      if (!match?.[1] || !match[2]) continue;
+      start = safeVietnamDateTime(row.WorkDate, match[1]);
+      end = safeVietnamDateTime(row.WorkDate, match[2]);
+      if (!start || !end) continue;
+    }
+    if (end.getTime() <= start.getTime()) end = addDaysToInstant(end, 1);
+    if (end.getTime() - start.getTime() > 24 * 60 * 60 * 1000) continue;
+    windows.push({ start, end });
+  }
+  return windows;
+}
+
+function authorizedMinutes(
   actualStart: Date,
   actualEnd: Date,
-  lunchStart: Date,
-  lunchEnd: Date,
-  overnight: boolean,
+  authorized: WorkInterval[],
+  lunchStart: Date | null = null,
+  lunchEnd: Date | null = null,
 ): number {
   if (actualEnd.getTime() <= actualStart.getTime()) return 0;
-  const elapsedMinutes = Math.floor(
-    (actualEnd.getTime() - actualStart.getTime()) / 60000,
-  );
-  if (overnight) return elapsedMinutes;
+  const intervals = authorized
+    .map((interval) => ({
+      start: new Date(
+        Math.max(interval.start.getTime(), actualStart.getTime()),
+      ),
+      end: new Date(Math.min(interval.end.getTime(), actualEnd.getTime())),
+    }))
+    .filter((interval) => interval.end.getTime() > interval.start.getTime())
+    .sort((left, right) =>
+      left.start.getTime() === right.start.getTime()
+        ? left.end.getTime() - right.end.getTime()
+        : left.start.getTime() - right.start.getTime(),
+    );
+  const merged: WorkInterval[] = [];
+  for (const interval of intervals) {
+    const previous = merged.at(-1);
+    if (!previous || interval.start.getTime() > previous.end.getTime()) {
+      merged.push(interval);
+    } else if (interval.end.getTime() > previous.end.getTime()) {
+      previous.end = interval.end;
+    }
+  }
 
-  const overlapStart = Math.max(actualStart.getTime(), lunchStart.getTime());
-  const overlapEnd = Math.min(actualEnd.getTime(), lunchEnd.getTime());
-  const lunchMinutes =
-    overlapEnd > overlapStart
-      ? Math.floor((overlapEnd - overlapStart) / 60000)
-      : 0;
-  return Math.max(0, elapsedMinutes - lunchMinutes);
+  return merged.reduce((total, interval) => {
+    let minutes = Math.floor(
+      (interval.end.getTime() - interval.start.getTime()) / 60000,
+    );
+    if (lunchStart && lunchEnd) {
+      const overlapStart = Math.max(
+        interval.start.getTime(),
+        lunchStart.getTime(),
+      );
+      const overlapEnd = Math.min(interval.end.getTime(), lunchEnd.getTime());
+      if (overlapEnd > overlapStart)
+        minutes -= Math.floor((overlapEnd - overlapStart) / 60000);
+    }
+    return total + Math.max(0, minutes);
+  }, 0);
 }
 
 function describeLeave(
@@ -947,6 +1095,15 @@ function activeLeavesForDate(
   );
 }
 
+function approvedOvertimeForDate(
+  overtime: readonly ApprovedOvertimeRow[],
+  date: string,
+): ApprovedOvertimeRow[] {
+  return overtime.filter(
+    (item) => item.StatusCode === "APPROVED" && item.WorkDate === date,
+  );
+}
+
 function scheduleForDate(
   schedules: readonly ScheduleRow[],
   date: string,
@@ -1045,6 +1202,18 @@ function vietnamDateTime(workDate: string, time: string): Date {
   );
   if (!date) throw new Error("Invalid internal attendance date/time.");
   return date;
+}
+
+function safeVietnamDateTime(workDate: string, time: string): Date | null {
+  const match = /^(\d{1,2}):(\d{2})$/.exec(time);
+  if (!match?.[1] || !match[2]) return null;
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return null;
+  return vietnamDateTime(
+    workDate,
+    `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`,
+  );
 }
 
 function addDaysToInstant(value: Date, days: number): Date {

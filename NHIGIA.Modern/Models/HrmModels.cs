@@ -392,6 +392,16 @@ namespace NHIGIA.Modern.Models
         public string Source { get; set; }
     }
 
+    public class ApprovedOvertimeModel
+    {
+        public int UserId { get; set; }
+        public DateTime WorkDate { get; set; }
+        public DateTime? StartAt { get; set; }
+        public DateTime? EndAt { get; set; }
+        public string TimeRange { get; set; }
+        public string StatusCode { get; set; }
+    }
+
     public class HanetSyncRunModel
     {
         public long Id { get; set; }

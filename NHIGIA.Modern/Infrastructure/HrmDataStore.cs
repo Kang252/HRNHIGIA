@@ -843,9 +843,18 @@ namespace NHIGIA.Modern.Infrastructure
             var canSeeAll = actor.RoleCode == HrmRoles.Admin || actor.RoleCode == HrmRoles.Hr || actor.RoleCode == HrmRoles.Director;
             using (var connection = OpenConnection())
             {
-                var rows = connection.Query<AttendanceRecordModel>(sql, new { FromDate = fromDate.Date, ToDate = toDate.Date, CanSeeAll = canSeeAll, IsManager = actor.RoleCode == HrmRoles.Manager, ActorId = actor.Id, actor.DepartmentId }).ToList();
+                var queryScope = new { FromDate = fromDate.Date, ToDate = toDate.Date, CanSeeAll = canSeeAll, IsManager = actor.RoleCode == HrmRoles.Manager, ActorId = actor.Id, actor.DepartmentId };
+                var rows = connection.Query<AttendanceRecordModel>(sql, queryScope).ToList();
+                var overtime = connection.Query<ApprovedOvertimeModel>(@"SELECT COALESCE(w.EmployeeId,w.CreatedBy) UserId,
+                        CAST(w.DueDate AS date) WorkDate,w.StartAt,w.EndAt,w.Priority TimeRange,w.Status StatusCode
+                    FROM dbo.HrmWorkItem w
+                    INNER JOIN dbo.HrmUserAccount u ON u.Id=COALESCE(w.EmployeeId,w.CreatedBy)
+                    WHERE w.Kind='overtime' AND w.Status='APPROVED'
+                      AND w.DueDate>=@FromDate AND w.DueDate<DATEADD(day,1,@ToDate)
+                      AND (@CanSeeAll=1 OR u.Id=@ActorId OR (@IsManager=1 AND u.DepartmentId=@DepartmentId))",
+                    queryScope).ToList();
                 return AttendanceLeavePolicy.Project(rows, GetSchedules(actor).ToList(),
-                    GetApprovedScheduleLeaves(actor, fromDate, toDate).ToList(), fromDate, toDate, CurrentVietnamTime());
+                    GetApprovedScheduleLeaves(actor, fromDate, toDate).ToList(), fromDate, toDate, CurrentVietnamTime(), overtime);
             }
         }
 

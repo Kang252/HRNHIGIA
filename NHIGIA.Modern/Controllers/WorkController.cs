@@ -245,6 +245,19 @@ public sealed class WorkController : Controller
             {
                 draft.Title = $"Tăng ca {draft.Category ?? "làm thêm"}";
             }
+            if (draft.DueDate.HasValue)
+            {
+                if (AttendanceLeavePolicy.TryResolveOvertimeWindow(draft.DueDate.Value, draft.StartAt, draft.EndAt,
+                        draft.Priority, out var overtimeStart, out var overtimeEnd))
+                {
+                    draft.StartAt = overtimeStart;
+                    draft.EndAt = overtimeEnd;
+                }
+                else
+                {
+                    ModelState.AddModelError("", "Khung giờ tăng ca không hợp lệ.");
+                }
+            }
             ModelState.Remove(nameof(draft.Title));
         }
         page.Draft = draft;

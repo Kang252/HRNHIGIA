@@ -604,7 +604,9 @@ public sealed class WorkItemStore
         using var transaction = db.BeginTransaction();
         if (status is not ("APPROVED" or "REJECTED")) return false;
         var expected = "PENDING";
-        var changed = db.Execute(@"UPDATE w SET Status=@Status, LastActionNote=@Note, UpdatedAt=SYSDATETIME()
+        var changed = db.Execute(@"UPDATE w SET Status=@Status, LastActionNote=@Note, UpdatedAt=SYSDATETIME(),
+                ApprovedByUserId=CASE WHEN @Status='APPROVED' THEN @ActorId ELSE NULL END,
+                ApprovedAt=CASE WHEN @Status='APPROVED' THEN SYSDATETIME() ELSE NULL END
             FROM dbo.HrmWorkItem w WHERE w.Id=@Id AND w.Status=@Expected AND w.Kind='overtime'
               AND COALESCE(w.EmployeeId,w.CreatedBy)<>@ActorId" + ApproveRecordScope,
             new { Id=id, Status=status, Note=note, Expected=expected, ActorId=actorId }, transaction) > 0;

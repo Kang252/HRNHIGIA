@@ -203,6 +203,15 @@ export const featureSchemaRequirements: Readonly<
     "dbo.HrmDepartment",
     "dbo.HrmDepartment.Id",
     "dbo.HrmDepartment.Name",
+    "dbo.HrmWorkItem",
+    "dbo.HrmWorkItem.Kind",
+    "dbo.HrmWorkItem.EmployeeId",
+    "dbo.HrmWorkItem.CreatedBy",
+    "dbo.HrmWorkItem.DueDate",
+    "dbo.HrmWorkItem.StartAt",
+    "dbo.HrmWorkItem.EndAt",
+    "dbo.HrmWorkItem.Priority",
+    "dbo.HrmWorkItem.Status",
   ],
   procedures: [
     "dbo.HrmLeaveRequest",
@@ -491,7 +500,16 @@ export const schemaProbeSql: Readonly<Record<ApiSchemaFeature, string>> = {
     UNION ALL SELECT N'dbo.HrmEmployeeProfile.JobTitle',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmEmployeeProfile',N'JobTitle') IS NULL THEN 0 ELSE 1 END AS bit)
     UNION ALL SELECT N'dbo.HrmDepartment',CAST(CASE WHEN OBJECT_ID(N'dbo.HrmDepartment',N'U') IS NULL THEN 0 ELSE 1 END AS bit)
     UNION ALL SELECT N'dbo.HrmDepartment.Id',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmDepartment',N'Id') IS NULL THEN 0 ELSE 1 END AS bit)
-    UNION ALL SELECT N'dbo.HrmDepartment.Name',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmDepartment',N'Name') IS NULL THEN 0 ELSE 1 END AS bit);`,
+    UNION ALL SELECT N'dbo.HrmDepartment.Name',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmDepartment',N'Name') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmWorkItem',CAST(CASE WHEN OBJECT_ID(N'dbo.HrmWorkItem',N'U') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmWorkItem.Kind',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmWorkItem',N'Kind') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmWorkItem.EmployeeId',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmWorkItem',N'EmployeeId') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmWorkItem.CreatedBy',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmWorkItem',N'CreatedBy') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmWorkItem.DueDate',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmWorkItem',N'DueDate') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmWorkItem.StartAt',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmWorkItem',N'StartAt') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmWorkItem.EndAt',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmWorkItem',N'EndAt') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmWorkItem.Priority',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmWorkItem',N'Priority') IS NULL THEN 0 ELSE 1 END AS bit)
+    UNION ALL SELECT N'dbo.HrmWorkItem.Status',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmWorkItem',N'Status') IS NULL THEN 0 ELSE 1 END AS bit);`,
   procedures: `
     SELECT N'dbo.HrmLeaveRequest' AS Requirement,CAST(CASE WHEN OBJECT_ID(N'dbo.HrmLeaveRequest',N'U') IS NULL THEN 0 ELSE 1 END AS bit) AS IsPresent
     UNION ALL SELECT N'dbo.HrmLeaveRequest.Id',CAST(CASE WHEN COL_LENGTH(N'dbo.HrmLeaveRequest',N'Id') IS NULL THEN 0 ELSE 1 END AS bit)

@@ -226,6 +226,50 @@ var tests = new List<(string Name, Action Run)>
         var row = Single(Project([Punch(1, day, 12.25, 13)], [Schedule()], []));
         Equal(0, row.WorkedMinutes);
     }),
+    ("Early arrival and late departure are capped to the assigned shift", () =>
+    {
+        var row = Single(Project([Punch(1, day, 7.5, 18.5)], [Schedule()], []));
+        Equal(480, row.WorkedMinutes);
+    }),
+    ("Approved overtime adds only its punched overlap", () =>
+    {
+        var row = Single(Project([Punch(1, day, 7.5, 19)], [Schedule()], [],
+            overtime: [Overtime(timeRange: "18:00 - 21:00")]));
+        Equal(540, row.WorkedMinutes);
+    }),
+    ("Pending and rejected overtime do not extend worked time", () =>
+    {
+        foreach (var status in new[] { "PENDING", "REJECTED" })
+        {
+            var row = Single(Project([Punch(1, day, 7.5, 19)], [Schedule()], [],
+                overtime: [Overtime(timeRange: "18:00 - 21:00", status: status)]));
+            Equal(480, row.WorkedMinutes, status);
+        }
+    }),
+    ("Overlapping approved overtime windows are not counted twice", () =>
+    {
+        var row = Single(Project([Punch(1, day, 8, 20)], [Schedule()], [], overtime:
+            [Overtime(timeRange: "17:30 - 19:00"), Overtime(timeRange: "18:00 - 20:00")]));
+        Equal(630, row.WorkedMinutes);
+    }),
+    ("Approved weekend overtime is counted without a recurring shift", () =>
+    {
+        var saturday = new DateTime(2026, 9, 26);
+        var actual = Punch(1, saturday, 8, 17);
+        actual.ScheduledStart = actual.ScheduledEnd = null;
+        var row = Single(Project([actual], [], [], saturday, saturday,
+            overtime: [Overtime(workDate: saturday, timeRange: "08:00 - 17:00")]));
+        Equal("Tăng ca đã duyệt", row.ShiftName);
+        Equal(450, row.WorkedMinutes);
+    }),
+    ("Stored overtime timestamps take precedence over the legacy time range", () =>
+    {
+        var overtime = Overtime(timeRange: "invalid");
+        overtime.StartAt = day.AddHours(18);
+        overtime.EndAt = day.AddHours(19);
+        var row = Single(Project([Punch(1, day, 8, 19)], [Schedule()], [], overtime: [overtime]));
+        Equal(540, row.WorkedMinutes);
+    }),
     ("Remainder shift honours its configured late grace", () =>
     {
         var shift = Schedule();
@@ -265,9 +309,10 @@ return failures == 0 ? 0 : 1;
 
 IList<AttendanceRecordModel> Project(IReadOnlyList<AttendanceRecordModel> attendance,
     IReadOnlyList<ScheduleModel> schedules, IReadOnlyList<LeaveRequestModel> leaves,
-    DateTime? from = null, DateTime? to = null, DateTime? now = null) =>
+    DateTime? from = null, DateTime? to = null, DateTime? now = null,
+    IReadOnlyList<ApprovedOvertimeModel>? overtime = null) =>
     AttendanceLeavePolicy.Project(attendance, schedules, leaves, from ?? day, to ?? day,
-        now ?? new DateTime(2026, 10, 10, 20, 0, 0));
+        now ?? new DateTime(2026, 10, 10, 20, 0, 0), overtime ?? []);
 
 ScheduleModel Schedule(int userId = 1, double start = 8, double end = 17.5, int mask = 62, int breakMinutes = 60) => new()
 {
@@ -301,6 +346,15 @@ LeaveRequestModel Leave(int userId = 1, DateTime? start = null, DateTime? end = 
     StatusCode = status,
     LeaveType = type,
     Reason = "Approved absence"
+};
+
+ApprovedOvertimeModel Overtime(int userId = 1, DateTime? workDate = null,
+    string timeRange = "18:00 - 21:00", string status = "APPROVED") => new()
+{
+    UserId = userId,
+    WorkDate = workDate ?? day,
+    TimeRange = timeRange,
+    StatusCode = status
 };
 
 AttendanceRecordModel Punch(int userId, DateTime date, double checkIn, double? checkOut) => new()

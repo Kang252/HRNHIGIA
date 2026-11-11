@@ -28,6 +28,31 @@ function range(fromDate, toDate) {
   return resolveAttendanceRange({ fromDate, toDate });
 }
 
+function rawAttendance(overrides = {}) {
+  return {
+    UserId: 42,
+    EmployeeCode: "HN-42",
+    DisplayName: "Smoke Test",
+    JobTitle: "Nhân viên",
+    DepartmentName: "Công nghệ thông tin",
+    WorkDate: "2026-10-01",
+    ShiftName: "Ca hành chính",
+    ScheduledStart: "08:00:00",
+    ScheduledEnd: "17:30:00",
+    GraceMinutes: 0,
+    BreakMinutes: 90,
+    HasExplicitPunches: 1,
+    IsFlexible: 0,
+    RequiredMinutes: 0,
+    CheckIn: "2026-10-01T08:00:00",
+    CheckOut: "2026-10-01T17:30:00",
+    LastSeen: "2026-10-01T17:30:00",
+    EventCount: 2,
+    Source: "HANET",
+    ...overrides,
+  };
+}
+
 test("attendance visibility scopes self, department, and company correctly", () => {
   assert.deepEqual(attendanceScopeFor(identity("EMPLOYEE")), {
     canSeeAll: false,
@@ -235,6 +260,114 @@ test("attendance subtracts only the overlap with the 12:00-13:30 lunch break", (
   );
 
   assert.equal(records[0].workedMinutes, 30);
+});
+
+test("attendance caps early arrival and late departure to the assigned shift", () => {
+  const records = projectAttendance(
+    [
+      rawAttendance({
+        CheckIn: "2026-10-01T07:30:00",
+        CheckOut: "2026-10-01T18:30:00",
+        LastSeen: "2026-10-01T18:30:00",
+      }),
+    ],
+    [],
+    [],
+    range("2026-10-01", "2026-10-01"),
+    new Date("2026-10-01T22:00:00+07:00"),
+  );
+
+  assert.equal(records[0].workedMinutes, 480);
+});
+
+test("attendance adds only the overlap with approved overtime", () => {
+  const records = projectAttendance(
+    [
+      rawAttendance({
+        CheckIn: "2026-10-01T07:30:00",
+        CheckOut: "2026-10-01T19:00:00",
+        LastSeen: "2026-10-01T19:00:00",
+      }),
+    ],
+    [],
+    [],
+    range("2026-10-01", "2026-10-01"),
+    new Date("2026-10-01T22:00:00+07:00"),
+    [
+      {
+        UserId: 42,
+        WorkDate: "2026-10-01",
+        StartAt: null,
+        EndAt: null,
+        TimeRange: "18:00 - 21:00",
+        StatusCode: "APPROVED",
+      },
+    ],
+  );
+
+  assert.equal(records[0].workedMinutes, 540);
+});
+
+test("attendance ignores pending and rejected overtime", () => {
+  for (const StatusCode of ["PENDING", "REJECTED"]) {
+    const records = projectAttendance(
+      [
+        rawAttendance({
+          CheckIn: "2026-10-01T07:30:00",
+          CheckOut: "2026-10-01T19:00:00",
+          LastSeen: "2026-10-01T19:00:00",
+        }),
+      ],
+      [],
+      [],
+      range("2026-10-01", "2026-10-01"),
+      new Date("2026-10-01T22:00:00+07:00"),
+      [
+        {
+          UserId: 42,
+          WorkDate: "2026-10-01",
+          StartAt: null,
+          EndAt: null,
+          TimeRange: "18:00 - 21:00",
+          StatusCode,
+        },
+      ],
+    );
+    assert.equal(records[0].workedMinutes, 480, StatusCode);
+  }
+});
+
+test("approved weekend overtime is counted without a recurring schedule", () => {
+  const records = projectAttendance(
+    [
+      rawAttendance({
+        WorkDate: "2026-10-03",
+        ShiftName: null,
+        ScheduledStart: null,
+        ScheduledEnd: null,
+        CheckIn: "2026-10-03T08:00:00",
+        CheckOut: "2026-10-03T17:00:00",
+        LastSeen: "2026-10-03T17:00:00",
+      }),
+    ],
+    [],
+    [],
+    range("2026-10-03", "2026-10-03"),
+    new Date("2026-10-03T22:00:00+07:00"),
+    [
+      {
+        UserId: 42,
+        WorkDate: "2026-10-03",
+        StartAt: null,
+        EndAt: null,
+        TimeRange: "08:00 - 17:00",
+        StatusCode: "APPROVED",
+      },
+    ],
+  );
+
+  assert.equal(records[0].shiftName, "Tăng ca đã duyệt");
+  assert.equal(records[0].workedMinutes, 450);
 });
 
 test("a full-day approved leave adds a scheduled attendance record without punches", () => {
