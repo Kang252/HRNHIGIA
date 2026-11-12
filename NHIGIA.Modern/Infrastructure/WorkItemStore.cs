@@ -7,7 +7,12 @@ namespace NHIGIA.Modern.Infrastructure;
 public sealed class WorkItemStore
 {
     private readonly IConfiguration _configuration;
-    public WorkItemStore(IConfiguration configuration) => _configuration = configuration;
+    private readonly HrmDataStore _hrm;
+    public WorkItemStore(IConfiguration configuration, HrmDataStore hrm)
+    {
+        _configuration = configuration;
+        _hrm = hrm;
+    }
     private SqlConnection Open()
     {
         return DatabaseConfiguration.OpenConnection(_configuration);
@@ -310,7 +315,7 @@ public sealed class WorkItemStore
               AND EXISTS(SELECT 1 FROM dbo.HrmUserAccount a WHERE a.Id=@ActorId AND a.IsActive=1 AND a.RoleCode IN ('ADMIN','ACCOUNTANT'))",
             new { request.Id, ActorId = actorId }, transaction);
         if (item == null) return false;
-        var metadata = PayrollStoredValues.UpdateManualAmounts(item.Keywords, request);
+        var metadata = PayrollStoredValues.UpdateManualAmounts(item.Keywords, request, actorId, HrmDataStore.CurrentVietnamTime());
         var changed = db.Execute(@"UPDATE dbo.HrmWorkItem SET Target=@BaseSalary,Actual=@NetSalary,Keywords=@Metadata,
                 UpdatedAt=SYSUTCDATETIME(),LastActionNote=N'Kế toán cập nhật thủ công các thành phần lương'
             WHERE Id=@Id AND Status IN ('DRAFT','REJECTED')",
@@ -319,6 +324,316 @@ public sealed class WorkItemStore
             $"Kế toán cập nhật bảng lương; thực nhận {request.NetSalary:N0}", ipAddress);
         transaction.Commit();
         return changed;
+    }
+
+    public PayrollGenerationResult GeneratePayrollPeriod(string period, HrmUserAccountModel actor, string ipAddress)
+    {
+        ArgumentNullException.ThrowIfNull(actor);
+        var range = AttendancePeriodRange.Parse(period);
+        using (var validationDb = Open())
+        {
+            var role = validationDb.ExecuteScalar<string>(
+                "SELECT RoleCode FROM dbo.HrmUserAccount WHERE Id=@Id AND IsActive=1", new { actor.Id });
+            if (!PayrollPolicy.CanEdit(role)) throw new UnauthorizedAccessException("Bạn không có quyền tính lương.");
+            if (_configuration.GetValue("Payroll:RequireLockedAttendancePeriod", true))
+            {
+                var attendanceStatus = validationDb.ExecuteScalar<string>(
+                    "SELECT StatusCode FROM dbo.HrmAttendancePeriod WHERE Period=@Period", new { range.Period });
+                if (!string.Equals(attendanceStatus, "LOCKED", StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidOperationException($"Kỳ chấm công {range.Period} chưa được khóa. Hãy hoàn tất xác nhận chấm công trước khi tính lương.");
+            }
+        }
+
+        // Payroll operators have a company-wide calculation scope without changing
+        // the normal attendance permissions exposed to accountants elsewhere.
+        var payrollScope = new HrmUserAccountModel
+        {
+            Id = actor.Id,
+            RoleCode = HrmRoles.Admin,
+            DepartmentId = actor.DepartmentId,
+            IsActive = true
+        };
+        var attendance = _hrm.GetAttendance(payrollScope, range.FromDate, range.ToDate).ToList();
+        var schedules = _hrm.GetSchedules(payrollScope).ToList();
+        var leaves = _hrm.GetApprovedScheduleLeaves(payrollScope, range.FromDate, range.ToDate).ToList();
+
+        using var db = Open();
+        using var transaction = db.BeginTransaction(System.Data.IsolationLevel.Serializable);
+        try
+        {
+            if (_configuration.GetValue("Payroll:RequireLockedAttendancePeriod", true))
+            {
+                var attendanceStatus = db.ExecuteScalar<string>(
+                    "SELECT StatusCode FROM dbo.HrmAttendancePeriod WITH(UPDLOCK,HOLDLOCK) WHERE Period=@Period",
+                    new { range.Period }, transaction);
+                if (!string.Equals(attendanceStatus, "LOCKED", StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidOperationException($"Kỳ chấm công {range.Period} đã thay đổi trạng thái. Vui lòng thử lại.");
+            }
+
+            var employees = db.Query<PayrollEmployeeSource>(@"SELECT u.Id,u.Username,u.DisplayName,u.DepartmentId,
+                    d.Name DepartmentName,p.EmployeeCode,p.JobTitle,p.HireDate,p.WorkLocation,p.CompanyEmail,
+                    p.BasicSalary,p.InsuranceSalary,p.SocialInsuranceNumber,p.EmploymentStatus
+                FROM dbo.HrmUserAccount u
+                LEFT JOIN dbo.HrmEmployeeProfile p ON p.UserId=u.Id
+                LEFT JOIN dbo.HrmDepartment d ON d.Id=u.DepartmentId
+                WHERE u.RoleCode<>'ADMIN' AND (p.HireDate IS NULL OR p.HireDate<=@ToDate)
+                  AND (u.IsActive=1 OR EXISTS(SELECT 1 FROM dbo.HrmAttendanceEvent e
+                        WHERE e.UserId=u.Id AND e.CheckTime>=@FromDate AND e.CheckTime<DATEADD(day,1,@ToDate))
+                       OR EXISTS(SELECT 1 FROM dbo.HrmRemotePunch r
+                        WHERE r.UserId=u.Id AND r.StatusCode='APPROVED' AND r.CheckTime>=@FromDate AND r.CheckTime<DATEADD(day,1,@ToDate)))
+                ORDER BY d.Name,u.DisplayName",
+                new { range.FromDate, range.ToDate }, transaction).ToList();
+            var overtime = db.Query<ApprovedOvertimeModel>(@"SELECT COALESCE(w.EmployeeId,w.CreatedBy) UserId,
+                    CAST(w.DueDate AS date) WorkDate,w.StartAt,w.EndAt,w.Priority TimeRange,w.Status StatusCode
+                FROM dbo.HrmWorkItem w
+                WHERE w.Kind='overtime' AND w.Status='APPROVED'
+                  AND w.DueDate>=@FromDate AND w.DueDate<DATEADD(day,1,@ToDate)",
+                new { range.FromDate, range.ToDate }, transaction).ToList();
+            var components = db.Query<PayrollComponentSource>(@"SELECT Kind,EmployeeId,Title,Target
+                FROM dbo.HrmWorkItem
+                WHERE Kind IN ('payroll-allowance','payroll-deduction','payroll-advance')
+                  AND Quarter=@Period AND Status='APPROVED' AND EmployeeId IS NOT NULL",
+                new { Period = range.Period }, transaction).ToList();
+            var existing = db.Query<WorkItem>(@"SELECT * FROM dbo.HrmWorkItem WITH(UPDLOCK,HOLDLOCK)
+                WHERE Kind='payroll' AND Quarter=@Period ORDER BY Id",
+                new { Period = range.Period }, transaction).ToList()
+                .GroupBy(x => x.EmployeeId ?? 0).ToDictionary(x => x.Key, x => x.First());
+
+            var result = new PayrollGenerationResult();
+            var now = HrmDataStore.CurrentVietnamTime();
+            var standardDayMinutes = Math.Max(1, _configuration.GetValue("Payroll:StandardDayMinutes", PayrollCalculationPolicy.DefaultStandardDayMinutes));
+            var overtimeMultiplier = Math.Max(0, _configuration.GetValue("Payroll:OvertimeMultiplier", 1.5m));
+            var scheduleLookup = schedules.ToLookup(x => x.UserId);
+            var attendanceLookup = attendance.ToLookup(x => x.UserId);
+            var leaveLookup = leaves.ToLookup(x => x.UserId);
+            var overtimeLookup = overtime.ToLookup(x => x.UserId);
+            var componentLookup = components.ToLookup(x => x.EmployeeId);
+
+            foreach (var employee in employees)
+            {
+                existing.TryGetValue(employee.Id, out var current);
+                var currentValues = PayrollStoredValues.Parse(current?.Keywords);
+                if (currentValues.ManualOverride)
+                {
+                    result.SkippedManual++;
+                    continue;
+                }
+                if (current != null && current.Status is not ("DRAFT" or "REJECTED"))
+                {
+                    result.SkippedLocked++;
+                    continue;
+                }
+
+                var employeeAttendance = attendanceLookup[employee.Id]
+                    .GroupBy(x => x.WorkDate.Date).ToDictionary(x => x.Key, x => x.OrderByDescending(r => r.EventCount).First());
+                var employeeOvertime = overtimeLookup[employee.Id].ToList();
+                var overtimeByDate = employeeAttendance.ToDictionary(x => x.Key,
+                    x => AttendanceLeavePolicy.CalculateApprovedOvertimeMinutes(x.Value, employeeOvertime));
+                var approvedOvertimeMinutes = overtimeByDate.Values.Sum();
+                var standardMinutes = 0;
+                var standardWorkDays = 0m;
+                var regularWorkedMinutes = 0;
+                var salaryEligibleMinutes = 0;
+                var unpaidLeaveMinutes = 0;
+                var lateMinutes = 0;
+                var incompletePunches = 0;
+
+                for (var date = range.FromDate.Date; date <= range.ToDate.Date; date = date.AddDays(1))
+                {
+                    if (employee.HireDate.HasValue && date < employee.HireDate.Value.Date) continue;
+                    var schedule = ResolveSchedule(scheduleLookup[employee.Id], date);
+                    if (schedule == null) continue;
+                    var dayStandard = PayrollCalculationPolicy.ScheduledMinutes(schedule.StartTime, schedule.EndTime,
+                        schedule.BreakMinutes, date);
+                    if (dayStandard <= 0) continue;
+                    standardMinutes += dayStandard;
+                    standardWorkDays += dayStandard / (decimal)standardDayMinutes;
+
+                    var dayLeaves = leaveLookup[employee.Id]
+                        .Where(x => x.StartDate.Date <= date && x.EndDate.Date >= date).ToList();
+                    var unpaidMask = dayLeaves.Where(x => string.Equals(x.LeaveType?.Trim(), "Nghỉ không lương", StringComparison.OrdinalIgnoreCase))
+                        .Aggregate(0, (mask, leave) => mask | AttendanceLeavePolicy.SessionMask(leave.SessionCode));
+                    var paidMask = dayLeaves.Where(x => !string.Equals(x.LeaveType?.Trim(), "Nghỉ không lương", StringComparison.OrdinalIgnoreCase))
+                        .Aggregate(0, (mask, leave) => mask | AttendanceLeavePolicy.SessionMask(leave.SessionCode));
+                    paidMask &= 3 ^ unpaidMask;
+                    var dayUnpaid = LeaveMinutes(unpaidMask, dayStandard);
+                    var dayPaid = LeaveMinutes(paidMask, dayStandard);
+                    unpaidLeaveMinutes += dayUnpaid;
+
+                    employeeAttendance.TryGetValue(date, out var row);
+                    var dayOvertime = overtimeByDate.GetValueOrDefault(date);
+                    var dayRegular = row == null ? 0 : Math.Max(0, row.WorkedMinutes - dayOvertime);
+                    var dayLate = row == null ? 0 : Math.Min(dayStandard, Math.Max(0, row.LateMinutes));
+                    regularWorkedMinutes += dayRegular;
+                    lateMinutes += dayLate;
+                    salaryEligibleMinutes += Math.Min(dayStandard, dayRegular + dayPaid + dayUnpaid + dayLate);
+
+                    if ((row == null && dayPaid + dayUnpaid < dayStandard) ||
+                        row?.StatusCode is "MISSING_CHECK" or "IN_PROGRESS") incompletePunches++;
+                }
+
+                var contractSalary = PayrollCalculationPolicy.ParseMoney(employee.BasicSalary);
+                if (contractSalary <= 0) result.MissingSalary++;
+                var profileInsuranceSalary = PayrollCalculationPolicy.ParseMoney(employee.InsuranceSalary);
+                var insuranceSalary = profileInsuranceSalary > 0
+                    ? profileInsuranceSalary
+                    : currentValues.InsuranceSalary ?? 0;
+                var missingInsuranceSalary = !string.IsNullOrWhiteSpace(employee.SocialInsuranceNumber) && insuranceSalary <= 0;
+                if (missingInsuranceSalary) result.MissingInsuranceSalary++;
+                var employeeComponents = componentLookup[employee.Id].ToList();
+                var allowances = employeeComponents.Where(x => x.Kind == "payroll-allowance").ToList();
+                var deductions = employeeComponents.Where(x => x.Kind == "payroll-deduction").ToList();
+                var advances = employeeComponents.Where(x => x.Kind == "payroll-advance").ToList();
+                var responsibilityAllowance = allowances.Count > 0
+                    ? allowances.Where(x => IsLabel(x.Title, "trach nhiem")).Sum(x => x.Target ?? 0)
+                    : currentValues.IsGenerated ? 0 : currentValues.ResponsibilityAllowance ?? 0;
+                var otherAllowance = allowances.Count > 0
+                    ? allowances.Where(x => !IsLabel(x.Title, "trach nhiem")).Sum(x => x.Target ?? 0)
+                    : currentValues.IsGenerated ? 0 : currentValues.OtherAllowance ?? Math.Max(0, (currentValues.TotalAllowance ?? 0) - responsibilityAllowance);
+                var unionDeduction = deductions.Count > 0
+                    ? deductions.Where(x => IsLabel(x.Title, "cong doan")).Sum(x => x.Target ?? 0)
+                    : currentValues.IsGenerated ? 0 : currentValues.UnionDeduction ?? 0;
+                var phoneDeduction = deductions.Count > 0
+                    ? deductions.Where(x => IsLabel(x.Title, "dien thoai")).Sum(x => x.Target ?? 0)
+                    : currentValues.IsGenerated ? 0 : currentValues.PhoneDeduction ?? 0;
+                var otherDeduction = deductions.Count > 0
+                    ? deductions.Where(x => !IsLabel(x.Title, "cong doan") && !IsLabel(x.Title, "dien thoai")).Sum(x => x.Target ?? 0)
+                    : currentValues.IsGenerated ? 0 : currentValues.OtherDeduction ?? 0;
+                var advance = advances.Count > 0
+                    ? advances.Sum(x => x.Target ?? 0)
+                    : currentValues.IsGenerated ? 0 : currentValues.Advance ?? 0;
+
+                var input = new PayrollCalculationInput
+                {
+                    BaseSalary = contractSalary,
+                    InsuranceSalary = insuranceSalary,
+                    StandardMinutes = standardMinutes,
+                    StandardWorkDays = standardWorkDays,
+                    SalaryEligibleMinutes = salaryEligibleMinutes,
+                    ApprovedOvertimeMinutes = approvedOvertimeMinutes,
+                    UnpaidLeaveMinutes = unpaidLeaveMinutes,
+                    LateMinutes = lateMinutes,
+                    OvertimeMultiplier = overtimeMultiplier,
+                    ResponsibilityAllowance = responsibilityAllowance,
+                    OtherAllowance = otherAllowance,
+                    ProductSalary = currentValues.ProductSalary ?? 0,
+                    SalesSalary = currentValues.SalesSalary ?? 0,
+                    KpiSalary = currentValues.KpiSalary ?? 0,
+                    Bonus = currentValues.Bonus ?? 0,
+                    PersonalIncomeTax = currentValues.PersonalIncomeTax ?? 0,
+                    Advance = advance,
+                    UnionDeduction = unionDeduction,
+                    PhoneDeduction = phoneDeduction,
+                    OtherDeduction = otherDeduction
+                };
+                var calculated = PayrollCalculationPolicy.Calculate(input);
+                var notes = new List<string>();
+                if (contractSalary <= 0) notes.Add("Thiếu lương căn bản");
+                if (standardMinutes <= 0) notes.Add("Thiếu lịch làm việc trong kỳ");
+                if (incompletePunches > 0) notes.Add($"{incompletePunches} ngày thiếu dữ liệu chấm công");
+                if (missingInsuranceSalary) notes.Add("Thiếu lương đóng BHXH");
+                result.IncompletePunches += incompletePunches;
+                var calculationNote = notes.Count == 0 ? "Đã tính tự động từ chấm công đã khóa" : string.Join("; ", notes);
+                var generated = new PayrollGeneratedValues
+                {
+                    GeneratedBy = actor.Id,
+                    GeneratedAt = now,
+                    PeriodFrom = range.FromDate,
+                    PeriodTo = range.ToDate,
+                    CalculationNote = calculationNote,
+                    CalculationStatus = contractSalary > 0 && standardMinutes > 0 && !missingInsuranceSalary && incompletePunches == 0
+                        ? "READY"
+                        : "INCOMPLETE",
+                    ContractBaseSalary = contractSalary,
+                    InsuranceSalary = insuranceSalary,
+                    StandardWorkDays = standardWorkDays,
+                    WorkDays = calculated.WorkDays,
+                    StandardMinutes = standardMinutes,
+                    RegularWorkedMinutes = regularWorkedMinutes,
+                    SalaryEligibleMinutes = salaryEligibleMinutes,
+                    ApprovedOvertimeMinutes = approvedOvertimeMinutes,
+                    UnpaidLeaveMinutes = unpaidLeaveMinutes,
+                    LateMinutes = lateMinutes,
+                    OvertimeMultiplier = overtimeMultiplier,
+                    WorkSalary = calculated.WorkSalary,
+                    ProductSalary = input.ProductSalary,
+                    SalesSalary = input.SalesSalary,
+                    KpiSalary = input.KpiSalary,
+                    OvertimeSalary = calculated.OvertimeSalary,
+                    ResponsibilityAllowance = responsibilityAllowance,
+                    OtherAllowance = otherAllowance,
+                    TotalAllowance = calculated.TotalAllowance,
+                    Bonus = input.Bonus,
+                    SocialInsurance = calculated.SocialInsurance,
+                    HealthInsurance = calculated.HealthInsurance,
+                    UnemploymentInsurance = calculated.UnemploymentInsurance,
+                    EmployerSocialInsurance = calculated.EmployerSocialInsurance,
+                    EmployerHealthInsurance = calculated.EmployerHealthInsurance,
+                    EmployerUnemploymentInsurance = calculated.EmployerUnemploymentInsurance,
+                    PersonalIncomeTax = input.PersonalIncomeTax,
+                    Advance = advance,
+                    UnpaidLeaveDeduction = calculated.UnpaidLeaveDeduction,
+                    LateDeduction = calculated.LateDeduction,
+                    UnionDeduction = unionDeduction,
+                    PhoneDeduction = phoneDeduction,
+                    OtherDeduction = otherDeduction,
+                    TotalOtherDeductions = calculated.OtherDeductions,
+                    NetSalary = calculated.NetSalary
+                };
+                var metadata = PayrollStoredValues.UpdateGeneratedAmounts(current?.Keywords, generated);
+                var reference = string.IsNullOrWhiteSpace(employee.EmployeeCode) ? $"NV{employee.Id:D5}" : employee.EmployeeCode;
+                var email = string.IsNullOrWhiteSpace(employee.CompanyEmail) ? $"{employee.Username}@nhigia.vn" : employee.CompanyEmail;
+                var description = $"Tự động từ chấm công {range.FromDate:dd/MM/yyyy}–{range.ToDate:dd/MM/yyyy}. {calculationNote}";
+
+                if (current == null)
+                {
+                    var id = db.QuerySingle<int>(@"INSERT dbo.HrmWorkItem
+                        (Kind,Title,Description,Category,Reference,JobLevel,StartDate,ContactEmail,Keywords,
+                         EmployeeId,DepartmentId,Target,Actual,Priority,Status,CreatedBy,CreatedAt,Quarter,PeriodStart,PeriodEnd,LastActionNote)
+                        OUTPUT INSERTED.Id VALUES
+                        ('payroll',@Title,@Description,@Category,@Reference,@JobLevel,@StartDate,@ContactEmail,@Keywords,
+                         @EmployeeId,@DepartmentId,@Target,@Actual,'NORMAL','DRAFT',@CreatedBy,SYSUTCDATETIME(),@Quarter,@PeriodStart,@PeriodEnd,@LastActionNote)",
+                        new
+                        {
+                            Title = $"Bảng lương {employee.DisplayName}", Description = description,
+                            Category = employee.WorkLocation ?? "Nhị Gia", Reference = reference,
+                            employee.JobTitle, employee.HireDate, ContactEmail = email, Keywords = metadata,
+                            EmployeeId = employee.Id, employee.DepartmentId, Target = calculated.WorkSalary,
+                            Actual = calculated.NetSalary, CreatedBy = actor.Id, Quarter = range.Period,
+                            PeriodStart = range.FromDate, PeriodEnd = range.ToDate, LastActionNote = "Tính tự động từ chấm công đã khóa"
+                        }, transaction);
+                    AddAudit(db, transaction, actor.Id, "GENERATE_PAYROLL", id, description, ipAddress);
+                    result.Created++;
+                }
+                else
+                {
+                    db.Execute(@"UPDATE dbo.HrmWorkItem SET Title=@Title,Description=@Description,Category=@Category,
+                            Reference=@Reference,JobLevel=@JobLevel,StartDate=@StartDate,ContactEmail=@ContactEmail,
+                            Keywords=@Keywords,DepartmentId=@DepartmentId,Target=@Target,Actual=@Actual,
+                            PeriodStart=@PeriodStart,PeriodEnd=@PeriodEnd,UpdatedAt=SYSUTCDATETIME(),
+                            LastActionNote=N'Tính lại tự động từ chấm công đã khóa'
+                        WHERE Id=@Id AND Status IN ('DRAFT','REJECTED')",
+                        new
+                        {
+                            current.Id, Title = $"Bảng lương {employee.DisplayName}", Description = description,
+                            Category = employee.WorkLocation ?? "Nhị Gia", Reference = reference,
+                            employee.JobTitle, employee.HireDate, ContactEmail = email, Keywords = metadata,
+                            employee.DepartmentId, Target = calculated.WorkSalary, Actual = calculated.NetSalary,
+                            PeriodStart = range.FromDate, PeriodEnd = range.ToDate
+                        }, transaction);
+                    AddAudit(db, transaction, actor.Id, "REGENERATE_PAYROLL", current.Id, description, ipAddress);
+                    result.Updated++;
+                }
+            }
+
+            transaction.Commit();
+            return result;
+        }
+        catch
+        {
+            transaction.Rollback();
+            throw;
+        }
     }
 
     public bool TransitionPayroll(int id, string expectedStatus, string newStatus, string action, string note, int actorId, int? employeeId, string ipAddress)
@@ -1598,9 +1913,10 @@ public sealed class WorkItemStore
 
     private static PayrollItemDetail ParsePayrollItem(WorkItem item)
     {
+        var stored = PayrollStoredValues.Parse(item.Keywords);
         var detail = new PayrollItemDetail
         {
-            StoredValues = PayrollStoredValues.Parse(item.Keywords),
+            StoredValues = stored,
             Id = item.Id,
             Period = item.Quarter ?? "2026-02",
             EmployeeId = item.EmployeeId ?? 0,
@@ -1610,6 +1926,17 @@ public sealed class WorkItemStore
             DepartmentId = item.DepartmentId ?? 0,
             DepartmentName = item.DepartmentName ?? "Chưa phân phòng",
             Branch = item.Category ?? "TP. Hồ Chí Minh",
+            JobTitle = item.JobLevel,
+            HireDate = item.StartDate,
+            ContractBaseSalary = stored.ContractBaseSalary ?? stored.BaseSalary ?? item.Target ?? 0,
+            InsuranceSalary = stored.InsuranceSalary ?? 0,
+            StandardWorkDays = stored.StandardWorkDays ?? 0,
+            WorkDays = stored.WorkDays ?? 0,
+            StandardMinutes = stored.StandardMinutes ?? 0,
+            RegularWorkedMinutes = stored.RegularWorkedMinutes ?? 0,
+            ApprovedOvertimeMinutes = stored.ApprovedOvertimeMinutes ?? 0,
+            UnpaidLeaveMinutes = stored.UnpaidLeaveMinutes ?? 0,
+            LateMinutes = stored.LateMinutes ?? 0,
             BaseSalary = item.Target ?? 0,
             NetSalary = item.Actual ?? 0,
             PaymentDueDate = item.DueDate,
@@ -1644,6 +1971,25 @@ public sealed class WorkItemStore
                 if (root.TryGetProperty("email", out var pEmail)) detail.EmployeeEmail = pEmail.GetString() ?? detail.EmployeeEmail;
             }
             catch { }
+        }
+
+        detail.ResponsibilityAllowance = stored.ResponsibilityAllowance ?? 0;
+        detail.OtherAllowance = stored.OtherAllowance ?? Math.Max(0, detail.TotalAllowance - detail.ResponsibilityAllowance);
+        detail.UnpaidLeaveDeduction = stored.UnpaidLeaveDeduction ?? 0;
+        detail.LateDeduction = stored.LateDeduction ?? 0;
+        detail.UnionDeduction = stored.UnionDeduction ?? 0;
+        detail.PhoneDeduction = stored.PhoneDeduction ?? 0;
+        detail.OtherDeduction = stored.OtherDeduction ?? detail.Deduction;
+        detail.CalculationNote = stored.CalculationNote;
+        if (stored.ManualOverride)
+        {
+            // Manual payroll has one consolidated deduction field. Clear any
+            // stale automatic breakdown so UI/export cannot count it twice.
+            detail.UnpaidLeaveDeduction = 0;
+            detail.LateDeduction = 0;
+            detail.UnionDeduction = 0;
+            detail.PhoneDeduction = 0;
+            detail.OtherDeduction = detail.Deduction;
         }
 
         if (!item.Actual.HasValue)
@@ -1812,6 +2158,13 @@ public sealed class WorkItemStore
             }
             else return false;
 
+            if (actionType == "FINALIZE" && db.ExecuteScalar<int>(@"SELECT COUNT(1) FROM dbo.HrmWorkItem
+                    WHERE Kind='payroll' AND Quarter=@Period AND Status IN ('DRAFT','REJECTED')
+                      AND JSON_VALUE(CASE WHEN ISJSON(Keywords)=1 THEN Keywords END,'$.calculationStatus')='INCOMPLETE'
+                      AND COALESCE(JSON_VALUE(CASE WHEN ISJSON(Keywords)=1 THEN Keywords END,'$.manualOverride'),'false')<>'true'",
+                    new { Period = period }, transaction) > 0)
+                return false;
+
             string newStatus;
             string allowedStatus;
             string auditAction;
@@ -1956,11 +2309,13 @@ public sealed class WorkItemStore
                 new { EmpId = employeeId, Period = period }, transaction);
             if (payrollItem == null) return;
 
-            var allowances = db.ExecuteScalar<decimal?>(@"SELECT SUM(Target) FROM dbo.HrmWorkItem WHERE Kind='payroll-allowance' AND EmployeeId=@EmpId AND Quarter=@Period",
+            if (PayrollStoredValues.Parse(payrollItem.Keywords).ManualOverride) return;
+
+            var allowances = db.ExecuteScalar<decimal?>(@"SELECT SUM(Target) FROM dbo.HrmWorkItem WHERE Kind='payroll-allowance' AND Status='APPROVED' AND EmployeeId=@EmpId AND Quarter=@Period",
                 new { EmpId = employeeId, Period = period }, transaction);
-            var deductions = db.ExecuteScalar<decimal?>(@"SELECT SUM(Target) FROM dbo.HrmWorkItem WHERE Kind='payroll-deduction' AND EmployeeId=@EmpId AND Quarter=@Period",
+            var deductions = db.ExecuteScalar<decimal?>(@"SELECT SUM(Target) FROM dbo.HrmWorkItem WHERE Kind='payroll-deduction' AND Status='APPROVED' AND EmployeeId=@EmpId AND Quarter=@Period",
                 new { EmpId = employeeId, Period = period }, transaction);
-            var advances = db.ExecuteScalar<decimal?>(@"SELECT SUM(Target) FROM dbo.HrmWorkItem WHERE Kind='payroll-advance' AND EmployeeId=@EmpId AND Quarter=@Period",
+            var advances = db.ExecuteScalar<decimal?>(@"SELECT SUM(Target) FROM dbo.HrmWorkItem WHERE Kind='payroll-advance' AND Status='APPROVED' AND EmployeeId=@EmpId AND Quarter=@Period",
                 new { EmpId = employeeId, Period = period }, transaction);
 
             var detail = ParsePayrollItem(payrollItem);
@@ -2225,6 +2580,57 @@ public sealed class WorkItemStore
         db.Execute(@"INSERT dbo.HrmAuditLog(UserId,ActionCode,EntityType,EntityId,Detail,IpAddress)
             VALUES(@UserId,@Action,'HrmWorkItem',@EntityId,@Detail,@IpAddress)",
             new { UserId = actorId, Action = action, EntityId = id.ToString(), Detail = detail, IpAddress = ipAddress }, transaction);
+    }
+
+    private static ScheduleModel ResolveSchedule(IEnumerable<ScheduleModel> schedules, DateTime date) =>
+        schedules.Where(x => string.Equals(x.StatusCode, "ACTIVE", StringComparison.OrdinalIgnoreCase) &&
+                x.EffectiveFrom.Date <= date.Date && (!x.EffectiveTo.HasValue || x.EffectiveTo.Value.Date >= date.Date) &&
+                (x.WorkDaysMask & (1 << (int)date.DayOfWeek)) != 0)
+            .OrderByDescending(x => x.EffectiveFrom).ThenByDescending(x => x.Id).FirstOrDefault();
+
+    private static int LeaveMinutes(int sessionMask, int standardMinutes) => (sessionMask & 3) switch
+    {
+        3 => standardMinutes,
+        1 or 2 => (int)Math.Ceiling(standardMinutes / 2m),
+        _ => 0
+    };
+
+    private static bool IsLabel(string value, string normalizedNeedle) =>
+        NormalizeLabel(value).Contains(normalizedNeedle, StringComparison.OrdinalIgnoreCase);
+
+    private static string NormalizeLabel(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return string.Empty;
+        var normalized = value.Normalize(System.Text.NormalizationForm.FormD);
+        var chars = normalized.Where(x => System.Globalization.CharUnicodeInfo.GetUnicodeCategory(x) !=
+            System.Globalization.UnicodeCategory.NonSpacingMark).ToArray();
+        return new string(chars).Normalize(System.Text.NormalizationForm.FormC).ToLowerInvariant();
+    }
+
+    private sealed class PayrollEmployeeSource
+    {
+        public int Id { get; set; }
+        public string Username { get; set; }
+        public string DisplayName { get; set; }
+        public int? DepartmentId { get; set; }
+        public string DepartmentName { get; set; }
+        public string EmployeeCode { get; set; }
+        public string JobTitle { get; set; }
+        public DateTime? HireDate { get; set; }
+        public string WorkLocation { get; set; }
+        public string CompanyEmail { get; set; }
+        public string BasicSalary { get; set; }
+        public string InsuranceSalary { get; set; }
+        public string SocialInsuranceNumber { get; set; }
+        public string EmploymentStatus { get; set; }
+    }
+
+    private sealed class PayrollComponentSource
+    {
+        public string Kind { get; set; }
+        public int? EmployeeId { get; set; }
+        public string Title { get; set; }
+        public decimal? Target { get; set; }
     }
 
     public AssistantWorkSummary GetAssistantSummary(string kind, HrmUserAccountModel actor)

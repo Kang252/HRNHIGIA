@@ -750,6 +750,40 @@ public sealed class WorkController : Controller
     }
 
     [HttpPost, ValidateAntiForgeryToken]
+    public IActionResult GeneratePayroll(string period)
+    {
+        if (!PayrollPolicy.CanEdit(_user.Current.RoleCode)) return Forbid();
+        period = string.IsNullOrWhiteSpace(period) ? HrmDataStore.CurrentVietnamTime().ToString("yyyy-MM") : period;
+        try
+        {
+            var result = _store.GeneratePayrollPeriod(period, _user.Current, ClientIp);
+            TempData["WorkSuccess"] = result.Affected > 0
+                ? $"Đã tính lương tự động kỳ {period}: tạo {result.Created}, cập nhật {result.Updated}, giữ nguyên {result.SkippedManual} bản kế toán sửa tay và {result.SkippedLocked} bản đã trình/duyệt."
+                : $"Không có bản lương nào cần tạo hoặc cập nhật cho kỳ {period}.";
+            if (result.MissingSalary > 0 || result.MissingInsuranceSalary > 0 || result.IncompletePunches > 0)
+                TempData["WorkWarning"] = $"Cần đối soát: {result.MissingSalary} nhân viên thiếu lương căn bản, {result.MissingInsuranceSalary} nhân viên thiếu lương đóng BHXH và {result.IncompletePunches} ngày thiếu dữ liệu chấm công.";
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+        catch (InvalidOperationException ex)
+        {
+            TempData["WorkError"] = ex.Message;
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            TempData["WorkError"] = "Metadata bảng lương hiện tại bị lỗi định dạng; hệ thống đã hủy toàn bộ lần tính để bảo vệ dữ liệu.";
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Cannot generate payroll period {Period}", period);
+            TempData["WorkError"] = "Không thể tính bảng lương tự động. Vui lòng kiểm tra trạng thái kỳ công và dữ liệu nhân viên.";
+        }
+        return RedirectToAction("Index", new { kind = "payroll", pyPeriod = period, pyTab = "dashboard" });
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
     public IActionResult PayrollAction(int id, string command, string note)
     {
         var role = _user.Current.RoleCode;
@@ -1246,44 +1280,20 @@ public sealed class WorkController : Controller
         page.PayrollPeriod = string.IsNullOrWhiteSpace(pyPeriod) ? HrmDataStore.CurrentVietnamTime().ToString("yyyy-MM") : pyPeriod;
         page.PayrollDeptFilter = string.IsNullOrWhiteSpace(pyDept) ? "ALL" : pyDept;
         page.PayrollStatusFilter = string.IsNullOrWhiteSpace(pyStatus) ? "ALL" : pyStatus;
-        Load(page);
-
-        var csv = new System.Text.StringBuilder();
-        csv.Append('\uFEFF');
-        csv.AppendLine("STT,Mã nhân viên,Họ và tên,Email,Phòng ban,Chi nhánh,Lương cơ bản,Lương sản phẩm,Lương doanh số,Lương KPI,Lương OT,Tổng phụ cấp,Thưởng,Tổng thu nhập,BHXH (8%),BHYT (1.5%),BHTN (1%),Tổng bảo hiểm (10.5%),Thuế TNCN,Tạm ứng,Khấu trừ,Thực nhận (Net),Ngày dự kiến trả,Trạng thái");
-
-        int idx = 1;
-        foreach (var item in page.PayrollItems)
+        try
         {
-            csv.AppendLine($"{idx}," +
-                $"\"{item.EmployeeCode}\"," +
-                $"\"{item.EmployeeName}\"," +
-                $"\"{item.EmployeeEmail}\"," +
-                $"\"{item.DepartmentName}\"," +
-                $"\"{item.Branch}\"," +
-                $"{item.BaseSalary}," +
-                $"{item.ProductSalary}," +
-                $"{item.SalesSalary}," +
-                $"{item.KpiSalary}," +
-                $"{item.OtSalary}," +
-                $"{item.TotalAllowance}," +
-                $"{item.Bonus}," +
-                $"{item.GrossIncome}," +
-                $"{item.SocialInsurance}," +
-                $"{item.HealthInsurance}," +
-                $"{item.UnemploymentInsurance}," +
-                $"{item.TotalInsurance}," +
-                $"{item.PersonalIncomeTax}," +
-                $"{item.Advance}," +
-                $"{item.Deduction}," +
-                $"{item.NetSalary}," +
-                $"\"{item.PaymentDueDate:dd/MM/yyyy}\"," +
-                $"\"{item.StatusText}\"");
-            idx++;
+            _ = AttendancePeriodRange.Parse(page.PayrollPeriod);
         }
-
-        var bytes = System.Text.Encoding.UTF8.GetBytes(csv.ToString());
-        return File(bytes, "text/csv; charset=utf-8", $"Bang_Luong_Nhi_Gia_{page.PayrollPeriod}.csv");
+        catch (InvalidOperationException)
+        {
+            TempData["WorkError"] = "Kỳ lương không hợp lệ. Vui lòng chọn kỳ theo định dạng tháng/năm trên màn hình bảng lương.";
+            return RedirectToAction("Index", new { kind = "payroll" });
+        }
+        Load(page);
+        if (!page.Available) return StatusCode(StatusCodes.Status503ServiceUnavailable);
+        var bytes = PayrollWorkbookExporter.Build(page.PayrollItems, page.PayrollPeriod);
+        return File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            $"Bang_Luong_Nhi_Gia_{page.PayrollPeriod}.xlsx");
     }
 }
 

@@ -26,6 +26,11 @@ public static class AttendanceLeavePolicy
 
     public static IList<AttendanceRecordModel> Project(
         IReadOnlyList<AttendanceRecordModel> attendance, IReadOnlyList<ScheduleModel> schedules,
+        IReadOnlyList<LeaveRequestModel> leaves, DateTime fromDate, DateTime toDate, DateTime now) =>
+        Project(attendance, schedules, leaves, fromDate, toDate, now, Array.Empty<ApprovedOvertimeModel>());
+
+    public static IList<AttendanceRecordModel> Project(
+        IReadOnlyList<AttendanceRecordModel> attendance, IReadOnlyList<ScheduleModel> schedules,
         IReadOnlyList<LeaveRequestModel> leaves, DateTime fromDate, DateTime toDate, DateTime now,
         IReadOnlyList<ApprovedOvertimeModel> overtime)
     {
@@ -235,6 +240,37 @@ public static class AttendanceLeavePolicy
         end = workDate.Date.Add(endTime);
         if (end <= start) end = end.AddDays(1);
         return true;
+    }
+
+    /// <summary>
+    /// Returns the part of WorkedMinutes that belongs to approved overtime.
+    /// The result is the difference between the union of regular shift + OT and
+    /// the regular shift itself, preventing overlapping windows from being paid twice.
+    /// </summary>
+    public static int CalculateApprovedOvertimeMinutes(AttendanceRecordModel row,
+        IReadOnlyList<ApprovedOvertimeModel> overtime)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+        if (!row.CheckIn.HasValue || !row.CheckOut.HasValue || row.CheckOut <= row.CheckIn) return 0;
+        var approved = ResolveOvertimeWindows(overtime.Where(x =>
+                string.Equals(x.StatusCode, "APPROVED", StringComparison.OrdinalIgnoreCase) &&
+                x.UserId == row.UserId && x.WorkDate.Date == row.WorkDate.Date).ToList());
+        if (approved.Count == 0) return 0;
+
+        DateTime? lunchStart = row.WorkDate.Date.AddHours(12);
+        DateTime? lunchEnd = row.WorkDate.Date.AddHours(13.5);
+        if (!row.ScheduledStart.HasValue || !row.ScheduledEnd.HasValue)
+            return AuthorizedMinutes(row.CheckIn.Value, row.CheckOut.Value, approved, lunchStart, lunchEnd);
+
+        var regularStart = row.ExpectedStartAt ?? row.WorkDate.Date.Add(row.ScheduledStart.Value);
+        var regularEnd = row.ExpectedEndAt ?? row.WorkDate.Date.Add(row.ScheduledEnd.Value);
+        if (regularEnd <= regularStart) regularEnd = regularEnd.AddDays(1);
+        if (regularEnd.Date > regularStart.Date) lunchStart = lunchEnd = null;
+        var regular = new WorkInterval(regularStart, regularEnd);
+        var regularMinutes = AuthorizedMinutes(row.CheckIn.Value, row.CheckOut.Value, [regular], lunchStart, lunchEnd);
+        var combinedMinutes = AuthorizedMinutes(row.CheckIn.Value, row.CheckOut.Value,
+            [regular, .. approved], lunchStart, lunchEnd);
+        return Math.Max(0, combinedMinutes - regularMinutes);
     }
 
     private static int AuthorizedMinutes(DateTime actualStart, DateTime actualEnd,

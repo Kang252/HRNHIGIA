@@ -236,6 +236,7 @@ try
     }
     await Check("/Work?kind=transfer", "EMPLOYEE", HttpStatusCode.Redirect);
     await Check("/Work?kind=payroll", "EMPLOYEE", HttpStatusCode.OK, "Phiếu lương", "Chưa kết nối");
+    await Check("/Work/ExportPayrollExcel?pyPeriod=khong-hop-le", "ADMIN", HttpStatusCode.Redirect);
     await Check("/Work?kind=recruitment", "EMPLOYEE", HttpStatusCode.Redirect);
     await Check("/Work?kind=recruitment", "MANAGER", HttpStatusCode.Redirect);
     await Check("/Home/EditEmployeeProfile/1", "EMPLOYEE", HttpStatusCode.Redirect);

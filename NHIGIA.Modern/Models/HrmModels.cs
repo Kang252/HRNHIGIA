@@ -118,6 +118,7 @@ namespace NHIGIA.Modern.Models
         public string GraduationClassification { get; set; }
 
         public string BasicSalary { get; set; }
+        public string InsuranceSalary { get; set; }
         public string BankAccountNumber { get; set; }
         public string BankName { get; set; }
         public string BankBranch { get; set; }

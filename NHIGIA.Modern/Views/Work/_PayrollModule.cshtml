@@ -647,8 +647,20 @@
                 <input type="month" id="payrollPeriod" name="pyPeriod" class="payroll-period-select" value="@currentPeriod" required onchange="if(this.validity.valid) this.form.submit()" />
             </form>
 
+            @if (canOperatePayroll)
+            {
+                <form method="post" asp-controller="Work" asp-action="GeneratePayroll" style="display:inline;"
+                      onsubmit="return confirm('Tính lại bảng lương từ kỳ chấm công đã khóa? Các bản kế toán đã sửa tay và bản đã trình/duyệt sẽ được giữ nguyên.');">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="period" value="@currentPeriod" />
+                    <button type="submit" class="btn-payroll btn-payroll-approve" title="Dùng chấm công, nghỉ phép và OT đã duyệt trong kỳ 25–24">
+                        <i class="material-icons" style="font-size:18px;">calculate</i> Tính lương tự động
+                    </button>
+                </form>
+            }
+
             <!-- Nút Xuất Excel -->
-            <a href="@Url.Action("ExportPayrollExcel", "Work", new { pyPeriod = currentPeriod, pyDept = Model.PayrollDeptFilter, pyStatus = Model.PayrollStatusFilter })" class="btn-payroll btn-payroll-export" title="Xuất dữ liệu ra file Excel/CSV">
+            <a href="@Url.Action("ExportPayrollExcel", "Work", new { pyPeriod = currentPeriod, pyDept = Model.PayrollDeptFilter, pyStatus = Model.PayrollStatusFilter })" class="btn-payroll btn-payroll-export" title="Xuất bảng lương Excel đúng mẫu 22 cột">
                 <i class="material-icons" style="font-size:18px;">file_download</i> Xuất Excel
             </a>
 
@@ -1062,16 +1074,19 @@
                                 <th class="th-left">STT / Nhân viên</th>
                                 <th class="th-left">Phòng ban</th>
                                 <th class="th-left">Chi nhánh</th>
-                                <th>Lương giữ đóng</th>
-                                <th>Lương sản phẩm</th>
-                                <th>Doanh số</th>
-                                <th>Lương KPI</th>
-                                <th>Tổng phụ cấp</th>
-                                <th>Thưởng</th>
+                                <th>Lương căn bản</th>
+                                <th>Ngày công</th>
+                                <th>Lương ngày công</th>
+                                <th>Giờ OT duyệt</th>
+                                <th>Tiền OT</th>
+                                <th>Phụ cấp trách nhiệm</th>
+                                <th>Thu nhập khác</th>
                                 <th>BH (10.5%)</th>
+                                <th>Nghỉ không lương</th>
+                                <th>Trừ đi trễ</th>
                                 <th>Thuế TNCN</th>
                                 <th>Tạm ứng</th>
-                                <th>Khấu trừ</th>
+                                <th>Trừ khác</th>
                                 <th>Thực nhận (Net)</th>
                                 <th>Ngày dự kiến trả</th>
                                 <th class="th-center">Trạng thái</th>
@@ -1082,7 +1097,7 @@
                             @if (periodItems.Count == 0)
                             {
                                 <tr>
-                                    <td colspan="17" style="text-align:center; padding:40px 20px; color:#64748b;">
+                                    <td colspan="20" style="text-align:center; padding:40px 20px; color:#64748b;">
                                         <i class="material-icons" style="font-size:40px; color:#cbd5e1; display:block; margin-bottom:8px;">inbox</i>
                                         Không tìm thấy bản ghi lương nào phù hợp điều kiện lọc.
                                     </td>
@@ -1102,6 +1117,10 @@
                                                 <div class="emp-meta">
                                                     <strong>@item.EmployeeName</strong>
                                                     <small>@item.EmployeeCode · @item.EmployeeEmail</small>
+                                                    @if (!string.IsNullOrWhiteSpace(item.CalculationNote))
+                                                    {
+                                                        <small style="color:@(item.IsAutomatic ? "#047857" : "#b45309");">@(item.IsAutomatic ? "Tự động" : "Sửa tay") · @item.CalculationNote</small>
+                                                    }
                                                 </div>
                                             </div>
                                         </td>
@@ -1112,17 +1131,20 @@
                                             @item.Branch
                                         </td>
                                         <td style="font-weight:600; color:#0f172a;">
-                                            @item.BaseSalary.ToString("N0")
+                                            @item.ContractBaseSalary.ToString("N0")
                                         </td>
-                                        <td>@(item.ProductSalary > 0 ? item.ProductSalary.ToString("N0") : "—")</td>
-                                        <td>@(item.SalesSalary > 0 ? item.SalesSalary.ToString("N0") : "—")</td>
-                                        <td>@(item.KpiSalary > 0 ? item.KpiSalary.ToString("N0") : "—")</td>
-                                        <td style="color:#0284c7; font-weight:600;">@(item.TotalAllowance > 0 ? item.TotalAllowance.ToString("N0") : "—")</td>
-                                        <td style="color:#059669; font-weight:600;">@(item.Bonus > 0 ? item.Bonus.ToString("N0") : "—")</td>
+                                        <td>@item.WorkDays.ToString("0.##") / @item.StandardWorkDays.ToString("0.##")</td>
+                                        <td style="font-weight:600; color:#0f172a;">@item.BaseSalary.ToString("N0")</td>
+                                        <td>@item.OvertimeHours.ToString("0.##")</td>
+                                        <td style="color:#0284c7; font-weight:600;">@(item.OtSalary > 0 ? item.OtSalary.ToString("N0") : "—")</td>
+                                        <td>@(item.ResponsibilityAllowance > 0 ? item.ResponsibilityAllowance.ToString("N0") : "—")</td>
+                                        <td style="color:#059669; font-weight:600;">@((item.OtherAllowance + item.ProductSalary + item.SalesSalary + item.KpiSalary + item.Bonus).ToString("N0"))</td>
                                         <td style="color:#7c3aed;">@item.TotalInsurance.ToString("N0")</td>
+                                        <td style="color:#dc2626;">@(item.UnpaidLeaveDeduction > 0 ? item.UnpaidLeaveDeduction.ToString("N0") : "—")</td>
+                                        <td style="color:#dc2626;">@(item.LateDeduction > 0 ? item.LateDeduction.ToString("N0") : "—")</td>
                                         <td style="color:#d97706;">@item.PersonalIncomeTax.ToString("N0")</td>
                                         <td style="color:#e11d48;">@(item.Advance > 0 ? item.Advance.ToString("N0") : "—")</td>
-                                        <td style="color:#dc2626;">@(item.Deduction > 0 ? item.Deduction.ToString("N0") : "—")</td>
+                                        <td style="color:#dc2626;">@(item.ExportOtherDeduction > 0 ? item.ExportOtherDeduction.ToString("N0") : "—")</td>
                                         <td>
                                             <span class="net-salary-highlight">@item.NetSalary.ToString("N0") đ</span>
                                         </td>
@@ -1467,7 +1489,7 @@
                             <strong id="editPayrollEmployee">Nhân viên</strong> · Chỉ được sửa khi bảng lương đang là bản nháp hoặc bị trả lại. Thực nhận được tính lại từ các trường bên dưới.
                         </div>
                         <div class="row">
-                            <div class="col-sm-4 form-group"><label>Lương cơ bản</label><input class="form-control payroll-money" type="number" min="0" max="1000000000" step="1" name="BaseSalary" id="editBaseSalary" required /></div>
+                            <div class="col-sm-4 form-group"><label>Lương ngày công (sau chấm công)</label><input class="form-control payroll-money" type="number" min="0" max="1000000000" step="1" name="BaseSalary" id="editBaseSalary" required /></div>
                             <div class="col-sm-4 form-group"><label>Lương sản phẩm</label><input class="form-control payroll-money" type="number" min="0" max="1000000000" step="1" name="ProductSalary" id="editProductSalary" required /></div>
                             <div class="col-sm-4 form-group"><label>Lương doanh số</label><input class="form-control payroll-money" type="number" min="0" max="1000000000" step="1" name="SalesSalary" id="editSalesSalary" required /></div>
                             <div class="col-sm-4 form-group"><label>Lương KPI</label><input class="form-control payroll-money" type="number" min="0" max="1000000000" step="1" name="KpiSalary" id="editKpiSalary" required /></div>
@@ -1545,7 +1567,7 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <tr><td>1. Lương cơ bản / Giữ đóng</td><td style="text-align:right;" id="psBaseSalary">0</td></tr>
+                                    <tr><td>1. Lương ngày công</td><td style="text-align:right;" id="psBaseSalary">0</td></tr>
                                     <tr><td>2. Lương hiệu quả KPI</td><td style="text-align:right;" id="psKpiSalary">0</td></tr>
                                     <tr><td>3. Lương doanh số / Sản phẩm</td><td style="text-align:right;" id="psSalesSalary">0</td></tr>
                                     <tr><td>4. Lương làm thêm giờ (OT)</td><td style="text-align:right;" id="psOtSalary">0</td></tr>

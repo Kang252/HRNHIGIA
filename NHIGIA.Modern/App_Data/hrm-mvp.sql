@@ -91,6 +91,7 @@ BEGIN
         GraduationYear NVARCHAR(4) NULL,
         GraduationClassification NVARCHAR(100) NULL,
         BasicSalary NVARCHAR(50) NULL,
+        InsuranceSalary NVARCHAR(50) NULL,
         BankAccountNumber NVARCHAR(50) NULL,
         BankName NVARCHAR(150) NULL,
         BankBranch NVARCHAR(150) NULL,
@@ -118,6 +119,10 @@ GO
 
 IF COL_LENGTH('dbo.HrmEmployeeProfile', 'AvatarContentType') IS NULL
     ALTER TABLE dbo.HrmEmployeeProfile ADD AvatarContentType NVARCHAR(100) NULL;
+GO
+
+IF COL_LENGTH('dbo.HrmEmployeeProfile', 'InsuranceSalary') IS NULL
+    ALTER TABLE dbo.HrmEmployeeProfile ADD InsuranceSalary NVARCHAR(50) NULL;
 GO
 
 IF OBJECT_ID('dbo.HrmShiftTemplate', 'U') IS NULL

@@ -269,11 +269,26 @@ public sealed class PayrollItemDetail
     public int DepartmentId { get; set; }
     public string DepartmentName { get; set; }
     public string Branch { get; set; }
+    public string JobTitle { get; set; }
+    public DateTime? HireDate { get; set; }
+    public decimal ContractBaseSalary { get; set; }
+    public decimal InsuranceSalary { get; set; }
+    public decimal StandardWorkDays { get; set; }
+    public decimal WorkDays { get; set; }
+    public int StandardMinutes { get; set; }
+    public int RegularWorkedMinutes { get; set; }
+    public int ApprovedOvertimeMinutes { get; set; }
+    public decimal OvertimeHours => Math.Round(ApprovedOvertimeMinutes / 60m, 2, MidpointRounding.AwayFromZero);
+    public int UnpaidLeaveMinutes { get; set; }
+    public decimal UnpaidLeaveHours => Math.Round(UnpaidLeaveMinutes / 60m, 2, MidpointRounding.AwayFromZero);
+    public int LateMinutes { get; set; }
     public decimal BaseSalary { get; set; }
     public decimal ProductSalary { get; set; }
     public decimal KpiSalary { get; set; }
     public decimal SalesSalary { get; set; }
     public decimal OtSalary { get; set; }
+    public decimal ResponsibilityAllowance { get; set; }
+    public decimal OtherAllowance { get; set; }
     public decimal TotalAllowance { get; set; }
     public decimal Bonus { get; set; }
     public decimal GrossIncome => BaseSalary + ProductSalary + KpiSalary + SalesSalary + OtSalary + TotalAllowance + Bonus;
@@ -283,8 +298,18 @@ public sealed class PayrollItemDetail
     public decimal TotalInsurance => SocialInsurance + HealthInsurance + UnemploymentInsurance;
     public decimal PersonalIncomeTax { get; set; }
     public decimal Advance { get; set; }
+    public decimal UnpaidLeaveDeduction { get; set; }
+    public decimal LateDeduction { get; set; }
+    public decimal UnionDeduction { get; set; }
+    public decimal PhoneDeduction { get; set; }
+    public decimal OtherDeduction { get; set; }
     public decimal Deduction { get; set; }
+    public decimal ExportOtherDeduction => StoredValues.ManualOverride
+        ? Deduction
+        : Math.Max(0, OtherDeduction);
     public decimal NetSalary { get; set; }
+    public bool IsAutomatic => StoredValues.IsGenerated && !StoredValues.ManualOverride;
+    public string CalculationNote { get; set; }
     public DateTime? PaymentDueDate { get; set; }
     public DateTime? ApprovedAt { get; set; }
     public int? ApprovedByUserId { get; set; }
@@ -316,6 +341,18 @@ public sealed class PayrollManualEditRequest
     public decimal GrossIncome => BaseSalary + ProductSalary + SalesSalary + KpiSalary + OtSalary + TotalAllowance + Bonus;
     public decimal TotalDeductions => SocialInsurance + HealthInsurance + UnemploymentInsurance + PersonalIncomeTax + Advance + Deduction;
     public decimal NetSalary => Math.Max(0, GrossIncome - TotalDeductions);
+}
+
+public sealed class PayrollGenerationResult
+{
+    public int Created { get; set; }
+    public int Updated { get; set; }
+    public int SkippedManual { get; set; }
+    public int SkippedLocked { get; set; }
+    public int MissingSalary { get; set; }
+    public int MissingInsuranceSalary { get; set; }
+    public int IncompletePunches { get; set; }
+    public int Affected => Created + Updated;
 }
 
 public sealed class PayrollAllowanceItem

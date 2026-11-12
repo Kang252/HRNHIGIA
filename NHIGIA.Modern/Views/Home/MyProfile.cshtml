@@ -171,8 +171,9 @@
     var salaryRank = "Bậc " + ((userId % 5) + 1);
     var mainShift = "Ca hành chính (08:00 - 17:30)";
     var secondaryShift = (userId % 2 == 0) ? "Không đăng ký ca phụ" : "Ca bán hàng chiều (Thứ 2, 4, 6)";
-    var insSalaryType = "Lương cơ bản đóng BHXH theo quy định";
-    var insSalary = (baseSalaryNum * 0.70m).ToString("N0") + " đ";
+    var insSalaryType = "Theo mức lương đóng BHXH đã khai báo";
+    var insuranceSalaryNum = PayrollCalculationPolicy.ParseMoney(Model?.InsuranceSalary);
+    var insSalary = insuranceSalaryNum > 0 ? insuranceSalaryNum.ToString("N0") + " đ" : "Chưa cập nhật";
     var unionMember = (userId % 3 == 0) ? "Không" : "Có";
     var nationality = val(Model?.Nationality, "Việt Nam");
     var ethnicity = val(Model?.Ethnicity, "Kinh");
