@@ -141,4 +141,68 @@ Check("Local and Keycloak sessions use different cookies",
     HrmAuthenticationMode.CookieName(false) != HrmAuthenticationMode.CookieName(true));
 var tlsOverrideConnection=DatabaseConfiguration.Resolve(new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string> { ["DB_CONNECTION_STRING"]="Server=tenant.sql.example;Database=NHIGIA;User Id=test;Password=test;Encrypt=True;TrustServerCertificate=False", ["DB_TLS_SERVER_NAME"]="certificate.sql.example" }).Build());
 Check("Portal supports a verified SQL certificate hostname override",new SqlConnectionStringBuilder(tlsOverrideConnection).HostNameInCertificate=="certificate.sql.example");
+
+// --- leave kinds, balance and overlap
+foreach (var (subtype, expected) in new[]
+{
+    ("Nghỉ phép năm","Nghỉ phép"), ("Nghỉ không hưởng lương","Nghỉ không lương"), ("Nghỉ ốm đau / điều trị","Nghỉ ốm"),
+    ("Nghỉ thai sản","Nghỉ thai sản"), ("Nghỉ việc riêng (hưởng lương)","Nghỉ việc riêng"), ((string)null,"Nghỉ phép")
+}) Check($"Leave form choice '{subtype}' is stored as {expected}", LeaveRequestPolicy.NormalizeLeaveType("Nghỉ phép", subtype) == expected);
+Check("Older request keeps the kind written in its reason", LeaveRequestPolicy.NormalizeLeaveType("Nghỉ phép", null, "Tiêu đề: nghỉ\nLoại: Nghỉ không hưởng lương | Thời gian: 1 ngày") == "Nghỉ không lương");
+Check("Empty kind in an older reason does not fail", LeaveRequestPolicy.NormalizeLeaveType("Nghỉ phép", null, "Loại: ") == "Nghỉ phép");
+Check("Other procedures keep their type", LeaveRequestPolicy.NormalizeLeaveType("Suất ăn", "Nghỉ không hưởng lương") == "Suất ăn");
+CreateLeaveRequest Ask(string type, DateTime from, DateTime to, string session="Cả ngày") => new() { LeaveType=type, StartDate=from, EndDate=to, SessionCode=session, Reason="Kiểm thử" };
+var friday = new DateTime(2026,9,25);
+Check("Weekend-only request is refused", LeaveRequestPolicy.ValidateAgainst(Ask("Nghỉ phép",friday.AddDays(1),friday.AddDays(2)),20,12,[],[weekday])?.Contains("không có ngày làm việc")==true);
+Check("Overlapping request is refused", LeaveRequestPolicy.ValidateAgainst(Ask("Nghỉ ốm",friday,friday),20,12,[Leave(status:"PENDING_MANAGER")],[weekday])?.Contains("trùng thời gian")==true);
+Check("Morning and afternoon of one day do not overlap", LeaveRequestPolicy.ValidateAgainst(Ask("Nghỉ phép",friday,friday,"Buổi chiều"),20,12,[half],[weekday])==null);
+Check("Request above the balance is refused", LeaveRequestPolicy.ValidateAgainst(Ask("Nghỉ phép",friday.AddDays(3),friday.AddDays(5)),20,2,[],[weekday])?.Contains("còn 2 ngày")==true);
+Check("Waiting requests hold their days", LeaveRequestPolicy.ValidateAgainst(Ask("Nghỉ phép",friday.AddDays(3),friday.AddDays(4)),20,2,[Leave(status:"PENDING_MANAGER")],[weekday])?.Contains("còn 1 ngày")==true);
+Check("Unpaid leave does not need a balance", LeaveRequestPolicy.ValidateAgainst(Ask("Nghỉ không lương",friday.AddDays(3),friday.AddDays(7)),20,0,[],[weekday])==null);
+Check("Non-leave procedure is not checked against the calendar", LeaveRequestPolicy.ValidateAgainst(Ask("Suất ăn",friday.AddDays(1),friday.AddDays(1),"Cơm trưa"),20,0,[],[weekday])==null);
+
+// --- approval inbox
+Check("Leave is routine", ApprovalInbox.From(Leave()).IsRoutine);
+Check("Late arrival is routine and shows its minutes", ApprovalInbox.From(new LeaveRequestModel { LeaveType="Đi muộn về sớm", AdjustKind="LATE", AdjustMinutes=25, StartDate=friday, EndDate=friday }) is { IsRoutine: true } late && late.Facts.Any(x => x.Contains("đi muộn 25 phút")));
+Check("Salary advance is decided one by one and shows its amount", ApprovalInbox.From(new LeaveRequestModel { LeaveType="Tạm ứng lương", Amount=5_000_000, StartDate=friday, EndDate=friday }) is { IsRoutine: false } advance && advance.Facts.Contains("Số tiền 5.000.000 đ"));
+foreach (var kind in new[] { "payroll", "resignation", "offboarding", "transfer" })
+ Check($"{kind} is never approved in bulk", !ApprovalInbox.From(new WorkItem { Kind=kind }).IsRoutine);
+var payrollCards = ApprovalInbox.FromWork([new WorkItem { Id=1, Kind="payroll", Quarter="2026-11", Actual=10_000_000 }, new WorkItem { Id=2, Kind="payroll", Quarter="2026-11", Actual=5_500_000 }, new WorkItem { Id=3, Kind="overtime" }]).ToList();
+Check("A payroll period is one card with its total", payrollCards.Count==2 && payrollCards.Single(x => x.Kind=="payroll") is { IsRoutine: false, When: "2 nhân viên" } payrollCard && payrollCard.Facts.Contains("Tổng thực nhận 15.500.000 đ") && payrollCard.Url.EndsWith("pyPeriod=2026-11"));
+var overtimeCard = ApprovalInbox.From(new WorkItem { Kind="overtime", Category=OvertimePolicy.WeekendCategory, Target=3.5m, Weight=2, StartAt=new(2026,9,26,8,0,0), EndAt=new(2026,9,26,11,30,0) });
+Check("Overtime card shows date, hours and rate", overtimeCard.When=="26/09/2026 · 08:00–11:30" && overtimeCard.Facts.Contains("3,5 giờ") && overtimeCard.Facts.Any(x => x.EndsWith("hệ số 2")));
+
+// --- overtime rates
+var rates = new OvertimeRates();
+Check("Fixed holidays are recognized", OvertimePolicy.IsFixedHoliday(new(2026,9,2)) && !OvertimePolicy.IsFixedHoliday(new(2026,9,3)));
+Check("Holiday wins over the declared category", OvertimePolicy.ResolveCategory(OvertimePolicy.EveningCategory,new(2026,4,30),true)==OvertimePolicy.HolidayCategory);
+Check("Rest day becomes weekend overtime", OvertimePolicy.ResolveCategory(OvertimePolicy.NightCategory,new(2026,9,26),false)==OvertimePolicy.WeekendCategory);
+var contradicted=false; try { OvertimePolicy.ResolveCategory(OvertimePolicy.WeekendCategory,friday,true); } catch (InvalidOperationException) { contradicted=true; }
+Check("Weekend rate cannot be claimed on a workday", contradicted);
+Check("Planned rates follow the day", OvertimePolicy.PlannedRate(OvertimePolicy.EveningCategory,rates)==1.5m && OvertimePolicy.PlannedRate(OvertimePolicy.WeekendCategory,rates)==2m && OvertimePolicy.PlannedRate(OvertimePolicy.HolidayCategory,rates)==3m && OvertimePolicy.PlannedRate(OvertimePolicy.NightCategory,rates)==1.8m);
+Check("Night part of a window gets the night extra", OvertimePolicy.WeightedMinutes(new(180,60),OvertimeDayType.Workday,rates)==120*1.5m+60*1.8m);
+Check("Workday follows the assigned schedule", !OvertimePolicy.IsWorkday([saturday],friday) && OvertimePolicy.IsWorkday([weekday],friday) && OvertimePolicy.IsWorkday([],friday));
+
+// --- accounts
+Check("HR manages staff accounts only", AccountPolicy.AssignableRoles("HR").SequenceEqual(new[]{"EMPLOYEE","MANAGER","ACCOUNTANT"}) && !AccountPolicy.CanManage(Actor("HR",2,1),Actor("DIRECTOR",2,2)) && !AccountPolicy.CanManage(Actor("HR",2,1),Actor("ADMIN",2,2)));
+Check("Nobody manages their own account", !AccountPolicy.CanManage(Actor("ADMIN",2,1),Actor("ADMIN",2,1)));
+Check("Managers and employees manage no accounts", AccountPolicy.AssignableRoles("MANAGER").Count==0 && AccountPolicy.AssignableRoles("EMPLOYEE").Count==0);
+Check("Usernames are plain", AccountPolicy.ValidateUsername("nguyen.van-a_1")==null && AccountPolicy.ValidateUsername("Nguyễn Văn A")!=null && AccountPolicy.ValidateUsername("ab")!=null);
+Check("Weak passwords are refused", AccountPolicy.ValidatePassword("short1","user")!=null && AccountPolicy.ValidatePassword("onlyletters","user")!=null && AccountPolicy.ValidatePassword("1234567890","user")!=null && AccountPolicy.ValidatePassword("my-user-2026x","my-user")!=null);
+Check("Temporary passwords pass the rule and differ", Enumerable.Range(0,50).Select(_ => AccountPolicy.TemporaryPassword()).ToList() is var issued && issued.All(x => AccountPolicy.ValidatePassword(x,"someone")==null) && issued.Distinct().Count()==50);
+var throttle = new LoginThrottle(new Microsoft.Extensions.Caching.Memory.MemoryCache(new Microsoft.Extensions.Caching.Memory.MemoryCacheOptions()));
+for (var i=0;i<LoginThrottle.MaxPerAccount;i++) { Check($"Attempt {i+1} is allowed", throttle.RetryAfter("user","1.1.1.1")==null); throttle.Fail("user","1.1.1.1"); }
+Check("Repeated failures are blocked", throttle.RetryAfter(" USER ","1.1.1.1")>TimeSpan.Zero);
+Check("The same account still signs in from elsewhere", throttle.RetryAfter("user","2.2.2.2")==null);
+throttle.Succeed("user","1.1.1.1");
+Check("A successful sign-in clears the account counter", throttle.RetryAfter("user","1.1.1.1")==null);
+for (var i=0;i<LoginThrottle.MaxPerAddress;i++) throttle.Fail("other"+i,"3.3.3.3");
+Check("Guessing many accounts from one address is blocked", throttle.RetryAfter("never-tried","3.3.3.3")>TimeSpan.Zero);
+
+// --- profile format
+IEnumerable<string> Errors(EmployeeProfileModel input, EmployeeProfileModel stored=null) => EmployeeProfilePolicy.Validate(input,stored,new(2026,11,25)).Select(x => x.Field);
+Check("Garbage profile values are refused", Errors(new() { IdentityNumber="abc", MobilePhone="123", PersonalTaxCode="x", SocialInsuranceNumber="1", BankAccountNumber="tk", BasicSalary="nhiều", DateOfBirth=new(2026,1,1) }).Count()==7);
+Check("Normal profile values are accepted", !Errors(new() { IdentityNumber="079 123 456 789", MobilePhone="+84 901 234 567", PersonalTaxCode="0312345678-001", SocialInsuranceNumber="7912345678", BankAccountNumber="0071001234567", BasicSalary="15.000.000 đ", DateOfBirth=new(1990,5,1) }).Any());
+Check("A value stored earlier does not block other edits", !Errors(new() { IdentityNumber="cũ", MobilePhone="chưa có" }, new() { IdentityNumber="cũ", MobilePhone="chưa có" }).Any());
+Check("Money is grouped the Vietnamese way", 1458951350m.ToString("N0",VietnamFormat.Numbers)=="1.458.951.350" && 1.5m.ToString("0.##",VietnamFormat.Numbers)=="1,5");
 Console.WriteLine($"Passed {count} policy and payroll tests.");

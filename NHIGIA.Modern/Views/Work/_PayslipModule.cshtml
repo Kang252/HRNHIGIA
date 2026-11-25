@@ -1,0 +1,143 @@
+@model WorkPage
+@using NHIGIA.Modern.Models
+@using NHIGIA.Modern.Infrastructure
+@{
+    var slip = Model.PayrollItems.FirstOrDefault();
+    var range = slip == null ? default : AttendancePeriodRange.Parse(slip.Period);
+    string Money(decimal value) => value.ToString("N0", VietnamFormat.Numbers) + " đ";
+    string Number(decimal value) => value.ToString("0.##", VietnamFormat.Numbers);
+    string PeriodName(string period) => $"Tháng {period[5..]}/{period[..4]}";
+    string StatusName(string status) => status switch
+    {
+        "PUBLISHED" => "Đã phát hành", "PAID" => "Đã chi trả", "DISPUTED" => "Đang xử lý phản hồi",
+        "RESOLVED" => "Đã trả lời phản hồi", _ => status
+    };
+    var income = slip == null ? [] : new (string Label, decimal Value)[]
+    {
+        ("Lương ngày công", slip.BaseSalary), ("Lương làm thêm giờ", slip.OtSalary), ("Lương KPI", slip.KpiSalary),
+        ("Lương doanh số, sản phẩm", slip.SalesSalary + slip.ProductSalary), ("Phụ cấp", slip.TotalAllowance), ("Thưởng", slip.Bonus)
+    };
+    var deductions = slip == null ? [] : new (string Label, decimal Value)[]
+    {
+        ("Bảo hiểm (BHXH, BHYT, BHTN)", slip.TotalInsurance), ("Thuế TNCN", slip.PersonalIncomeTax), ("Tạm ứng", slip.Advance),
+        ("Nghỉ không lương", slip.UnpaidLeaveDeduction), ("Đi muộn", slip.LateDeduction), ("Công đoàn, điện thoại", slip.UnionDeduction + slip.PhoneDeduction),
+        ("Khấu trừ khác", slip.Deduction - slip.UnpaidLeaveDeduction - slip.LateDeduction - slip.UnionDeduction - slip.PhoneDeduction)
+    };
+}
+<style>
+    .payslip-page{display:grid;grid-template-columns:230px minmax(0,1fr);gap:18px;align-items:start}
+    .payslip-periods{padding:10px;border:1px solid var(--hrm-border);border-radius:12px;background:#fff}
+    .payslip-periods h3{margin:4px 8px 8px;font-size:13px;font-weight:700;color:var(--hrm-muted)}
+    .payslip-periods a{display:flex;justify-content:space-between;gap:8px;padding:9px 10px;border-radius:8px;color:var(--hrm-text);text-decoration:none}
+    .payslip-periods a small{color:var(--hrm-muted)}
+    .payslip-periods a:hover,.payslip-periods a.active{background:var(--hrm-primary-soft);color:var(--hrm-primary)}
+    .payslip-sheet-card{padding:22px 24px;border:1px solid var(--hrm-border);border-radius:12px;background:#fff}
+    .payslip-head{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:16px}
+    .payslip-head h2{margin:0 0 4px;font-size:20px;font-weight:700}
+    .payslip-head p{margin:0;color:var(--hrm-muted)}
+    .payslip-net{padding:14px 18px;border-radius:10px;background:#ecfdf3;color:#05603a}
+    .payslip-net strong{display:block;font-size:26px;line-height:1.2}
+    .payslip-facts{display:flex;gap:8px 22px;flex-wrap:wrap;margin:16px 0;font-size:13.5px}
+    .payslip-facts span{color:var(--hrm-muted)}
+    .payslip-columns{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+    .payslip-columns table{width:100%}
+    .payslip-columns td,.payslip-columns th{padding:8px 4px;border-bottom:1px solid var(--hrm-border);font-size:13.5px}
+    .payslip-columns td:last-child,.payslip-columns th:last-child{text-align:right;white-space:nowrap}
+    .payslip-columns tr:last-child td{border-bottom:0;font-weight:700}
+    .payslip-feedback{margin-top:20px;padding-top:16px;border-top:1px solid var(--hrm-border)}
+    .payslip-feedback textarea{width:100%;min-height:90px}
+    @@media(max-width:760px){.payslip-page,.payslip-columns{grid-template-columns:minmax(0,1fr)}.payslip-sheet-card{padding:16px}}
+    @@media print{.payslip-periods,.payslip-feedback,.payslip-print{display:none!important}.payslip-page{display:block}}
+</style>
+
+<div class="hrm-page-header">
+    <div><h2>@Model.Title</h2><p>@Model.Subtitle</p></div>
+</div>
+
+@if (Model.Available && Model.PayslipPeriods.Count == 0)
+{
+    <div class="hrm-card"><div class="hrm-empty"><i class="material-icons">receipt</i><p>Bạn chưa có phiếu lương nào được phát hành. Phiếu sẽ hiện ở đây ngay khi kế toán phát hành kỳ lương.</p></div></div>
+}
+else if (Model.Available)
+{
+    <div class="payslip-page">
+        <nav class="payslip-periods" aria-label="Chọn kỳ lương">
+            <h3>Kỳ lương</h3>
+            @foreach (var item in Model.PayslipPeriods)
+            {
+                <a href="@Url.Action("Index", "Work", new { kind = "payroll", pyPeriod = item.Period })" class="@(item.Period == Model.PayrollPeriod ? "active" : "")" aria-current="@(item.Period == Model.PayrollPeriod ? "page" : null)">
+                    <span>@PeriodName(item.Period)</span><small>@StatusName(item.Status)</small>
+                </a>
+            }
+        </nav>
+        @if (slip == null)
+        {
+            <section class="payslip-sheet-card"><p>Kỳ @PeriodName(Model.PayrollPeriod) chưa có phiếu lương được phát hành cho bạn.</p></section>
+        }
+        else
+        {
+            <section class="payslip-sheet-card" aria-label="Phiếu lương @PeriodName(slip.Period)">
+                <div class="payslip-head">
+                    <div>
+                        <h2>Phiếu lương @PeriodName(slip.Period).ToLowerInvariant()</h2>
+                        <p>@slip.EmployeeName · @slip.EmployeeCode · @slip.DepartmentName</p>
+                        <p>Kỳ công @range.FromDate.ToString("dd/MM/yyyy") – @range.ToDate.ToString("dd/MM/yyyy")</p>
+                    </div>
+                    <div class="payslip-net"><span>Thực nhận</span><strong>@Money(slip.NetSalary)</strong><span>@StatusName(slip.Status)@(slip.PaymentDueDate.HasValue ? $" · dự kiến trả {slip.PaymentDueDate:dd/MM/yyyy}" : "")</span></div>
+                </div>
+                <div class="payslip-facts">
+                    <div><span>Lương hợp đồng</span> <strong>@Money(slip.ContractBaseSalary)</strong></div>
+                    <div><span>Ngày công</span> <strong>@Number(slip.WorkDays)/@Number(slip.StandardWorkDays)</strong></div>
+                    <div><span>Tăng ca được duyệt</span> <strong>@Number(slip.OvertimeHours) giờ</strong></div>
+                    <div><span>Nghỉ không lương</span> <strong>@Number(slip.UnpaidLeaveHours) giờ</strong></div>
+                    <div><span>Đi muộn bị trừ</span> <strong>@slip.LateMinutes phút</strong></div>
+                </div>
+                <div class="payslip-columns">
+                    <table>
+                        <thead><tr><th>Thu nhập</th><th>Số tiền</th></tr></thead>
+                        <tbody>
+                            @foreach (var row in income) { <tr><td>@row.Label</td><td>@Money(row.Value)</td></tr> }
+                            <tr><td>Tổng thu nhập</td><td>@Money(slip.GrossIncome)</td></tr>
+                        </tbody>
+                    </table>
+                    <table>
+                        <thead><tr><th>Khoản trừ</th><th>Số tiền</th></tr></thead>
+                        <tbody>
+                            @foreach (var row in deductions) { <tr><td>@row.Label</td><td>@Money(row.Value)</td></tr> }
+                            <tr><td>Tổng khoản trừ</td><td>@Money(deductions.Sum(x => x.Value))</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                @if (!string.IsNullOrWhiteSpace(slip.CalculationNote)) { <p style="margin-top:14px;color:var(--hrm-muted)">@slip.CalculationNote</p> }
+                <p class="payslip-print" style="margin-top:14px"><button type="button" class="hrm-btn" onclick="window.print()"><i class="material-icons">print</i> In phiếu lương</button></p>
+
+                <div class="payslip-feedback">
+                    @if (slip.Status == "DISPUTED")
+                    {
+                        <p><strong>Phản hồi của bạn đang được kế toán xử lý.</strong></p>
+                        <p>@slip.LastActionNote</p>
+                    }
+                    else
+                    {
+                        @if (slip.Status == "RESOLVED" && !string.IsNullOrWhiteSpace(slip.LastActionNote))
+                        {
+                            <p><strong>Kế toán trả lời:</strong> @slip.LastActionNote</p>
+                        }
+                        <details>
+                            <summary class="hrm-btn"><i class="material-icons">feedback</i> Gửi phản hồi sai lệch</summary>
+                            <form method="post" asp-controller="Work" asp-action="PayrollAction" style="margin-top:12px">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="id" value="@slip.Id" />
+                                <input type="hidden" name="period" value="@slip.Period" />
+                                <input type="hidden" name="command" value="@(slip.Status switch { "PAID" => "disputepaid", "RESOLVED" => "disputeagain", _ => "dispute" })" />
+                                <label for="payslipNote">Khoản nào chưa đúng, số đúng theo bạn là bao nhiêu?</label>
+                                <textarea id="payslipNote" name="note" class="hrm-control" maxlength="1000" required></textarea>
+                                <p style="margin-top:8px"><button type="submit" class="hrm-btn hrm-btn-primary">Gửi cho kế toán</button></p>
+                            </form>
+                        </details>
+                    }
+                </div>
+            </section>
+        }
+    </div>
+}

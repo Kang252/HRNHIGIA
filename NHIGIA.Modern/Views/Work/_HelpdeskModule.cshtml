@@ -1,0 +1,68 @@
+@model WorkPage
+@{
+    var currentUser = HrmUser.Current;
+    var statusLabels = new Dictionary<string, string> { ["OPEN"] = "Mới", ["IN_PROGRESS"] = "Đang xử lý", ["RESOLVED"] = "Đã xử lý", ["CANCELLED"] = "Đã hủy" };
+    var priorityLabels = new Dictionary<string, string> { ["LOW"] = "Thấp", ["NORMAL"] = "Bình thường", ["HIGH"] = "Cao", ["URGENT"] = "Khẩn cấp" };
+    var openCount = Model.Items.Count(x => x.Status is "OPEN" or "IN_PROGRESS");
+}
+<div class="helpdesk">
+    @if (Model.CanCreate)
+    {
+        <details class="work-panel" open="@(Model.Items.Count == 0 || !ViewData.ModelState.IsValid)">
+            <summary><h3>Tạo yêu cầu Helpdesk IT</h3></summary>
+            <form method="post" asp-controller="Work" asp-action="Create">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="Kind" value="helpdesk" />
+                <div class="form-group"><label for="Title">Tiêu đề yêu cầu *</label><input id="Title" name="Title" class="form-control" required maxlength="200" value="@Model.Draft.Title" placeholder="Ví dụ: Lỗi kết nối mạng, cài đặt phần mềm..." /></div>
+                <div class="form-group"><label for="Priority">Mức độ ưu tiên</label><select id="Priority" name="Priority" class="form-control">@foreach (var priority in priorityLabels) { <option value="@priority.Key" selected="@(priority.Key == (Model.Draft.Priority ?? "NORMAL"))">@priority.Value</option> }</select></div>
+                <div class="form-group"><label for="Description">Nội dung chi tiết yêu cầu *</label><textarea id="Description" name="Description" class="form-control" rows="4" maxlength="2000" required placeholder="Mô tả chi tiết vấn đề bạn đang gặp phải để IT hỗ trợ nhanh nhất...">@Model.Draft.Description</textarea></div>
+                <button type="submit" class="hrm-btn hrm-btn-primary"><i class="material-icons">send</i> Gửi yêu cầu hỗ trợ</button>
+            </form>
+        </details>
+    }
+    <section class="work-panel">
+        <div class="helpdesk-head"><h3>@(Model.CanManage ? "Yêu cầu cần xử lý" : "Yêu cầu của tôi")</h3><span class="hrm-badge">@openCount đang mở</span></div>
+        <form method="get" asp-controller="Work" asp-action="Index" class="work-search">
+            <input type="hidden" name="kind" value="helpdesk" />
+            <input class="form-control" name="q" value="@Model.Query" placeholder="Tìm theo tiêu đề, mã, nhân viên…" aria-label="Tìm kiếm" />
+            <button class="hrm-btn" type="submit">Tìm kiếm</button>
+        </form>
+        @if (!Model.Available) { <p>Chưa tải được dữ liệu. Vui lòng thử lại sau.</p> }
+        else if (Model.Items.Count == 0)
+        {
+            <div class="work-empty"><i class="material-icons">inbox</i><h4>Chưa có yêu cầu</h4><p>Gửi yêu cầu đầu tiên bằng biểu mẫu phía trên.</p></div>
+        }
+        else
+        {
+            <div class="helpdesk-list">
+            @foreach (var item in Model.Items.OrderBy(x => x.Status switch { "OPEN" => 0, "IN_PROGRESS" => 1, _ => 2 }).ThenByDescending(x => x.CreatedAt))
+            {
+                var isRequester = currentUser != null && (item.EmployeeId ?? item.CreatedBy) == currentUser.Id;
+                var active = item.Status is "OPEN" or "IN_PROGRESS";
+                <article class="helpdesk-ticket is-@item.Status?.ToLowerInvariant()">
+                    <header><strong>@item.Title</strong><span class="work-status work-status-@item.Status?.ToLowerInvariant()">@statusLabels.GetValueOrDefault(item.Status ?? "", item.Status)</span></header>
+                    <p class="work-muted">@item.RecordCode · @(item.EmployeeName ?? "Chưa rõ người gửi") · @item.CreatedAtLocal.ToString("dd/MM/yyyy HH:mm") · Ưu tiên: <b class="helpdesk-priority-@item.Priority?.ToLowerInvariant()">@priorityLabels.GetValueOrDefault(item.Priority ?? "", "Bình thường")</b>@if (!string.IsNullOrWhiteSpace(item.ContactName)) { <text> · Phụ trách: @item.ContactName</text> }</p>
+                    <p class="work-description">@item.Description</p>
+                    @if (!string.IsNullOrWhiteSpace(item.LastActionNote)) { <p class="helpdesk-reply"><b>Phản hồi mới nhất</b> @(item.UpdatedAtLocal?.ToString("dd/MM/yyyy HH:mm"))<br />@item.LastActionNote</p> }
+                    @if (active && (Model.CanManage || isRequester) || item.Status == "RESOLVED" && isRequester)
+                    {
+                        <form method="post" asp-controller="Work" asp-action="HelpdeskAction" class="helpdesk-actions">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="id" value="@item.Id" />
+                            <input class="form-control" name="note" maxlength="800" aria-label="Nội dung phản hồi" placeholder="Nội dung phản hồi" />
+                            @if (Model.CanManage && item.Status == "OPEN") { <button class="hrm-btn hrm-btn-primary" name="command" value="accept">Nhận xử lý</button> }
+                            @if (active) { <button class="hrm-btn" name="command" value="reply">Gửi phản hồi</button> }
+                            @if (Model.CanManage && active) { <button class="hrm-btn hrm-btn-primary" name="command" value="resolve">Hoàn tất</button> }
+                            @if (isRequester && item.Status == "RESOLVED") { <button class="hrm-btn" name="command" value="reopen">Mở lại</button> }
+                            @if (isRequester && item.Status == "OPEN") { <button class="hrm-btn" name="command" value="cancel">Hủy yêu cầu</button> }
+                        </form>
+                    }
+                </article>
+            }
+            </div>
+        }
+    </section>
+</div>
+<style>
+.helpdesk{display:grid;gap:18px}.helpdesk summary{cursor:pointer}.helpdesk summary h3{display:inline-block;margin:0}.helpdesk details form{margin-top:16px}.helpdesk-head{display:flex;justify-content:space-between;align-items:center;gap:12px}.helpdesk-head h3{margin:0}.helpdesk-list{display:grid;gap:12px;margin-top:14px}.helpdesk-ticket{border:1px solid #e0e8f1;border-left:4px solid #94a3b8;border-radius:12px;padding:14px 16px;overflow-wrap:anywhere}.helpdesk-ticket.is-open{border-left-color:#2563eb}.helpdesk-ticket.is-in_progress{border-left-color:#d97706}.helpdesk-ticket.is-resolved{border-left-color:#16834b}.helpdesk-ticket header{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}.helpdesk-ticket p{margin:8px 0 0}.helpdesk-priority-high,.helpdesk-priority-urgent{color:#b42318}.helpdesk-reply{background:#f4f7fb;border-radius:8px;padding:10px 12px}.helpdesk-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.helpdesk-actions .form-control{flex:1 1 240px;min-width:0}
+</style>

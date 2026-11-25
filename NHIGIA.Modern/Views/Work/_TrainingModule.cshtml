@@ -30,14 +30,14 @@
                 </div>
             </div>
             <div class="trn-stat-card">
-                <div class="trn-stat-icon trn-icon-green"><i class="material-icons">task_alt</i></div>
+                <div class="trn-stat-icon trn-icon-green"><i class="material-icons">check_circle_outline</i></div>
                 <div class="trn-stat-info">
                     <span class="trn-stat-val">@Model.CompletedCoursesCount</span>
                     <span class="trn-stat-lbl">Khóa đã hoàn thành</span>
                 </div>
             </div>
             <div class="trn-stat-card">
-                <div class="trn-stat-icon trn-icon-purple"><i class="material-icons">workspace_premium</i></div>
+                <div class="trn-stat-icon trn-icon-purple"><i class="material-icons">card_membership</i></div>
                 <div class="trn-stat-info">
                     <span class="trn-stat-val">@Model.CertificatesCount</span>
                     <span class="trn-stat-lbl">Chứng chỉ đạt được</span>
@@ -80,7 +80,7 @@
 
                 @if (Model.CanManage)
                 {
-                    <button type="button" class="hrm-btn hrm-btn-primary" onclick="window.openCreateCourseModal()" data-toggle="modal" data-target="#modalCreateTraining" style="padding: 7px 14px; font-size: 13px;">
+                    <button type="button" class="hrm-btn hrm-btn-primary" onclick="window.openCreateCourseModal()" style="padding: 7px 14px; font-size: 13px;">
                         <i class="material-icons" style="font-size:18px;">add</i> Tạo khóa mới
                     </button>
                 }
@@ -101,7 +101,7 @@
                 @if (Model.MyEnrollments.Count == 0 && !Model.CanManage)
                 {
                     <div class="work-empty">
-                        <i class="material-icons">workspace_premium</i>
+                        <i class="material-icons">card_membership</i>
                         <h4>Chưa có chứng chỉ nào</h4>
                         <p>Hãy tham gia các khóa đào tạo và hoàn thành bài tập để nhận chứng chỉ từ Nhị Gia.</p>
                     </div>
@@ -399,7 +399,7 @@
                                 </div>
 
                                 <select id="selCalHeaderYear" onchange="window.trnCalSelectYear(this.value)" style="border:1px solid #cbd5e1; border-radius:7px; font-weight:700; color:#0284c7; padding:2px 8px; font-size:13px; outline:none; background:#fff; cursor:pointer; height:32px; white-space:nowrap; flex-shrink:0;">
-                                    @for (int y = 2026; y <= 2040; y++)
+                                    @for (int y = DateTime.Today.Year - 2; y <= DateTime.Today.Year + 1; y++)
                                     {
                                         <option value="@y">Năm @y</option>
                                     }
@@ -467,7 +467,7 @@
 
                     <div class="row" style="margin-top:16px;">
                         <div class="col-md-6">
-                            <label style="font-weight:700; color:#1e293b;"><i class="material-icons" style="font-size:16px;color:#16a34a;vertical-align:middle;">task_alt</i> Mục tiêu & Kỹ năng đạt được</label>
+                            <label style="font-weight:700; color:#1e293b;"><i class="material-icons" style="font-size:16px;color:#16a34a;vertical-align:middle;">check_circle_outline</i> Mục tiêu & Kỹ năng đạt được</label>
                             <div id="dtCourseSkills" style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:12px; font-size:13px; color:#166534; line-height:1.5;"></div>
                         </div>
                         <div class="col-md-6">
@@ -569,13 +569,13 @@
                                 <div class="col-md-6">
                                     <div class="form-group">
                                         <label for="trnStart" style="font-weight:700;">Ngày bắt đầu</label>
-                                        <input type="text" id="trnStart" name="StartDate" class="form-control hrm-date-input" data-hrm-datepicker="true" value="2026-01-01" autocomplete="off" />
+                                        <input type="text" id="trnStart" name="StartDate" class="form-control hrm-date-input" data-hrm-datepicker="true" value="@HrmDataStore.CurrentVietnamTime().ToString("yyyy-MM-dd")" autocomplete="off" />
                                     </div>
                                 </div>
                                 <div class="col-md-6">
                                     <div class="form-group">
                                         <label for="trnDue" style="font-weight:700;">Ngày kết thúc</label>
-                                        <input type="text" id="trnDue" name="DueDate" class="form-control hrm-date-input" data-hrm-datepicker="true" value="2026-03-31" autocomplete="off" />
+                                        <input type="text" id="trnDue" name="DueDate" class="form-control hrm-date-input" data-hrm-datepicker="true" value="@HrmDataStore.CurrentVietnamTime().AddMonths(1).ToString("yyyy-MM-dd")" autocomplete="off" />
                                     </div>
                                 </div>
                             </div>
@@ -695,7 +695,7 @@
 
                     <div style="margin-top:18px; text-align:center;">
                         <a href="https://meet.google.com" target="_blank" class="hrm-btn hrm-btn-primary" style="display:inline-flex; align-items:center; gap:6px; padding:8px 18px; text-decoration:none;">
-                            <i class="material-icons">video_camera_front</i> Tham gia lớp học trực tuyến
+                            <i class="material-icons">videocam</i> Tham gia lớp học trực tuyến
                         </a>
                     </div>
                 </div>
@@ -773,7 +773,6 @@
     var curParts = initMonthStr.split('-');
     var curYear = parseInt(curParts[0], 10) || 2026;
     var curMonth = parseInt(curParts[1], 10) || 1;
-    if (curYear < 2026) { curYear = 2026; curMonth = 1; }
 
     window.trnCalCurYear = curYear;
     window.trnCalCurMonth = curMonth;
@@ -802,7 +801,7 @@
     };
 
     window.trnCalSelectYear = function(y) {
-        window.trnCalCurYear = parseInt(y, 10) || 2026;
+        window.trnCalCurYear = parseInt(y, 10) || new Date().getFullYear();
         renderCalendar(window.trnCalCurYear, window.trnCalCurMonth);
     };
 
@@ -815,16 +814,12 @@
             window.trnCalCurMonth = 1;
             window.trnCalCurYear++;
         }
-        if (window.trnCalCurYear < 2026) {
-            window.trnCalCurYear = 2026;
-            window.trnCalCurMonth = 1;
-        }
         renderCalendar(window.trnCalCurYear, window.trnCalCurMonth);
     };
 
     window.trnCalGoToday = function() {
         var d = new Date();
-        window.trnCalCurYear = Math.max(d.getFullYear(), 2026);
+        window.trnCalCurYear = d.getFullYear();
         window.trnCalCurMonth = d.getMonth() + 1;
         renderCalendar(window.trnCalCurYear, window.trnCalCurMonth);
     };
@@ -875,8 +870,8 @@
         $('#trnRef').val('');
         $('#trnCategory').val('Online');
         $('#trnLocation').val('Tất cả');
-        $('#trnStart').val('2026-01-01');
-        $('#trnDue').val('2026-03-31');
+        $('#trnStart').val(moment().format('YYYY-MM-DD'));
+        $('#trnDue').val(moment().add(1, 'month').format('YYYY-MM-DD'));
         $('#trnTarget').val('24');
         $('#trnInstructor').val('');
         $('#trnDesc').val('');
@@ -980,92 +975,6 @@
         window.showModalSafe('modalViewCert');
     };
 
-    // Client-side session synthesizer fallback: ensures that even if local cache or connection is delayed, every month has session chips
-    function ensureMonthSessions(year, month) {
-        var prefix = year + '-' + (month < 10 ? '0' + month : '' + month);
-        var exists = allTrainingSessions.some(function(s) { return s.date && s.date.startsWith(prefix); });
-        if (!exists) {
-            var daysInMonth = new Date(year, month, 0).getDate();
-            var tCount = 0, fCount = 0, thCount = 0;
-            for (var d = 1; d <= daysInMonth; d++) {
-                var dt = new Date(year, month - 1, d);
-                var dow = dt.getDay(); // 0 Sun, 2 Tue, 4 Thu, 5 Fri
-                var dStr = prefix + '-' + (d < 10 ? '0' + d : '' + d);
-
-                if (dow === 2) { // Tuesday
-                    tCount++;
-                    if (tCount === 2) {
-                        allTrainingSessions.push({
-                            id: 900000 + d,
-                            trainingId: 1,
-                            course: 'An toàn thông tin cơ bản',
-                            title: 'An toàn thông tin: Nhận diện rủi ro & Bảo mật số',
-                            date: dStr,
-                            time: '09:00 - 11:00',
-                            inst: 'Giảng viên Nhị Gia',
-                            room: 'Google Meet Online',
-                            isOnline: true
-                        });
-                    } else if (tCount === 4) {
-                        allTrainingSessions.push({
-                            id: 900000 + d,
-                            trainingId: 1,
-                            course: 'An toàn thông tin cơ bản',
-                            title: 'An toàn thông tin: Thực hành phòng chống sự cố',
-                            date: dStr,
-                            time: '14:00 - 16:00',
-                            inst: 'Giảng viên Nhị Gia',
-                            room: 'Google Meet Online',
-                            isOnline: true
-                        });
-                    }
-                } else if (dow === 5) { // Friday
-                    fCount++;
-                    if (fCount === 2) {
-                        allTrainingSessions.push({
-                            id: 910000 + d,
-                            trainingId: 2,
-                            course: 'Kỹ năng quản lý nhóm',
-                            title: 'Kỹ năng quản lý: Quản lý mục tiêu & Hiệu suất',
-                            date: dStr,
-                            time: '08:30 - 16:30',
-                            inst: 'Giảng viên Nhị Gia',
-                            room: 'Hội trường đào tạo Lầu 3',
-                            isOnline: false
-                        });
-                    } else if (fCount === 4) {
-                        allTrainingSessions.push({
-                            id: 910000 + d,
-                            trainingId: 2,
-                            course: 'Kỹ năng quản lý nhóm',
-                            title: 'Kỹ năng quản lý: Phát triển đội ngũ kế thừa',
-                            date: dStr,
-                            time: '13:30 - 17:00',
-                            inst: 'Giảng viên Nhị Gia',
-                            room: 'Hội trường đào tạo Lầu 3',
-                            isOnline: false
-                        });
-                    }
-                } else if (dow === 4) { // Thursday
-                    thCount++;
-                    if (thCount === 3) {
-                        allTrainingSessions.push({
-                            id: 920000 + d,
-                            trainingId: 3,
-                            course: 'Excel cho nghiệp vụ kế toán',
-                            title: 'Excel chuyên sâu: Tự động hóa báo cáo',
-                            date: dStr,
-                            time: '08:30 - 17:00',
-                            inst: 'Giảng viên Nhị Gia',
-                            room: 'Phòng máy Lầu 2',
-                            isOnline: false
-                        });
-                    }
-                }
-            }
-        }
-    }
-
     function renderCalendar(year, month) {
         try {
             window.trnCalCurYear = year;
@@ -1092,7 +1001,6 @@
             });
 
             // Ensure sessions exist
-            ensureMonthSessions(year, month);
 
             var today = new Date();
             var todayYear = today.getFullYear();

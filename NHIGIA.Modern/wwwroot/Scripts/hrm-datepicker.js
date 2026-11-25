@@ -18,6 +18,92 @@
     var viewMonth = 1; // 1-12
     var selectedDate = null; // { year, month, day }
 
+    // People read dd/MM/yyyy; scripts and the server keep reading yyyy-MM-dd from the same field.
+    var nativeValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
+    var enhanced = new WeakSet();
+
+    function pad(n) { return (n < 10 ? '0' : '') + n; }
+    function isoDate(y, m, d) {
+        var date = new Date(y, m - 1, d);
+        return y >= 1000 && date.getFullYear() === y && date.getMonth() === m - 1 && date.getDate() === d
+            ? y + '-' + pad(m) + '-' + pad(d) : '';
+    }
+    function toIso(text) {
+        var value = String(text == null ? '' : text).trim();
+        var iso = /^(\d{4})-(\d{1,2})-(\d{1,2})/.exec(value);
+        if (iso) return isoDate(+iso[1], +iso[2], +iso[3]);
+        var local = /^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{4})$/.exec(value);
+        return local ? isoDate(+local[3], +local[2], +local[1]) : '';
+    }
+    function toDisplay(value) {
+        var iso = toIso(value);
+        return iso ? iso.split('-').reverse().join('/') : String(value == null ? '' : value);
+    }
+    function checkDate(el) {
+        var text = nativeValue.get.call(el).trim(), iso = toIso(text);
+        var min = toIso(el.getAttribute('min')), max = toIso(el.getAttribute('max'));
+        el.setCustomValidity(!text ? ''
+            : !iso ? 'Nhập ngày theo dạng ngày/tháng/năm, ví dụ 05/12/2026.'
+            : min && iso < min ? 'Ngày phải từ ' + toDisplay(min) + ' trở đi.'
+            : max && iso > max ? 'Ngày không được sau ' + toDisplay(max) + '.' : '');
+    }
+    function enhance(el) {
+        if (enhanced.has(el)) return;
+        enhanced.add(el);
+        var current = nativeValue.get.call(el);
+        el.type = 'text';
+        el.setAttribute('data-hrm-datepicker', 'true');
+        el.setAttribute('autocomplete', 'off');
+        el.classList.add('hrm-date-input');
+        if (!el.getAttribute('placeholder')) el.setAttribute('placeholder', 'dd/mm/yyyy');
+        if (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) el.setAttribute('inputmode', 'none');
+        Object.defineProperty(el, 'value', {
+            configurable: true, enumerable: true,
+            get: function () { return toIso(nativeValue.get.call(el)); },
+            set: function (value) { nativeValue.set.call(el, toDisplay(value)); checkDate(el); }
+        });
+        el.value = current;
+    }
+    function enhanceWithin(node) {
+        if (node.nodeType !== 1 && node !== document) return;
+        if (node.matches && node.matches('input[type="date"], input[data-hrm-datepicker]')) enhance(node);
+        if (node.querySelectorAll) node.querySelectorAll('input[type="date"], input[data-hrm-datepicker]').forEach(enhance);
+    }
+
+    // Typed text is tidied up, native form posts send yyyy-MM-dd and a reset shows its default again.
+    document.addEventListener('input', function (event) { if (enhanced.has(event.target)) checkDate(event.target); }, true);
+    document.addEventListener('change', function (event) {
+        if (enhanced.has(event.target) && toIso(nativeValue.get.call(event.target))) event.target.value = event.target.value;
+    }, true);
+    document.addEventListener('formdata', function (event) {
+        var names = {};
+        Array.prototype.forEach.call(event.target.elements, function (el) { if (el.name && enhanced.has(el)) names[el.name] = true; });
+        Object.keys(names).forEach(function (name) {
+            if (!event.formData.has(name)) return;
+            event.formData.delete(name);
+            Array.prototype.forEach.call(event.target.elements, function (el) {
+                if (el.name === name && !el.disabled) event.formData.append(name, el.value);
+            });
+        });
+    });
+    document.addEventListener('reset', function (event) {
+        var form = event.target;
+        setTimeout(function () {
+            Array.prototype.forEach.call(form.elements, function (el) { if (enhanced.has(el)) el.value = el.getAttribute('value') || ''; });
+        }, 0);
+    });
+
+    function setDate(input, iso) {
+        input.value = iso;
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    function allowed(iso) {
+        if (!currentInput) return true;
+        var min = toIso(currentInput.getAttribute('min')), max = toIso(currentInput.getAttribute('max'));
+        return (!min || iso >= min) && (!max || iso <= max);
+    }
+
     function getSelectedOrCurrentDate(val) {
         if (val) {
             var parts = val.split('-');
@@ -76,7 +162,8 @@
 
         // Populate Year select
         var $ySelect = $('#hrmDpYear');
-        for (var y = 2020; y <= 2035; y++) {
+        var thisYear = new Date().getFullYear();
+        for (var y = thisYear + 10; y >= thisYear - 80; y--) {
             $ySelect.append('<option value="' + y + '">Năm ' + y + '</option>');
         }
 
@@ -121,7 +208,7 @@
         });
 
         // Event: Day click
-        $overlay.on('click', '.hrm-dp-day:not(.empty)', function (e) {
+        $overlay.on('click', '.hrm-dp-day:not(.empty):not(.disabled)', function (e) {
             e.stopPropagation();
             var y = parseInt($(this).data('year'), 10);
             var m = parseInt($(this).data('month'), 10);
@@ -133,7 +220,7 @@
         });
 
         // Event: Day double-click -> directly confirm
-        $overlay.on('dblclick', '.hrm-dp-day:not(.empty)', function (e) {
+        $overlay.on('dblclick', '.hrm-dp-day:not(.empty):not(.disabled)', function (e) {
             e.stopPropagation();
             var y = parseInt($(this).data('year'), 10);
             var m = parseInt($(this).data('month'), 10);
@@ -146,7 +233,7 @@
         $('#hrmDpBtnClear').on('click', function (e) {
             e.stopPropagation();
             if (currentInput) {
-                $(currentInput).val('').trigger('change').trigger('input');
+                setDate(currentInput, '');
             }
             hideOverlay();
         });
@@ -157,8 +244,8 @@
             confirmSelection();
         });
 
-        // Prevent overlay click from closing
-        $overlay.on('click', function (e) {
+        // Prevent overlay click from closing; an open dialog must not pull focus out of the month and year lists.
+        $overlay.on('click focusin', function (e) {
             e.stopPropagation();
         });
 
@@ -171,7 +258,7 @@
 
         // Close on ESC
         $(document).on('keydown', function (e) {
-            if (e.key === 'Escape' && $overlay.is(':visible')) {
+            if ((e.key === 'Escape' || e.key === 'Tab' && enhanced.has(e.target)) && $overlay.is(':visible')) {
                 hideOverlay();
             }
         });
@@ -179,10 +266,7 @@
 
     function confirmSelection() {
         if (currentInput && selectedDate) {
-            var mm = (selectedDate.month < 10 ? '0' : '') + selectedDate.month;
-            var dd = (selectedDate.day < 10 ? '0' : '') + selectedDate.day;
-            var formatted = selectedDate.year + '-' + mm + '-' + dd;
-            $(currentInput).val(formatted).trigger('change').trigger('input');
+            setDate(currentInput, isoDate(selectedDate.year, selectedDate.month, selectedDate.day));
         }
         hideOverlay();
     }
@@ -205,7 +289,7 @@
             var prevD = daysInPrevMonth - p;
             var prevM = viewMonth === 1 ? 12 : viewMonth - 1;
             var prevY = viewMonth === 1 ? viewYear - 1 : viewYear;
-            $grid.append('<div class="hrm-dp-day other-month" data-year="' + prevY + '" data-month="' + prevM + '" data-day="' + prevD + '">' + prevD + '</div>');
+            $grid.append('<div class="hrm-dp-day other-month' + (allowed(isoDate(prevY, prevM, prevD)) ? '' : ' disabled') + '" data-year="' + prevY + '" data-month="' + prevM + '" data-day="' + prevD + '">' + prevD + '</div>');
         }
 
         // Current month days
@@ -221,6 +305,7 @@
             var cls = 'hrm-dp-day';
             if (isSelected) cls += ' selected';
             if (isToday) cls += ' today';
+            if (!allowed(isoDate(viewYear, viewMonth, d))) cls += ' disabled';
 
             $grid.append('<div class="' + cls + '" data-year="' + viewYear + '" data-month="' + viewMonth + '" data-day="' + d + '">' + (d < 10 ? '0' + d : d) + '</div>');
         }
@@ -234,7 +319,7 @@
         for (var n = 1; n <= remaining; n++) {
             var nextM = viewMonth === 12 ? 1 : viewMonth + 1;
             var nextY = viewMonth === 12 ? viewYear + 1 : viewYear;
-            $grid.append('<div class="hrm-dp-day other-month" data-year="' + nextY + '" data-month="' + nextM + '" data-day="' + n + '">' + (n < 10 ? '0' + n : n) + '</div>');
+            $grid.append('<div class="hrm-dp-day other-month' + (allowed(isoDate(nextY, nextM, n)) ? '' : ' disabled') + '" data-year="' + nextY + '" data-month="' + nextM + '" data-day="' + n + '">' + (n < 10 ? '0' + n : n) + '</div>');
         }
     }
 
@@ -253,21 +338,17 @@
         var scrollTop = window.pageYOffset || document.documentElement.scrollTop;
         var scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
 
-        var top = rect.bottom + scrollTop + 4;
-        var left = rect.left + scrollLeft;
+        $overlay.stop(true, true).css({ display: 'block', visibility: 'hidden' });
+        var overlayWidth = $overlay.outerWidth(), overlayHeight = $overlay.outerHeight();
+        $overlay.css({ display: 'none', visibility: '' });
 
-        // Ensure within screen width
-        var overlayWidth = 300;
-        if (left + overlayWidth > $(window).width() - 16) {
-            left = $(window).width() - overlayWidth - 16;
-        }
-        if (left < 10) left = 10;
+        var left = Math.max(10, Math.min(rect.left, window.innerWidth - overlayWidth - 16)) + scrollLeft;
 
-        // If off bottom of screen, show above
-        var overlayHeight = 320;
-        if (rect.bottom + overlayHeight > $(window).height() && rect.top > overlayHeight) {
-            top = rect.top + scrollTop - overlayHeight - 4;
-        }
+        // Below the field, above it, or wherever the whole calendar (with its Confirm button) fits.
+        var below = rect.bottom + 4, above = rect.top - overlayHeight - 4;
+        var top = scrollTop + (below + overlayHeight <= window.innerHeight - 8 ? below
+            : above >= 8 ? above
+            : Math.max(8, window.innerHeight - overlayHeight - 8));
 
         $overlay.css({
             top: top + 'px',
@@ -284,28 +365,20 @@
     }
 
     // Export function to initialize datepicker elements
-    window.initHrmDatepickers = function () {
-        $('input[type="date"]').each(function () {
-            var $el = $(this);
-            $el.attr('type', 'text')
-               .attr('data-hrm-datepicker', 'true')
-               .attr('autocomplete', 'off')
-               .addClass('hrm-date-input');
-        });
-    };
+    window.initHrmDatepickers = function () { enhanceWithin(document); };
 
     // Auto setup on ready & dynamic events
     $(function () {
         window.initHrmDatepickers();
 
-        // When any bootstrap modal is shown, re-init in modal
-        $(document).on('shown.bs.modal', function () {
-            window.initHrmDatepickers();
-        });
+        // Forms built later by scripts get the same date fields.
+        new MutationObserver(function (changes) {
+            changes.forEach(function (change) { change.addedNodes.forEach(enhanceWithin); });
+        }).observe(document.body, { childList: true, subtree: true });
 
         // Bind clicks on any input with data-hrm-datepicker or class hrm-date-input
         $(document).on('click focus', '[data-hrm-datepicker], .hrm-date-input', function (e) {
-            e.preventDefault();
+            if (this.disabled || this.readOnly) return;
             showOverlay(this);
         });
     });

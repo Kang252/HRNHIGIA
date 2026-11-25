@@ -41,6 +41,9 @@ public sealed class WorkItem
     public int CreatedBy { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
+    // Stored in UTC; every screen shows Vietnam time.
+    public DateTime CreatedAtLocal => CreatedAt.AddHours(7);
+    public DateTime? UpdatedAtLocal => UpdatedAt?.AddHours(7);
     public string LastActionNote { get; set; }
     public string EmployeeName { get; set; }
     public string DepartmentName { get; set; }
@@ -116,6 +119,7 @@ public sealed class WorkPage
     public List<TrainingEnrollmentItem> MyEnrollments { get; set; } = new();
     public List<TrainingSessionEvent> Sessions { get; set; } = new();
     public string OvertimeTab { get; set; } = "dashboard";
+    public NHIGIA.Modern.Infrastructure.OvertimeRates OvertimeRates { get; set; } = new();
     public int OvertimeYear { get; set; } = 2026;
     public string OvertimeMonth { get; set; } = DateTime.UtcNow.AddHours(7).ToString("yyyy-MM");
     public string TransferTab { get; set; } = "dashboard";
@@ -159,6 +163,8 @@ public sealed class WorkPage
     public decimal TotalPayrollPersonalIncomeTax { get; set; }
     public List<PayrollDepartmentStat> PayrollDepartmentStats { get; set; } = new();
     public List<PayrollItemDetail> PayrollItems { get; set; } = new();
+    /// <summary>Periods with a payslip the viewer may open, newest first; filled only for a personal payslip page.</summary>
+    public List<(string Period, string Status)> PayslipPeriods { get; set; } = new();
     public List<PayrollAllowanceItem> PayrollAllowances { get; set; } = new();
     public List<PayrollInsuranceItem> PayrollInsurances { get; set; } = new();
     public List<PayrollTaxItem> PayrollTaxes { get; set; } = new();

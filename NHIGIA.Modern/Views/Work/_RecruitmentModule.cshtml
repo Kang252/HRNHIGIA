@@ -43,7 +43,7 @@
             </div>
             <div class="rec-stat-info">
                 <h4>Chỉ tiêu cần tuyển</h4>
-                <div class="rec-stat-val">@totalTarget.ToString("N0")</div>
+                <div class="rec-stat-val">@totalTarget.ToString("N0", VietnamFormat.Numbers)</div>
                 <small>Nhân sự mục tiêu</small>
             </div>
         </div>
@@ -53,7 +53,7 @@
             </div>
             <div class="rec-stat-info">
                 <h4>Số lượng CV nhận</h4>
-                <div class="rec-stat-val">@totalApplicants.ToString("N0")</div>
+                <div class="rec-stat-val">@totalApplicants.ToString("N0", VietnamFormat.Numbers)</div>
                 <small>Hồ sơ ứng viên</small>
             </div>
         </div>
@@ -110,7 +110,7 @@
                     {
                         <tr>
                             <td colspan="8" class="text-center" style="padding:40px; color:#64748b;">
-                                <i class="material-icons" style="font-size:40px; color:#cbd5e1; display:block; margin-bottom:8px;">inventory_2</i>
+                                <i class="material-icons" style="font-size:40px; color:#cbd5e1; display:block; margin-bottom:8px;">archive</i>
                                 <span>Chưa có vị trí tuyển dụng nào phù hợp.</span>
                             </td>
                         </tr>
@@ -135,12 +135,12 @@
                                     }
                                 </td>
                                 <td>
-                                    <strong style="color:#0f172a; font-size:13.5px;">@target.ToString("N0")</strong>
+                                    <strong style="color:#0f172a; font-size:13.5px;">@target.ToString("N0", VietnamFormat.Numbers)</strong>
                                     <span style="font-size:12px; color:#64748b;">người</span>
                                 </td>
                                 <td>
                                     <div style="display:flex; align-items:center; gap:8px;">
-                                        <strong style="color:#2563eb; font-size:13.5px;">@cvCount.ToString("N0")</strong>
+                                        <strong style="color:#2563eb; font-size:13.5px;">@cvCount.ToString("N0", VietnamFormat.Numbers)</strong>
                                         <span style="font-size:11.5px; color:#64748b;">(@pct%)</span>
                                     </div>
                                     <div class="rec-progress-track">
@@ -207,7 +207,7 @@
         </div>
         <form method="post" enctype="multipart/form-data" asp-controller="RecruitmentImport" asp-action="Preview" class="manual-cv-import">
             @Html.AntiForgeryToken()
-            <div class="manual-cv-copy"><i class="material-icons">document_scanner</i><div><strong>Quét CV Word</strong><span>Tải tệp .docx để hệ thống đọc và điền trước thông tin; HR sẽ kiểm tra ở bước tiếp theo.</span></div></div>
+            <div class="manual-cv-copy"><i class="material-icons">find_in_page</i><div><strong>Quét CV Word</strong><span>Tải tệp .docx để hệ thống đọc và điền trước thông tin; HR sẽ kiểm tra ở bước tiếp theo.</span></div></div>
             <select name="recruitmentWorkItemId" class="form-control"><option value="">Chưa ghép vị trí</option>@foreach (var position in items) { <option value="@position.Id">@(position.Reference ?? $"TD-{position.Id:D3}") · @position.Title</option> }</select>
             <input type="file" name="cvFile" class="form-control" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" required />
             <button class="hrm-btn hrm-btn-primary" type="submit"><i class="material-icons">upload_file</i> Đọc CV</button>
@@ -261,7 +261,7 @@
                             <td>
                                 @if (candidate.HasCvContent || !string.IsNullOrWhiteSpace(candidate.CvUrl))
                                 {
-                                    <a class="hrm-btn candidate-cv" asp-controller="Work" asp-action="RecruitmentCandidateCv" asp-route-id="@candidate.Id"><i class="material-icons">download</i> Tải CV</a>
+                                    <a class="hrm-btn candidate-cv" asp-controller="Work" asp-action="RecruitmentCandidateCv" asp-route-id="@candidate.Id"><i class="material-icons">file_download</i> Tải CV</a>
                                 }
                                 else { <span class="text-muted">Chưa có tệp</span> }
                             </td>
@@ -279,7 +279,7 @@
             <span class="recruitment-count">@activeSources nguồn đang bật</span>
         </div>
         <div class="integration-overview">
-            <div class="integration-overview-icon"><i class="material-icons">hub</i></div>
+            <div class="integration-overview-icon"><i class="material-icons">device_hub</i></div>
             <div><strong>Luồng tiếp nhận hiện tại</strong><span>TopCV gửi hồ sơ mới vào webhook của Nhị Gia. CareerViet chỉ được kích hoạt sau khi nhà cung cấp cấp tài liệu tích hợp đối tác.</span></div>
         </div>
         <div class="recruitment-integration-grid">
@@ -297,7 +297,7 @@
                     <div class="provider-mark provider-topcv">T</div>
                     <div class="integration-card-title"><h4>TopCV</h4><span>Nhận CV tự động bằng webhook</span></div>
                     <span class="integration-status-pill @(topCvConnected ? "is-success" : topCvIntegration.IsEnabled ? "is-waiting" : "is-off")">
-                        <i class="material-icons">@(topCvConnected ? "check_circle" : topCvIntegration.IsEnabled ? "sync" : "pause_circle")</i>
+                        <i class="material-icons">@(topCvConnected ? "check_circle" : topCvIntegration.IsEnabled ? "sync" : "pause_circle_outline")</i>
                         @(topCvConnected ? "Đã kết nối" : topCvIntegration.IsEnabled ? "Đang chờ CV" : "Đang tắt")
                     </span>
                 </div>
@@ -378,7 +378,7 @@
                 </div>
 
                 <div style="margin-top:16px;">
-                    <h5 style="font-weight:700; color:#0f172a; margin-bottom:6px;"><i class="material-icons" style="font-size:16px; vertical-align:middle;">checklist</i> Yêu cầu kỹ năng & kinh nghiệm</h5>
+                    <h5 style="font-weight:700; color:#0f172a; margin-bottom:6px;"><i class="material-icons" style="font-size:16px; vertical-align:middle;">playlist_add_check</i> Yêu cầu kỹ năng & kinh nghiệm</h5>
                     <div id="recDetailSkills" class="rec-modal-section-box">Chưa có yêu cầu kỹ năng.</div>
                 </div>
 

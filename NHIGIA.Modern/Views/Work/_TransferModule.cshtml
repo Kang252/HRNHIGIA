@@ -699,7 +699,7 @@
                             }
                         </select>
                         <select name="trYear" class="tr-select">
-                            @for (int y = 2026; y <= 2040; y++)
+                            @for (int y = DateTime.Today.Year + 1; y >= DateTime.Today.Year - 4; y--)
                             {
                                 <option value="@y" selected="@(selYear == y)">Năm @y</option>
                             }
@@ -823,8 +823,8 @@
 
                                         <circle cx="100" cy="100" r="@radius" fill="none"
                                                 stroke="@ds.Color" stroke-width="26"
-                                                stroke-dasharray="@strokeLength @strokeGap"
-                                                stroke-dashoffset="@strokeOffset"
+                                                stroke-dasharray="@strokeLength.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) @strokeGap.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)"
+                                                stroke-dashoffset="@strokeOffset.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)"
                                                 transform="rotate(-90 100 100)"
                                                 style="transition: stroke-dasharray 0.4s ease;">
                                             <title>@ds.DepartmentName: @ds.Percentage% (@ds.TransferredCount nhân sự)</title>
@@ -890,7 +890,7 @@
                                         </td>
                                         <td>
                                             <div style="background:#f1f5f9; height:8px; border-radius:4px; overflow:hidden;">
-                                                <div style="background:@item.Color; width:@item.Percentage%; height:100%; border-radius:4px;"></div>
+                                                <div style="background:@item.Color; width:@item.Percentage.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture)%; height:100%; border-radius:4px;"></div>
                                             </div>
                                         </td>
                                         <td style="text-align:right; font-weight:700; color:#334155;">
@@ -965,7 +965,7 @@
                             {
                                 <tr>
                                     <td colspan="8" style="text-align:center; padding:40px; color:#94a3b8;">
-                                        <i class="material-icons" style="font-size:48px; opacity:0.4;">inventory_2</i>
+                                        <i class="material-icons" style="font-size:48px; opacity:0.4;">archive</i>
                                         <div style="margin-top:8px;">Chưa có phiếu luân chuyển nào phù hợp.</div>
                                     </td>
                                 </tr>
@@ -1115,7 +1115,7 @@
                     </div>
 
                     <select name="trYear" class="tr-select" onchange="this.form.submit()">
-                        @for (int y = 2026; y <= 2040; y++)
+                        @for (int y = DateTime.Today.Year + 1; y >= DateTime.Today.Year - 4; y--)
                         {
                             <option value="@y" selected="@(selYear == y)">Năm @y</option>
                         }
@@ -1202,13 +1202,13 @@
                                         </td>
                                         <td style="text-align:center;">
                                             <span style="display:inline-block; padding:3px 10px; background:#e0f2fe; color:#0369a1; border-radius:12px; font-weight:700;">
-                                                @(item.Target?.ToString("N0") ?? "1")
+                                                @(item.Target?.ToString("N0", VietnamFormat.Numbers) ?? "1")
                                             </span>
                                         </td>
                                         <td style="text-align:right; white-space:nowrap;">
                                             <!-- In & Xem văn bản quyết định chuẩn Nhị Gia -->
                                             <button type="button" class="tr-btn-outline" style="height:32px; padding:0 10px; font-size:12px;"
-                                                    onclick="openPrintDecisionModal(@item.Id, '@(item.Reference ?? "")', '@Html.Raw(item.Title?.Replace("'", "\\'"))', '@(item.StartDate?.ToString("dd/MM/yyyy") ?? "")', '@(item.DueDate?.ToString("dd/MM/yyyy") ?? "")', '@Html.Raw(item.ContactName ?? "Tổng Giám đốc")', '@(item.Target?.ToString("N0") ?? "1")', '@Html.Raw(item.Description?.Replace("'", "\\'"))')">
+                                                    onclick="openPrintDecisionModal(@item.Id, '@(item.Reference ?? "")', '@Html.Raw(item.Title?.Replace("'", "\\'"))', '@(item.StartDate?.ToString("dd/MM/yyyy") ?? "")', '@(item.DueDate?.ToString("dd/MM/yyyy") ?? "")', '@Html.Raw(item.ContactName ?? "Tổng Giám đốc")', '@(item.Target?.ToString("N0", VietnamFormat.Numbers) ?? "1")', '@Html.Raw(item.Description?.Replace("'", "\\'"))')">
                                                 <i class="material-icons" style="font-size:16px;">print</i> Xem / In
                                             </button>
 
@@ -1222,7 +1222,7 @@
                                                         <input type="hidden" name="id" value="@item.Id" />
                                                         <input type="hidden" name="command" value="APPROVE" />
                                                         <button type="submit" class="tr-btn-filter" style="height:32px; padding:0 10px; font-size:12px; background:#10b981;" title="Giám đốc ký duyệt quyết định">
-                                                            <i class="material-icons" style="font-size:16px;">draw</i> Ký duyệt
+                                                            <i class="material-icons" style="font-size:16px;">gesture</i> Ký duyệt
                                                         </button>
                                                     </form>
                                                 }
@@ -1241,7 +1241,7 @@
                                                 }
                                                 else if (item.Status == "EXECUTED")
                                                 {
-                                                    <span class="tr-badge tr-badge-green" style="margin-left:4px;"><i class="material-icons" style="font-size:14px;">task_alt</i> Đã thực thi</span>
+                                                    <span class="tr-badge tr-badge-green" style="margin-left:4px;"><i class="material-icons" style="font-size:14px;">check_circle_outline</i> Đã thực thi</span>
                                                 }
                                             }
                                         </td>
@@ -1277,7 +1277,7 @@
                         <!-- Flow preview 4 bước chặt chẽ theo Slide 22 -->
                         <div style="background:#f0f9ff; border:1px solid #bae6fd; border-radius:10px; padding:14px 18px; margin-bottom:20px;">
                             <div style="font-size:12px; font-weight:700; color:#0369a1; text-transform:uppercase; margin-bottom:6px;">
-                                <i class="material-icons" style="font-size:15px; vertical-align:middle;">schema</i> Quy trình phê duyệt chặt chẽ 4 bước
+                                <i class="material-icons" style="font-size:15px; vertical-align:middle;">account_tree</i> Quy trình phê duyệt chặt chẽ 4 bước
                             </div>
                             <div style="display:flex; align-items:center; gap:8px; font-size:12px; color:#0284c7; flex-wrap:wrap;">
                                 <span>1. Đề xuất yêu cầu</span> <i class="material-icons" style="font-size:14px;">arrow_forward</i>

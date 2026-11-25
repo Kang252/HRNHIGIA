@@ -114,9 +114,9 @@ public sealed class HrmAssistantService
         {
             if (!HrmRoles.CanManagePeople(actor.RoleCode))
                 return Reply("Tài khoản của bạn không có quyền phê duyệt yêu cầu.", scope, suggestions: suggestions);
-            var leaves = _hrm.GetLeaveRequests(actor).Count(x => CanSeeEmployee(actor, x.UserId, x.DepartmentId) && x.StatusCode is "PENDING_MANAGER" or "PENDING_HR");
-            var work = _work.GetPendingApprovals(actor).Count;
-            return Reply($"Bạn có {leaves + work} yêu cầu đang chờ xử lý, gồm {leaves} đơn nghỉ phép và {work} yêu cầu nghiệp vụ khác.", scope, "/Home/Approvals", "Mở phê duyệt", suggestions);
+            var leaves = _hrm.GetLeaveRequests(actor).Count(x => LeaveRequestPolicy.CanApprove(actor, x));
+            var work = ApprovalInbox.FromWork(_work.GetPendingApprovals(actor)).Count();
+            return Reply($"Bạn có {leaves + work} yêu cầu đang chờ xử lý, gồm {leaves} đơn thủ tục và {work} yêu cầu nghiệp vụ khác.", scope, "/Home/Approvals", "Mở phê duyệt", suggestions);
         }
 
         if (LooksLikeInternalDataQuestion(normalized))

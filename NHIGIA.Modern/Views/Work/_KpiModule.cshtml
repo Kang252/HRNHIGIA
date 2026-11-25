@@ -313,7 +313,7 @@
                                     <!-- Cột KPI (Target) -->
                                     <td>
                                         <div class="kpi-value-box">
-                                            <span class="kpi-val-num">@(item.Target?.ToString("N0") ?? "0")</span>
+                                            <span class="kpi-val-num">@(item.Target?.ToString("N0", VietnamFormat.Numbers) ?? "0")</span>
                                             <span class="kpi-val-unit">@item.Category</span>
                                         </div>
                                     </td>
@@ -323,7 +323,7 @@
                                         <div class="kpi-value-box">
                                             @if (item.Actual.HasValue)
                                             {
-                                                <span class="kpi-val-num actual-val">@item.Actual?.ToString("N0")</span>
+                                                <span class="kpi-val-num actual-val">@item.Actual?.ToString("N0", VietnamFormat.Numbers)</span>
                                                 <span class="kpi-val-unit">@item.Category</span>
                                             }
                                             else
@@ -380,7 +380,7 @@
                                                         title="Cập nhật kết quả & gửi chứng minh"
                                                         data-id="@item.Id"
                                                         data-title="@item.Title"
-                                                        data-target="@(item.Target?.ToString("N0") ?? "0")"
+                                                        data-target="@(item.Target?.ToString("N0", VietnamFormat.Numbers) ?? "0")"
                                                         data-category="@(item.Category ?? "")"
                                                         data-actual="@(item.Actual?.ToString("0.##") ?? "")"
                                                         data-proof="@(item.ProofNote ?? "")">
@@ -395,9 +395,9 @@
                                                         title="Đánh giá & Phê duyệt chứng minh (YES/NO)"
                                                         data-id="@item.Id"
                                                         data-title="@item.Title"
-                                                        data-target="@(item.Target?.ToString("N0") ?? "0")"
+                                                        data-target="@(item.Target?.ToString("N0", VietnamFormat.Numbers) ?? "0")"
                                                         data-category="@(item.Category ?? "")"
-                                                        data-actual="@(item.Actual?.ToString("N0") ?? "")"
+                                                        data-actual="@(item.Actual?.ToString("N0", VietnamFormat.Numbers) ?? "")"
                                                         data-proof="@(item.ProofNote ?? "")"
                                                         data-review="@(item.LastActionNote ?? "")">
                                                     <i class="material-icons">rule</i> Duyệt

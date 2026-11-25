@@ -255,6 +255,8 @@ public sealed class HomeController : BaseController
             ModelState.AddModelError(nameof(profile.ContractEndDate), "Ngày kết thúc hợp đồng phải sau ngày bắt đầu.");
         if (!EmployeeProfileOptions.EmploymentStatuses.Contains(profile.EmploymentStatus ?? string.Empty))
             ModelState.AddModelError(nameof(profile.EmploymentStatus), "Hình thức lao động không hợp lệ.");
+        foreach (var (field, message) in EmployeeProfilePolicy.Validate(profile, Store.GetEmployeeProfile(profile.UserId), HrmDataStore.CurrentVietnamTime().Date))
+            ModelState.AddModelError(field, message);
         foreach (var email in new[] { profile.PersonalEmail, profile.CompanyEmail, profile.EmergencyContactEmail }.Where(x => !string.IsNullOrWhiteSpace(x)))
             if (!System.Net.Mail.MailAddress.TryCreate(email, out _)) ModelState.AddModelError("", $"Email '{email}' không hợp lệ.");
 

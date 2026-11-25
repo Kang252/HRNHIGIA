@@ -91,8 +91,8 @@ namespace NHIGIA.Modern.Infrastructure
 
         public HrmUserAccountModel FindUser(string username)
         {
-            const string sql = @"SELECT u.Id, u.Username, u.PasswordHash, u.PasswordSalt, u.DisplayName, u.RoleCode,
-                u.DepartmentId, d.Name DepartmentName, u.SupervisorUserId, u.IsActive
+            // u.* keeps sign-in working while an additive migration has not run yet.
+            const string sql = @"SELECT u.*, d.Name DepartmentName
                 FROM dbo.HrmUserAccount u LEFT JOIN dbo.HrmDepartment d ON d.Id=u.DepartmentId
                 WHERE u.Username=@Username";
             using (var connection = OpenConnection()) return connection.QuerySingleOrDefault<HrmUserAccountModel>(sql, new { Username = (username ?? string.Empty).Trim() });
@@ -100,10 +100,12 @@ namespace NHIGIA.Modern.Infrastructure
 
         public HrmUserAccountModel FindUser(int id)
         {
-            const string sql = @"SELECT u.Id, u.Username, u.DisplayName, u.RoleCode, u.DepartmentId,
-                d.Name DepartmentName, u.SupervisorUserId, u.IsActive
+            const string sql = @"SELECT u.*, d.Name DepartmentName
                 FROM dbo.HrmUserAccount u LEFT JOIN dbo.HrmDepartment d ON d.Id=u.DepartmentId WHERE u.Id=@Id";
-            using (var connection = OpenConnection()) return connection.QuerySingleOrDefault<HrmUserAccountModel>(sql, new { Id = id });
+            using var connection = OpenConnection();
+            var user = connection.QuerySingleOrDefault<HrmUserAccountModel>(sql, new { Id = id });
+            if (user != null) user.PasswordHash = user.PasswordSalt = null;
+            return user;
         }
 
         public EmployeeProfileModel GetEmployeeProfile(int userId)
@@ -283,7 +285,7 @@ namespace NHIGIA.Modern.Infrastructure
         public IList<LeaveRequestModel> GetApprovedScheduleLeaves(HrmUserAccountModel actor, DateTime fromDate, DateTime toDate)
         {
             const string sql = @"SELECT r.Id,r.RequestCode,r.UserId,u.Username,u.DisplayName,hm.PersonId,
-                    d.Name DepartmentName,p.EmployeeCode,p.JobTitle,r.LeaveType,r.StartDate,r.EndDate,r.SessionCode,r.StatusCode
+                    d.Name DepartmentName,p.EmployeeCode,p.JobTitle,r.LeaveType,r.Reason,r.StartDate,r.EndDate,r.SessionCode,r.StatusCode
                 FROM dbo.HrmLeaveRequest r
                 INNER JOIN dbo.HrmUserAccount u ON u.Id=r.UserId
                 LEFT JOIN dbo.HrmDepartment d ON d.Id=u.DepartmentId
@@ -295,16 +297,23 @@ namespace NHIGIA.Modern.Infrastructure
                     AND (@CanSeeAll=1 OR r.UserId=@ActorId OR (@IsManager=1 AND u.DepartmentId=@DepartmentId))
                 ORDER BY r.StartDate,u.DisplayName,r.Id";
             using var connection = OpenConnection();
-            return connection.Query<LeaveRequestModel>(sql, new
+            var leaves = connection.Query<LeaveRequestModel>(sql, new
             {
                 FromDate = fromDate.Date, ToDate = toDate.Date, AttendanceLeavePolicy.LeaveTypes,
                 CanSeeAll = actor.RoleCode is HrmRoles.Admin or HrmRoles.Hr or HrmRoles.Director,
                 ActorId = actor.Id, IsManager = actor.RoleCode == HrmRoles.Manager, actor.DepartmentId
-            }).Where(AttendanceLeavePolicy.IsApprovedLeave).ToList();
+            }).ToList();
+            foreach (var leave in leaves)
+            {
+                leave.LeaveType = LeaveRequestPolicy.NormalizeLeaveType(leave.LeaveType, null, leave.Reason);
+                leave.Reason = null;
+            }
+            return leaves.Where(AttendanceLeavePolicy.IsApprovedLeave).ToList();
         }
 
         public int SaveSchedule(SaveScheduleRequest request, HrmUserAccountModel actor, string ipAddress)
         {
+            EnsureScheduleIsNotDuplicate(request);
             if (request.Id > 0)
             {
                 const string updateSql = @"UPDATE s SET UserId=@UserId, ShiftTemplateId=@ShiftTemplateId, ShiftName=@ShiftName,
@@ -349,6 +358,20 @@ namespace NHIGIA.Modern.Infrastructure
             }
         }
 
+        /// <summary>A later schedule may override an earlier one; an identical or same-day one is a mistake.</summary>
+        private void EnsureScheduleIsNotDuplicate(SaveScheduleRequest request)
+        {
+            using var connection = OpenConnection();
+            var start = TimeSpan.Parse(request.StartTime, System.Globalization.CultureInfo.InvariantCulture);
+            var end = TimeSpan.Parse(request.EndTime, System.Globalization.CultureInfo.InvariantCulture);
+            var duplicate = connection.Query<ScheduleModel>(@"SELECT * FROM dbo.HrmEmployeeSchedule WHERE UserId=@UserId AND StatusCode='ACTIVE' AND Id<>@Id
+                    AND (WorkDaysMask & @WorkDaysMask)<>0 AND EffectiveFrom<=COALESCE(@EffectiveTo,'99991231') AND COALESCE(EffectiveTo,'99991231')>=@EffectiveFrom",
+                    new { request.UserId, request.Id, request.WorkDaysMask, request.EffectiveFrom, request.EffectiveTo })
+                .FirstOrDefault(x => x.EffectiveFrom.Date == request.EffectiveFrom.Date || x.StartTime == start && x.EndTime == end && x.BreakMinutes == request.BreakMinutes);
+            if (duplicate != null)
+                throw new InvalidOperationException($"Nhân viên đã có lịch {duplicate.ShiftName} trùng ngày làm việc, áp dụng từ {duplicate.EffectiveFrom:dd/MM/yyyy}. Hãy sửa lịch đó hoặc đặt ngày kết thúc trước.");
+        }
+
         public bool DeleteSchedule(int id, HrmUserAccountModel actor, string ipAddress)
         {
             const string sql = @"DELETE s FROM dbo.HrmEmployeeSchedule s INNER JOIN dbo.HrmUserAccount u ON u.Id=s.UserId
@@ -370,7 +393,7 @@ namespace NHIGIA.Modern.Infrastructure
                 p.MobilePhone, p.CompanyEmail,
                 r.LeaveType, r.StartDate, r.EndDate, r.SessionCode, r.HandoverTo, r.Reason, r.AttachmentName,
                 CAST(CASE WHEN r.AttachmentContent IS NULL THEN 0 ELSE 1 END AS BIT) HasAttachment,
-                r.StatusCode, r.ManagerNote, r.HrNote, r.ApprovedByManagerId, r.ApprovedByHrId,
+                r.StatusCode, r.AdjustKind, r.AdjustMinutes, r.Amount, r.ManagerNote, r.HrNote, r.ApprovedByManagerId, r.ApprovedByHrId,
                 mgr.DisplayName ManagerName, hr.DisplayName HrName,
                 r.CreatedAt, r.UpdatedAt
                 FROM dbo.HrmLeaveRequest r
@@ -390,7 +413,10 @@ namespace NHIGIA.Modern.Infrastructure
                 WHERE s.StatusCode='ACTIVE' AND (@CanSeeAll=1 OR s.UserId=@ActorId OR (@IsManager=1 AND u.DepartmentId=@DepartmentId))",
                 scope).ToLookup(x => x.UserId);
             foreach (var request in requests)
+            {
                 request.RequestedDays = LeaveRequestPolicy.RequestedDays(request, schedules[request.UserId]);
+                request.LeaveType = LeaveRequestPolicy.NormalizeLeaveType(request.LeaveType, null, request.Reason);
+            }
             return requests;
         }
 
@@ -456,8 +482,15 @@ namespace NHIGIA.Modern.Infrastructure
             var target = FindUser(targetUserId);
             if (!LeaveRequestPolicy.CanCreateFor(actor, target))
                 throw new InvalidOperationException("Nhân viên không còn hoạt động hoặc không thuộc phạm vi của bạn.");
-            const string sql = @"INSERT dbo.HrmLeaveRequest(UserId, LeaveType, StartDate, EndDate, SessionCode, HandoverTo, Reason, AttachmentName, AttachmentContentType, AttachmentContent, StatusCode)
-                VALUES(@UserId, @LeaveType, @StartDate, @EndDate, @SessionCode, @HandoverTo, @Reason, @AttachmentName, @AttachmentContentType, @AttachmentContent, @StatusCode);
+            request.LeaveType = LeaveRequestPolicy.NormalizeLeaveType(request.LeaveType, request.LeaveSubtype, request.Reason);
+            request.AdjustKind = request.LeaveType == "Đi muộn về sớm" && request.AdjustKind is "LATE" or "EARLY" ? request.AdjustKind : null;
+            if (request.LeaveType == "Đi muộn về sớm" && (request.AdjustKind == null || request.AdjustMinutes is null or < 1 or > 480))
+                throw new InvalidOperationException("Vui lòng chọn đi muộn hoặc về sớm và nhập giờ thực tế hợp lệ.");
+            if (request.AdjustKind == null) request.AdjustMinutes = null;
+            if (request.LeaveType != "Tạm ứng lương") request.Amount = null;
+            else if (request.Amount is null or <= 0 or > 1_000_000_000m) throw new InvalidOperationException("Vui lòng nhập số tiền tạm ứng hợp lệ.");
+            const string sql = @"INSERT dbo.HrmLeaveRequest(UserId, LeaveType, StartDate, EndDate, SessionCode, HandoverTo, Reason, AttachmentName, AttachmentContentType, AttachmentContent, StatusCode, AdjustKind, AdjustMinutes, Amount, CreatedAt)
+                VALUES(@UserId, @LeaveType, @StartDate, @EndDate, @SessionCode, @HandoverTo, @Reason, @AttachmentName, @AttachmentContentType, @AttachmentContent, @StatusCode, @AdjustKind, @AdjustMinutes, @Amount, @CreatedAt);
                 DECLARE @Id INT=CAST(SCOPE_IDENTITY() AS INT);
                 SELECT r.Id, r.RequestCode, r.UserId, u.Username, u.DisplayName, u.RoleCode, d.Name DepartmentName,
                     r.LeaveType, r.StartDate, r.EndDate, r.SessionCode, r.HandoverTo, r.Reason, r.AttachmentName,
@@ -467,15 +500,53 @@ namespace NHIGIA.Modern.Infrastructure
             using (var connection = OpenConnection())
             {
                 using var transaction = connection.BeginTransaction();
+                // Two submissions of the same employee are checked one after the other.
+                connection.ExecuteScalar<int>("SELECT Id FROM dbo.HrmUserAccount WITH(UPDLOCK,HOLDLOCK) WHERE Id=@UserId", new { UserId = targetUserId }, transaction);
                 var schedules = connection.Query<ScheduleModel>(@"SELECT * FROM dbo.HrmEmployeeSchedule
                     WHERE UserId=@UserId AND StatusCode='ACTIVE'", new { UserId = targetUserId }, transaction).ToList();
+                EnsureLeavePeriodOpen(connection, transaction, request.LeaveType, request.SessionCode, request.AdjustKind, request.StartDate, request.EndDate);
+                var openRequests = connection.Query<LeaveRequestModel>(@"SELECT UserId,RequestCode,LeaveType,Reason,StartDate,EndDate,SessionCode,StatusCode
+                    FROM dbo.HrmLeaveRequest WHERE UserId=@UserId AND StatusCode IN ('PENDING_MANAGER','PENDING_HR','APPROVED')",
+                    new { UserId = targetUserId }, transaction).ToList();
+                foreach (var open in openRequests) open.LeaveType = LeaveRequestPolicy.NormalizeLeaveType(open.LeaveType, null, open.Reason);
+                var allowance = connection.ExecuteScalar<decimal>(@"SELECT CAST(COALESCE(
+                    (SELECT AnnualLeaveDays FROM dbo.HrmEmployeeProfile WHERE UserId=@UserId),12) AS DECIMAL(10,1))", new { UserId = targetUserId }, transaction);
+                var conflict = LeaveRequestPolicy.ValidateAgainst(request, targetUserId, allowance, openRequests, schedules);
+                if (conflict != null) throw new InvalidOperationException(conflict);
                 var statusCode = LeaveRequestPolicy.InitialStatus(request, schedules, targetUserId, target.RoleCode);
-                var result = connection.QuerySingle<LeaveRequestModel>(sql, new { UserId = targetUserId, request.LeaveType, request.StartDate, request.EndDate, request.SessionCode, request.HandoverTo, request.Reason, request.AttachmentName, request.AttachmentContentType, request.AttachmentContent, StatusCode = statusCode }, transaction);
+                var result = connection.QuerySingle<LeaveRequestModel>(sql, new { UserId = targetUserId, request.LeaveType, request.StartDate, request.EndDate, request.SessionCode, request.HandoverTo, request.Reason, request.AttachmentName, request.AttachmentContentType, request.AttachmentContent, StatusCode = statusCode, request.AdjustKind, request.AdjustMinutes, request.Amount, CreatedAt = CurrentVietnamTime() }, transaction);
                 AddAudit(connection, actor.Id, "CREATE", "HrmLeaveRequest", result.Id.ToString(), "Gửi đơn yêu cầu " + result.RequestCode, ipAddress, transaction);
                 NotifyLeave(connection, transaction, result.Id, "Đã gửi, chờ phê duyệt", null, true);
                 transaction.Commit();
                 return result;
             }
+        }
+
+        /// <summary>A locked period feeds payroll, so nothing that changes its days may be added or approved.</summary>
+        private static void EnsureLeavePeriodOpen(SqlConnection connection, SqlTransaction transaction, string leaveType, string sessionCode,
+            string adjustKind, DateTime startDate, DateTime endDate)
+        {
+            var changesAttendance = adjustKind != null || AttendanceLeavePolicy.SessionMask(sessionCode) != 0 &&
+                AttendanceLeavePolicy.LeaveTypes.Contains(leaveType, StringComparer.OrdinalIgnoreCase);
+            if (!changesAttendance) return;
+            var first = AttendancePeriodRange.ForDate(startDate).Period;
+            var last = AttendancePeriodRange.ForDate(endDate).Period;
+            var locked = connection.ExecuteScalar<string>(@"SELECT TOP 1 Period FROM dbo.HrmAttendancePeriod
+                WHERE StatusCode='LOCKED' AND Period BETWEEN @first AND @last ORDER BY Period", new { first, last }, transaction);
+            if (locked != null) throw new InvalidOperationException($"Kỳ công {locked} đã khóa nên không thể thêm, duyệt hoặc xóa đơn của thời gian này.");
+        }
+
+        private static void CreateApprovedAdvance(SqlConnection connection, SqlTransaction transaction, LeaveRequestModel request, int actorId)
+        {
+            var period = AttendancePeriodRange.ForDate(request.StartDate);
+            for (var attempt = 0; attempt < 6 && connection.ExecuteScalar<int>(@"SELECT COUNT(1) FROM dbo.HrmWorkItem
+                    WHERE Kind='payroll' AND Quarter=@Period AND EmployeeId=@UserId AND Status NOT IN ('DRAFT','REJECTED')",
+                    new { period.Period, request.UserId }, transaction) > 0; attempt++)
+                period = AttendancePeriodRange.ForDate(period.ClosableFrom);
+            connection.Execute(@"INSERT dbo.HrmWorkItem(Kind,Title,Description,Reference,Quarter,EmployeeId,DepartmentId,StartDate,Target,Status,Priority,CreatedBy,CreatedAt)
+                VALUES('payroll-advance',N'Tạm ứng lương',@Description,@RequestCode,@Period,@UserId,@DepartmentId,@StartDate,@Amount,'APPROVED','NORMAL',@actorId,SYSUTCDATETIME())",
+                new { Description = $"Từ đề xuất {request.RequestCode} đã duyệt", request.RequestCode, period.Period, request.UserId,
+                    request.DepartmentId, request.StartDate, request.Amount, actorId }, transaction);
         }
 
         public bool CancelLeave(int id, HrmUserAccountModel actor, string ipAddress)
@@ -497,6 +568,14 @@ namespace NHIGIA.Modern.Infrastructure
             using (var connection = OpenConnection())
             {
                 using var transaction = connection.BeginTransaction();
+                var approved = connection.QuerySingleOrDefault<LeaveRequestModel>(@"SELECT LeaveType,SessionCode,StartDate,EndDate,AdjustKind,Amount
+                    FROM dbo.HrmLeaveRequest WHERE Id=@Id AND StatusCode='APPROVED'", new { Id = id }, transaction);
+                if (approved != null)
+                {
+                    EnsureLeavePeriodOpen(connection, transaction, approved.LeaveType, approved.SessionCode, approved.AdjustKind, approved.StartDate, approved.EndDate);
+                    if (approved.LeaveType == "Tạm ứng lương" && approved.Amount > 0)
+                        throw new InvalidOperationException("Tạm ứng đã duyệt đã ghi thành khoản trừ lương nên không thể xóa đơn.");
+                }
                 var changed = connection.Execute(@"DELETE r FROM dbo.HrmLeaveRequest r
                     INNER JOIN dbo.HrmUserAccount u ON u.Id=r.UserId
                     WHERE r.Id=@Id AND (@CanSeeAll=1 OR (@IsManager=1 AND u.DepartmentId=@DepartmentId))",
@@ -527,11 +606,12 @@ namespace NHIGIA.Modern.Infrastructure
             {
                 using var transaction = connection.BeginTransaction();
                 var target = connection.QuerySingleOrDefault<LeaveRequestModel>(@"
-                    SELECT r.Id, r.UserId, r.StatusCode, u.RoleCode, u.DepartmentId
+                    SELECT r.Id, r.RequestCode, r.UserId, r.StatusCode, u.RoleCode, u.DepartmentId, r.LeaveType, r.SessionCode, r.StartDate, r.EndDate, r.AdjustKind, r.Amount
                     FROM dbo.HrmLeaveRequest r
                     INNER JOIN dbo.HrmUserAccount u ON u.Id=r.UserId
                     WHERE r.Id=@Id", new { request.Id }, transaction);
                 if (!LeaveRequestPolicy.CanApprove(actor, target)) return false;
+                if (request.Approve) EnsureLeavePeriodOpen(connection, transaction, target.LeaveType, target.SessionCode, target.AdjustKind, target.StartDate, target.EndDate);
                 if (request.Note?.Length > 1000) throw new InvalidOperationException("Ghi chú duyệt tối đa 1.000 ký tự.");
                 var sql = @"UPDATE dbo.HrmLeaveRequest SET StatusCode=@Status,
                     ManagerNote=CASE WHEN @IsManager=1 THEN @Note ELSE ManagerNote END,
@@ -544,6 +624,7 @@ namespace NHIGIA.Modern.Infrastructure
 
                 var changed = connection.Execute(sql, param, transaction) > 0;
                 if (changed) AddAudit(connection, actor.Id, request.Approve ? "APPROVE" : "REJECT", "HrmLeaveRequest", request.Id.ToString(), request.Note, ipAddress, transaction);
+                if (changed && request.Approve && target.LeaveType == "Tạm ứng lương" && target.Amount > 0) CreateApprovedAdvance(connection, transaction, target, actor.Id);
                 if (changed) NotifyLeave(connection, transaction, request.Id, request.Approve ? "Đã phê duyệt" : "Đã từ chối", request.Note);
                 transaction.Commit();
                 return changed;
@@ -554,20 +635,21 @@ namespace NHIGIA.Modern.Infrastructure
         {
             if (request?.Ids == null || !request.Ids.Any()) return 0;
             var processed = 0;
+            InvalidOperationException refused = null;
             foreach (var id in request.Ids.Distinct())
             {
-                if (ApproveLeave(new ApprovalRequest { Id = id, Approve = request.Approve, Note = request.Note }, actor, ipAddress))
+                try
                 {
-                    processed++;
+                    if (ApproveLeave(new ApprovalRequest { Id = id, Approve = request.Approve, Note = request.Note }, actor, ipAddress)) processed++;
+                }
+                catch (InvalidOperationException exception)
+                {
+                    // One refused request (e.g. its period is locked) must not stop the others.
+                    refused ??= exception;
                 }
             }
+            if (processed == 0 && refused != null) throw refused;
             return processed;
-        }
-
-        public int ApproveAllLeaves(HrmUserAccountModel actor, string note, string ipAddress)
-        {
-            var ids = GetLeaveRequests(actor).Where(x => LeaveRequestPolicy.CanApprove(actor, x)).Select(x => x.Id).ToList();
-            return BulkApproveLeave(new BulkApprovalRequest { Ids=ids, Approve=true, Note=note }, actor, ipAddress);
         }
 
         public IList<CommunicationModel> GetCommunications(HrmUserAccountModel actor, string keyword, string category, string status = "", int take = 100)
@@ -888,10 +970,18 @@ namespace NHIGIA.Modern.Infrastructure
             }
         }
 
+        /// <summary>Headcounts exclude administrator accounts, so attendance figures shown next to them must as well.</summary>
+        public IList<AttendanceRecordModel> WithoutAdministrators(IEnumerable<AttendanceRecordModel> rows)
+        {
+            using var connection = OpenConnection();
+            var administrators = connection.Query<int>("SELECT Id FROM dbo.HrmUserAccount WHERE RoleCode='ADMIN'").ToHashSet();
+            return rows.Where(x => !administrators.Contains(x.UserId)).ToList();
+        }
+
         public DashboardModel GetDashboard(HrmUserAccountModel actor)
         {
             var today = CurrentVietnamTime().Date;
-            var attendance = GetAttendance(actor, today, today);
+            var attendance = WithoutAdministrators(GetAttendance(actor, today, today));
             var communications = GetCommunications(actor, string.Empty, string.Empty, "PUBLISHED", 3);
             const string employeeSql = @"SELECT COUNT(1) FROM dbo.HrmUserAccount u WHERE u.IsActive=1 AND u.RoleCode<>'ADMIN'
                 AND (@CanSeeAll=1 OR u.Id=@ActorId OR (@IsManager=1 AND u.DepartmentId=@DepartmentId))";
@@ -1080,6 +1170,8 @@ namespace NHIGIA.Modern.Infrastructure
             if(locked) range.EnsureEnded(CurrentVietnamTime(),"khóa kỳ");
             if((!locked || force) && string.IsNullOrWhiteSpace(reason)) throw new InvalidOperationException(force ? "Vui lòng nhập lý do khóa ngoại lệ." : "Vui lòng nhập lý do mở khóa.");
             using var connection=OpenConnection();using var tx=connection.BeginTransaction(IsolationLevel.Serializable);
+            if(!locked && connection.ExecuteScalar<int>("SELECT COUNT(1) FROM dbo.HrmWorkItem WITH(UPDLOCK,HOLDLOCK) WHERE Kind='payroll' AND Quarter=@Period AND Status NOT IN ('DRAFT','REJECTED')",new {range.Period},tx)>0)
+                throw new InvalidOperationException($"Bảng lương kỳ {range.Period} đã trình hoặc đã duyệt. Giám đốc cần trả lại bảng lương trước khi mở khóa kỳ công; bảng lương đã phát hành thì không mở khóa được.");
             if(locked && !force)
             {
                 var pending=connection.ExecuteScalar<int>("SELECT COUNT(1) FROM dbo.HrmAttendanceAdjustment WITH(UPDLOCK,HOLDLOCK) WHERE WorkDate BETWEEN @FromDate AND @ToDate AND StatusCode='PENDING'",new {range.FromDate,range.ToDate},tx);

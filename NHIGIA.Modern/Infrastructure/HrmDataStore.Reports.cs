@@ -12,7 +12,7 @@ public partial class HrmDataStore
         if (to < from || (to - from).TotalDays > 366)
             throw new InvalidOperationException("Khoảng báo cáo tối đa là 366 ngày.");
 
-        var attendance = GetAttendance(actor, from, to).ToList();
+        var attendance = WithoutAdministrators(GetAttendance(actor, from, to));
         var canSeeAll = actor.RoleCode is HrmRoles.Admin or HrmRoles.Hr or HrmRoles.Director;
         var isManager = actor.RoleCode == HrmRoles.Manager;
         using var connection = OpenConnection();

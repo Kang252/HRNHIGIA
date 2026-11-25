@@ -1,0 +1,66 @@
+@model IList<AccountListItem>
+@{
+    var draft = (CreateAccountRequest)ViewBag.Draft;
+    var actor = (HrmUserAccountModel)ViewBag.Actor;
+    var usesKeycloak = ViewBag.UsesKeycloak == true;
+    var roles = AccountPolicy.AssignableRoles(actor?.RoleCode);
+    var temporaryPassword = TempData["AccountPassword"] as string;
+}
+<div class="container-fluid">
+    <div class="hrm-page-header"><div><h1 class="hrm-page-title">Quản lý tài khoản</h1><p class="hrm-page-subtitle">Thêm nhân viên, cấp lại mật khẩu, khóa tài khoản và phân vai trò</p></div>
+        <div class="hrm-header-actions"><a class="hrm-btn" asp-controller="Home" asp-action="EmployeeInformation"><i class="material-icons">groups</i> Quản lý nhân sự</a></div></div>
+    @if (TempData["AccountSuccess"] is string success) { <div class="alert alert-success" role="status">@success</div> }
+    @if (TempData["AccountError"] is string error) { <div class="alert alert-danger" role="alert">@error</div> }
+    @if (temporaryPassword != null)
+    {
+        <div class="account-temporary" role="status"><strong>Mật khẩu tạm của @TempData["AccountUsername"]:</strong> <code>@temporaryPassword</code><p>Chỉ hiển thị một lần. Gửi riêng cho nhân viên; hệ thống yêu cầu đổi mật khẩu ở lần đăng nhập đầu tiên.</p></div>
+    }
+    @if (usesKeycloak) { <div class="alert alert-warning">Hệ thống đang đăng nhập qua Keycloak. Mật khẩu được quản lý tại Keycloak; các thao tác mật khẩu bên dưới không có hiệu lực cho đến khi dùng đăng nhập nội bộ.</div> }
+
+    <details class="hrm-card hrm-section-gap" open="@(!ViewData.ModelState.IsValid)">
+        <summary class="hrm-card-header account-summary"><h2 class="hrm-card-title"><i class="material-icons">person_add</i> Thêm nhân viên</h2></summary>
+        <form method="post" asp-action="Create" class="hrm-card-body" autocomplete="off">
+            @Html.AntiForgeryToken()
+            <div asp-validation-summary="All" class="alert alert-danger" role="alert"></div>
+            <div class="account-grid">
+                <label>Họ và tên *<input name="DisplayName" class="hrm-control" required maxlength="150" value="@draft.DisplayName" /></label>
+                <label>Tài khoản đăng nhập *<input name="Username" class="hrm-control" required maxlength="50" pattern="[a-z0-9][a-z0-9._\-]{2,49}" title="Chữ thường không dấu, số, dấu chấm, gạch dưới hoặc gạch ngang" value="@draft.Username" /></label>
+                <label>Mã nhân viên *<input name="EmployeeCode" class="hrm-control" required maxlength="50" value="@draft.EmployeeCode" /></label>
+                <label>Vai trò *<select name="RoleCode" class="hrm-control" required>@foreach (var role in roles) { <option value="@role" selected="@(role == (draft.RoleCode ?? HrmRoles.Employee))">@HrmRoles.Label(role)</option> }</select></label>
+                <label>Phòng ban<select name="DepartmentId" class="hrm-control"><option value="">Chưa phân phòng</option>@foreach (var department in (IEnumerable<WorkDepartment>)ViewBag.Departments) { <option value="@department.Id" selected="@(department.Id == draft.DepartmentId)">@department.Name</option> }</select></label>
+                <label>Chức danh<input name="JobTitle" class="hrm-control" maxlength="150" value="@draft.JobTitle" /></label>
+                <label>Hình thức lao động *<select name="EmploymentStatus" class="hrm-control" required><option value="">Chọn hình thức</option>@foreach (var status in EmployeeProfileOptions.EmploymentStatuses.Where(x => x != "Đã thôi việc")) { <option selected="@(status == draft.EmploymentStatus)">@status</option> }</select></label>
+                <label>Ngày vào làm<input name="HireDate" type="date" class="hrm-control" value="@draft.HireDate?.ToString("yyyy-MM-dd")" /></label>
+                <label>Email công ty<input name="CompanyEmail" type="email" class="hrm-control" maxlength="150" value="@draft.CompanyEmail" /></label>
+            </div>
+            <button type="submit" class="hrm-btn hrm-btn-primary"><i class="material-icons">save</i> Tạo tài khoản</button>
+        </form>
+    </details>
+
+    <div class="hrm-card hrm-section-gap">
+        <div class="hrm-card-header"><h2 class="hrm-card-title">Danh sách tài khoản</h2><input id="accountSearch" type="search" class="hrm-control account-search" placeholder="Tìm tên, tài khoản, mã, phòng ban…" aria-label="Tìm tài khoản" /></div>
+        <div class="account-list">
+            @foreach (var account in Model)
+            {
+                var canManage = actor?.Id != account.Id && roles.Contains(account.RoleCode);
+                <article class="account-row @(account.IsActive ? "" : "is-locked")" data-search="@($"{account.DisplayName} {account.Username} {account.EmployeeCode} {account.DepartmentName}".ToLowerInvariant())">
+                    <div><strong>@account.DisplayName</strong><small>@account.Username · @(account.EmployeeCode ?? "Chưa có mã") · @(account.DepartmentName ?? "Chưa phân phòng")</small>
+                        <small>@(account.IsActive ? "Đang hoạt động" : "Đã khóa")@(account.MustChangePassword ? " · Chưa đổi mật khẩu tạm" : "") · Đăng nhập gần nhất: @(account.LastLoginAt?.ToString("dd/MM/yyyy HH:mm") ?? "chưa có")</small></div>
+                    @if (canManage)
+                    {
+                        <div class="account-actions">
+                            <form method="post" asp-action="SetRole">@Html.AntiForgeryToken()<input type="hidden" name="id" value="@account.Id" /><select name="roleCode" class="hrm-control" aria-label="Vai trò của @account.DisplayName" onchange="if(confirm('Đổi vai trò tài khoản này?'))this.form.submit();else this.form.reset();">@foreach (var role in roles) { <option value="@role" selected="@(role == account.RoleCode)">@HrmRoles.Label(role)</option> }</select></form>
+                            <form method="post" asp-action="ResetPassword" onsubmit="return confirm('Cấp lại mật khẩu tạm và đăng xuất các phiên hiện tại của tài khoản này?');">@Html.AntiForgeryToken()<input type="hidden" name="id" value="@account.Id" /><button class="hrm-btn" type="submit">Cấp lại mật khẩu</button></form>
+                            <form method="post" asp-action="SetActive" onsubmit="return confirm('@(account.IsActive ? "Khóa" : "Mở khóa") tài khoản này?');">@Html.AntiForgeryToken()<input type="hidden" name="id" value="@account.Id" /><input type="hidden" name="active" value="@(account.IsActive ? "false" : "true")" /><button class="hrm-btn" type="submit">@(account.IsActive ? "Khóa" : "Mở khóa")</button></form>
+                        </div>
+                    }
+                    else { <span class="hrm-badge hrm-badge-blue">@account.RoleLabel</span> }
+                </article>
+            }
+        </div>
+    </div>
+</div>
+<style>
+.account-summary{cursor:pointer;list-style:none}.account-summary h2{display:flex;align-items:center;gap:8px;margin:0}.account-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-bottom:16px}.account-grid label{font-weight:600;font-size:13px}.account-grid .hrm-control{margin-top:5px;width:100%}.account-search{max-width:320px}.account-row{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;padding:14px 18px;border-top:1px solid #e5eaf1}.account-row small{display:block;margin-top:3px;color:#64748b}.account-row.is-locked strong{color:#94a3b8}.account-actions{display:flex;gap:8px;flex-wrap:wrap}.account-actions .hrm-control{min-width:150px}.account-temporary{padding:14px 18px;margin-bottom:16px;border:1px solid #f0c37b;background:#fff8ec;border-radius:12px}.account-temporary code{font-size:18px;padding:3px 10px;background:#fff;border-radius:6px}.account-temporary p{margin:8px 0 0}
+</style>
+<script>document.getElementById('accountSearch').addEventListener('input',function(){var q=this.value.trim().toLowerCase();document.querySelectorAll('.account-row').forEach(function(r){r.hidden=q&&r.dataset.search.indexOf(q)<0;r.style.display=r.hidden?'none':'';});});</script>

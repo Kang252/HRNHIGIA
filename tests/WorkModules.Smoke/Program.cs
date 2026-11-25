@@ -166,7 +166,7 @@ try
     await Check("/Home/LeaveRequests", "EMPLOYEE", HttpStatusCode.OK, "name=\"attachment\"", "FormData(this)", "LeaveAttachment", "Tệp cũ chưa lưu nội dung");
     await Check("/Home/LeaveRequests?create=leave", "EMPLOYEE", HttpStatusCode.OK, "openDirectLeaveModal", "URLSearchParams", "Nghỉ phép");
     await Check("/Work?kind=helpdesk", "EMPLOYEE", HttpStatusCode.OK, "Tạo yêu cầu Helpdesk IT");
-    await Check("/Work?kind=overtime", "EMPLOYEE", HttpStatusCode.OK, "Số giờ tăng ca", "Lý do tăng ca");
+    await Check("/Work?kind=overtime", "EMPLOYEE", HttpStatusCode.OK, "Đăng ký tăng ca", "Lý do tăng ca", "Lịch tăng ca");
     await Check("/Work?kind=resignation", "EMPLOYEE", HttpStatusCode.OK, "Ngày làm việc cuối cùng", "Lý do thôi việc", "Yêu cầu nghỉ việc");
     await Check("/Work?kind=training", "EMPLOYEE", HttpStatusCode.OK, "Đào tạo của tôi", "Chưa kết nối");
     await Check("/Work?kind=vehicle", "EMPLOYEE", HttpStatusCode.OK, "Đặt xe", "Mục đích chuyến đi", "Điểm đón", "Điểm đến", "Số người đi", "work-layout-vehicle", "Chọn nhân viên đi xe", "meetingEmployeeSearch");
@@ -174,7 +174,7 @@ try
     await Check("/Work?kind=meeting", "MANAGER", HttpStatusCode.OK, "Tự động xác nhận", "không cần chờ duyệt", "Lưu yêu cầu", "cách nhau ít nhất 10 phút");
     await Check("/Work/Notifications", "EMPLOYEE", HttpStatusCode.OK, "Thông báo của tôi", "Hộp thông báo", "Không thể tải thông báo");
     await Check("/Work/NotificationCount", "EMPLOYEE", HttpStatusCode.ServiceUnavailable, "Message");
-    await Check("/Home/Approvals", "MANAGER", HttpStatusCode.OK, "Phê duyệt yêu cầu", "ApprovalInbox", "DecideApproval", "ApproveAllRequests", "Phê duyệt tất cả", "done_all");
+    await Check("/Home/Approvals", "MANAGER", HttpStatusCode.OK, "Phê duyệt yêu cầu", "ApprovalInbox", "DecideApproval", "ApproveAllRequests", "Chờ bạn duyệt", "Duyệt các đơn thường", "Tra cứu thủ tục", "done_all");
     await Check("/Work?kind=business-trip", "EMPLOYEE", HttpStatusCode.OK, "Công tác của tôi");
     await Check("/Work?kind=business-trip", "MANAGER", HttpStatusCode.OK, "Tạo phân công công tác", "Nơi công tác", "Số quyết định", "work-layout-editor-primary", "Danh sách và phê duyệt");
     await Check("/Work?kind=resignation", "HR", HttpStatusCode.OK, "Quản lý nghỉ việc và thôi việc", "Mở thủ tục thôi việc", "Ngày thôi việc", "Nội dung bàn giao");
@@ -234,6 +234,15 @@ try
         if (args.Contains("--snapshots")) await File.WriteAllTextAsync(Path.Combine(Path.GetDirectoryName(root)!, ".tmp-audit-ui", "asset-save-failed.html"),failedHtml);
         Console.WriteLine("PASS failed asset save retains fields and validation; Kind inferred by endpoint");
     }
+    await CheckMissing("/Home/Approvals", "DIRECTOR", "187 nhân sự", "Tháng 02/2026", "tcCreateModal");
+    await CheckMissing("/Home/LeaveRequests", "EMPLOYEE", "Đăng ký ca làm", "Quên chấm công", "dynOtFrom", "dynLastDay");
+    await Check("/Home/LeaveRequests", "EMPLOYEE", HttpStatusCode.OK, "kind=overtime", "kind=resignation", "kind=helpdesk", "LeaveSubtype", "AdjustMinutes");
+    await CheckMissing("/Work?kind=payroll", "EMPLOYEE", "Tính lương tự động", "Quy trình phê duyệt bảng lương");
+    await CheckMissing("/Work?kind=payroll", "ACCOUNTANT", "Hệ thống tự động tính thuế");
+    await Check("/Accounts", null, HttpStatusCode.Redirect);
+    await Check("/Accounts", "EMPLOYEE", HttpStatusCode.Redirect);
+    await Check("/Accounts", "MANAGER", HttpStatusCode.Redirect);
+    await Check("/Account/ChangePassword", "EMPLOYEE", HttpStatusCode.OK, "Đổi mật khẩu");
     await Check("/Work?kind=transfer", "EMPLOYEE", HttpStatusCode.Redirect);
     await Check("/Work?kind=payroll", "EMPLOYEE", HttpStatusCode.OK, "Phiếu lương", "Chưa kết nối");
     await Check("/Work/ExportPayrollExcel?pyPeriod=khong-hop-le", "ADMIN", HttpStatusCode.Redirect);

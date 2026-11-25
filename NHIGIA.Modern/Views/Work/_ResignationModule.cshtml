@@ -10,6 +10,7 @@
     var isManager = User.IsInRole(HrmRoles.Manager);
     var canManage = Model.CanManage;
     var canComplete = User.IsInRole(HrmRoles.Admin) || User.IsInRole(HrmRoles.Hr) || User.IsInRole(HrmRoles.Director);
+    var draft = ViewBag.OpenCreateModal == true ? Model.Draft : new WorkItem();
 }
 
 <div class="resignation-container">
@@ -56,7 +57,7 @@
         </div>
         <div class="res-stat-card">
             <div class="res-stat-icon" style="background:#f0fdf4; color:#16a34a;">
-                <i class="material-icons">task_alt</i>
+                <i class="material-icons">check_circle_outline</i>
             </div>
             <div class="res-stat-info">
                 <h4>Đã phê duyệt</h4>
@@ -219,11 +220,12 @@
                                             }
                                             else if (item.Status == "APPROVED" && canComplete)
                                             {
-                                                <form method="post" asp-controller="Work" asp-action="ResignationAction" style="display:inline;">
+                                                var canFinish = item.DueDate?.Date <= HrmDataStore.CurrentVietnamTime().Date;
+                                                <form method="post" asp-controller="Work" asp-action="ResignationAction" style="display:inline;" onsubmit="return confirm('Hoàn tất thôi việc sẽ khóa tài khoản và thu hồi quyền truy cập của nhân viên. Tiếp tục?');">
                                                     @Html.AntiForgeryToken()
                                                     <input type="hidden" name="id" value="@item.Id" />
                                                     <input type="hidden" name="command" value="COMPLETE" />
-                                                    <button type="submit" class="btn btn-info btn-sm" title="Hoàn tất thủ tục bàn giao" style="padding:4px 8px; background:#0284c7; border-color:#0284c7; color:#fff;" onclick="return confirm('Xác nhận nhân sự đã hoàn tất mọi thủ tục bàn giao tài sản và công việc?');">
+                                                    <button type="submit" class="btn btn-info btn-sm" disabled="@(!canFinish)" title="@(canFinish ? "Hoàn tất thủ tục bàn giao" : $"Hoàn tất từ ngày {item.DueDate:dd/MM/yyyy}")" style="padding:4px 8px; background:#0284c7; border-color:#0284c7; color:#fff;" onclick="return confirm('Xác nhận nhân sự đã hoàn tất mọi thủ tục bàn giao tài sản và công việc?');">
                                                         <i class="material-icons" style="font-size:16px;">done_all</i>
                                                     </button>
                                                 </form>
@@ -267,13 +269,13 @@
                         <div class="col-md-6">
                             <div class="form-group">
                                 <label style="font-weight:700; color:#1e293b;">Tiêu đề thủ tục *</label>
-                                <input name="Title" class="form-control" required value="Thủ tục thôi việc & Bàn giao công tác" />
+                                <input name="Title" class="form-control" required maxlength="200" value="@(draft.Title ?? "Đơn xin nghỉ việc")" />
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="form-group">
                                 <label style="font-weight:700; color:#1e293b;">Mã thủ tục</label>
-                                <input name="Reference" class="form-control" placeholder="Tự động (VD: TV-2026-001)" />
+                                <input name="Reference" class="form-control" maxlength="100" value="@draft.Reference" placeholder="Bỏ trống để hệ thống tự đặt" />
                             </div>
                         </div>
                     </div>
@@ -288,7 +290,7 @@
                                         <option value="">-- Chọn nhân viên --</option>
                                         @foreach (var person in Model.People)
                                         {
-                                            <option value="@person.Id">@person.DisplayName (@person.DepartmentName)</option>
+                                            <option value="@person.Id" selected="@(draft.EmployeeId == person.Id)">@person.DisplayName (@person.DepartmentName)</option>
                                         }
                                     </select>
                                 </div>
@@ -302,12 +304,12 @@
                             <div class="form-group">
                                 <label style="font-weight:700; color:#1e293b;">Lý do thôi việc *</label>
                                 <select name="Category" class="form-control" required>
-                                    <option value="Theo nguyện vọng cá nhân">Theo nguyện vọng cá nhân</option>
-                                    <option value="Hết hạn hợp đồng lao động">Hết hạn hợp đồng lao động</option>
-                                    <option value="Thỏa thuận chấm dứt HĐLĐ">Thỏa thuận chấm dứt HĐLĐ</option>
-                                    <option value="Chuyển định cư / Lý do gia đình">Chuyển định cư / Lý do gia đình</option>
-                                    <option value="Lý do sức khỏe">Lý do sức khỏe</option>
-                                    <option value="Khác">Khác</option>
+                                    <option value="Theo nguyện vọng cá nhân" selected="@(draft.Category == "Theo nguyện vọng cá nhân")">Theo nguyện vọng cá nhân</option>
+                                    <option value="Hết hạn hợp đồng lao động" selected="@(draft.Category == "Hết hạn hợp đồng lao động")">Hết hạn hợp đồng lao động</option>
+                                    <option value="Thỏa thuận chấm dứt HĐLĐ" selected="@(draft.Category == "Thỏa thuận chấm dứt HĐLĐ")">Thỏa thuận chấm dứt HĐLĐ</option>
+                                    <option value="Chuyển định cư / Lý do gia đình" selected="@(draft.Category == "Chuyển định cư / Lý do gia đình")">Chuyển định cư / Lý do gia đình</option>
+                                    <option value="Lý do sức khỏe" selected="@(draft.Category == "Lý do sức khỏe")">Lý do sức khỏe</option>
+                                    <option value="Khác" selected="@(draft.Category == "Khác")">Khác</option>
                                 </select>
                             </div>
                         </div>
@@ -317,20 +319,20 @@
                         <div class="col-md-6">
                             <div class="form-group">
                                 <label style="font-weight:700; color:#1e293b;">Ngày làm việc cuối cùng / Ngày thôi việc *</label>
-                                <input type="date" name="DueDate" class="form-control" required value="@DateTime.Now.AddDays(30).ToString("yyyy-MM-dd")" />
+                                <input type="date" name="DueDate" class="form-control" required min="@HrmDataStore.CurrentVietnamTime().ToString("yyyy-MM-dd")" value="@((draft.DueDate ?? HrmDataStore.CurrentVietnamTime().AddDays(30)).ToString("yyyy-MM-dd"))" />
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="form-group">
                                 <label style="font-weight:700; color:#1e293b;">Người tiếp nhận bàn giao</label>
-                                <input name="ContactName" class="form-control" placeholder="Họ tên người tiếp nhận công việc & tài sản" />
+                                <input name="ContactName" class="form-control" maxlength="150" value="@draft.ContactName" placeholder="Họ tên người tiếp nhận công việc & tài sản" />
                             </div>
                         </div>
                     </div>
 
                     <div class="form-group">
                         <label style="font-weight:700; color:#1e293b;">Nội dung chi tiết bàn giao công việc & tài sản *</label>
-                        <textarea name="Description" class="form-control" rows="4" required placeholder="Bàn giao các dự án đang phụ trách, tài liệu, thiết bị máy móc công ty, thẻ nhân viên và các khoản công nợ...">Bàn giao đầy đủ công việc đang phụ trách, tài liệu dự án, máy tính và thiết bị công ty cấp phát.</textarea>
+                        <textarea name="Description" class="form-control" rows="4" required placeholder="Bàn giao các dự án đang phụ trách, tài liệu, thiết bị máy móc công ty, thẻ nhân viên và các khoản công nợ...">@draft.Description</textarea>
                     </div>
                 </div>
                 <div class="modal-footer" style="background:#f8fafc; border-top:1px solid #e2e8f0;">
@@ -541,6 +543,8 @@
             $('#modalResignationDetail').modal('show');
         });
     });
+
+    @if (ViewBag.OpenCreateModal == true) { <text>$(function () { $('#modalCreateResignation').modal('show'); });</text> }
 
     function printResignationDoc() {
         var printArea = document.getElementById('printableResignationArea');

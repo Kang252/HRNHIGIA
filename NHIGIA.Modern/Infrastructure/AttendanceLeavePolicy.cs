@@ -248,29 +248,47 @@ public static class AttendanceLeavePolicy
     /// the regular shift itself, preventing overlapping windows from being paid twice.
     /// </summary>
     public static int CalculateApprovedOvertimeMinutes(AttendanceRecordModel row,
+        IReadOnlyList<ApprovedOvertimeModel> overtime) => CalculateApprovedOvertime(row, overtime).Total;
+
+    /// <summary>Approved overtime of the day, with the part that falls between 22:00 and 06:00.</summary>
+    public static OvertimeMinutes CalculateApprovedOvertime(AttendanceRecordModel row,
         IReadOnlyList<ApprovedOvertimeModel> overtime)
     {
         ArgumentNullException.ThrowIfNull(row);
-        if (!row.CheckIn.HasValue || !row.CheckOut.HasValue || row.CheckOut <= row.CheckIn) return 0;
+        if (!row.CheckIn.HasValue || !row.CheckOut.HasValue || row.CheckOut <= row.CheckIn) return default;
         var approved = ResolveOvertimeWindows(overtime.Where(x =>
                 string.Equals(x.StatusCode, "APPROVED", StringComparison.OrdinalIgnoreCase) &&
                 x.UserId == row.UserId && x.WorkDate.Date == row.WorkDate.Date).ToList());
-        if (approved.Count == 0) return 0;
+        if (approved.Count == 0) return default;
 
         DateTime? lunchStart = row.WorkDate.Date.AddHours(12);
         DateTime? lunchEnd = row.WorkDate.Date.AddHours(13.5);
         if (!row.ScheduledStart.HasValue || !row.ScheduledEnd.HasValue)
-            return AuthorizedMinutes(row.CheckIn.Value, row.CheckOut.Value, approved, lunchStart, lunchEnd);
+            return Measure([], approved);
 
         var regularStart = row.ExpectedStartAt ?? row.WorkDate.Date.Add(row.ScheduledStart.Value);
         var regularEnd = row.ExpectedEndAt ?? row.WorkDate.Date.Add(row.ScheduledEnd.Value);
         if (regularEnd <= regularStart) regularEnd = regularEnd.AddDays(1);
         if (regularEnd.Date > regularStart.Date) lunchStart = lunchEnd = null;
         var regular = new WorkInterval(regularStart, regularEnd);
-        var regularMinutes = AuthorizedMinutes(row.CheckIn.Value, row.CheckOut.Value, [regular], lunchStart, lunchEnd);
-        var combinedMinutes = AuthorizedMinutes(row.CheckIn.Value, row.CheckOut.Value,
-            [regular, .. approved], lunchStart, lunchEnd);
-        return Math.Max(0, combinedMinutes - regularMinutes);
+        return Measure([regular], approved);
+
+        OvertimeMinutes Measure(IReadOnlyList<WorkInterval> shift, IReadOnlyList<WorkInterval> windows)
+        {
+            int Between(DateTime from, DateTime to) => to <= from ? 0 : Math.Max(0,
+                AuthorizedMinutes(from, to, [.. shift, .. windows], lunchStart, lunchEnd) -
+                AuthorizedMinutes(from, to, shift, lunchStart, lunchEnd));
+            var checkIn = row.CheckIn.Value;
+            var checkOut = row.CheckOut.Value;
+            var night = 0;
+            for (var day = checkIn.Date.AddDays(-1); day <= checkOut.Date; day = day.AddDays(1))
+            {
+                var nightStart = day.AddHours(22);
+                var nightEnd = day.AddHours(30);
+                night += Between(checkIn > nightStart ? checkIn : nightStart, checkOut < nightEnd ? checkOut : nightEnd);
+            }
+            return new OvertimeMinutes(Between(checkIn, checkOut), night);
+        }
     }
 
     private static int AuthorizedMinutes(DateTime actualStart, DateTime actualEnd,

@@ -356,7 +356,7 @@
             </a>
             <a href="@Url.Action("Index", "Work", new { kind = "assets", asTab = "list" })" 
                class="ast-tab-link @(asTab == "list" ? "active" : "")">
-                <i class="material-icons">inventory_2</i>
+                <i class="material-icons">archive</i>
                 <span>Danh sách tài sản</span>
                 <span class="badge-num">@Model.TotalAssetsCount</span>
             </a>
@@ -554,7 +554,7 @@
             <!-- Bảng danh sách chi tiết tài sản -->
             <div class="ast-table-card">
                 <div class="ast-table-card-header">
-                    <h4><i class="material-icons" style="color:#0284c7;">inventory_2</i> Danh sách tài sản trong hệ thống</h4>
+                    <h4><i class="material-icons" style="color:#0284c7;">archive</i> Danh sách tài sản trong hệ thống</h4>
                     <span style="font-size:12px; color:#64748b;">Đang hiển thị <strong>@assetItems.Count</strong> tài sản</span>
                 </div>
 
@@ -638,7 +638,7 @@
                                         <td>
                                             <div style="color:#334155;">@(item.EducationRequired ?? "Chưa có NCC")</div>
                                             <div style="font-weight:700; color:#0284c7; font-size:12px;">
-                                                @(item.Target.HasValue ? item.Target.Value.ToString("N0") + " đ" : "—")
+                                                @(item.Target.HasValue ? item.Target.Value.ToString("N0", VietnamFormat.Numbers) + " đ" : "—")
                                             </div>
                                         </td>
                                         <td>
@@ -814,7 +814,7 @@
                                             @(h.DepartmentName ?? "Toàn công ty")
                                         </td>
                                         <td style="white-space:nowrap; color:#475569;">
-                                            @(h.DueDate?.ToString("dd/MM/yyyy") ?? h.CreatedAt.ToString("dd/MM/yyyy"))
+                                            @(h.DueDate?.ToString("dd/MM/yyyy") ?? h.CreatedAtLocal.ToString("dd/MM/yyyy"))
                                         </td>
                                         <td>
                                             <span class="badge" style="background:@(isAllocate ? "#e0f2fe" : "#fef3c7"); color:@(isAllocate ? "#0369a1" : "#b45309"); font-weight:700;">

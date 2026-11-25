@@ -20,13 +20,16 @@ public sealed class AccountController : Controller
     private readonly ILogger<AccountController> _logger;
     private readonly IConfiguration _configuration;
     private readonly KeycloakAvailabilityProbe _keycloakAvailability;
+    private readonly LoginThrottle _throttle;
 
     public AccountController(
         HrmDataStore store,
         ILogger<AccountController> logger,
         IConfiguration configuration,
-        KeycloakAvailabilityProbe keycloakAvailability)
+        KeycloakAvailabilityProbe keycloakAvailability,
+        LoginThrottle throttle)
     {
+        _throttle = throttle;
         _store = store;
         _logger = logger;
         _configuration = configuration;
@@ -112,6 +115,14 @@ public sealed class AccountController : Controller
         }
         if (!ModelState.IsValid) return View(model);
 
+        var address = HttpContext.Connection.RemoteIpAddress?.ToString();
+        if (_throttle.RetryAfter(model.Username, address) is { } wait)
+        {
+            ModelState.AddModelError(string.Empty, $"Bạn đã nhập sai quá nhiều lần. Vui lòng thử lại sau {Math.Max(1, (int)Math.Ceiling(wait.TotalMinutes))} phút.");
+            Response.StatusCode = StatusCodes.Status429TooManyRequests;
+            return View(model);
+        }
+
         HrmUserAccountModel user;
         try
         {
@@ -128,10 +139,20 @@ public sealed class AccountController : Controller
 
         if (user == null || !user.IsActive || !HrmPasswordHasher.Verify(model.Password, user.PasswordSalt, user.PasswordHash))
         {
+            _throttle.Fail(model.Username, address);
             ModelState.AddModelError(string.Empty, "Tài khoản hoặc mật khẩu không đúng.");
             return View(model);
         }
 
+        _throttle.Succeed(model.Username, address);
+        await SignInLocalAsync(user, model.RememberMe);
+        _store.MarkLogin(user.Id, address);
+        if (user.MustChangePassword) return RedirectToAction(nameof(ChangePassword));
+        return Url.IsLocalUrl(model.ReturnUrl) ? LocalRedirect(model.ReturnUrl) : RedirectToAction("Index", "Home");
+    }
+
+    private Task SignInLocalAsync(HrmUserAccountModel user, bool rememberMe)
+    {
         var claims = new List<Claim>
         {
             new(ClaimTypes.NameIdentifier, user.Id.ToString()),
@@ -142,18 +163,56 @@ public sealed class AccountController : Controller
         };
         if (user.DepartmentId.HasValue) claims.Add(new Claim("department_id", user.DepartmentId.Value.ToString()));
         if (user.SupervisorUserId.HasValue) claims.Add(new Claim("supervisor_id", user.SupervisorUserId.Value.ToString()));
+        if (user.MustChangePassword) claims.Add(new Claim("must_change_password", "1"));
 
-        await HttpContext.SignInAsync(
+        return HttpContext.SignInAsync(
             CookieAuthenticationDefaults.AuthenticationScheme,
             new ClaimsPrincipal(new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme)),
             new AuthenticationProperties
             {
-                IsPersistent = model.RememberMe,
-                ExpiresUtc = DateTimeOffset.UtcNow.AddHours(model.RememberMe ? 168 : 8)
+                IsPersistent = rememberMe,
+                ExpiresUtc = DateTimeOffset.UtcNow.AddHours(rememberMe ? 168 : 8)
             });
+    }
 
-        _store.MarkLogin(user.Id, HttpContext.Connection.RemoteIpAddress?.ToString());
-        return Url.IsLocalUrl(model.ReturnUrl) ? LocalRedirect(model.ReturnUrl) : RedirectToAction("Index", "Home");
+    [Authorize]
+    [HttpGet]
+    [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
+    public IActionResult ChangePassword()
+    {
+        if (KeycloakEnabled) return RedirectToAction("Index", "Home");
+        ViewBag.Title = "Đổi mật khẩu";
+        ViewBag.MustChange = User.HasClaim("must_change_password", "1");
+        return View(new ChangePasswordRequest());
+    }
+
+    [Authorize]
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ChangePassword(ChangePasswordRequest request)
+    {
+        if (KeycloakEnabled) return RedirectToAction("Index", "Home");
+        ViewBag.Title = "Đổi mật khẩu";
+        ViewBag.MustChange = User.HasClaim("must_change_password", "1");
+        var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
+        var address = HttpContext.Connection.RemoteIpAddress?.ToString();
+        if (ModelState.IsValid && _throttle.RetryAfter("change:" + userId, address) != null)
+            ModelState.AddModelError(string.Empty, "Bạn đã nhập sai mật khẩu hiện tại quá nhiều lần. Vui lòng thử lại sau ít phút.");
+        if (!ModelState.IsValid) return View(new ChangePasswordRequest());
+        try
+        {
+            _store.ChangePassword(userId, request.CurrentPassword, request.NewPassword, address);
+        }
+        catch (InvalidOperationException exception)
+        {
+            _throttle.Fail("change:" + userId, address);
+            ModelState.AddModelError(string.Empty, exception.Message);
+            return View(new ChangePasswordRequest());
+        }
+        _throttle.Succeed("change:" + userId, address);
+        await SignInLocalAsync(_store.FindUser(userId), rememberMe: false);
+        TempData["AccountSuccess"] = "Đã đổi mật khẩu. Các phiên đăng nhập khác đã bị đăng xuất.";
+        return RedirectToAction(nameof(ChangePassword));
     }
 
     [Authorize]

@@ -10,6 +10,7 @@ public sealed class WorkController : Controller
 {
     private static readonly string[] MeetingRooms = ["Phòng họp 1 · 8 người", "Phòng họp 2 · 16 người", "Phòng đào tạo · 30 người"];
     private static readonly string[] VehicleTypes = ["Xe 4 chỗ", "Xe 7 chỗ", "Xe 16 chỗ", "Xe tải", "Khác"];
+    private static readonly Dictionary<string, int> VehicleSeats = new() { ["Xe 4 chỗ"] = 4, ["Xe 7 chỗ"] = 7, ["Xe 16 chỗ"] = 16, ["Xe tải"] = 3 };
     private readonly WorkItemStore _store;
     private readonly RecruitmentIntegrationStore _recruitmentIntegrations;
     private readonly HrmUserAccessor _user;
@@ -89,6 +90,12 @@ public sealed class WorkController : Controller
         }
         return page.Title == null ? null : page;
     }
+    /// <summary>A valid yyyy-MM, the current month for company payroll, or null so a personal page opens its latest payslip.</summary>
+    private static string PayrollPeriod(string requested, bool company) =>
+        DateTime.TryParseExact(requested, "yyyy-MM", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out _)
+            ? requested
+            : company ? HrmDataStore.CurrentVietnamTime().ToString("yyyy-MM") : null;
+
     private void Load(WorkPage page)
     {
         ViewBag.Title = page.Title;
@@ -115,9 +122,9 @@ public sealed class WorkController : Controller
         if (kind == "payroll")
         {
             page.PayrollTab = string.IsNullOrWhiteSpace(pyTab) ? "dashboard" : pyTab.ToLowerInvariant();
-            page.PayrollPeriod = string.IsNullOrWhiteSpace(pyPeriod) ? HrmDataStore.CurrentVietnamTime().ToString("yyyy-MM") : pyPeriod;
-            page.PayrollDeptFilter = string.IsNullOrWhiteSpace(pyDept) ? "ALL" : pyDept;
-            page.PayrollStatusFilter = string.IsNullOrWhiteSpace(pyStatus) ? "ALL" : pyStatus.ToUpperInvariant();
+            page.PayrollPeriod = PayrollPeriod(pyPeriod, page.CanManage);
+            page.PayrollDeptFilter = !page.CanManage || string.IsNullOrWhiteSpace(pyDept) ? "ALL" : pyDept;
+            page.PayrollStatusFilter = !page.CanManage || string.IsNullOrWhiteSpace(pyStatus) ? "ALL" : pyStatus.ToUpperInvariant();
         }
         if (kind == "transfer")
         {
@@ -160,7 +167,7 @@ public sealed class WorkController : Controller
         }
         else if (kind == "overtime")
         {
-            page.OvertimeTab = string.IsNullOrWhiteSpace(otTab) ? "dashboard" : otTab.ToLowerInvariant();
+            page.OvertimeTab = string.IsNullOrWhiteSpace(otTab) ? (page.CanManage ? "dashboard" : "my-calendar") : otTab.ToLowerInvariant();
             page.OvertimeYear = otYear ?? HrmDataStore.CurrentVietnamTime().Year;
             page.OvertimeMonth = string.IsNullOrWhiteSpace(otMonth) ? HrmDataStore.CurrentVietnamTime().ToString("yyyy-MM") : otMonth;
         }
@@ -221,6 +228,8 @@ public sealed class WorkController : Controller
         var page = Page(draft.Kind);
         if (page == null) return NotFound();
         if (!page.CanCreate) return Forbid();
+        if (draft.Kind == "helpdesk" || !page.CanManage && draft.Kind is "overtime" or "resignation" or "transfer" or "vehicle" or "meeting")
+            draft.EmployeeId = _user.Current.Id;
         if (draft.Kind == "kpi")
         {
             draft.KpiType = string.IsNullOrWhiteSpace(draft.KpiType)
@@ -259,10 +268,20 @@ public sealed class WorkController : Controller
                     ModelState.AddModelError("", "Khung giờ tăng ca không hợp lệ.");
                 }
             }
-            ModelState.Remove(nameof(draft.Title));
+            // Hours, category and rate are derived on the server from the date and time range.
+            foreach (var derived in new[] { nameof(draft.Title), nameof(draft.Target), nameof(draft.Actual), nameof(draft.Weight) })
+                ModelState.Remove(derived);
         }
         page.Draft = draft;
         Load(page);
+        if (draft.Kind == "overtime" && page.Available) PrepareOvertime(draft, page);
+        if (draft.Kind == "resignation" && page.Available)
+        {
+            if (draft.DueDate?.Date < HrmDataStore.CurrentVietnamTime().Date)
+                ModelState.AddModelError("", "Ngày làm việc cuối cùng không được ở trong quá khứ.");
+            if (draft.EmployeeId.HasValue && _store.HasActiveResignation(draft.EmployeeId.Value))
+                ModelState.AddModelError("", "Nhân viên này đã có đơn thôi việc đang chờ duyệt hoặc đã duyệt.");
+        }
         if (draft.EmployeeId.HasValue && draft.EmployeeId != _user.Current.Id && !page.People.Any(x => x.Id == draft.EmployeeId))
             ModelState.AddModelError("", "Nhân viên được chọn không hợp lệ.");
         if (draft.DepartmentId.HasValue && !page.Departments.Any(x => x.Id == draft.DepartmentId))
@@ -298,6 +317,8 @@ public sealed class WorkController : Controller
         }
         if (draft.Kind == "vehicle" && (string.IsNullOrWhiteSpace(draft.Location) || string.IsNullOrWhiteSpace(draft.Destination) || !VehicleTypes.Contains(draft.Category) || !draft.Target.HasValue || draft.Target <= 0 || draft.Target > 300))
             ModelState.AddModelError("", "Đặt xe cần loại xe, từ 1 đến 300 người, điểm đón và điểm đến.");
+        if (draft.Kind == "vehicle" && VehicleSeats.TryGetValue(draft.Category ?? "", out var seats) && draft.Target > seats)
+            ModelState.AddModelError("", $"{draft.Category} chở tối đa {seats} người. Vui lòng chọn xe lớn hơn hoặc đặt thêm xe.");
         if (draft.Kind == "meeting" && (string.IsNullOrWhiteSpace(draft.Location) || !MeetingRooms.Contains(draft.Location) || !draft.Target.HasValue || draft.Target <= 0))
             ModelState.AddModelError("", "Đặt phòng họp cần phòng, số người và khung giờ sử dụng.");
         var participantIds = draft.Kind is "meeting" or "vehicle" ? (draft.ParticipantIds ?? []).Distinct().ToList() : [];
@@ -313,6 +334,7 @@ public sealed class WorkController : Controller
         if (!page.Available || !ModelState.IsValid)
         {
             if (draft.Kind == "kpi") ViewBag.OpenCreateKpiModal = true;
+            if (draft.Kind is "overtime" or "resignation") ViewBag.OpenCreateModal = true;
             return draft.Kind == "recruitment" ? View("CreateRecruitmentPosition", page) : View("Index", page);
         }
         draft.CreatedBy = _user.Current.Id;
@@ -332,22 +354,6 @@ public sealed class WorkController : Controller
             if (string.IsNullOrWhiteSpace(draft.Reference))
             {
                 draft.Reference = $"OT-{draft.DueDate?.Year ?? 2026}-{Random.Shared.Next(1000, 9999)}";
-            }
-            if (string.IsNullOrWhiteSpace(draft.Category))
-            {
-                draft.Category = "Ca tối (trong tuần)";
-            }
-            if (string.IsNullOrWhiteSpace(draft.Title))
-            {
-                draft.Title = $"Tăng ca {draft.Category}";
-            }
-            if (!draft.Weight.HasValue || draft.Weight <= 0)
-            {
-                draft.Weight = draft.Category.Contains("lễ") ? 3.0m : (draft.Category.Contains("cuối tuần") ? 2.0m : (draft.Category.Contains("qua đêm") ? 1.8m : 1.5m));
-            }
-            if (!draft.Actual.HasValue || draft.Actual <= 0)
-            {
-                draft.Actual = (draft.Target ?? 0) * (draft.Weight ?? 1.5m);
             }
         }
         if (draft.Kind == "transfer")
@@ -378,14 +384,12 @@ public sealed class WorkController : Controller
             "meeting" or "vehicle" or "business-trip" => "PENDING",
             _ => "OPEN"
         };
-        if (draft.Kind == "helpdesk" || (!page.CanManage && draft.Kind is "overtime" or "resignation" or "transfer" or "vehicle" or "meeting"))
-            draft.EmployeeId = _user.Current.Id;
         try
         {
             var id = draft.Kind == "kpi"
                 ? _store.CreateKpi(draft)
                 : _store.Create(draft, participantIds);
-            TempData["WorkSuccess"] = $"Đã lưu #{id:D5} vào hệ thống.";
+            TempData["WorkSuccess"] = $"Đã lưu {WorkItem.FormatCode(draft.Kind, id)}.";
             if (draft.Kind == "kpi") return RedirectToKpi(filter, draft, id);
             return RedirectToAction("Index", new { kind = draft.Kind, otTab = draft.Kind == "overtime" ? "my-calendar" : null, otMonth = draft.DueDate?.ToString("yyyy-MM"), trTab = draft.Kind == "transfer" ? "requests" : null });
         }
@@ -406,6 +410,45 @@ public sealed class WorkController : Controller
             }
             return View("Index", page);
         }
+    }
+
+    private void PrepareOvertime(WorkItem draft, WorkPage page)
+    {
+        if (!draft.DueDate.HasValue || !draft.StartAt.HasValue || !draft.EndAt.HasValue || !draft.EmployeeId.HasValue) return;
+        try
+        {
+            var date = draft.DueDate.Value.Date;
+            draft.Category = OvertimePolicy.ResolveCategory(draft.Category, date, _store.IsWorkday(draft.EmployeeId.Value, date));
+            draft.Title = $"Tăng ca {draft.Category}";
+            draft.Target = Math.Round((decimal)(draft.EndAt.Value - draft.StartAt.Value).TotalHours, 2);
+            draft.Weight = OvertimePolicy.PlannedRate(draft.Category, page.OvertimeRates);
+            draft.Actual = Math.Round(draft.Target.Value * draft.Weight.Value, 2);
+            if (_store.IsAttendanceLocked(date))
+                ModelState.AddModelError("", $"Kỳ công của ngày {date:dd/MM/yyyy} đã khóa, không thể đăng ký tăng ca.");
+            if (_store.HasOvertimeConflict(draft.EmployeeId.Value, draft.StartAt.Value, draft.EndAt.Value))
+                ModelState.AddModelError("", "Nhân viên đã có phiếu tăng ca trùng khung giờ này.");
+        }
+        catch (InvalidOperationException exception)
+        {
+            ModelState.AddModelError("", exception.Message);
+        }
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public IActionResult HelpdeskAction(int id, string command, string note)
+    {
+        try
+        {
+            if (_store.HelpdeskAction(id, command, note, _user.Current, ClientIp))
+                TempData["WorkSuccess"] = $"Đã cập nhật yêu cầu {WorkItem.FormatCode("helpdesk", id)}.";
+            else
+                TempData["WorkError"] = "Yêu cầu đã đổi trạng thái hoặc bạn không có quyền thực hiện thao tác này.";
+        }
+        catch (InvalidOperationException exception)
+        {
+            TempData["WorkError"] = exception.Message;
+        }
+        return RedirectToAction("Index", new { kind = "helpdesk" });
     }
 
     [HttpPost, ValidateAntiForgeryToken]
@@ -787,7 +830,7 @@ public sealed class WorkController : Controller
     }
 
     [HttpPost, ValidateAntiForgeryToken]
-    public IActionResult PayrollAction(int id, string command, string note)
+    public IActionResult PayrollAction(int id, string command, string note, string period = null)
     {
         var role = _user.Current.RoleCode;
         var canEdit = PayrollPolicy.CanEdit(role);
@@ -804,20 +847,27 @@ public sealed class WorkController : Controller
             "pay" when canPublishOrPay => ("PUBLISHED", "PAID", "PAY", (int?)null),
             "dispute" => ("PUBLISHED", "DISPUTED", "DISPUTE", (int?)_user.Current.Id),
             "disputepaid" => ("PAID", "DISPUTED", "DISPUTE", (int?)_user.Current.Id),
+            "disputeagain" => ("RESOLVED", "DISPUTED", "DISPUTE", (int?)_user.Current.Id),
             "resolve" when canEdit => ("DISPUTED", "RESOLVED", "RESOLVE", (int?)null),
+            "payresolved" when canPublishOrPay => ("RESOLVED", "PAID", "PAY", (int?)null),
             _ => ((string)null, null, null, (int?)null)
         };
         if (rule.Item1 == null) return Forbid();
-        if ((command is "reject" or "dispute" or "disputepaid") && string.IsNullOrWhiteSpace(note))
+        if ((command is "reject" or "dispute" or "disputepaid" or "disputeagain" or "resolve") && string.IsNullOrWhiteSpace(note))
         {
-            TempData["WorkError"] = "Vui lòng nhập lý do trước khi xử lý.";
-            return RedirectToAction("Index", new { kind = "payroll" });
+            TempData["WorkError"] = "Vui lòng nhập nội dung trước khi xử lý.";
+            return RedirectToAction("Index", new { kind = "payroll", pyPeriod = period });
         }
         if (!_store.TransitionPayroll(id, rule.Item1, rule.Item2, rule.Item3, note, _user.Current.Id, rule.Item4, ClientIp))
             TempData["WorkError"] = "Bảng lương đã đổi trạng thái hoặc bạn không có quyền xử lý.";
         else
-            TempData["WorkSuccess"] = $"Đã cập nhật trạng thái bảng lương #{id:D5}.";
-        return RedirectToAction("Index", new { kind = "payroll" });
+            TempData["WorkSuccess"] = rule.Item2 switch
+            {
+                "DISPUTED" => "Đã gửi phản hồi cho kế toán. Bạn sẽ nhận thông báo khi có trả lời.",
+                "RESOLVED" => "Đã trả lời phản hồi của nhân viên.",
+                _ => $"Đã cập nhật trạng thái bảng lương {WorkItem.FormatCode("payroll", id)}."
+            };
+        return RedirectToAction("Index", new { kind = "payroll", pyPeriod = period });
     }
 
     private void ValidatePayroll(WorkItem draft, WorkPage page)

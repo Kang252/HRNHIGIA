@@ -32,6 +32,12 @@ public static class HrmPasswordHasher
 {
     private const int Iterations = 100000;
 
+    public static (string Hash, string Salt) Hash(string password)
+    {
+        var salt = RandomNumberGenerator.GetBytes(16);
+        return (Convert.ToBase64String(Rfc2898DeriveBytes.Pbkdf2(password, salt, Iterations, HashAlgorithmName.SHA1, 32)), Convert.ToBase64String(salt));
+    }
+
     public static bool Verify(string password, string saltBase64, string expectedHashBase64)
     {
         if (string.IsNullOrEmpty(password) || string.IsNullOrEmpty(saltBase64) || string.IsNullOrEmpty(expectedHashBase64)) return false;

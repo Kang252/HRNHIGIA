@@ -798,6 +798,7 @@ section.content {
 .hrm-login-form-wrap > p { margin: 0 0 26px; color: var(--hrm-muted); }
 .hrm-login-form .hrm-field { margin-bottom: 17px; }
 .hrm-login-error { margin-bottom: 16px; padding: 10px 12px; border-radius: 8px; color: #a5121b; background: #ffebec; font-size: 12px; }
+.hrm-login-error:empty, .hrm-login-error.field-validation-valid, .hrm-login-error.validation-summary-valid { display: none; }
 .hrm-login-success { margin-bottom: 16px; padding: 10px 12px; border-radius: 8px; color: #166534; background: #dcfce7; font-size: 12px; }
 .hrm-login-warning { margin-bottom: 16px; padding: 10px 12px; border-radius: 8px; color: #92400e; background: #fef3c7; font-size: 12px; }
 .hrm-login-options { display: flex; justify-content: space-between; align-items: center; margin: 2px 0 18px; }
@@ -1162,6 +1163,7 @@ section.content {
     font-weight: 700;
 }
 
+.hrm-dp-day.disabled { opacity: .35; cursor: not-allowed; }
 .hrm-dp-day.other-month {
     color: #94a3b8;
     opacity: 0.45;

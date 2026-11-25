@@ -50,6 +50,30 @@ public static class LeaveRequestPolicy
         return ownerRole == HrmRoles.Employee && days <= 3m ? "PENDING_MANAGER" : "PENDING_HR";
     }
 
+    /// <summary>
+    /// The leave form is opened as "Nghỉ phép"; what payroll and the annual balance need is the kind chosen inside it.
+    /// Older rows keep that choice only in the first lines of the reason.
+    /// </summary>
+    public static string NormalizeLeaveType(string leaveType, string subtype, string reason = null)
+    {
+        var type = leaveType?.Trim();
+        if (type != "Nghỉ phép") return type;
+        if (string.IsNullOrWhiteSpace(subtype)) subtype = ReasonSubtype(reason);
+        return subtype?.Trim().ToLowerInvariant() switch
+        {
+            { } value when value.Contains("không hưởng lương") || value.Contains("không lương") => "Nghỉ không lương",
+            { } value when value.Contains("ốm") => "Nghỉ ốm",
+            { } value when value.Contains("thai sản") => "Nghỉ thai sản",
+            { } value when value.Contains("việc riêng") => "Nghỉ việc riêng",
+            { } value when value.Contains("kết hôn") => "Nghỉ kết hôn",
+            { } value when value.Contains("nghỉ bù") => "Nghỉ bù",
+            _ => type
+        };
+    }
+
+    private static string ReasonSubtype(string reason) =>
+        (reason ?? "").Split('\n').FirstOrDefault(x => x.TrimStart().StartsWith("Loại: "))?.TrimStart()[6..].Split('|')[0].Trim();
+
     public static string ApproverLabel(string statusCode) =>
         statusCode == "PENDING_MANAGER" ? "Trưởng phòng" : "HR/Giám đốc";
 
@@ -87,10 +111,47 @@ public static class LeaveRequestPolicy
         if (type is "Phép năm" or "Nghỉ phép năm") return true;
         if (type != "Nghỉ phép") return false;
         // Older forms stored the selected subtype inside the formatted reason.
-        var subtype = (request.Reason ?? "").Split('\n').FirstOrDefault(x => x.TrimStart().StartsWith("Loại: "))?
-            .Trim()[6..].Split('|')[0].Trim();
+        var subtype = ReasonSubtype(request.Reason);
         return string.IsNullOrEmpty(subtype) || subtype is "Nghỉ phép" or "Phép năm" or "Nghỉ phép năm";
     }
+
+    /// <summary>Business checks that need the employee's schedule, balance and other requests.</summary>
+    public static string ValidateAgainst(CreateLeaveRequest request, int userId, decimal annualAllowance,
+        IReadOnlyCollection<LeaveRequestModel> openRequests, IReadOnlyCollection<ScheduleModel> schedules)
+    {
+        var mask = AttendanceLeavePolicy.SessionMask(request.SessionCode);
+        if (!AttendanceLeavePolicy.LeaveTypes.Contains(request.LeaveType, StringComparer.OrdinalIgnoreCase) || mask == 0) return null;
+        if (RequestedDays(request, schedules, userId) <= 0)
+            return "Khoảng thời gian đã chọn không có ngày làm việc theo lịch của nhân viên.";
+        var overlap = openRequests.FirstOrDefault(x => x.StartDate.Date <= request.EndDate.Date && x.EndDate.Date >= request.StartDate.Date &&
+            (AttendanceLeavePolicy.SessionMask(x.SessionCode) & mask) != 0 &&
+            AttendanceLeavePolicy.LeaveTypes.Contains(x.LeaveType, StringComparer.OrdinalIgnoreCase));
+        if (overlap != null)
+            return $"Đã có đơn {overlap.RequestCode} trùng thời gian ({overlap.StartDate:dd/MM/yyyy}–{overlap.EndDate:dd/MM/yyyy}).";
+        if (!UsesAnnualAllowance(new LeaveRequestModel { LeaveType = request.LeaveType, Reason = request.Reason })) return null;
+        for (var year = request.StartDate.Year; year <= request.EndDate.Year; year++)
+        {
+            var from = new DateTime(year, 1, 1);
+            var requested = RequestedDays(new CreateLeaveRequest
+            {
+                StartDate = request.StartDate.Date < from ? from : request.StartDate.Date,
+                EndDate = request.EndDate.Date > from.AddYears(1).AddDays(-1) ? from.AddYears(1).AddDays(-1) : request.EndDate.Date,
+                SessionCode = request.SessionCode
+            }, schedules, userId);
+            // Requests still waiting hold their days, otherwise several of them could each pass the check.
+            var committed = UsedAnnualDays(openRequests.Select(x => new LeaveRequestModel
+            {
+                UserId = x.UserId, LeaveType = x.LeaveType, Reason = x.Reason, StartDate = x.StartDate, EndDate = x.EndDate,
+                SessionCode = x.SessionCode, StatusCode = "APPROVED"
+            }), schedules, year);
+            var remaining = Math.Max(0, annualAllowance - committed);
+            if (requested > remaining)
+                return $"Quỹ phép năm {year} còn {Days(remaining)} ngày (đã trừ đơn đang chờ), không đủ cho {Days(requested)} ngày công. Hãy giảm số ngày hoặc chọn nghỉ không hưởng lương.";
+        }
+        return null;
+    }
+
+    private static string Days(decimal value) => value.ToString("0.#", VietnamFormat.Numbers);
 
     public static decimal UsedAnnualDays(IEnumerable<LeaveRequestModel> requests, IEnumerable<ScheduleModel> schedules, int year)
     {

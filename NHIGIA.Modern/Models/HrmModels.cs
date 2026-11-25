@@ -51,6 +51,8 @@ namespace NHIGIA.Modern.Models
         public string DepartmentName { get; set; }
         public int? SupervisorUserId { get; set; }
         public bool IsActive { get; set; }
+        public bool MustChangePassword { get; set; }
+        public DateTime? PasswordChangedAt { get; set; }
         public string AvatarUrl { get; set; }
         public string JobTitle { get; set; }
     }
@@ -220,6 +222,9 @@ namespace NHIGIA.Modern.Models
         public DateTime StartDate { get; set; }
         public DateTime EndDate { get; set; }
         public decimal? RequestedDays { get; set; }
+        public string AdjustKind { get; set; }
+        public int? AdjustMinutes { get; set; }
+        public decimal? Amount { get; set; }
         public string SessionCode { get; set; }
         public string HandoverTo { get; set; }
         public string Reason { get; set; }
@@ -247,6 +252,10 @@ namespace NHIGIA.Modern.Models
     {
         public int? EmployeeId { get; set; }
         public string LeaveType { get; set; }
+        public string LeaveSubtype { get; set; }
+        public string AdjustKind { get; set; }
+        public int? AdjustMinutes { get; set; }
+        public decimal? Amount { get; set; }
         public DateTime StartDate { get; set; }
         public DateTime EndDate { get; set; }
         public string SessionCode { get; set; }
@@ -408,6 +417,7 @@ namespace NHIGIA.Modern.Models
         public DateTime? StartAt { get; set; }
         public DateTime? EndAt { get; set; }
         public string TimeRange { get; set; }
+        public string Category { get; set; }
         public string StatusCode { get; set; }
     }
 

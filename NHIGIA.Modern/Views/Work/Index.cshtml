@@ -42,7 +42,7 @@ else if (Model.Kind == "assets")
 }
 else if (Model.Kind == "payroll")
 {
-    @await Html.PartialAsync("_PayrollModule", Model)
+    @await Html.PartialAsync(Model.CanManage ? "_PayrollModule" : "_PayslipModule", Model)
 }
 else if (Model.Kind == "resignation")
 {
@@ -54,76 +54,7 @@ else if (Model.Kind is "vehicle" or "meeting" or "business-trip")
 }
 else
 {
-    <!-- Default / Helpdesk IT -->
-    <div class="work-layout">
-        <section class="work-panel">
-            <h3>Danh sách @Model.Title</h3>
-            <form method="get" asp-controller="Work" asp-action="Index" class="work-search">
-                <input type="hidden" name="kind" value="@Model.Kind" />
-                <input class="form-control" name="q" value="@Model.Query" placeholder="Tìm theo tên, mã, nhân viên…" aria-label="Tìm kiếm" />
-                <button class="hrm-btn" type="submit">Tìm kiếm</button>
-            </form>
-            @if (!Model.Available) { <p>Chưa tải được dữ liệu. Vui lòng thử lại sau.</p> }
-            else if (Model.Items.Count == 0)
-            {
-                <div class="work-empty"><i class="material-icons">inbox</i><h4>Chưa có bản ghi</h4><p>@(Model.CanCreate ? "Điền biểu mẫu bên cạnh để tạo bản ghi đầu tiên." : "Các bản ghi liên quan đến bạn sẽ hiển thị tại đây.")</p></div>
-            }
-            else
-            {
-                <div class="table-responsive"><table class="table table-hover">
-                    <thead><tr><th>Nội dung</th><th>Người tạo</th><th>Mức ưu tiên</th><th>Trạng thái</th></tr></thead>
-                    <tbody>
-                    @foreach (var item in Model.Items)
-                    {
-                        <tr>
-                            <td>
-                                <strong>@item.Title</strong><small class="work-muted">#@item.Id.ToString("D5") @(string.IsNullOrWhiteSpace(item.Reference) ? "" : "· " + item.Reference)</small>
-                                <p class="work-description">@item.Description</p>
-                            </td>
-                            <td>@(item.EmployeeName ?? "Chưa phân công")</td>
-                            <td>
-                                <span>@(item.Priority ?? "Bình thường")</span>
-                                <small class="work-muted">@item.CreatedAt.ToString("dd/MM/yyyy HH:mm")</small>
-                            </td>
-                            <td>
-                                <span class="work-status work-status-@item.Status?.ToLowerInvariant()">@(item.Status ?? "Mới")</span>
-                            </td>
-                        </tr>
-                    }
-                    </tbody>
-                </table></div>
-            }
-        </section>
-
-        @if (Model.CanCreate)
-        {
-            <section class="work-panel">
-                <h3>Tạo yêu cầu Helpdesk IT</h3>
-                <form method="post" asp-controller="Work" asp-action="Create">
-                    @Html.AntiForgeryToken()
-                    <input type="hidden" name="Kind" value="@Model.Kind" />
-                    <div class="form-group">
-                        <label for="Title">Tiêu đề yêu cầu *</label>
-                        <input id="Title" name="Title" class="form-control" required maxlength="200" placeholder="Ví dụ: Lỗi kết nối mạng, cài đặt phần mềm..." />
-                    </div>
-                    <div class="form-group">
-                        <label for="Priority">Mức độ ưu tiên</label>
-                        <select id="Priority" name="Priority" class="form-control">
-                            <option value="LOW">Thấp</option>
-                            <option value="NORMAL" selected>Bình thường</option>
-                            <option value="HIGH">Cao</option>
-                            <option value="URGENT">Khẩn cấp</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="Description">Nội dung chi tiết yêu cầu *</label>
-                        <textarea id="Description" name="Description" class="form-control" rows="5" required placeholder="Mô tả chi tiết vấn đề bạn đang gặp phải để IT hỗ trợ nhanh nhất..."></textarea>
-                    </div>
-                    <button type="submit" class="hrm-btn hrm-btn-primary"><i class="material-icons">send</i> Gửi yêu cầu hỗ trợ</button>
-                </form>
-            </section>
-        }
-    </div>
+    @await Html.PartialAsync("_HelpdeskModule", Model)
 }
 
 

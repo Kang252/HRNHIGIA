@@ -34,6 +34,8 @@
     --tc-neutral-bg: #f2f4f7;
 }
 
+.tc-form-note { margin: 0 0 14px; padding: 9px 12px; border-radius: 8px; background: #f1f5f9; color: #475467; font-size: 12.5px; line-height: 1.5; }
+
 /* Modal Backdrop */
 .tc-modal-backdrop {
     position: fixed;
@@ -230,6 +232,8 @@
     position: relative;
     text-align: left;
 }
+a.tc-create-item, a.tc-create-item:hover, a.tc-create-item:focus { color: inherit; text-decoration: none; }
+.tc-item-hint { display: block; color: var(--tc-text-muted); font-size: 11.5px; font-weight: 400; }
 .tc-create-item:hover {
     border-color: var(--tc-primary);
     background: #f8fbff;
@@ -598,9 +602,9 @@
 <!-- CREATE REQUEST MODAL BACKDROP -->
 <div id="tcCreateModalBackdrop" class="tc-modal-backdrop" aria-hidden="true"></div>
 
-<!-- CREATE REQUEST MODAL (TANCA STYLE: 24 LOẠI YÊU CẦU & DYNAMIC FORMS) -->
+<!-- CREATE REQUEST MODAL (DANH MỤC & BIỂU MẪU THỦ TỤC) -->
 <div id="tcCreateModal" class="tc-create-modal" role="dialog" aria-labelledby="createModalTitle" aria-modal="true">
-    <!-- Bước 1: Danh mục các loại yêu cầu chuẩn Tanca (24 loại) -->
+    <!-- Bước 1: Danh mục các loại yêu cầu  -->
     <div id="createStepTypes" class="tc-create-step is-active">
         <div class="tc-modal-header">
             <div>
@@ -623,11 +627,11 @@
         </div>
 
         <div class="tc-modal-body">
-            <!-- Nhóm 1: Lượt chấm công (10) -->
+            <!-- Nhóm 1: Lượt chấm công -->
             <div class="tc-create-cat">
                 <div class="tc-category-header">
                     <span class="tc-category-badge cat-time">
-                        <i class="material-icons">alarm_on</i> Lượt chấm công (10)
+                        <i class="material-icons">alarm_on</i> Lượt chấm công <span class="tc-cat-count"></span>
                     </span>
                 </div>
                 <div class="tc-create-grid">
@@ -669,7 +673,7 @@
                         <div class="tc-item-text"><span class="tc-item-title">Nghỉ phép</span></div>
                         <i class="material-icons tc-item-arrow">chevron_right</i>
                     </div>
-                    <div class="tc-create-item" data-type="Làm thêm giờ" data-cat="Lượt chấm công">
+                    <a class="tc-create-item" href="@Url.Action("Index", "Work", new { kind = "overtime" })" data-type="Làm thêm giờ">
                         <span class="tc-item-icon" style="background:#ede9fe;color:#7c3aed;" title="Làm thêm giờ">
                             <svg class="tc-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                 <circle cx="12" cy="12" r="9" />
@@ -677,20 +681,9 @@
                                 <path d="M18 3v4" /><path d="M16 5h4" />
                             </svg>
                         </span>
-                        <div class="tc-item-text"><span class="tc-item-title">Làm thêm giờ</span></div>
-                        <i class="material-icons tc-item-arrow">chevron_right</i>
-                    </div>
-                    <div class="tc-create-item" data-type="Ca làm" data-cat="Lượt chấm công">
-                        <span class="tc-item-icon" style="background:#fef3c7;color:#d97706;" title="Ca làm">
-                            <svg class="tc-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-                                <line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" />
-                                <line x1="3" y1="10" x2="21" y2="10" />
-                            </svg>
-                        </span>
-                        <div class="tc-item-text"><span class="tc-item-title">Ca làm</span></div>
-                        <i class="material-icons tc-item-arrow">chevron_right</i>
-                    </div>
+                        <div class="tc-item-text"><span class="tc-item-title">Làm thêm giờ</span><small class="tc-item-hint">Mở trang riêng</small></div>
+                        <i class="material-icons tc-item-arrow">open_in_new</i>
+                    </a>
                     <div class="tc-create-item" data-type="Suất ăn" data-cat="Lượt chấm công">
                         <span class="tc-item-icon" style="background:#ffe4e6;color:#e11d48;" title="Suất ăn">
                             <svg class="tc-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -702,17 +695,6 @@
                             </svg>
                         </span>
                         <div class="tc-item-text"><span class="tc-item-title">Suất ăn</span></div>
-                        <i class="material-icons tc-item-arrow">chevron_right</i>
-                    </div>
-                    <div class="tc-create-item" data-type="Đăng ký ca làm" data-cat="Lượt chấm công">
-                        <span class="tc-item-icon" style="background:#ccfbf1;color:#0d9488;" title="Đăng ký ca làm">
-                            <svg class="tc-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
-                                <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
-                                <path d="M9 14l2 2 4-4" />
-                            </svg>
-                        </span>
-                        <div class="tc-item-text"><span class="tc-item-title">Đăng ký ca làm</span></div>
                         <i class="material-icons tc-item-arrow">chevron_right</i>
                     </div>
                     <div class="tc-create-item" data-type="Đổi ca làm" data-cat="Lượt chấm công">
@@ -730,11 +712,11 @@
                 </div>
             </div>
 
-            <!-- Nhóm 2: Tài chính (9) -->
+            <!-- Nhóm 2: Tài chính -->
             <div class="tc-create-cat">
                 <div class="tc-category-header">
                     <span class="tc-category-badge cat-finance">
-                        <i class="material-icons">account_balance</i> Tài chính (9)
+                        <i class="material-icons">account_balance</i> Tài chính <span class="tc-cat-count"></span>
                     </span>
                 </div>
                 <div class="tc-create-grid">
@@ -841,11 +823,11 @@
                 </div>
             </div>
 
-            <!-- Nhóm 3: Nhân sự & Quản lý (6) -->
+            <!-- Nhóm 3: Nhân sự & Quản lý -->
             <div class="tc-create-cat">
                 <div class="tc-category-header">
                     <span class="tc-category-badge cat-hr">
-                        <i class="material-icons">badge</i> Nhân sự & Quản lý (7)
+                        <i class="material-icons">badge</i> Nhân sự & Quản lý <span class="tc-cat-count"></span>
                     </span>
                 </div>
                 <div class="tc-create-grid">
@@ -860,7 +842,7 @@
                         <div class="tc-item-text"><span class="tc-item-title">Tuyển dụng</span></div>
                         <i class="material-icons tc-item-arrow">chevron_right</i>
                     </div>
-                    <div class="tc-create-item" data-type="Nghỉ việc" data-cat="Nhân sự">
+                    <a class="tc-create-item" href="@Url.Action("Index", "Work", new { kind = "resignation" })" data-type="Nghỉ việc">
                         <span class="tc-item-icon" style="background:#fee2e2;color:#dc2626;" title="Nghỉ việc">
                             <svg class="tc-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                 <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
@@ -868,9 +850,9 @@
                                 <line x1="21" y1="12" x2="9" y2="12" />
                             </svg>
                         </span>
-                        <div class="tc-item-text"><span class="tc-item-title">Nghỉ việc</span></div>
-                        <i class="material-icons tc-item-arrow">chevron_right</i>
-                    </div>
+                        <div class="tc-item-text"><span class="tc-item-title">Nghỉ việc</span><small class="tc-item-hint">Mở trang riêng</small></div>
+                        <i class="material-icons tc-item-arrow">open_in_new</i>
+                    </a>
                     <div class="tc-create-item" data-type="Bổ nhiệm" data-cat="Nhân sự">
                         <span class="tc-item-icon" style="background:#e0e7ff;color:#4338ca;" title="Bổ nhiệm">
                             <svg class="tc-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -914,11 +896,16 @@
                         <div class="tc-item-text"><span class="tc-item-title">Kỷ luật</span></div>
                         <i class="material-icons tc-item-arrow">chevron_right</i>
                     </div>
+                    <a class="tc-create-item" href="@Url.Action("Index", "Work", new { kind = "helpdesk" })" data-type="Hỗ trợ IT">
+                        <span class="tc-item-icon" style="background:#e0f2fe;color:#0369a1;" title="Hỗ trợ IT"><i class="material-icons">computer</i></span>
+                        <div class="tc-item-text"><span class="tc-item-title">Hỗ trợ IT</span><small class="tc-item-hint">Mở trang riêng</small></div>
+                        <i class="material-icons tc-item-arrow">open_in_new</i>
+                    </a>
                     <div class="tc-create-item" data-type="Yêu cầu hỗ trợ" data-cat="Nhân sự">
                         <span class="tc-item-icon" style="background:#e0f2fe;color:#0369a1;" title="Yêu cầu hỗ trợ">
                             <i class="material-icons">support_agent</i>
                         </span>
-                        <div class="tc-item-text"><span class="tc-item-title">Yêu cầu hỗ trợ</span></div>
+                        <div class="tc-item-text"><span class="tc-item-title">Yêu cầu hỗ trợ</span><small class="tc-item-hint">Nhân sự, hành chính, kế toán…</small></div>
                         <i class="material-icons tc-item-arrow">chevron_right</i>
                     </div>
                 </div>
@@ -927,7 +914,7 @@
 
         <div class="tc-modal-footer">
             <div class="tc-modal-summary">
-                Có tổng cộng <strong>26</strong> loại yêu cầu đề xuất
+                Có tổng cộng <strong id="createTypeTotal"></strong> loại yêu cầu đề xuất
             </div>
             <div>
                 <button id="tcCreateModalCancel" type="button" class="tc-btn-modal-cancel">Đóng</button>
@@ -1039,10 +1026,7 @@
             t.indexOf('tiền thưởng') !== -1 || t.indexOf('hoa hồng') !== -1 || t.indexOf('chi phí') !== -1) {
             return 'FINANCE';
         }
-        if (t.indexOf('làm thêm') !== -1 || t.indexOf('ot') !== -1 || t.indexOf('tăng ca') !== -1) {
-            return 'OVERTIME';
-        }
-        if (t.indexOf('đi muộn') !== -1 || t.indexOf('về sớm') !== -1 || t.indexOf('thay đổi giờ') !== -1) {
+        if (t.indexOf('đi muộn') !== -1 || t.indexOf('về sớm') !== -1) {
             return 'ATTENDANCE';
         }
         if (t.indexOf('ca làm') !== -1 || t.indexOf('đổi ca') !== -1 || t.indexOf('đăng ký ca') !== -1) {
@@ -1053,9 +1037,6 @@
         }
         if (t.indexOf('tuyển dụng') !== -1) {
             return 'RECRUITMENT';
-        }
-        if (t.indexOf('nghỉ việc') !== -1 || t.indexOf('thôi việc') !== -1) {
-            return 'RESIGNATION';
         }
         if (t.indexOf('bổ nhiệm') !== -1 || t.indexOf('điều chuyển') !== -1) {
             return 'APPOINTMENT';
@@ -1130,19 +1111,12 @@
         html += '<input type="text" class="tc-tanca-input" value="Tài chính & chi phí" readonly style="background:#f1f5f9;color:#64748b;" />';
         html += '</div>';
         html += '<div class="tc-tanca-row">';
-        html += '<label>Loại yêu cầu <span class="req">*</span></label>';
-        html += '<select id="dynSubtype" class="tc-tanca-select">';
-        html += '<option value="' + esc(type) + '" selected>' + esc(type) + '</option>';
-        html += '<option value="Tạm ứng">Tạm ứng</option>';
-        html += '<option value="Hoàn ứng">Hoàn ứng</option>';
-        html += '<option value="Tạm ứng lương">Tạm ứng lương</option>';
-        html += '<option value="Phiếu đề nghị">Phiếu đề nghị</option>';
-        html += '<option value="Thanh toán chi phí đi lại">Thanh toán chi phí đi lại</option>';
-        html += '<option value="Thanh toán">Thanh toán</option>';
-        html += '<option value="Trả góp">Trả góp</option>';
-        html += '<option value="Tiền thưởng">Tiền thưởng</option>';
-        html += '<option value="Hoa hồng">Hoa hồng</option>';
-        html += '</select></div>';
+        html += '<label>Loại yêu cầu</label>';
+        html += '<input type="text" id="dynSubtype" class="tc-tanca-input" value="' + esc(type) + '" readonly style="background:#f1f5f9;color:#64748b;" />';
+        html += '</div>';
+        if (type === 'Tạm ứng lương') {
+            html += '<p class="tc-form-note">Khi được duyệt, số tiền tự trừ vào bảng lương của kỳ công chứa ngày đề xuất (kỳ kế tiếp nếu kỳ đó đã duyệt lương).</p>';
+        }
         html += '<div class="tc-tanca-row">';
         html += '<label>Mục đích thanh toán</label>';
         html += '<select id="dynPurpose" class="tc-tanca-select">';
@@ -1160,10 +1134,12 @@
         html += '<option value="Chuyển khoản" selected>Chuyển khoản</option>';
         html += '<option value="Tiền mặt">Tiền mặt</option>';
         html += '</select></div>';
-        html += '<div class="tc-tanca-row">';
-        html += '<label>Thời hạn hoàn ứng</label>';
-        html += '<input type="date" id="dynDueDate" class="tc-tanca-input" value="' + dueDate + '" />';
-        html += '</div>';
+        if (type === 'Tạm ứng' || type === 'Hoàn ứng') {
+            html += '<div class="tc-tanca-row">';
+            html += '<label>Thời hạn hoàn ứng</label>';
+            html += '<input type="date" id="dynDueDate" class="tc-tanca-input" value="' + dueDate + '" />';
+            html += '</div>';
+        }
         html += '<hr class="tc-dashed-divider" />';
         html += '<div class="tc-detail-section-header">';
         html += '<span class="tc-detail-section-title">Chi tiết</span>';
@@ -1254,103 +1230,72 @@
         return html;
     }
 
-    /* Template 3: Attendance (Đi muộn về sớm, thay đổi giờ) */
+    /* Template 3: Late arrival / early leave */
     function renderAttendanceForm(type, cat) {
         var today = moment().format('YYYY-MM-DD');
         var html = '<div class="tc-tanca-form" data-template="ATTENDANCE">';
         html += '<input type="hidden" id="dynReqType" value="' + esc(type) + '" />';
         html += '<input type="hidden" id="dynReqCategory" value="' + esc(cat) + '" />';
+        html += '<input type="hidden" id="dynTitle" value="Giải trình ' + esc(type) + '" />';
         html += renderEmployeeRow('Nhân viên', 'dynEmployeeId');
         html += '<div class="tc-tanca-row">';
-        html += '<label>Tiêu đề <span class="req">*</span></label>';
-        html += '<input type="text" id="dynTitle" class="tc-tanca-input" value="Giải trình ' + esc(type) + '" required />';
-        html += '</div>';
+        html += '<label>Hình thức <span class="req">*</span></label>';
+        html += '<select id="dynAdjustType" class="tc-tanca-select">';
+        html += '<option value="LATE">Đi muộn (đến sau giờ vào ca)</option>';
+        html += '<option value="EARLY">Về sớm (về trước giờ ra ca)</option>';
+        html += '</select></div>';
         html += '<div class="tc-tanca-row">';
         html += '<label>Ngày áp dụng <span class="req">*</span></label>';
         html += '<input type="date" id="dynDate" class="tc-tanca-input" value="' + today + '" required />';
         html += '</div>';
         html += '<div class="tc-tanca-row">';
-        html += '<label>Hình thức <span class="req">*</span></label>';
-        html += '<select id="dynAdjustType" class="tc-tanca-select">';
-        html += '<option value="Đi muộn (Đến sau giờ quy định)">Đi muộn (Đến sau giờ quy định)</option>';
-        html += '<option value="Về sớm (Về trước giờ kết thúc)">Về sớm (Về trước giờ kết thúc)</option>';
-        html += '<option value="Quên chấm công vào">Quên chấm công vào</option>';
-        html += '<option value="Quên chấm công ra">Quên chấm công ra</option>';
-        html += '<option value="Lỗi thiết bị chấm công / mạng">Lỗi thiết bị chấm công / mạng</option>';
-        html += '</select></div>';
-        html += '<div class="tc-tanca-row">';
-        html += '<label>Giờ quy định</label>';
-        html += '<input type="time" id="dynRuleTime" class="tc-tanca-input" value="08:00" />';
+        html += '<label>Giờ theo ca</label>';
+        html += '<input type="time" id="dynRuleTime" class="tc-tanca-input" value="08:00" required />';
         html += '</div>';
         html += '<div class="tc-tanca-row">';
         html += '<label>Giờ thực tế <span class="req">*</span></label>';
-        html += '<div style="display:flex;align-items:center;gap:8px;">';
-        html += '<input type="time" id="dynActualTime" class="tc-tanca-input" value="08:25" required />';
-        html += '<span id="dynAttendDiffCalc" class="tc-calc-badge" style="background:#fff7ed;color:#c2410c;">Chậm 25 phút</span>';
+        html += '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">';
+        html += '<input type="time" id="dynActualTime" class="tc-tanca-input" style="flex:1;min-width:130px;" required />';
+        html += '<span id="dynAttendDiffCalc" class="tc-calc-badge" style="background:#fff7ed;color:#c2410c;" aria-live="polite">Chưa nhập giờ</span>';
         html += '</div></div>';
-        html += '<div class="tc-tanca-row">';
-        html += '<label>Ca làm việc</label>';
-        html += '<select id="dynShift" class="tc-tanca-select">';
-        html += '<option value="Ca hành chính (08:00 - 17:30)">Ca hành chính (08:00 - 17:30)</option>';
-        html += '<option value="Ca sáng (08:00 - 12:00)">Ca sáng (08:00 - 12:00)</option>';
-        html += '<option value="Ca chiều (13:30 - 17:30)">Ca chiều (13:30 - 17:30)</option>';
-        html += '</select></div>';
+        html += '<p class="tc-form-note">Khi được duyệt, số phút này không bị trừ khi tính lương. Gửi trước khi kỳ công bị khóa. Nếu quên chấm công hoặc máy lỗi, hãy báo HR kiểm tra dữ liệu chấm công.</p>';
         html += '<div class="tc-tanca-row align-top">';
         html += '<label>Lý do giải trình <span class="req">*</span></label>';
-        html += '<textarea id="dynReason" class="tc-tanca-textarea" placeholder="Nhập chi tiết lý do đi muộn, về sớm hoặc sự cố máy chấm công..."></textarea>';
+        html += '<textarea id="dynReason" class="tc-tanca-textarea" placeholder="Nhập lý do đi muộn hoặc về sớm..."></textarea>';
         html += '</div>';
         html += renderAttachmentRow();
-        html += renderFlowPreviewRow('Nhân viên', 'Trưởng phòng phê duyệt', 'Chấm công tự động cập nhật');
+        html += renderFlowPreviewRow('Nhân viên');
         html += '</div>';
         return html;
     }
 
-    /* Template 4: Overtime (OT) */
-    function renderOvertimeForm(type, cat) {
-        var today = moment().format('YYYY-MM-DD');
-        var html = '<div class="tc-tanca-form" data-template="OVERTIME">';
-        html += '<input type="hidden" id="dynReqType" value="' + esc(type) + '" />';
-        html += '<input type="hidden" id="dynReqCategory" value="' + esc(cat) + '" />';
-        html += renderEmployeeRow('Nhân viên', 'dynEmployeeId');
-        html += '<div class="tc-tanca-row">';
-        html += '<label>Tiêu đề <span class="req">*</span></label>';
-        html += '<input type="text" id="dynTitle" class="tc-tanca-input" value="Đăng ký làm thêm giờ (OT)" required />';
-        html += '</div>';
-        html += '<div class="tc-tanca-row">';
-        html += '<label>Ngày làm thêm <span class="req">*</span></label>';
-        html += '<input type="date" id="dynDate" class="tc-tanca-input" value="' + today + '" required />';
-        html += '</div>';
-        html += '<div class="tc-tanca-row">';
-        html += '<label>Khung giờ OT <span class="req">*</span></label>';
-        html += '<div class="tc-inline-grid-2">';
-        html += '<div><input type="time" id="dynOtFrom" class="tc-tanca-input" value="18:00" required /></div>';
-        html += '<div style="display:flex;align-items:center;gap:6px;">';
-        html += '<input type="time" id="dynOtTo" class="tc-tanca-input" value="21:00" required />';
-        html += '<span id="dynOtHoursCalc" class="tc-calc-badge">3.0 giờ OT</span>';
-        html += '</div></div></div>';
-        html += '<div class="tc-tanca-row">';
-        html += '<label>Hệ số lương OT</label>';
-        html += '<select id="dynOtRate" class="tc-tanca-select">';
-        html += '<option value="150% (Ngày làm việc thường)">150% (Ngày làm việc thường)</option>';
-        html += '<option value="200% (Ngày nghỉ cuối tuần)">200% (Ngày nghỉ cuối tuần)</option>';
-        html += '<option value="300% (Ngày lễ, Tết)">300% (Ngày lễ, Tết)</option>';
-        html += '</select></div>';
-        html += '<div class="tc-tanca-row">';
-        html += '<label>Dự án / Mục tiêu <span class="req">*</span></label>';
-        html += '<input type="text" id="dynProject" class="tc-tanca-input" placeholder="Tên dự án hoặc công việc trọng điểm thực hiện..." required />';
-        html += '</div>';
-        html += '<div class="tc-tanca-row">';
-        html += '<label>Người giám sát</label>';
-        html += '<input type="text" id="dynSupervisor" class="tc-tanca-input" placeholder="Tên Quản lý ca hoặc Trưởng dự án..." />';
-        html += '</div>';
-        html += '<div class="tc-tanca-row align-top">';
-        html += '<label>Nội dung công việc <span class="req">*</span></label>';
-        html += '<textarea id="dynReason" class="tc-tanca-textarea" placeholder="Mô tả cụ thể khối lượng công việc cần hoàn thành trong đợt OT..."></textarea>';
-        html += '</div>';
-        html += renderAttachmentRow();
-        html += renderFlowPreviewRow('Nhân viên', 'Quản lý dự án / Trưởng phòng', 'HR tính lương OT');
-        html += '</div>';
-        return html;
+    var cachedSchedules = null;
+    function applyShiftTime() {
+        var kind = $('#dynAdjustType').val(), date = $('#dynDate').val(), userId = Number($('#dynEmployeeId').val());
+        if (!kind || !date) return;
+        function apply() {
+            var bit = 1 << moment(date).day();
+            var shift = (cachedSchedules || []).filter(function (x) {
+                return x.UserId === userId && x.StatusCode === 'ACTIVE' && (x.WorkDaysMask & bit) &&
+                    String(x.EffectiveFrom).slice(0, 10) <= date && (!x.EffectiveTo || String(x.EffectiveTo).slice(0, 10) >= date);
+            })[0];
+            $('#dynRuleTime').val(String(shift ? (kind === 'LATE' ? shift.StartTime : shift.EndTime) : (kind === 'LATE' ? '08:00' : '17:30')).slice(0, 5));
+            showAttendanceMinutes();
+        }
+        if (cachedSchedules) { apply(); return; }
+        $.get('@Url.Action("Schedules", "Hrm")').done(function (res) { cachedSchedules = res.Data || []; }).always(apply);
+    }
+    function attendanceMinutes() {
+        var rule = $('#dynRuleTime').val(), actual = $('#dynActualTime').val();
+        if (!rule || !actual) return null;
+        var diff = moment(actual, 'HH:mm').diff(moment(rule, 'HH:mm'), 'minutes');
+        return $('#dynAdjustType').val() === 'EARLY' ? -diff : diff;
+    }
+    function showAttendanceMinutes() {
+        var minutes = attendanceMinutes(), early = $('#dynAdjustType').val() === 'EARLY';
+        $('#dynAttendDiffCalc').text(minutes === null ? 'Chưa nhập giờ'
+            : minutes > 0 ? (early ? 'Về sớm ' : 'Đi muộn ') + minutes + ' phút'
+            : early ? 'Không về sớm hơn giờ ra ca' : 'Không trễ hơn giờ vào ca');
     }
 
     /* Template 5: Shift (Đổi ca, Đăng ký ca) */
@@ -1390,8 +1335,9 @@
         html += '</div>';
         html += '<div class="tc-tanca-row align-top">';
         html += '<label>Lý do đề xuất <span class="req">*</span></label>';
-        html += '<textarea id="dynReason" class="tc-tanca-textarea" placeholder="Nhập lý do đổi ca làm hoặc đăng ký ca mới..."></textarea>';
+        html += '<textarea id="dynReason" class="tc-tanca-textarea" placeholder="Nhập lý do đổi ca làm..."></textarea>';
         html += '</div>';
+        html += '<p class="tc-form-note">Sau khi duyệt, Trưởng phòng hoặc HR cập nhật ca mới trong Phân ca; chấm công chỉ tính theo lịch đã phân.</p>';
         html += renderAttachmentRow();
         html += renderFlowPreviewRow('Nhân viên', 'Quản lý ca / Trưởng phòng', 'HR duyệt lịch');
         html += '</div>';
@@ -1478,40 +1424,6 @@
         html += '</div>';
         html += renderAttachmentRow();
         html += renderFlowPreviewRow('Trưởng bộ phận đề xuất', 'Phòng Nhân sự (HR)', 'Tổng Giám đốc duyệt');
-        html += '</div>';
-        return html;
-    }
-
-    /* Template 8: HR Resignation */
-    function renderResignationForm(type, cat) {
-        var lastDay = moment().add(30, 'days').format('YYYY-MM-DD');
-        var hoDay = moment().add(28, 'days').format('YYYY-MM-DD');
-        var html = '<div class="tc-tanca-form" data-template="RESIGNATION">';
-        html += '<input type="hidden" id="dynReqType" value="' + esc(type) + '" />';
-        html += '<input type="hidden" id="dynReqCategory" value="' + esc(cat) + '" />';
-        html += renderEmployeeRow('Nhân viên xin nghỉ', 'dynEmployeeId');
-        html += '<div class="tc-tanca-row">';
-        html += '<label>Tiêu đề <span class="req">*</span></label>';
-        html += '<input type="text" id="dynTitle" class="tc-tanca-input" value="Đơn xin thôi việc" required />';
-        html += '</div>';
-        html += '<div class="tc-tanca-row">';
-        html += '<label>Ngày làm việc cuối <span class="req">*</span></label>';
-        html += '<input type="date" id="dynLastDay" class="tc-tanca-input" value="' + lastDay + '" required />';
-        html += '</div>';
-        html += '<div class="tc-tanca-row">';
-        html += '<label>Ngày hoàn tất bàn giao</label>';
-        html += '<input type="date" id="dynHandoverDay" class="tc-tanca-input" value="' + hoDay + '" />';
-        html += '</div>';
-        html += '<div class="tc-tanca-row">';
-        html += '<label>Bàn giao cho ai <span class="req">*</span></label>';
-        html += '<input type="text" id="dynHandover" class="tc-tanca-input" placeholder="Tên hoặc mã nhân sự tiếp nhận bàn giao..." required />';
-        html += '</div>';
-        html += '<div class="tc-tanca-row align-top">';
-        html += '<label>Lý do xin thôi việc <span class="req">*</span></label>';
-        html += '<textarea id="dynReason" class="tc-tanca-textarea" placeholder="Nhập chi tiết lý do xin thôi việc..."></textarea>';
-        html += '</div>';
-        html += renderAttachmentRow();
-        html += renderFlowPreviewRow('Nhân viên', 'Trưởng bộ phận', 'Ban Giám đốc & HR');
         html += '</div>';
         return html;
     }
@@ -1604,8 +1516,8 @@
         html += '<input type="hidden" id="dynReqCategory" value="' + esc(cat) + '" />';
         html += renderEmployeeRow('Người yêu cầu', 'dynEmployeeId');
         html += '<div class="tc-tanca-row"><label>Tiêu đề <span class="req">*</span></label><input type="text" id="dynTitle" class="tc-tanca-input" value="Yêu cầu hỗ trợ" required /></div>';
-        html += '<div class="tc-tanca-row"><label>Nhóm hỗ trợ <span class="req">*</span></label><select id="dynSupportGroup" class="tc-tanca-select"><option>Công nghệ thông tin (IT)</option><option>Nhân sự</option><option>Hành chính</option><option>Kế toán - tài chính</option><option>Cơ sở vật chất</option><option>Pháp chế</option><option>Khác</option></select></div>';
-        html += '<div class="tc-tanca-row"><label>Loại yêu cầu</label><select id="dynSupportType" class="tc-tanca-select"><option>Xử lý sự cố</option><option>Cấp quyền / tài khoản</option><option>Cấp phát thiết bị</option><option>Tư vấn nghiệp vụ</option><option>Cung cấp thông tin / hồ sơ</option><option>Sửa chữa / bảo trì</option><option>Yêu cầu khác</option></select></div>';
+        html += '<div class="tc-tanca-row"><label>Nhóm hỗ trợ <span class="req">*</span></label><select id="dynSupportGroup" class="tc-tanca-select"><option>Nhân sự</option><option>Hành chính</option><option>Kế toán - tài chính</option><option>Cơ sở vật chất</option><option>Pháp chế</option><option>Khác</option></select></div>';
+        html += '<div class="tc-tanca-row"><label>Loại yêu cầu</label><select id="dynSupportType" class="tc-tanca-select"><option>Xử lý sự cố</option><option>Cấp phát thiết bị</option><option>Tư vấn nghiệp vụ</option><option>Cung cấp thông tin / hồ sơ</option><option>Sửa chữa / bảo trì</option><option>Yêu cầu khác</option></select></div>';
         html += '<div class="tc-tanca-row"><label>Mức ưu tiên</label><select id="dynPriority" class="tc-tanca-select"><option value="Bình thường">Bình thường</option><option value="Cao">Cao - ảnh hưởng công việc</option><option value="Khẩn cấp">Khẩn cấp - ngừng hoạt động</option></select></div>';
         html += '<div class="tc-tanca-row"><label>Hạn mong muốn</label><input type="date" id="dynTargetDate" class="tc-tanca-input" value="' + target + '" /></div>';
         html += '<div class="tc-tanca-row"><label>Địa điểm / phòng ban</label><input type="text" id="dynSupportLocation" class="tc-tanca-input" placeholder="Vị trí cần hỗ trợ" /></div>';
@@ -1625,12 +1537,10 @@
         var html = '';
         switch (tpl) {
             case 'FINANCE': html = renderFinanceForm(type, cat); break;
-            case 'OVERTIME': html = renderOvertimeForm(type, cat); break;
             case 'ATTENDANCE': html = renderAttendanceForm(type, cat); break;
             case 'SHIFT': html = renderShiftForm(type, cat); break;
             case 'MEAL': html = renderMealForm(type, cat); break;
             case 'RECRUITMENT': html = renderRecruitmentForm(type, cat); break;
-            case 'RESIGNATION': html = renderResignationForm(type, cat); break;
             case 'APPOINTMENT': html = renderAppointmentForm(type, cat); break;
             case 'REWARD_DISCIPLINE': html = renderRewardDisciplineForm(type, cat); break;
             case 'SUPPORT': html = renderSupportForm(type, cat); break;
@@ -1638,13 +1548,15 @@
         }
         container.html(html);
         container.append('<datalist id="dynEmployeeOptions"></datalist>');
+        if (tpl === 'ATTENDANCE') applyShiftTime();
         HrmRequestForm.populateEmployees(cachedUsers);
         if (roleCode === 'EMPLOYEE') $('#dynEmployeeInput').prop('readOnly', true);
 
         if (tpl === 'FINANCE') {
             financeItemCounter = 0;
             $('#financeDetailList').empty();
-            addFinanceDetailItem('Đề xuất chi phí đợt 1', 1, 0, '');
+            addFinanceDetailItem(type, 1, '', '');
+            if (type === 'Tạm ứng lương') $('#dynPurpose').val('Tạm ứng lương định kỳ');
         }
     }
 
@@ -1812,7 +1724,10 @@
         });
     });
 
-    $(document).on('click', '.tc-create-item', function () {
+    $('.tc-create-cat').each(function () { $(this).find('.tc-cat-count').text('(' + $(this).find('.tc-create-item').length + ')'); });
+    $('#createTypeTotal').text($('.tc-create-item').length);
+
+    $(document).on('click', '.tc-create-item:not([href])', function () {
         var type = $(this).data('type');
         var cat = $(this).data('cat');
         var iconSpan = $(this).find('.tc-item-icon');
@@ -1829,24 +1744,9 @@
         $('#dynAttachmentName').html(f ? ('<i class="material-icons" style="font-size:14px;color:#10b981;vertical-align:middle;">check_circle</i> ' + esc(f.name) + ' (' + (f.size / 1024).toFixed(1) + ' KB)') : 'Chưa có tệp nào');
     });
     HrmRequestForm.bindPreview('@Url.Action("LeavePreview", "Hrm")');
-    $(document).on('input change', '#dynRuleTime, #dynActualTime', function () {
-        var r = $('#dynRuleTime').val();
-        var a = $('#dynActualTime').val();
-        if (r && a) {
-            var diff = moment(a, 'HH:mm').diff(moment(r, 'HH:mm'), 'minutes');
-            var txt = diff >= 0 ? ('Chậm ' + diff + ' phút') : ('Sớm ' + Math.abs(diff) + ' phút');
-            $('#dynAttendDiffCalc').text(txt);
-        }
-    });
-    $(document).on('input change', '#dynOtFrom, #dynOtTo', function () {
-        var f = $('#dynOtFrom').val();
-        var t = $('#dynOtTo').val();
-        if (f && t) {
-            var mins = moment(t, 'HH:mm').diff(moment(f, 'HH:mm'), 'minutes');
-            if (mins < 0) mins += 24 * 60;
-            var hrs = (mins / 60).toFixed(1);
-            $('#dynOtHoursCalc').text(hrs + ' giờ OT');
-        }
+    $(document).on('input change', '#dynRuleTime, #dynActualTime', showAttendanceMinutes);
+    $(document).on('change', '#dynAdjustType, #dynDate, #dynEmployeeInput', function () {
+        if ($('#dynamicFormContainer [data-template="ATTENDANCE"]').length) setTimeout(applyShiftTime, 0);
     });
 
     $(document).on('input change', '#dynEmployeeInput', function () {
@@ -1877,6 +1777,7 @@
         var sessionCode = 'Cả ngày';
         var handoverTo = '';
         var reason = '';
+        var extra = {};
 
         if (!empName) {
             empName = currentDisplayName || 'Chính tôi';
@@ -1920,9 +1821,16 @@
                 return;
             }
 
+            if (type !== 'Phiếu đề nghị' && grandTotal <= 0) {
+                alert('Vui lòng nhập số lượng và đơn giá để có tổng số tiền.');
+                $('#financeDetailList .fin-item-price').first().focus();
+                return;
+            }
+
             startDate = date;
             endDate = dueDate || date;
             sessionCode = payMethod;
+            extra.Amount = grandTotal;
             handoverTo = purpose;
 
             var reasonLines = [];
@@ -1971,6 +1879,7 @@
             sessionCode = sess;
             handoverTo = ho;
             var daysText = HrmRequestForm.leaveDaysText();
+            if (!isTrip) extra.LeaveSubtype = leaveSubtype;
 
             reason = 'Tiêu đề: ' + title + '\n' +
                      'Loại: ' + leaveSubtype + (loc ? ' | Địa điểm: ' + loc : '') + ' | Thời gian: ' + (daysText ? daysText + ' ' : '') + '(' + sess + ')\n';
@@ -2007,14 +1916,17 @@
                      'Mô tả: ' + detail;
         } else if (tpl === 'ATTENDANCE') {
             var aDate = $('#dynDate').val();
-            var adjType = $('#dynAdjustType').val();
-            var rTime = $('#dynRuleTime').val();
-            var aTime = $('#dynActualTime').val();
-            var shift = $('#dynShift').val();
+            var adjKind = $('#dynAdjustType').val();
+            var minutes = attendanceMinutes();
             var r = ($('#dynReason').val() || '').trim();
 
             if (!aDate) {
                 alert('Vui lòng chọn ngày áp dụng.');
+                return;
+            }
+            if (!minutes || minutes < 1 || minutes > 480) {
+                alert(adjKind === 'EARLY' ? 'Giờ thực tế phải trước giờ ra ca.' : 'Giờ thực tế phải sau giờ vào ca.');
+                $('#dynActualTime').focus();
                 return;
             }
             if (!r) {
@@ -2025,48 +1937,12 @@
 
             startDate = aDate;
             endDate = aDate;
-            sessionCode = shift;
-            handoverTo = adjType;
+            sessionCode = (adjKind === 'EARLY' ? 'Về sớm ' : 'Đi muộn ') + minutes + ' phút';
+            extra.AdjustKind = adjKind;
+            extra.AdjustMinutes = minutes;
 
-            var diffText = $('#dynAttendDiffCalc').text();
-            reason = 'Tiêu đề: ' + title + '\n' +
-                     'Loại điều chỉnh: ' + adjType + ' | Ca làm: ' + shift + '\n' +
-                     'Giờ quy định: ' + rTime + ' | Giờ thực tế: ' + aTime + ' (' + diffText + ')\n' +
+            reason = sessionCode + ' · giờ theo ca ' + $('#dynRuleTime').val() + ', thực tế ' + $('#dynActualTime').val() + '\n' +
                      'Giải trình: ' + r;
-        } else if (tpl === 'OVERTIME') {
-            var otDate = $('#dynDate').val();
-            var fromT = $('#dynOtFrom').val();
-            var toT = $('#dynOtTo').val();
-            var rate = $('#dynOtRate').val();
-            var proj = ($('#dynProject').val() || '').trim();
-            var sup = ($('#dynSupervisor').val() || '').trim();
-            var r = ($('#dynReason').val() || '').trim();
-
-            if (!otDate) {
-                alert('Vui lòng chọn ngày làm thêm giờ.');
-                return;
-            }
-            if (!proj) {
-                alert('Vui lòng nhập dự án hoặc mục tiêu công việc OT.');
-                $('#dynProject').focus();
-                return;
-            }
-            if (!r) {
-                alert('Vui lòng nhập chi tiết nội dung công việc OT.');
-                $('#dynReason').focus();
-                return;
-            }
-
-            startDate = otDate;
-            endDate = otDate;
-            var otHoursTxt = $('#dynOtHoursCalc').text();
-            sessionCode = fromT + ' - ' + toT + ' (' + otHoursTxt + ')';
-            handoverTo = sup;
-
-            reason = 'Tiêu đề: ' + title + '\n' +
-                     'Thời gian OT: ' + otDate + ' từ ' + fromT + ' đến ' + toT + ' (' + otHoursTxt + ') | Hệ số: ' + rate + '\n' +
-                     'Dự án/Công việc: ' + proj + (sup ? ' | Người giám sát: ' + sup : '') + '\n' +
-                     'Nội dung thực hiện: ' + r;
         } else if (tpl === 'SHIFT') {
             var sDate = $('#dynDate').val();
             var curS = $('#dynCurShift').val();
@@ -2086,7 +1962,7 @@
 
             startDate = sDate;
             endDate = sDate;
-            sessionCode = curS + ' -> ' + newS;
+            sessionCode = 'Đổi sang ' + newS.split(' (')[0];
             handoverTo = partner;
 
             reason = 'Tiêu đề: ' + title + '\n' +
@@ -2133,43 +2009,13 @@
 
             startDate = moment().format('YYYY-MM-DD');
             endDate = tDate || startDate;
-            sessionCode = 'SL: ' + qty + ' người (' + dept + ')';
+            sessionCode = 'Số lượng: ' + qty + ' người';
             handoverTo = pos;
 
             reason = 'Tiêu đề: ' + title + '\n' +
                      'Vị trí: ' + pos + ' | Phòng ban: ' + dept + ' | Số lượng: ' + qty + ' người\n' +
                      'Mức lương dự kiến: ' + (salary || 'Thỏa thuận') + (tDate ? ' | Hạn đi làm: ' + fmtDate(tDate) : '') + '\n' +
                      'Mô tả & Lý do tuyển dụng: ' + r;
-        } else if (tpl === 'RESIGNATION') {
-            var lastDay = $('#dynLastDay').val();
-            var hoDay = $('#dynHandoverDay').val();
-            var ho = ($('#dynHandover').val() || '').trim();
-            var r = ($('#dynReason').val() || '').trim();
-
-            if (!lastDay) {
-                alert('Vui lòng chọn ngày làm việc cuối cùng.');
-                return;
-            }
-            if (!ho) {
-                alert('Vui lòng nhập người nhận bàn giao công việc & tài sản.');
-                $('#dynHandover').focus();
-                return;
-            }
-            if (!r) {
-                alert('Vui lòng nhập lý do xin nghỉ việc.');
-                $('#dynReason').focus();
-                return;
-            }
-
-            startDate = moment().format('YYYY-MM-DD');
-            endDate = lastDay;
-            sessionCode = 'Bàn giao: ' + fmtDate(hoDay);
-            handoverTo = ho;
-
-            reason = 'Tiêu đề: ' + title + '\n' +
-                     'Ngày làm việc cuối: ' + fmtDate(lastDay) + ' | Hoàn tất bàn giao: ' + fmtDate(hoDay) + '\n' +
-                     'Người nhận bàn giao: ' + ho + '\n' +
-                     'Lý do nghỉ việc: ' + r;
         } else if (tpl === 'APPOINTMENT') {
             var oldPos = ($('#dynOldPos').val() || '').trim();
             var newPos = ($('#dynNewPos').val() || '').trim();
@@ -2194,7 +2040,7 @@
 
             startDate = moment().format('YYYY-MM-DD');
             endDate = effDate;
-            sessionCode = 'Bổ nhiệm: ' + newPos;
+            sessionCode = type;
             handoverTo = oldPos;
 
             reason = 'Tiêu đề: ' + title + '\n' +
@@ -2219,7 +2065,7 @@
 
             startDate = moment().format('YYYY-MM-DD');
             endDate = effDate;
-            sessionCode = formType;
+            sessionCode = formType.slice(0, 30);
             handoverTo = amt ? ('Số tiền: ' + amt) : 'Không có tiền mặt';
 
             reason = 'Tiêu đề: ' + title + '\n' +
@@ -2227,12 +2073,11 @@
                      'Chi tiết: ' + r;
         }
 
-        var btn = $(this);
-        btn.prop('disabled', true).html('<i class="material-icons" style="font-size:16px;vertical-align:middle;">sync</i> Đang gửi...');
-
         var rangeError = HrmRequestForm.dateRangeError(startDate, endDate);
         if (rangeError) { alert(rangeError); return; }
         if (reason.length > 16000) { alert('Nội dung yêu cầu tối đa 16.000 ký tự.'); return; }
+        var btn = $(this);
+        btn.prop('disabled', true).html('<i class="material-icons" style="font-size:16px;vertical-align:middle;">sync</i> Đang gửi...');
         var payload = new FormData();
         payload.append('__RequestVerificationToken', token || '');
         if (empId) payload.append('EmployeeId', +empId);
@@ -2242,6 +2087,7 @@
         payload.append('SessionCode', sessionCode);
         payload.append('HandoverTo', handoverTo);
         payload.append('Reason', reason);
+        Object.keys(extra).forEach(function (name) { payload.append(name, extra[name]); });
         if (file) payload.append('attachment', file, file.name);
 
         $.ajax({

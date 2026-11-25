@@ -46,7 +46,12 @@ public sealed class HrmController : BaseController
     }
 
     [HttpGet]
-    public IActionResult Dashboard() => Execute(() => Store.GetDashboard(CurrentHrmUser));
+    public IActionResult Dashboard() => Execute(() =>
+    {
+        var dashboard = Store.GetDashboard(CurrentHrmUser);
+        if (HrmRoles.CanManagePeople(CurrentHrmUser.RoleCode)) dashboard.PendingApprovals = PendingApprovals().Count;
+        return dashboard;
+    });
 
     [HttpGet]
     public IActionResult Users() => Execute(() => Store.GetVisibleUsers(CurrentHrmUser).Select(x => new
@@ -182,14 +187,6 @@ public sealed class HrmController : BaseController
 
     [HttpPost, ValidateAntiForgeryToken]
     [HrmAuthorize(HrmRoles.Admin, HrmRoles.Hr, HrmRoles.Director, HrmRoles.Manager)]
-    public IActionResult ApproveAllLeaves(string note) => Execute(() =>
-    {
-        var count = Store.ApproveAllLeaves(CurrentHrmUser, note, ClientIp);
-        return new { Count = count };
-    });
-
-    [HttpPost, ValidateAntiForgeryToken]
-    [HrmAuthorize(HrmRoles.Admin, HrmRoles.Hr, HrmRoles.Director, HrmRoles.Manager)]
     public IActionResult BulkApproveLeave(BulkApprovalRequest request) => Execute(() =>
     {
         var ids = request?.GetResolvedIds();
@@ -232,27 +229,14 @@ public sealed class HrmController : BaseController
 
     [HttpGet]
     [HrmAuthorize(HrmRoles.Admin, HrmRoles.Hr, HrmRoles.Director, HrmRoles.Manager)]
-    public IActionResult ApprovalInbox() => Execute(() =>
-    {
-        var leaves = Store.GetLeaveRequests(CurrentHrmUser)
-            .Where(item => LeaveRequestPolicy.CanApprove(CurrentHrmUser, item))
-            .Select(item => new
-            {
-                Source = "leave", Kind = "leave", item.Id, Code = item.RequestCode,
-                RequestType = item.LeaveType, Title = item.LeaveType, EmployeeName = item.DisplayName,
-                item.DepartmentName, StartDate = (DateTime?)item.StartDate, EndDate = (DateTime?)item.EndDate, DueDate = (DateTime?)null,
-                Description = item.Reason, item.StatusCode, item.CreatedAt
-            });
-        var work = _workStore.GetPendingApprovals(CurrentHrmUser).Select(item => new
-        {
-            Source = "work", item.Kind, item.Id, Code = item.RecordCode,
-            RequestType = WorkKindLabel(item.Kind), item.Title,
-            EmployeeName = item.Kind is "meeting" or "vehicle" ? item.ParticipantNames : item.EmployeeName,
-            item.DepartmentName, StartDate = item.StartAt, EndDate = item.EndAt, item.DueDate,
-            item.Description, StatusCode = item.Status, item.CreatedAt
-        });
-        return leaves.Concat(work).OrderBy(item => item.CreatedAt).ToList();
-    });
+    public IActionResult ApprovalInbox() => Execute(PendingApprovals);
+
+    /// <summary>The single list of decisions waiting for this user; every pending counter uses it.</summary>
+    private List<ApprovalInboxItem> PendingApprovals() =>
+        Store.GetLeaveRequests(CurrentHrmUser).Where(item => LeaveRequestPolicy.CanApprove(CurrentHrmUser, item))
+            .Select(Infrastructure.ApprovalInbox.From)
+            .Concat(Infrastructure.ApprovalInbox.FromWork(_workStore.GetPendingApprovals(CurrentHrmUser)))
+            .OrderBy(item => item.CreatedAt).ToList();
 
     [HttpPost, ValidateAntiForgeryToken]
     [HrmAuthorize(HrmRoles.Admin, HrmRoles.Hr, HrmRoles.Director, HrmRoles.Manager)]
@@ -260,44 +244,44 @@ public sealed class HrmController : BaseController
     {
         if (request == null || request.Id <= 0) throw new InvalidOperationException("Yêu cầu không hợp lệ.");
         if (!request.Approve && string.IsNullOrWhiteSpace(request.Note)) throw new InvalidOperationException("Vui lòng nhập lý do từ chối.");
-        if (request.Source == "leave")
-        {
-            if (!Store.ApproveLeave(new ApprovalRequest { Id = request.Id, Approve = request.Approve, Note = request.Note }, CurrentHrmUser, ClientIp))
-                throw new InvalidOperationException("Đơn đã được xử lý hoặc không thuộc phạm vi của bạn.");
-        }
-        else
-        {
-            var item = _workStore.GetPendingApprovals(CurrentHrmUser).FirstOrDefault(x => x.Id == request.Id && x.Kind == request.Kind)
-                ?? throw new InvalidOperationException("Yêu cầu đã được xử lý hoặc không thuộc phạm vi của bạn.");
-            var changed = item.Kind == "payroll"
-                ? _workStore.TransitionPayroll(item.Id, "PENDING_APPROVAL", request.Approve ? "APPROVED" : "REJECTED", request.Approve ? "APPROVE" : "REJECT", request.Note, CurrentHrmUser.Id, null, ClientIp)
-                : _workStore.TransitionBooking(item.Id, item.Kind, "PENDING", request.Approve ? "APPROVED" : "REJECTED", request.Note, CurrentHrmUser.Id, ClientIp);
-            if (!changed) throw new InvalidOperationException("Yêu cầu vừa được người khác xử lý.");
-        }
+        if (!Decide(request.Source, request.Kind, request.Id, request.Approve, request.Note))
+            throw new InvalidOperationException("Yêu cầu đã được xử lý hoặc không thuộc phạm vi của bạn.");
         return new { request.Id, request.Approve };
     });
 
     [HttpPost, ValidateAntiForgeryToken]
     [HrmAuthorize(HrmRoles.Admin, HrmRoles.Hr, HrmRoles.Director, HrmRoles.Manager)]
-    public IActionResult ApproveAllRequests(string note) => Execute(() =>
+    public IActionResult ApproveAllRequests(List<string> keys, string note) => Execute(() =>
     {
-        var count = Store.ApproveAllLeaves(CurrentHrmUser, note, ClientIp);
-        foreach (var item in _workStore.GetPendingApprovals(CurrentHrmUser))
+        // Only what the approver had on screen, and never money or personnel decisions.
+        var selected = (keys ?? []).ToHashSet();
+        var errors = new List<string>();
+        var count = 0;
+        foreach (var item in PendingApprovals().Where(x => x.IsRoutine && selected.Contains(x.Key)))
         {
-            var changed = item.Kind == "payroll"
-                ? _workStore.TransitionPayroll(item.Id, "PENDING_APPROVAL", "APPROVED", "APPROVE_ALL", note, CurrentHrmUser.Id, null, ClientIp)
-                : _workStore.TransitionBooking(item.Id, item.Kind, "PENDING", "APPROVED", note, CurrentHrmUser.Id, ClientIp);
-            if (changed) count++;
+            try
+            {
+                if (Decide(item.Source, item.Kind, item.Id, true, note)) count++;
+            }
+            catch (InvalidOperationException exception)
+            {
+                errors.Add($"{item.Code}: {exception.Message}");
+            }
         }
-        return new { Count = count };
+        return new { Count = count, Errors = errors };
     });
 
-    private static string WorkKindLabel(string kind) => kind switch
+    private bool Decide(string source, string kind, int id, bool approve, string note)
     {
-        "overtime" => "Tăng ca", "resignation" => "Nghỉ việc", "vehicle" => "Đặt xe",
-        "meeting" => "Đặt phòng họp", "business-trip" => "Công tác", "offboarding" => "Thôi việc",
-        "transfer" => "Điều chuyển", "payroll" => "Bảng lương", _ => "Yêu cầu"
-    };
+        if (source == "leave")
+            return Store.ApproveLeave(new ApprovalRequest { Id = id, Approve = approve, Note = note }, CurrentHrmUser, ClientIp);
+        var item = _workStore.GetPendingApprovals(CurrentHrmUser).FirstOrDefault(x => x.Id == id && x.Kind == kind);
+        // Payroll is decided for the whole period on its own page; nobody decides a record about themselves here.
+        if (item == null || (item.EmployeeId ?? item.CreatedBy) == CurrentHrmUser.Id) return false;
+        return item.Kind == "payroll"
+            ? _workStore.TransitionPayroll(item.Id, "PENDING_APPROVAL", approve ? "APPROVED" : "REJECTED", approve ? "APPROVE" : "REJECT", note, CurrentHrmUser.Id, null, ClientIp)
+            : _workStore.TransitionBooking(item.Id, item.Kind, "PENDING", approve ? "APPROVED" : "REJECTED", note, CurrentHrmUser.Id, ClientIp);
+    }
 
     [HttpGet]
     public IActionResult Communications(string keyword = "", string category = "", string status = "") =>

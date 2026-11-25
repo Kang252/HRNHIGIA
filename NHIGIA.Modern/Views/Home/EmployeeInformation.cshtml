@@ -13,6 +13,7 @@
             <p class="hrm-page-subtitle">@(isManager ? "Danh sách nhân viên thuộc phòng ban bạn quản lý" : "Danh sách nhân sự đang hoạt động trong toàn công ty")</p>
         </div>
         <div class="hrm-header-actions">
+            @if (AccountPolicy.CanManageAccounts(current?.RoleCode)) { <a class="hrm-btn" asp-controller="Accounts" asp-action="Index"><i class="material-icons">person_add</i> Thêm nhân viên / Tài khoản</a> }
             <a class="hrm-btn" asp-controller="Home" asp-action="WorkSchedules"><i class="material-icons">event_note</i> Phân ca</a>
             <a class="hrm-btn hrm-btn-primary" asp-controller="Home" asp-action="Approvals"><i class="material-icons">fact_check</i> Phê duyệt</a>
         </div>
@@ -23,7 +24,7 @@
     <div class="hrm-grid hrm-grid-3">
         <div class="hrm-card hrm-stat"><div class="hrm-stat-top"><span class="hrm-stat-label">Nhân sự hiển thị</span><span class="hrm-stat-icon"><i class="material-icons">groups</i></span></div><div class="hrm-stat-value">@Model.Count</div><div class="hrm-stat-note">Theo phạm vi quyền tài khoản</div></div>
         <div class="hrm-card hrm-stat"><div class="hrm-stat-top"><span class="hrm-stat-label">Phòng ban</span><span class="hrm-stat-icon green"><i class="material-icons">business</i></span></div><div class="hrm-stat-value">@Model.Select(x => x.DepartmentId).Where(x => x.HasValue).Distinct().Count()</div><div class="hrm-stat-note">Có nhân viên đang hoạt động</div></div>
-        <div class="hrm-card hrm-stat"><div class="hrm-stat-top"><span class="hrm-stat-label">Cấp quản lý</span><span class="hrm-stat-icon purple"><i class="material-icons">supervisor_account</i></span></div><div class="hrm-stat-value">@Model.Count(x => x.RoleCode != HrmRoles.Employee)</div><div class="hrm-stat-note">Trong phạm vi được xem</div></div>
+        <div class="hrm-card hrm-stat"><div class="hrm-stat-top"><span class="hrm-stat-label">Cấp quản lý</span><span class="hrm-stat-icon purple"><i class="material-icons">supervisor_account</i></span></div><div class="hrm-stat-value">@Model.Count(x => x.RoleCode is HrmRoles.Manager or HrmRoles.Director)</div><div class="hrm-stat-note">Trong phạm vi được xem</div></div>
     </div>
 
     <div class="hrm-card hrm-section-gap">
@@ -42,7 +43,7 @@
                 <tbody>
                 @if (Model.Count == 0)
                 {
-                    <tr><td colspan="6"><div class="hrm-empty"><i class="material-icons">group_off</i><strong>Chưa có nhân viên trong phạm vi quản lý</strong></div></td></tr>
+                    <tr><td colspan="6"><div class="hrm-empty"><i class="material-icons">people_outline</i><strong>Chưa có nhân viên trong phạm vi quản lý</strong></div></td></tr>
                 }
                 else
                 {

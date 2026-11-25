@@ -39,7 +39,7 @@
                 <button class="hrm-btn hrm-btn-primary" type="submit">Lưu ánh xạ</button>
             </form>
             <div class="hanet-import">
-                <div class="hanet-import-heading"><div><strong>Nhập hàng loạt bằng file</strong><p>CSV UTF-8, có thể chỉnh sửa và lưu từ Excel.</p></div><a class="hrm-btn" href="@Url.Action("HanetMappingTemplate","Hrm")"><i class="material-icons">download</i> Tải file mẫu</a></div>
+                <div class="hanet-import-heading"><div><strong>Nhập hàng loạt bằng file</strong><p>CSV UTF-8, có thể chỉnh sửa và lưu từ Excel.</p></div><a class="hrm-btn" href="@Url.Action("HanetMappingTemplate","Hrm")"><i class="material-icons">file_download</i> Tải file mẫu</a></div>
                 <form id="hanetImportForm" enctype="multipart/form-data">@Html.AntiForgeryToken()
                     <label class="hanet-file-picker" for="hanetMappingFile"><i class="material-icons">upload_file</i><span id="hanetFileName">Chọn file ánh xạ .csv</span></label>
                     <input id="hanetMappingFile" name="file" type="file" accept=".csv,text/csv" required hidden />

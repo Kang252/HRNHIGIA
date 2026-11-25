@@ -22,6 +22,12 @@ public sealed class WorkItemStore
         using var db = Open();
         var canSeeAll = actor.RoleCode == HrmRoles.Admin || actor.RoleCode == HrmRoles.Hr || actor.RoleCode == HrmRoles.Director ||
             page.Kind == "payroll" && actor.RoleCode == HrmRoles.Accountant;
+        if (page.Kind == "helpdesk")
+        {
+            page.CanManage = IsHelpdeskHandler(db, null, actor.Id);
+            canSeeAll |= page.CanManage;
+        }
+        page.OvertimeRates = OvertimeRates.From(_configuration);
         var isManager = actor.RoleCode == HrmRoles.Manager;
         var canManageDepartment = isManager && page.CanManage;
         page.Items = db.Query<WorkItem>(@"SELECT w.*, u.DisplayName EmployeeName, d.Name DepartmentName,
@@ -132,12 +138,12 @@ public sealed class WorkItemStore
             var isTransfer = page.Kind == "transfer";
             var isAssets = page.Kind == "assets";
             var isPayroll = page.Kind == "payroll";
-            var isBooking = page.Kind is "vehicle" or "meeting" or "business-trip";
+            var isBooking = page.Kind is "vehicle" or "meeting";
             page.People = db.Query<WorkPerson>(@"SELECT u.Id, u.DisplayName, u.RoleCode, d.Name DepartmentName 
                 FROM dbo.HrmUserAccount u
                 LEFT JOIN dbo.HrmDepartment d ON d.Id=u.DepartmentId
-                WHERE u.IsActive=1 AND (u.RoleCode<>'ADMIN' OR @IsOvertime=1 OR @IsTransfer=1 OR @IsAssets=1 OR @IsPayroll=1 OR @IsBooking=1)
-                  AND (@CanSeeAll=1 OR @IsRecruitment=1 OR @IsResignation=1 OR @IsTraining=1 OR @IsOvertime=1 OR @IsTransfer=1 OR @IsAssets=1 OR @IsPayroll=1 OR @IsBooking=1 OR u.Id=@UserId OR (@IsManager=1 AND u.DepartmentId=@DepartmentId))
+                WHERE u.IsActive=1 AND (u.RoleCode<>'ADMIN' OR @IsTransfer=1 OR @IsAssets=1 OR @IsPayroll=1 OR @IsBooking=1)
+                  AND (@CanSeeAll=1 OR @IsRecruitment=1 OR @IsResignation=1 OR @IsTraining=1 OR @IsTransfer=1 OR @IsAssets=1 OR @IsPayroll=1 OR @IsBooking=1 OR u.Id=@UserId OR (@IsManager=1 AND u.DepartmentId=@DepartmentId))
                 ORDER BY u.DisplayName", new
             {
                 CanSeeAll = canSeeAll,
@@ -190,6 +196,7 @@ public sealed class WorkItemStore
                 $"{route} · {item.StartAt:dd/MM/yyyy HH:mm}–{item.EndAt:HH:mm}. {state}");
         }
         NotifyWorkChange(db, transaction, id, item.Status is "PENDING" or "PENDING_APPROVAL" ? item.Status : "CREATED", participantsAlreadyNotified: item.Kind is "meeting" or "vehicle");
+        if (item.Kind == "helpdesk") NotifyHelpdeskHandlers(db, transaction, id, $"Yêu cầu IT mới: {item.Title}", item.Description, item.CreatedBy);
         transaction.Commit();
         return id;
     }
@@ -384,7 +391,7 @@ public sealed class WorkItemStore
                 ORDER BY d.Name,u.DisplayName",
                 new { range.FromDate, range.ToDate }, transaction).ToList();
             var overtime = db.Query<ApprovedOvertimeModel>(@"SELECT COALESCE(w.EmployeeId,w.CreatedBy) UserId,
-                    CAST(w.DueDate AS date) WorkDate,w.StartAt,w.EndAt,w.Priority TimeRange,w.Status StatusCode
+                    CAST(w.DueDate AS date) WorkDate,w.StartAt,w.EndAt,w.Priority TimeRange,w.Category,w.Status StatusCode
                 FROM dbo.HrmWorkItem w
                 WHERE w.Kind='overtime' AND w.Status='APPROVED'
                   AND w.DueDate>=@FromDate AND w.DueDate<DATEADD(day,1,@ToDate)",
@@ -394,6 +401,11 @@ public sealed class WorkItemStore
                 WHERE Kind IN ('payroll-allowance','payroll-deduction','payroll-advance')
                   AND Quarter=@Period AND Status='APPROVED' AND EmployeeId IS NOT NULL",
                 new { Period = range.Period }, transaction).ToList();
+            var waivers = db.Query<LeaveRequestModel>(@"SELECT UserId,StartDate,EndDate,AdjustKind,AdjustMinutes
+                FROM dbo.HrmLeaveRequest
+                WHERE StatusCode='APPROVED' AND AdjustKind IN ('LATE','EARLY') AND AdjustMinutes>0
+                  AND StartDate<=@ToDate AND EndDate>=@FromDate",
+                new { range.FromDate, range.ToDate }, transaction).ToLookup(x => x.UserId);
             var existing = db.Query<WorkItem>(@"SELECT * FROM dbo.HrmWorkItem WITH(UPDLOCK,HOLDLOCK)
                 WHERE Kind='payroll' AND Quarter=@Period ORDER BY Id",
                 new { Period = range.Period }, transaction).ToList()
@@ -402,7 +414,7 @@ public sealed class WorkItemStore
             var result = new PayrollGenerationResult();
             var now = HrmDataStore.CurrentVietnamTime();
             var standardDayMinutes = Math.Max(1, _configuration.GetValue("Payroll:StandardDayMinutes", PayrollCalculationPolicy.DefaultStandardDayMinutes));
-            var overtimeMultiplier = Math.Max(0, _configuration.GetValue("Payroll:OvertimeMultiplier", 1.5m));
+            var overtimeRates = OvertimeRates.From(_configuration);
             var scheduleLookup = schedules.ToLookup(x => x.UserId);
             var attendanceLookup = attendance.ToLookup(x => x.UserId);
             var leaveLookup = leaves.ToLookup(x => x.UserId);
@@ -427,9 +439,16 @@ public sealed class WorkItemStore
                 var employeeAttendance = attendanceLookup[employee.Id]
                     .GroupBy(x => x.WorkDate.Date).ToDictionary(x => x.Key, x => x.OrderByDescending(r => r.EventCount).First());
                 var employeeOvertime = overtimeLookup[employee.Id].ToList();
+                var employeeSchedules = scheduleLookup[employee.Id].ToList();
                 var overtimeByDate = employeeAttendance.ToDictionary(x => x.Key,
-                    x => AttendanceLeavePolicy.CalculateApprovedOvertimeMinutes(x.Value, employeeOvertime));
-                var approvedOvertimeMinutes = overtimeByDate.Values.Sum();
+                    x => AttendanceLeavePolicy.CalculateApprovedOvertime(x.Value, employeeOvertime));
+                var approvedOvertimeMinutes = overtimeByDate.Values.Sum(x => x.Total);
+                var weightedOvertimeMinutes = overtimeByDate.Sum(x => OvertimePolicy.WeightedMinutes(x.Value,
+                    OvertimePolicy.Classify(x.Key, OvertimePolicy.IsWorkday(employeeSchedules, x.Key),
+                        employeeOvertime.Where(o => o.WorkDate.Date == x.Key).Select(o => o.Category)), overtimeRates));
+                var overtimeMultiplier = approvedOvertimeMinutes > 0
+                    ? Math.Round(weightedOvertimeMinutes / approvedOvertimeMinutes, 6)
+                    : overtimeRates.Workday;
                 var standardMinutes = 0;
                 var standardWorkDays = 0m;
                 var regularWorkedMinutes = 0;
@@ -440,14 +459,17 @@ public sealed class WorkItemStore
 
                 for (var date = range.FromDate.Date; date <= range.ToDate.Date; date = date.AddDays(1))
                 {
-                    if (employee.HireDate.HasValue && date < employee.HireDate.Value.Date) continue;
-                    var schedule = ResolveSchedule(scheduleLookup[employee.Id], date);
-                    if (schedule == null) continue;
-                    var dayStandard = PayrollCalculationPolicy.ScheduledMinutes(schedule.StartTime, schedule.EndTime,
-                        schedule.BreakMinutes, date);
+                    // The monthly standard always covers the whole period, so joining or leaving
+                    // mid-period is paid in proportion to the days actually employed.
+                    var schedule = ResolveSchedule(employeeSchedules, date);
+                    var standardSchedule = schedule ?? ResolveStandardSchedule(employeeSchedules, date);
+                    if (standardSchedule == null) continue;
+                    var dayStandard = PayrollCalculationPolicy.ScheduledMinutes(standardSchedule.StartTime, standardSchedule.EndTime,
+                        standardSchedule.BreakMinutes, date);
                     if (dayStandard <= 0) continue;
                     standardMinutes += dayStandard;
                     standardWorkDays += dayStandard / (decimal)standardDayMinutes;
+                    if (schedule == null || employee.HireDate.HasValue && date < employee.HireDate.Value.Date) continue;
 
                     var dayLeaves = leaveLookup[employee.Id]
                         .Where(x => x.StartDate.Date <= date && x.EndDate.Date >= date).ToList();
@@ -461,12 +483,16 @@ public sealed class WorkItemStore
                     unpaidLeaveMinutes += dayUnpaid;
 
                     employeeAttendance.TryGetValue(date, out var row);
-                    var dayOvertime = overtimeByDate.GetValueOrDefault(date);
+                    var dayOvertime = overtimeByDate.GetValueOrDefault(date).Total;
                     var dayRegular = row == null ? 0 : Math.Max(0, row.WorkedMinutes - dayOvertime);
                     var dayLate = row == null ? 0 : Math.Min(dayStandard, Math.Max(0, row.LateMinutes));
+                    var dayWaivers = waivers[employee.Id].Where(x => x.StartDate.Date <= date && x.EndDate.Date >= date).ToList();
+                    var waivedLate = Math.Min(dayLate, dayWaivers.Where(x => x.AdjustKind == "LATE").Sum(x => x.AdjustMinutes ?? 0));
+                    var waivedEarly = row == null ? 0 : Math.Min(Math.Max(0, row.EarlyMinutes),
+                        dayWaivers.Where(x => x.AdjustKind == "EARLY").Sum(x => x.AdjustMinutes ?? 0));
                     regularWorkedMinutes += dayRegular;
-                    lateMinutes += dayLate;
-                    salaryEligibleMinutes += Math.Min(dayStandard, dayRegular + dayPaid + dayUnpaid + dayLate);
+                    lateMinutes += dayLate - waivedLate;
+                    salaryEligibleMinutes += Math.Min(dayStandard, dayRegular + dayPaid + dayUnpaid + dayLate + waivedEarly);
 
                     if ((row == null && dayPaid + dayUnpaid < dayStandard) ||
                         row?.StatusCode is "MISSING_CHECK" or "IN_PROGRESS") incompletePunches++;
@@ -730,7 +756,7 @@ public sealed class WorkItemStore
             LEFT JOIN dbo.HrmDepartment d ON d.Id=COALESCE(w.DepartmentId,u.DepartmentId)
             WHERE ((w.Status='PENDING' AND w.Kind IN ('overtime','resignation','vehicle','meeting','business-trip','offboarding','transfer'))
                    OR (w.Status='PENDING_APPROVAL' AND w.Kind='payroll' AND @CanApprovePayroll=1))
-              AND COALESCE(w.EmployeeId,w.CreatedBy)<>@ActorId
+              AND (w.Kind='payroll' OR COALESCE(w.EmployeeId,w.CreatedBy)<>@ActorId)
               AND (@CanSeeAll=1 OR (@IsManager=1 AND w.Kind<>'transfer' AND u.RoleCode='EMPLOYEE'
                    AND u.DepartmentId=@DepartmentId))
             ORDER BY w.CreatedAt,w.Id", new
@@ -765,7 +791,8 @@ public sealed class WorkItemStore
             "APPROVED" or "PROVEN" => "Đã phê duyệt", "REJECTED" or "NEEDS_REVISION" => "Bị từ chối / cần bổ sung",
             "CANCELLED" => "Đã hủy", "WAITING_PROOF" => "Chờ đánh giá KPI",
             "MANAGER_APPROVED" => "Trưởng phòng đã duyệt", "HR_REVIEWED" => "HR đã kiểm tra",
-            "PUBLISHED" => "Đã phát hành", "PAID" => "Đã thanh toán", "EXECUTED" => "Đã thực hiện", _ => "Đã cập nhật"
+            "PUBLISHED" => "Đã phát hành", "PAID" => "Đã thanh toán", "EXECUTED" => "Đã thực hiện",
+            "DISPUTED" => "Phản hồi sai lệch", "IN_PROGRESS" => "Đang xử lý", "RESOLVED" => "Đã xử lý xong", "OPEN" => "Đã mở lại", _ => "Đã cập nhật"
         };
         var title = $"{label}: {(!string.IsNullOrWhiteSpace(item.Reference) ? item.Reference : $"#{id}")} · {item.Title}";
         var message = $"{label}. {note}".Trim();
@@ -775,6 +802,14 @@ public sealed class WorkItemStore
               AND (@SkipParticipants=0 OR NOT EXISTS(SELECT 1 FROM dbo.HrmWorkItemParticipant p WHERE p.WorkItemId=@Id AND p.UserId=u.Id))",
             new { Id=id, item.CreatedBy, item.EmployeeId, Title=title.Length>200?title[..200]:title,
                 Message=message.Length>1000?message[..1000]:message, Link=$"/Work?kind={item.Kind}", SkipParticipants=participantsAlreadyNotified }, transaction);
+        if (status == "DISPUTED")
+        {
+            db.Execute(@"INSERT dbo.HrmNotification(UserId,Title,Message,LinkUrl)
+                SELECT u.Id,@Title,@Message,@Link FROM dbo.HrmUserAccount u
+                WHERE u.IsActive=1 AND u.RoleCode='ACCOUNTANT' AND u.Id<>@CreatedBy AND (@EmployeeId IS NULL OR u.Id<>@EmployeeId)",
+                new { item.CreatedBy, item.EmployeeId, Title=title.Length>200?title[..200]:title, Message=message.Length>1000?message[..1000]:message,
+                    Link=$"/Work?kind=payroll&pyPeriod={item.Quarter}" }, transaction);
+        }
         if (status is "PENDING" or "PENDING_APPROVAL" or "WAITING_PROOF")
         {
             db.Execute(@"INSERT dbo.HrmNotification(UserId,Title,Message,LinkUrl)
@@ -795,6 +830,88 @@ public sealed class WorkItemStore
             SELECT UserId,@Title,@Message,@LinkUrl
             FROM dbo.HrmWorkItemParticipant WHERE WorkItemId=@WorkItemId",
             new { WorkItemId = workItemId, Title = title.Length > 200 ? title[..200] : title, Message = message.Length > 1000 ? message[..1000] : message, LinkUrl = $"/Work?kind={kind}" }, transaction);
+    }
+
+    private const string HelpdeskHandlerSql = @"FROM dbo.HrmUserAccount u LEFT JOIN dbo.HrmDepartment d ON d.Id=u.DepartmentId
+        WHERE u.IsActive=1 AND (u.RoleCode='ADMIN' OR d.Code='IT')";
+
+    private static bool IsHelpdeskHandler(SqlConnection db, SqlTransaction transaction, int userId) =>
+        db.ExecuteScalar<int>($"SELECT COUNT(1) {HelpdeskHandlerSql} AND u.Id=@UserId", new { UserId = userId }, transaction) > 0;
+
+    private static void NotifyHelpdeskHandlers(SqlConnection db, SqlTransaction transaction, int id, string title, string message, int exceptUserId) =>
+        db.Execute($@"INSERT dbo.HrmNotification(UserId,Title,Message,LinkUrl)
+            SELECT u.Id,LEFT(@Title,200),LEFT(@Message,1000),'/Work?kind=helpdesk' {HelpdeskHandlerSql} AND u.Id<>@ExceptUserId",
+            new { Title = title, Message = message ?? string.Empty, ExceptUserId = exceptUserId }, transaction);
+
+    /// <summary>Moves a helpdesk ticket along OPEN → IN_PROGRESS → RESOLVED; the requester may reply, reopen or cancel.</summary>
+    public bool HelpdeskAction(int id, string command, string note, HrmUserAccountModel actor, string ipAddress)
+    {
+        using var db = Open();
+        using var transaction = db.BeginTransaction();
+        var item = db.QuerySingleOrDefault<WorkItem>(@"SELECT Id,Title,Status,EmployeeId,CreatedBy FROM dbo.HrmWorkItem WITH(UPDLOCK,HOLDLOCK)
+            WHERE Id=@Id AND Kind='helpdesk'", new { Id = id }, transaction);
+        if (item == null) return false;
+        var isRequester = (item.EmployeeId ?? item.CreatedBy) == actor.Id;
+        var isHandler = IsHelpdeskHandler(db, transaction, actor.Id);
+        var active = item.Status is "OPEN" or "IN_PROGRESS";
+        note = note?.Trim();
+        var newStatus = command?.ToLowerInvariant() switch
+        {
+            "accept" when isHandler && item.Status == "OPEN" => "IN_PROGRESS",
+            "resolve" when isHandler && active => "RESOLVED",
+            "reply" when (isHandler || isRequester) && active => item.Status,
+            "reopen" when isRequester && item.Status == "RESOLVED" => "OPEN",
+            "cancel" when isRequester && item.Status == "OPEN" => "CANCELLED",
+            _ => null
+        };
+        if (newStatus == null) return false;
+        if (string.IsNullOrWhiteSpace(note) && command?.ToLowerInvariant() is "resolve" or "reply" or "reopen")
+            throw new InvalidOperationException("Vui lòng nhập nội dung phản hồi.");
+        if (note?.Length > 800) throw new InvalidOperationException("Nội dung phản hồi tối đa 800 ký tự.");
+        var takesOver = isHandler && command?.ToLowerInvariant() is "accept" or "resolve";
+        db.Execute(@"UPDATE dbo.HrmWorkItem SET Status=@Status,UpdatedAt=SYSUTCDATETIME(),
+                LastActionNote=COALESCE(@Note,LastActionNote),
+                ContactName=CASE WHEN @TakesOver=1 THEN @ActorName ELSE ContactName END,
+                ApprovedByUserId=CASE WHEN @TakesOver=1 THEN @ActorId ELSE ApprovedByUserId END
+            WHERE Id=@Id",
+            new { Id = id, Status = newStatus, Note = string.IsNullOrWhiteSpace(note) ? null : $"{actor.DisplayName}: {note}",
+                TakesOver = takesOver, ActorName = actor.DisplayName, ActorId = actor.Id }, transaction);
+        AddAudit(db, transaction, actor.Id, "HELPDESK_" + command.ToUpperInvariant(), id, $"Helpdesk: {item.Status} -> {newStatus}. {note}".Trim(), ipAddress);
+        if (isRequester && !takesOver)
+            NotifyHelpdeskHandlers(db, transaction, id, $"Cập nhật yêu cầu IT: {item.Title}", note ?? "Người yêu cầu đã cập nhật.", actor.Id);
+        else
+            NotifyWorkChange(db, transaction, id, newStatus, note);
+        transaction.Commit();
+        return true;
+    }
+
+    public bool IsWorkday(int userId, DateTime date)
+    {
+        using var db = Open();
+        return OvertimePolicy.IsWorkday(db.Query<ScheduleModel>(
+            "SELECT * FROM dbo.HrmEmployeeSchedule WHERE UserId=@UserId AND StatusCode='ACTIVE'", new { UserId = userId }).ToList(), date);
+    }
+
+    public bool IsAttendanceLocked(DateTime date)
+    {
+        using var db = Open();
+        return db.ExecuteScalar<int>("SELECT COUNT(1) FROM dbo.HrmAttendancePeriod WHERE Period=@Period AND StatusCode='LOCKED'",
+            new { AttendancePeriodRange.ForDate(date).Period }) > 0;
+    }
+
+    public bool HasOvertimeConflict(int userId, DateTime startAt, DateTime endAt)
+    {
+        using var db = Open();
+        return db.ExecuteScalar<int>(@"SELECT COUNT(1) FROM dbo.HrmWorkItem WHERE Kind='overtime' AND Status IN ('PENDING','APPROVED')
+            AND COALESCE(EmployeeId,CreatedBy)=@UserId AND StartAt<@EndAt AND EndAt>@StartAt",
+            new { UserId = userId, StartAt = startAt, EndAt = endAt }) > 0;
+    }
+
+    public bool HasActiveResignation(int userId)
+    {
+        using var db = Open();
+        return db.ExecuteScalar<int>(@"SELECT COUNT(1) FROM dbo.HrmWorkItem WHERE Kind='resignation' AND Status IN ('PENDING','APPROVED')
+            AND COALESCE(EmployeeId,CreatedBy)=@UserId", new { UserId = userId }) > 0;
     }
 
     public bool EnrollTraining(int trainingId, int employeeId, int actorId, string ipAddress)
@@ -919,9 +1036,9 @@ public sealed class WorkItemStore
         using var transaction = db.BeginTransaction();
         if (status is not ("APPROVED" or "REJECTED")) return false;
         var expected = "PENDING";
-        var changed = db.Execute(@"UPDATE w SET Status=@Status, LastActionNote=@Note, UpdatedAt=SYSDATETIME(),
+        var changed = db.Execute(@"UPDATE w SET Status=@Status, LastActionNote=@Note, UpdatedAt=SYSUTCDATETIME(),
                 ApprovedByUserId=CASE WHEN @Status='APPROVED' THEN @ActorId ELSE NULL END,
-                ApprovedAt=CASE WHEN @Status='APPROVED' THEN SYSDATETIME() ELSE NULL END
+                ApprovedAt=CASE WHEN @Status='APPROVED' THEN DATEADD(hour,7,SYSUTCDATETIME()) ELSE NULL END
             FROM dbo.HrmWorkItem w WHERE w.Id=@Id AND w.Status=@Expected AND w.Kind='overtime'
               AND COALESCE(w.EmployeeId,w.CreatedBy)<>@ActorId" + ApproveRecordScope,
             new { Id=id, Status=status, Note=note, Expected=expected, ActorId=actorId }, transaction) > 0;
@@ -954,14 +1071,18 @@ public sealed class WorkItemStore
         if (status == "RESOLVED" && actorRole is not (HrmRoles.Admin or HrmRoles.Hr or HrmRoles.Director))
             return false;
 
-        var resignation = db.QuerySingleOrDefault<WorkItem>(@"SELECT Id,EmployeeId,CreatedBy
+        var resignation = db.QuerySingleOrDefault<WorkItem>(@"SELECT Id,EmployeeId,CreatedBy,DueDate
             FROM dbo.HrmWorkItem WITH(UPDLOCK,HOLDLOCK)
             WHERE Id=@Id AND Kind='resignation' AND Status=@Expected",
             new { Id = id, Expected = expected }, transaction);
         if (resignation == null) return false;
         var employeeId = resignation.EmployeeId ?? resignation.CreatedBy;
+        var lastWorkingDay = resignation.DueDate?.Date ?? HrmDataStore.CurrentVietnamTime().Date;
         if (status == "RESOLVED")
         {
+            if (lastWorkingDay > HrmDataStore.CurrentVietnamTime().Date)
+                throw new InvalidOperationException(
+                    $"Ngày làm việc cuối cùng là {lastWorkingDay:dd/MM/yyyy}. Chỉ hoàn tất thôi việc từ ngày đó để không khóa tài khoản sớm.");
             var outstandingAssets = db.ExecuteScalar<int>(@"SELECT COUNT(1) FROM dbo.HrmWorkItem
                 WHERE Kind='assets' AND EmployeeId=@EmployeeId AND Status IN ('ALLOCATED','ALLOCATING','RECOVERING')",
                 new { EmployeeId = employeeId }, transaction);
@@ -972,7 +1093,7 @@ public sealed class WorkItemStore
                 throw new InvalidOperationException(
                     $"Chưa thể hoàn tất thôi việc: còn {outstandingAssets} tài sản và {outstandingUniforms} trang phục chưa thu hồi.");
         }
-        var changed = db.Execute(@"UPDATE w SET Status=@Status, LastActionNote=@Note, UpdatedAt=SYSDATETIME()
+        var changed = db.Execute(@"UPDATE w SET Status=@Status, LastActionNote=@Note, UpdatedAt=SYSUTCDATETIME()
             FROM dbo.HrmWorkItem w WHERE w.Id=@Id AND w.Status=@Expected AND w.Kind='resignation'
               AND COALESCE(w.EmployeeId,w.CreatedBy)<>@ActorId" + ApproveRecordScope,
             new { Id=id, Status=status, Note=note, Expected=expected, ActorId=actorId }, transaction) > 0;
@@ -981,10 +1102,13 @@ public sealed class WorkItemStore
             db.Execute(@"UPDATE dbo.HrmEmployeeProfile
                     SET EmploymentStatus=N'Đã thôi việc',UpdatedAt=SYSDATETIME()
                     WHERE UserId=@EmployeeId;
+                -- Keep the schedule of days already worked: payroll and attendance still need it.
                 UPDATE dbo.HrmEmployeeSchedule SET StatusCode='INACTIVE',UpdatedAt=SYSDATETIME()
-                    WHERE UserId=@EmployeeId AND StatusCode='ACTIVE';
+                    WHERE UserId=@EmployeeId AND StatusCode='ACTIVE' AND EffectiveFrom>@LastWorkingDay;
+                UPDATE dbo.HrmEmployeeSchedule SET EffectiveTo=@LastWorkingDay,UpdatedAt=SYSDATETIME()
+                    WHERE UserId=@EmployeeId AND StatusCode='ACTIVE' AND (EffectiveTo IS NULL OR EffectiveTo>@LastWorkingDay);
                 UPDATE dbo.HrmRemoteWorkPlan SET StatusCode='CANCELLED'
-                    WHERE UserId=@EmployeeId AND StatusCode IN ('PENDING','APPROVED');
+                    WHERE UserId=@EmployeeId AND StatusCode IN ('PENDING','APPROVED') AND ToDate>@LastWorkingDay;
                 UPDATE dbo.HrmFaceEnrollment SET StatusCode='REVOKED',PhotoProtected=NULL,
                     RevokedAt=SYSUTCDATETIME(),RevokedBy=@ActorId,
                     ReviewNote=COALESCE(NULLIF(@Note,''),N'Thu hồi khi hoàn tất thôi việc')
@@ -995,7 +1119,7 @@ public sealed class WorkItemStore
                     WHERE UserId=@EmployeeId AND IsActive=1;
                 UPDATE dbo.HrmUserAccount SET IsActive=0,UpdatedAt=SYSDATETIME()
                     WHERE Id=@EmployeeId;",
-                new { EmployeeId = employeeId, ActorId = actorId, Note = note?.Trim() }, transaction);
+                new { EmployeeId = employeeId, ActorId = actorId, Note = note?.Trim(), LastWorkingDay = lastWorkingDay }, transaction);
         }
         if (changed) AddAudit(db, transaction, actorId, status == "APPROVED" ? "APPROVE" : (status == "REJECTED" ? "REJECT" : "COMPLETE_OFFBOARDING"), id,
             status == "RESOLVED" ? $"Hoàn tất thôi việc nhân viên #{employeeId}; đã khóa tài khoản và thu hồi quyền truy cập. {note}".Trim() : $"{status}: {note}", ipAddress);
@@ -1030,7 +1154,7 @@ public sealed class WorkItemStore
         using var db = Open();
         using var transaction = db.BeginTransaction();
         var changed = db.Execute(@"UPDATE dbo.HrmWorkItem
-            SET Status=@Status, LastActionNote=@Note, UpdatedAt=SYSDATETIME()
+            SET Status=@Status, LastActionNote=@Note, UpdatedAt=SYSUTCDATETIME()
             WHERE Id=@Id AND COALESCE(Status,'')<>@Status AND Kind='transfer'", new { Id = id, Status = status, Note = note }, transaction) > 0;
         if (changed)
         {
@@ -1061,7 +1185,7 @@ public sealed class WorkItemStore
                 SET Title=@Title, Description=@Description, Category=@Category, Reference=@Reference,
                     ContactName=@ContactName, StartDate=@StartDate, DueDate=@DueDate, WorkLocation=@WorkLocation,
                     Target=@Target, DepartmentId=@DepartmentId, EmployeeId=@EmployeeId, JobLevel=@JobLevel,
-                    UpdatedAt=SYSDATETIME()
+                    UpdatedAt=SYSUTCDATETIME()
                 WHERE Id=@Id AND Kind='transfer-decision' AND Status IN ('PENDING_APPROVAL','REJECTED')", item, transaction) > 0;
             if (changed) AddAudit(db, transaction, actorId, "UPDATE", item.Id, $"Cập nhật quyết định điều chuyển {item.Reference}", ipAddress);
         }
@@ -1073,7 +1197,7 @@ public sealed class WorkItemStore
             var newId = db.QuerySingle<int>(@"INSERT dbo.HrmWorkItem
                 (Kind, Title, Description, Category, Reference, ContactName, StartDate, DueDate, WorkLocation, Target, DepartmentId, EmployeeId, JobLevel, Keywords, Status, Priority, CreatedBy, CreatedAt)
                 OUTPUT INSERTED.Id
-                VALUES (@Kind, @Title, @Description, @Category, @Reference, @ContactName, @StartDate, @DueDate, @WorkLocation, @Target, @DepartmentId, @EmployeeId, @JobLevel, @Keywords, @Status, 'NORMAL', @CreatedBy, SYSDATETIME())", item, transaction);
+                VALUES (@Kind, @Title, @Description, @Category, @Reference, @ContactName, @StartDate, @DueDate, @WorkLocation, @Target, @DepartmentId, @EmployeeId, @JobLevel, @Keywords, @Status, 'NORMAL', @CreatedBy, SYSUTCDATETIME())", item, transaction);
             item.Id = newId;
             changed = newId > 0;
             if (changed) AddAudit(db, transaction, actorId, "CREATE", newId, $"Tạo quyết định điều chuyển {item.Reference}", ipAddress);
@@ -1086,7 +1210,7 @@ public sealed class WorkItemStore
     {
         using var db = Open();
         using var transaction = db.BeginTransaction();
-        var changed = db.Execute(@"UPDATE w SET Status='APPROVED',UpdatedAt=SYSDATETIME(),LastActionNote=N'Đã ký duyệt'
+        var changed = db.Execute(@"UPDATE w SET Status='APPROVED',UpdatedAt=SYSUTCDATETIME(),LastActionNote=N'Đã ký duyệt'
             FROM dbo.HrmWorkItem w WHERE w.Id=@Id AND w.Kind='transfer-decision' AND w.Status='PENDING_APPROVAL'
               AND EXISTS(SELECT 1 FROM dbo.HrmUserAccount a WHERE a.Id=@ActorId AND a.IsActive=1 AND a.RoleCode IN ('ADMIN','DIRECTOR'))",
             new { Id=id, ActorId=actorId }, transaction) > 0;
@@ -1105,7 +1229,7 @@ public sealed class WorkItemStore
             new { Id = id, ActorId=actorId }, transaction);
         if (item == null) return false;
 
-        var changed = db.Execute(@"UPDATE dbo.HrmWorkItem SET Status='EXECUTED', UpdatedAt=SYSDATETIME(), LastActionNote=N'Đã ban hành và thực thi' WHERE Id=@Id AND Status='APPROVED'", new { Id = id }, transaction) > 0;
+        var changed = db.Execute(@"UPDATE dbo.HrmWorkItem SET Status='EXECUTED', UpdatedAt=SYSUTCDATETIME(), LastActionNote=N'Đã ban hành và thực thi' WHERE Id=@Id AND Status='APPROVED'", new { Id = id }, transaction) > 0;
 
         if (item.EmployeeId.HasValue && item.DepartmentId.HasValue)
         {
@@ -1123,7 +1247,7 @@ public sealed class WorkItemStore
                 var reqIds = System.Text.Json.JsonSerializer.Deserialize<List<int>>(item.Keywords);
                 if (reqIds != null && reqIds.Count > 0)
                 {
-                    db.Execute(@"UPDATE dbo.HrmWorkItem SET Status='EXECUTED', UpdatedAt=SYSDATETIME() WHERE Id IN @ReqIds AND Kind='transfer'", new { ReqIds = reqIds }, transaction);
+                    db.Execute(@"UPDATE dbo.HrmWorkItem SET Status='EXECUTED', UpdatedAt=SYSUTCDATETIME() WHERE Id IN @ReqIds AND Kind='transfer'", new { ReqIds = reqIds }, transaction);
                 }
             }
             catch { }
@@ -1180,48 +1304,33 @@ public sealed class WorkItemStore
                 filteredReqs = filteredReqs.Where(x => (x.DueDate?.Month == page.TransferMonth) || (x.CreatedAt.Month == page.TransferMonth)).ToList();
             }
 
-            // Summary KPIs matching Slide 23
-            var luanChuyen = filteredReqs.Count(x => (x.Category ?? "").Contains("Luân chuyển") || (x.Category ?? "").Contains("Điều chuyển"));
-            var boNhiem = filteredReqs.Count(x => (x.Category ?? "").Contains("Bổ nhiệm"));
-            var mienNhiem = filteredReqs.Count(x => (x.Category ?? "").Contains("Miễn nhiệm"));
-            var noiKhac = filteredReqs.Count(x => (x.Category ?? "").Contains("nơi khác") || (x.Category ?? "").Contains("Điều động"));
-
-            page.TotalTransferredCount = luanChuyen > 0 ? Math.Max(22, luanChuyen) : 22;
-            page.TotalAppointedCount = boNhiem > 0 ? boNhiem : 1;
-            page.TotalDismissedCount = mienNhiem > 0 ? mienNhiem : 5;
-            page.TotalRelocatedCount = 0;
-
-            var allDepts = db.Query<WorkDepartment>("SELECT Id, Name FROM dbo.HrmDepartment WHERE IsActive=1 ORDER BY Name").ToList();
-            var targetDepartments = new (string Name, int SampleCount)[]
-            {
-                ("Nhân sự", 3),
-                ("Phòng IT", 1),
-                ("Phòng Ban Quản Lý Tài Sản", 4),
-                ("Phòng Ban Truyền Thông Nội Bộ", 0),
-                ("Phòng Ban Bán Hàng và Cung Ứng", 3),
-                ("Phòng Dự Án Thông Tin", 1),
-                ("Phòng Ban Hỗ Trợ Khách Hàng", 2)
-            };
+            // Only approved or executed moves count, and each employee once per kind of move.
+            var inPeriod = decisions
+                .Where(x => x.Status == "EXECUTED" &&
+                    (page.TransferYear <= 0 || x.StartDate?.Year == page.TransferYear) &&
+                    (page.TransferMonth <= 0 || x.StartDate?.Month == page.TransferMonth))
+                .Concat(filteredReqs.Where(x => x.Status is "APPROVED" or "EXECUTED"))
+                .Where(x => x.EmployeeId.HasValue)
+                .GroupBy(x => (x.EmployeeId, Kind: TransferKind(x.Category)))
+                .Select(x => x.First())
+                .ToList();
+            int CountKind(string kind) => inPeriod.Count(x => TransferKind(x.Category) == kind);
+            page.TotalTransferredCount = CountKind("TRANSFER");
+            page.TotalAppointedCount = CountKind("APPOINT");
+            page.TotalDismissedCount = CountKind("DISMISS");
+            page.TotalRelocatedCount = CountKind("RELOCATE");
 
             var colors = new[] { "#2563eb", "#38bdf8", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899", "#f97316", "#06b6d4" };
-            var deptStats = new List<TransferDeptStat>();
-            int cIdx = 0;
-            foreach (var target in targetDepartments)
-            {
-                var dept = allDepts.FirstOrDefault(d => d.Name.Contains(target.Name) || target.Name.Contains(d.Name));
-                var countInDb = filteredReqs.Count(x => (x.DepartmentName ?? "").Contains(target.Name) || target.Name.Contains(x.DepartmentName ?? ""));
-                var finalCount = countInDb > 0 ? countInDb : target.SampleCount;
-
-                deptStats.Add(new TransferDeptStat
+            var deptStats = inPeriod.Where(x => TransferKind(x.Category) == "TRANSFER")
+                .GroupBy(x => string.IsNullOrWhiteSpace(x.DepartmentName) ? "Chưa phân phòng" : x.DepartmentName)
+                .OrderByDescending(x => x.Count()).ThenBy(x => x.Key)
+                .Select((x, index) => new TransferDeptStat
                 {
-                    DepartmentId = dept?.Id ?? 0,
-                    DepartmentName = dept?.Name ?? target.Name,
-                    TransferredCount = finalCount,
-                    Color = colors[cIdx % colors.Length]
-                });
-                cIdx++;
-            }
-
+                    DepartmentId = x.First().DepartmentId ?? 0,
+                    DepartmentName = x.Key,
+                    TransferredCount = x.Count(),
+                    Color = colors[index % colors.Length]
+                }).ToList();
             var sumTransferred = deptStats.Sum(x => x.TransferredCount);
             foreach (var s in deptStats)
             {
@@ -1374,7 +1483,7 @@ public sealed class WorkItemStore
                         WorkLocation=@WorkLocation, JobLevel=@JobLevel, ExperienceRequired=@ExperienceRequired,
                         EducationRequired=@EducationRequired, SalaryRange=@SalaryRange, Target=@Target,
                         StartDate=@StartDate,
-                        Priority=@Priority, UpdatedAt=SYSDATETIME()
+                        Priority=@Priority, UpdatedAt=SYSUTCDATETIME()
                     FROM dbo.HrmWorkItem w WHERE w.Id=@Id AND w.Kind='assets'" + ManageRecordScope, parameters, transaction);
                 if (rows > 0) AddAudit(db, transaction, actorId, "UPDATE_ASSET", item.Id, $"Cập nhật tài sản: {item.Title} ({item.Reference})", ipAddress);
                 transaction.Commit();
@@ -1394,7 +1503,7 @@ public sealed class WorkItemStore
                 var newId = db.QuerySingle<int>(@"INSERT dbo.HrmWorkItem
                     (Kind, Title, Description, Category, Reference, WorkLocation, JobLevel, ExperienceRequired, EducationRequired, SalaryRange, Target, StartDate, DueDate, DepartmentId, EmployeeId, Status, Priority, CreatedBy, CreatedAt)
                     OUTPUT INSERTED.Id VALUES
-                    (@Kind, @Title, @Description, @Category, @Reference, @WorkLocation, @JobLevel, @ExperienceRequired, @EducationRequired, @SalaryRange, @Target, @StartDate, @DueDate, @DepartmentId, @EmployeeId, @Status, @Priority, @CreatedBy, SYSDATETIME())", item, transaction);
+                    (@Kind, @Title, @Description, @Category, @Reference, @WorkLocation, @JobLevel, @ExperienceRequired, @EducationRequired, @SalaryRange, @Target, @StartDate, @DueDate, @DepartmentId, @EmployeeId, @Status, @Priority, @CreatedBy, SYSUTCDATETIME())", item, transaction);
                 AddAudit(db, transaction, actorId, "CREATE_ASSET", newId, $"Tạo mới tài sản: {item.Title} ({item.Reference})", ipAddress);
                 transaction.Commit();
                 return newId > 0;
@@ -1436,7 +1545,7 @@ public sealed class WorkItemStore
                 var hDate = handoverDate ?? DateTime.Today;
                 var cond = string.IsNullOrWhiteSpace(condition) ? (asset.SalaryRange ?? "NORMAL") : condition;
                 db.Execute(@"UPDATE dbo.HrmWorkItem 
-                    SET Status='ALLOCATED', EmployeeId=@EmpId, DepartmentId=@DeptId, DueDate=@Due, SalaryRange=@Cond, LastActionNote=@Note, UpdatedAt=SYSDATETIME()
+                    SET Status='ALLOCATED', EmployeeId=@EmpId, DepartmentId=@DeptId, DueDate=@Due, SalaryRange=@Cond, LastActionNote=@Note, UpdatedAt=SYSUTCDATETIME()
                     WHERE Id=@Id",
                     new { Id = assetId, EmpId = employeeId, DeptId = departmentId, Due = hDate, Cond = cond, Note = note }, transaction);
 
@@ -1444,7 +1553,7 @@ public sealed class WorkItemStore
                 db.Execute(@"INSERT dbo.HrmWorkItem
                     (Kind, Title, Description, Category, Reference, WorkLocation, JobLevel, ExperienceRequired, EducationRequired, SalaryRange, Target, StartDate, DueDate, DepartmentId, EmployeeId, Status, Priority, CreatedBy, CreatedAt)
                     VALUES
-                    ('asset-handover', @Title, @Desc, N'Cấp phát', @Ref, @WorkLocation, @JobLevel, @Model, @Supplier, @Cond, @Target, @Start, @Due, @DeptId, @EmpId, 'ALLOCATED', 'NORMAL', @CreatedBy, SYSDATETIME())",
+                    ('asset-handover', @Title, @Desc, N'Cấp phát', @Ref, @WorkLocation, @JobLevel, @Model, @Supplier, @Cond, @Target, @Start, @Due, @DeptId, @EmpId, 'ALLOCATED', 'NORMAL', @CreatedBy, SYSUTCDATETIME())",
                     new
                     {
                         Title = $"Bàn giao tài sản: {asset.Title}",
@@ -1472,7 +1581,7 @@ public sealed class WorkItemStore
                 var oldDept = asset.DepartmentId;
 
                 db.Execute(@"UPDATE dbo.HrmWorkItem 
-                    SET Status='IN_STOCK', EmployeeId=NULL, SalaryRange=@Cond, LastActionNote=@Note, UpdatedAt=SYSDATETIME()
+                    SET Status='IN_STOCK', EmployeeId=NULL, SalaryRange=@Cond, LastActionNote=@Note, UpdatedAt=SYSUTCDATETIME()
                     WHERE Id=@Id",
                     new { Id = assetId, Cond = cond, Note = note }, transaction);
 
@@ -1480,7 +1589,7 @@ public sealed class WorkItemStore
                 db.Execute(@"INSERT dbo.HrmWorkItem
                     (Kind, Title, Description, Category, Reference, WorkLocation, JobLevel, ExperienceRequired, EducationRequired, SalaryRange, Target, StartDate, DueDate, DepartmentId, EmployeeId, Status, Priority, CreatedBy, CreatedAt)
                     VALUES
-                    ('asset-handover', @Title, @Desc, N'Thu hồi', @Ref, @WorkLocation, @JobLevel, @Model, @Supplier, @Cond, @Target, @Start, @Due, @DeptId, @EmpId, 'IN_STOCK', 'NORMAL', @CreatedBy, SYSDATETIME())",
+                    ('asset-handover', @Title, @Desc, N'Thu hồi', @Ref, @WorkLocation, @JobLevel, @Model, @Supplier, @Cond, @Target, @Start, @Due, @DeptId, @EmpId, 'IN_STOCK', 'NORMAL', @CreatedBy, SYSUTCDATETIME())",
                     new
                     {
                         Title = $"Thu hồi tài sản: {asset.Title}",
@@ -1504,7 +1613,7 @@ public sealed class WorkItemStore
             else if (command == "LIQUIDATE")
             {
                 db.Execute(@"UPDATE dbo.HrmWorkItem 
-                    SET Status='LIQUIDATED', EmployeeId=NULL, LastActionNote=@Note, UpdatedAt=SYSDATETIME()
+                    SET Status='LIQUIDATED', EmployeeId=NULL, LastActionNote=@Note, UpdatedAt=SYSUTCDATETIME()
                     WHERE Id=@Id",
                     new { Id = assetId, Note = note }, transaction);
                 AddAudit(db, transaction, actorId, "LIQUIDATE_ASSET", assetId, $"Thanh lý tài sản {asset.Reference}. Ghi chú: {note}", ipAddress);
@@ -1513,7 +1622,7 @@ public sealed class WorkItemStore
             {
                 var cond = string.IsNullOrWhiteSpace(condition) ? "NORMAL" : condition;
                 db.Execute(@"UPDATE dbo.HrmWorkItem 
-                    SET SalaryRange=@Cond, LastActionNote=@Note, UpdatedAt=SYSDATETIME()
+                    SET SalaryRange=@Cond, LastActionNote=@Note, UpdatedAt=SYSUTCDATETIME()
                     WHERE Id=@Id",
                     new { Id = assetId, Cond = cond, Note = note }, transaction);
                 AddAudit(db, transaction, actorId, "UPDATE_ASSET_CONDITION", assetId, $"Cập nhật hiện trạng tài sản {asset.Reference} sang {cond}", ipAddress);
@@ -1812,6 +1921,14 @@ public sealed class WorkItemStore
     {
         try
         {
+            if (!canSeeAll)
+            {
+                page.PayslipPeriods = db.Query<(string, string)>(@"SELECT Quarter,MAX(Status) FROM dbo.HrmWorkItem
+                    WHERE Kind='payroll' AND EmployeeId=@Id AND Quarter IS NOT NULL AND Status IN ('PUBLISHED','PAID','DISPUTED','RESOLVED')
+                    GROUP BY Quarter ORDER BY Quarter DESC", new { actor.Id }).ToList();
+                // Opening the page shows the latest payslip instead of a month that has none yet.
+                if (string.IsNullOrWhiteSpace(page.PayrollPeriod)) page.PayrollPeriod = page.PayslipPeriods.FirstOrDefault().Period;
+            }
             var period = string.IsNullOrWhiteSpace(page.PayrollPeriod) ? HrmDataStore.CurrentVietnamTime().ToString("yyyy-MM") : page.PayrollPeriod;
             page.PayrollPeriod = period;
 
@@ -2005,6 +2122,8 @@ public sealed class WorkItemStore
             "REJECTED" => ("Cần điều chỉnh", "badge-danger"),
             "PUBLISHED" => ("Đã phát hành", "badge-success"),
             "PAID" => ("Đã chi trả", "badge-primary"),
+            "DISPUTED" => ("Nhân viên phản hồi", "badge-danger"),
+            "RESOLVED" => ("Đã trả lời phản hồi", "badge-info"),
             _ => (detail.Status, "badge-secondary")
         };
 
@@ -2186,7 +2305,7 @@ public sealed class WorkItemStore
                     break;
                 case "REJECT":
                     newStatus = "REJECTED";
-                    allowedStatus = "'PENDING_APPROVAL'";
+                    allowedStatus = "'PENDING_APPROVAL','APPROVED'";
                     auditAction = "REJECT_BATCH";
                     defaultLog = string.IsNullOrWhiteSpace(note) ? "Yêu cầu điều chỉnh lại bảng lương" : $"Yêu cầu điều chỉnh lại: {note}".Trim();
                     break;
@@ -2587,6 +2706,28 @@ public sealed class WorkItemStore
                 x.EffectiveFrom.Date <= date.Date && (!x.EffectiveTo.HasValue || x.EffectiveTo.Value.Date >= date.Date) &&
                 (x.WorkDaysMask & (1 << (int)date.DayOfWeek)) != 0)
             .OrderByDescending(x => x.EffectiveFrom).ThenByDescending(x => x.Id).FirstOrDefault();
+
+    /// <summary>Weekly pattern for a date before the first or after the last active schedule.</summary>
+    private static ScheduleModel ResolveStandardSchedule(IReadOnlyCollection<ScheduleModel> schedules, DateTime date)
+    {
+        var active = schedules.Where(x => string.Equals(x.StatusCode, "ACTIVE", StringComparison.OrdinalIgnoreCase) &&
+            (x.WorkDaysMask & (1 << (int)date.DayOfWeek)) != 0).ToList();
+        if (active.Count == 0) return null;
+        var first = schedules.Where(x => string.Equals(x.StatusCode, "ACTIVE", StringComparison.OrdinalIgnoreCase)).Min(x => x.EffectiveFrom.Date);
+        if (date.Date < first) return active.OrderBy(x => x.EffectiveFrom).ThenByDescending(x => x.Id).First();
+        return active.All(x => x.EffectiveTo.HasValue && x.EffectiveTo.Value.Date < date.Date)
+            ? active.OrderByDescending(x => x.EffectiveTo).ThenByDescending(x => x.Id).First()
+            : null;
+    }
+
+    private static string TransferKind(string category)
+    {
+        var value = NormalizeLabel(category);
+        return value.Contains("bo nhiem") ? "APPOINT"
+            : value.Contains("mien nhiem") ? "DISMISS"
+            : value.Contains("noi khac") || value.Contains("dieu dong") ? "RELOCATE"
+            : "TRANSFER";
+    }
 
     private static int LeaveMinutes(int sessionMask, int standardMinutes) => (sessionMask & 3) switch
     {

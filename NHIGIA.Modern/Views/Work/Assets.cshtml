@@ -12,7 +12,7 @@
 
 <div class="asset-page">
     <header class="asset-titlebar">
-        <div class="asset-title"><i class="material-icons">inventory_2</i><div><h2>@Model.Title</h2><p>@Model.Subtitle</p></div></div>
+        <div class="asset-title"><i class="material-icons">archive</i><div><h2>@Model.Title</h2><p>@Model.Subtitle</p></div></div>
         <div class="asset-title-actions">
             <label class="asset-search"><i class="material-icons">search</i><input id="assetSearch" type="search" value="@Model.Query" placeholder="Tìm mã, tên, loại, nhân viên..." /></label>
             @if (canManage) { <button id="toggleAssetForm" class="asset-add" type="button" disabled="@(!Model.Available)"><i class="material-icons">add</i> Thêm tài sản</button> }
@@ -79,13 +79,13 @@
                 var searchable = $"{item.Reference} {item.Title} {item.Category} {item.EmployeeName} {item.DepartmentName}".ToLowerInvariant();
                 <tr data-status="@item.Status" data-search="@searchable" data-code="@item.Reference" data-name="@item.Title">
                     @if (canManage) { <td><input class="asset-row-check" type="checkbox" value="@item.Id" aria-label="Chọn @item.Reference" /></td> }
-                    <td><strong>@item.Reference</strong></td><td>@item.Title<small>@item.Description</small></td><td>@(item.Category ?? "—")</td><td>@(item.DueDate?.ToString("dd/MM/yyyy") ?? "—")</td><td>@quantity.ToString("N0")</td><td>@inUse.ToString("N0")</td><td>@remaining.ToString("N0")</td><td>@(item.Actual?.ToString("N0") ?? "0")</td>
+                    <td><strong>@item.Reference</strong></td><td>@item.Title<small>@item.Description</small></td><td>@(item.Category ?? "—")</td><td>@(item.DueDate?.ToString("dd/MM/yyyy") ?? "—")</td><td>@quantity.ToString("N0", VietnamFormat.Numbers)</td><td>@inUse.ToString("N0", VietnamFormat.Numbers)</td><td>@remaining.ToString("N0", VietnamFormat.Numbers)</td><td>@(item.Actual?.ToString("N0", VietnamFormat.Numbers) ?? "0")</td>
                     <td>@if (item.EmployeeName != null) { <span class="asset-person">@item.EmployeeName</span> } else { <span>—</span> }</td><td>@(item.DepartmentName ?? "—")</td><td>@(item.Reference ?? "—")</td><td>@item.AssetMaintenance</td><td>@item.AssetLost</td><td>@item.AssetDisposed</td><td>@item.AssetDamaged</td><td><span class="asset-status asset-status-@item.Status.ToLowerInvariant()">@labels.GetValueOrDefault(item.Status, item.Status)</span></td>
                 </tr>
             }
             </tbody>
         </table>
-        <div id="assetEmpty" class="work-empty" hidden><i class="material-icons">inventory_2</i><h4>Không có tài sản phù hợp</h4><p>Thử từ khóa hoặc trạng thái khác.</p></div>
+        <div id="assetEmpty" class="work-empty" hidden><i class="material-icons">archive</i><h4>Không có tài sản phù hợp</h4><p>Thử từ khóa hoặc trạng thái khác.</p></div>
     </div>
 </div>
 

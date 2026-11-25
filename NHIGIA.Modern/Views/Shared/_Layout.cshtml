@@ -21,6 +21,7 @@
     if (isWork) { action = "Work"; }
     if (ViewContext.RouteData.Values["controller"]?.ToString() == "RemoteAttendance") { action = "RemoteAttendance"; }
     if (ViewContext.RouteData.Values["controller"]?.ToString() == "FaceEnrollment") { action = "FaceEnrollment"; }
+    if (ViewContext.RouteData.Values["controller"]?.ToString() == "Accounts") { action = "Accounts"; }
 }
 <!DOCTYPE html>
 <html lang="vi">
@@ -88,19 +89,19 @@
             <div class="menu">
                 <ul class="list">
                     <li class="hrm-menu-overview @(action == "Index" && string.IsNullOrEmpty(workKind) ? "active" : "")"><a asp-controller="Home" asp-action="Index"><i class="material-icons">dashboard</i><span>Tổng quan</span></a></li>
-                    <li class="header hrm-menu-section" data-menu-section="general"><button class="hrm-menu-section-toggle" type="button" aria-expanded="true"><span>THÔNG TIN CHUNG</span><i class="material-icons" aria-hidden="true">expand_more</i></button></li>
-                    <li class="@(action == "CompanyInformation" && companySection == "introduction" ? "active" : "")"><a asp-controller="Home" asp-action="CompanyInformation" asp-route-section="introduction"><i class="material-icons">business</i><span>Giới thiệu công ty</span></a></li>
-                    <li class="@(action == "CompanyInformation" && companySection == "rules" ? "active" : "")"><a asp-controller="Home" asp-action="CompanyInformation" asp-route-section="rules"><i class="material-icons">gavel</i><span>Nội quy</span></a></li>
-                    <li class="@(action == "CompanyInformation" && companySection == "human-resources" ? "active" : "")"><a asp-controller="Home" asp-action="CompanyInformation" asp-route-section="human-resources"><i class="material-icons">groups</i><span>Nhân sự</span></a></li>
-                    <li class="@(action == "CompanyInformation" && companySection == "finance-accounting" ? "active" : "")"><a asp-controller="Home" asp-action="CompanyInformation" asp-route-section="finance-accounting"><i class="material-icons">account_balance</i><span>Tài chính - Kế toán</span></a></li>
-                    <li class="@(action == "CompanyInformation" && companySection == "marketing" ? "active" : "")"><a asp-controller="Home" asp-action="CompanyInformation" asp-route-section="marketing"><i class="material-icons">campaign</i><span>Marketing</span></a></li>
-                    <li class="@(action == "CompanyInformation" && companySection == "technology" ? "active" : "")"><a asp-controller="Home" asp-action="CompanyInformation" asp-route-section="technology"><i class="material-icons">devices</i><span>Công nghệ</span></a></li>
-                    <li class="@(action == "CompanyInformation" && companySection == "business" ? "active" : "")"><a asp-controller="Home" asp-action="CompanyInformation" asp-route-section="business"><i class="material-icons">trending_up</i><span>Kinh doanh</span></a></li>
                     <li class="header hrm-menu-section" data-menu-section="people"><button class="hrm-menu-section-toggle" type="button" aria-expanded="true"><span>NGHIỆP VỤ NHÂN SỰ</span><i class="material-icons" aria-hidden="true">expand_more</i></button></li>
                     <li class="@(action == "MyProfile" ? "active" : "")"><a asp-controller="Home" asp-action="MyProfile"><i class="material-icons">badge</i><span>Hồ sơ của tôi</span></a></li>
+                    @if (!HrmAuthenticationMode.UsesKeycloak(Configuration))
+                    {
+                        <li class="@(action == "ChangePassword" ? "active" : "")"><a asp-controller="Account" asp-action="ChangePassword"><i class="material-icons">vpn_key</i><span>Đổi mật khẩu</span></a></li>
+                    }
                     @if (canManage)
                     {
                         <li class="@(action == "EmployeeInformation" ? "active" : "")"><a asp-controller="Home" asp-action="EmployeeInformation"><i class="material-icons">groups</i><span>@(isManager ? "Nhân sự phòng ban" : "Quản lý nhân sự")</span></a></li>
+                    }
+                    @if (role is HrmRoles.Admin or HrmRoles.Hr)
+                    {
+                        <li class="@(action == "Accounts" ? "active" : "")"><a asp-controller="Accounts" asp-action="Index"><i class="material-icons">supervisor_account</i><span>Quản lý tài khoản</span></a></li>
                     }
                     <li class="@(action == "Attendance" ? "active" : "")"><a asp-controller="Home" asp-action="Attendance"><i class="material-icons">alarm_on</i><span>Chấm công</span></a></li>
                     <li class="@(action == "RemoteAttendance" ? "active" : "")"><a asp-controller="RemoteAttendance" asp-action="Index"><i class="material-icons">location_on</i><span>Chấm công ngoài công ty</span></a></li>
@@ -145,6 +146,14 @@
                     {
                         <li class="@(workKind == "business-trip" ? "active" : "")"><a asp-controller="Work" asp-action="Index" asp-route-kind="business-trip"><i class="material-icons">business_center</i><span>Phân công công tác</span></a></li>
                     }
+                    <li class="header hrm-menu-section" data-menu-section="general"><button class="hrm-menu-section-toggle" type="button" aria-expanded="true"><span>THÔNG TIN CHUNG</span><i class="material-icons" aria-hidden="true">expand_more</i></button></li>
+                    <li class="@(action == "CompanyInformation" && companySection == "introduction" ? "active" : "")"><a asp-controller="Home" asp-action="CompanyInformation" asp-route-section="introduction"><i class="material-icons">business</i><span>Giới thiệu công ty</span></a></li>
+                    <li class="@(action == "CompanyInformation" && companySection == "rules" ? "active" : "")"><a asp-controller="Home" asp-action="CompanyInformation" asp-route-section="rules"><i class="material-icons">gavel</i><span>Nội quy</span></a></li>
+                    <li class="@(action == "CompanyInformation" && companySection == "human-resources" ? "active" : "")"><a asp-controller="Home" asp-action="CompanyInformation" asp-route-section="human-resources"><i class="material-icons">groups</i><span>Nhân sự</span></a></li>
+                    <li class="@(action == "CompanyInformation" && companySection == "finance-accounting" ? "active" : "")"><a asp-controller="Home" asp-action="CompanyInformation" asp-route-section="finance-accounting"><i class="material-icons">account_balance</i><span>Tài chính - Kế toán</span></a></li>
+                    <li class="@(action == "CompanyInformation" && companySection == "marketing" ? "active" : "")"><a asp-controller="Home" asp-action="CompanyInformation" asp-route-section="marketing"><i class="material-icons">campaign</i><span>Marketing</span></a></li>
+                    <li class="@(action == "CompanyInformation" && companySection == "technology" ? "active" : "")"><a asp-controller="Home" asp-action="CompanyInformation" asp-route-section="technology"><i class="material-icons">devices</i><span>Công nghệ</span></a></li>
+                    <li class="@(action == "CompanyInformation" && companySection == "business" ? "active" : "")"><a asp-controller="Home" asp-action="CompanyInformation" asp-route-section="business"><i class="material-icons">trending_up</i><span>Kinh doanh</span></a></li>
                 </ul>
             </div>
             <div class="legal"><div class="copyright">&copy; @DateTime.Now.Year <a asp-controller="Home" asp-action="Index">HRM NHỊ GIA</a></div></div>

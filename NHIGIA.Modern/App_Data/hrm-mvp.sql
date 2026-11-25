@@ -38,6 +38,10 @@ GO
 
 IF COL_LENGTH('dbo.HrmUserAccount', 'UpdatedAt') IS NULL
     ALTER TABLE dbo.HrmUserAccount ADD UpdatedAt DATETIME2 NULL;
+IF COL_LENGTH('dbo.HrmUserAccount', 'MustChangePassword') IS NULL
+    ALTER TABLE dbo.HrmUserAccount ADD MustChangePassword BIT NOT NULL CONSTRAINT DF_HrmUserAccount_MustChangePassword DEFAULT (0) WITH VALUES;
+IF COL_LENGTH('dbo.HrmUserAccount', 'PasswordChangedAt') IS NULL
+    ALTER TABLE dbo.HrmUserAccount ADD PasswordChangedAt DATETIME2(0) NULL;
 GO
 
 IF OBJECT_ID('dbo.HrmEmployeeProfile', 'U') IS NULL
@@ -211,6 +215,8 @@ IF COL_LENGTH('dbo.HrmLeaveRequest', 'AttachmentContentType') IS NULL
     ALTER TABLE dbo.HrmLeaveRequest ADD AttachmentContentType NVARCHAR(100) NULL;
 IF COL_LENGTH('dbo.HrmLeaveRequest', 'AttachmentContent') IS NULL
     ALTER TABLE dbo.HrmLeaveRequest ADD AttachmentContent VARBINARY(MAX) NULL;
+IF COL_LENGTH('dbo.HrmLeaveRequest', 'AdjustKind') IS NULL
+    ALTER TABLE dbo.HrmLeaveRequest ADD AdjustKind NVARCHAR(10) NULL, AdjustMinutes INT NULL, Amount DECIMAL(18,2) NULL;
 GO
 
 -- Procedure forms can contain detailed expense lines; preserve existing content.

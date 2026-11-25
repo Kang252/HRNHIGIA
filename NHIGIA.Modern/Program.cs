@@ -8,13 +8,17 @@ using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using Microsoft.IdentityModel.Tokens;
 using NHIGIA.Modern.Infrastructure;
 
+// One culture on every machine: forms, SVG and CSS numbers behave the same on Windows and in the container.
+System.Globalization.CultureInfo.DefaultThreadCurrentCulture = System.Globalization.CultureInfo.InvariantCulture;
+System.Globalization.CultureInfo.CurrentCulture = System.Globalization.CultureInfo.InvariantCulture;
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
 
 builder.Services
-    .AddControllersWithViews()
+    .AddControllersWithViews(options => options.ModelBinderProviders.Insert(0, new InvariantNumberBinderProvider()))
     .AddJsonOptions(options => options.JsonSerializerOptions.PropertyNamingPolicy = null);
 var keycloak = builder.Configuration.GetSection("Authentication:Keycloak");
 var keycloakEnabled = HrmAuthenticationMode.UsesKeycloak(builder.Configuration);
@@ -60,7 +64,11 @@ builder.Services.AddAuthentication(options =>
             {
                 var store = context.HttpContext.RequestServices.GetRequiredService<HrmDataStore>();
                 var user = store.FindUser(userId);
-                if (user == null || !user.IsActive)
+                var roleChanged = user != null && !string.Equals(user.RoleCode,
+                    context.Principal.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value, StringComparison.Ordinal);
+                var passwordChanged = !keycloakEnabled && user?.PasswordChangedAt is { } changedAt &&
+                    context.Properties.IssuedUtc < new DateTimeOffset(DateTime.SpecifyKind(changedAt, DateTimeKind.Utc));
+                if (user == null || !user.IsActive || roleChanged || passwordChanged)
                 {
                     context.RejectPrincipal();
                     await context.HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
@@ -268,6 +276,7 @@ else
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<KeycloakAvailabilityProbe>();
+builder.Services.AddSingleton<LoginThrottle>();
 builder.Services.AddSingleton<HrmDataStore>();
 builder.Services.AddSingleton<IOpenCvFaceMatcher, OpenCvFaceMatcher>();
 builder.Services.AddSingleton<HanetAttendanceSyncService>();
@@ -308,6 +317,19 @@ if (!app.Environment.IsDevelopment())
 app.UseStaticFiles();
 app.UseRouting();
 app.UseAuthentication();
+app.Use(async (context, next) =>
+{
+    // A temporary password only opens the page that replaces it.
+    if (context.User.HasClaim("must_change_password", "1") &&
+        !context.Request.Path.StartsWithSegments("/Account/ChangePassword", StringComparison.OrdinalIgnoreCase) &&
+        !context.Request.Path.StartsWithSegments("/Account/Logout", StringComparison.OrdinalIgnoreCase) &&
+        !context.Request.Path.StartsWithSegments("/Health", StringComparison.OrdinalIgnoreCase))
+    {
+        context.Response.Redirect("/Account/ChangePassword");
+        return;
+    }
+    await next();
+});
 app.UseAuthorization();
 
 app.MapControllerRoute(
