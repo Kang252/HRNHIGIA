@@ -219,6 +219,7 @@ namespace NHIGIA.Modern.Models
         public string LeaveType { get; set; }
         public DateTime StartDate { get; set; }
         public DateTime EndDate { get; set; }
+        public decimal? RequestedDays { get; set; }
         public string SessionCode { get; set; }
         public string HandoverTo { get; set; }
         public string Reason { get; set; }
@@ -233,6 +234,13 @@ namespace NHIGIA.Modern.Models
         public string HrName { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
+    }
+
+    public class LeavePreviewModel
+    {
+        public decimal RequestedDays { get; set; }
+        public string StatusCode { get; set; }
+        public string ApproverLabel { get; set; }
     }
 
     public class CreateLeaveRequest
@@ -423,6 +431,8 @@ namespace NHIGIA.Modern.Models
         public string Period { get; set; }
         public DateTime FromDate { get; set; }
         public DateTime ToDate { get; set; }
+        public DateTime ClosableFrom { get; set; }
+        public bool HasEnded { get; set; }
         public string StatusCode { get; set; } = "OPEN";
         public bool IsConfirmed { get; set; }
         public DateTime? SubmittedAt { get; set; }

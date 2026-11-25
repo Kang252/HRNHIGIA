@@ -75,7 +75,54 @@
         return item.StatusCode === 'PENDING_HR';
     }
 
-    root.HrmRequestForm = { escapeHtml: escapeHtml, employeeLabel: employeeLabel, employeeId: employeeId,
+    // Workdays and approver come from the server so the preview cannot drift from CreateLeave.
+    var previewUrl = null, previewRequest = 0, previewDays = null;
+
+    function formatDays(value) {
+        return String(Math.round(Number(value) * 10) / 10).replace('.', ',') + ' ngày công';
+    }
+
+    function leaveDaysText() { return previewDays === null ? '' : formatDays(previewDays); }
+
+    function refreshPreview() {
+        var form = document.querySelector('#dynamicFormContainer .tc-tanca-form');
+        if (!form || !previewUrl) return;
+        var value = function (id) { var input = form.querySelector('#' + id); return input ? input.value : ''; };
+        var days = form.querySelector('#dynLeaveDaysCalc'), approver = form.querySelector('#dynApproverPreview');
+        var show = function (daysText, approverText) {
+            if (days) days.textContent = daysText;
+            if (approver) approver.textContent = approverText;
+        };
+        var current = ++previewRequest, query = { EmployeeId: value('dynEmployeeId') };
+        previewDays = null;
+        if (!query.EmployeeId) { show('—', 'Chọn nhân viên để xem người duyệt'); return; }
+        if (form.getAttribute('data-template') === 'LEAVE') {
+            query.StartDate = value('dynStartDate');
+            query.EndDate = value('dynEndDate');
+            query.SessionCode = value('dynSession');
+            if (dateRangeError(query.StartDate, query.EndDate)) { show('—', 'Chọn khoảng ngày hợp lệ'); return; }
+        }
+        show('Đang tính…', 'Đang xác định người duyệt…');
+        root.jQuery.get(previewUrl, query).done(function (response) {
+            if (current !== previewRequest) return;
+            var data = response.Data || {};
+            if (query.StartDate) previewDays = data.RequestedDays;
+            show(formatDays(data.RequestedDays || 0), (data.ApproverLabel || 'Người có thẩm quyền') + ' phê duyệt');
+        }).fail(function (xhr) {
+            if (current !== previewRequest) return;
+            show('Chưa tính được', (xhr.responseJSON && xhr.responseJSON.Message) || 'Chưa xác định được người duyệt');
+        });
+    }
+
+    function bindPreview(url) {
+        previewUrl = url;
+        root.jQuery(document).off('.leavePreview').on('change.leavePreview', '#dynStartDate, #dynEndDate, #dynSession, #dynEmployeeInput', function () {
+            setTimeout(refreshPreview, 0); // after the handler that resolves dynEmployeeId
+        });
+    }
+
+    root.HrmRequestForm = { bindPreview: bindPreview, refreshPreview: refreshPreview, leaveDaysText: leaveDaysText, formatDays: formatDays,
+         escapeHtml: escapeHtml, employeeLabel: employeeLabel, employeeId: employeeId,
         populateEmployees: populateEmployees, fileError: fileError, dateRangeError: dateRangeError,
         validate: validate, canApprove: canApprove };
     if (typeof module !== 'undefined' && module.exports) module.exports = root.HrmRequestForm;

@@ -597,7 +597,7 @@ public sealed class WorkItemStore
                         {
                             Title = $"Bảng lương {employee.DisplayName}", Description = description,
                             Category = employee.WorkLocation ?? "Nhị Gia", Reference = reference,
-                            employee.JobTitle, employee.HireDate, ContactEmail = email, Keywords = metadata,
+                            JobLevel = employee.JobTitle, StartDate = employee.HireDate, ContactEmail = email, Keywords = metadata,
                             EmployeeId = employee.Id, employee.DepartmentId, Target = calculated.WorkSalary,
                             Actual = calculated.NetSalary, CreatedBy = actor.Id, Quarter = range.Period,
                             PeriodStart = range.FromDate, PeriodEnd = range.ToDate, LastActionNote = "Tính tự động từ chấm công đã khóa"
@@ -617,7 +617,7 @@ public sealed class WorkItemStore
                         {
                             current.Id, Title = $"Bảng lương {employee.DisplayName}", Description = description,
                             Category = employee.WorkLocation ?? "Nhị Gia", Reference = reference,
-                            employee.JobTitle, employee.HireDate, ContactEmail = email, Keywords = metadata,
+                            JobLevel = employee.JobTitle, StartDate = employee.HireDate, ContactEmail = email, Keywords = metadata,
                             employee.DepartmentId, Target = calculated.WorkSalary, Actual = calculated.NetSalary,
                             PeriodStart = range.FromDate, PeriodEnd = range.ToDate
                         }, transaction);

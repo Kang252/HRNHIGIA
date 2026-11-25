@@ -29,6 +29,33 @@
         const action = openCvEnabled && p.CanCompareFace ? `<button type="button" class="hrm-btn" data-compare-face="${p.Id}" data-face-owner="${p.UserId === userId}">${p.FaceMatchStatus ? 'Thử lại so khớp OpenCV' : 'Thử so khớp OpenCV'}</button>` : '';
         return result + (action ? `<div class="remote-actions remote-face-trial-actions">${action}</div>` : '');
     }
+    // Bước còn thiếu, theo đúng thứ tự phải làm. Ghé khách hàng không cần mẫu khuôn mặt.
+    let loaded = false, busy = false;
+    function steps() {
+        const today = localDate(), visit = $('remoteKind').value === 'VISIT', selected = plans.find(x => x.Plan.Id === Number($('remotePlan').value))?.Plan;
+        const usable = plans.map(x => x.Plan).filter(p => p.UserId === userId && ['APPROVED','PENDING'].includes(p.StatusCode) && day(p.FromDate) <= today && day(p.ToDate) >= today);
+        const result = [];
+        if (!visit) {
+            const registered = faceStatus === 'ACTIVE' || faceStatus === 'PENDING';
+            result.push({label:'Đăng ký khuôn mặt',done:registered,title:'Đăng ký khuôn mặt trước khi chấm vào/ra',hint:'Bạn chưa có mẫu khuôn mặt. Đăng ký rồi gửi HR duyệt.',action:'Đăng ký khuôn mặt',href:'/FaceEnrollment'});
+            result.push({label:'HR duyệt mẫu',done:faceStatus === 'ACTIVE',title:'Đang chờ HR duyệt mẫu khuôn mặt',hint:'Bạn có thể chấm vào/ra sau khi HR duyệt.',action:'Xem mẫu đã gửi',href:'/FaceEnrollment'});
+        }
+        result.push(usable.length
+            ? {label:'Chọn lịch áp dụng',done:!!selected,title:'Chọn lịch áp dụng hôm nay',hint:'Chọn lịch đăng ký trong biểu mẫu bên dưới.',action:'Chọn lịch',href:'#remotePlan'}
+            : {label:'Chọn lịch áp dụng',done:!!selected,title:'Chưa có lịch áp dụng hôm nay',hint:'Đăng ký lịch ngoài công ty tại Thủ tục.',action:'Đăng ký lịch',href:'/Home/LeaveRequests#remoteRegistration'});
+        return result;
+    }
+    function showSteps() {
+        if (plansOnly || !loaded) return;
+        const list = steps(), next = list.find(x => !x.done);
+        $('remoteSteps').hidden = false; $('remoteSteps').classList.toggle('is-ready',!next);
+        $('remoteStepTitle').textContent = next ? next.title : 'Sẵn sàng chấm công';
+        $('remoteStepHint').textContent = next ? next.hint : 'Mở camera, chụp ảnh rồi ghi nhận lượt chấm.';
+        $('remoteStepAction').hidden = !next;
+        if (next) { $('remoteStepAction').textContent = next.action; $('remoteStepAction').href = next.href; }
+        $('remoteStepList').innerHTML = list.map((x,i) => `<li class="${x.done?'is-done':x === next?'is-next':''}"${x === next?' aria-current="step"':''}><span aria-hidden="true">${x.done?'✓':i+1}</span>${esc(x.label)}<small>${x.done?'Đã xong':x === next?'Cần làm':'Chưa tới'}</small></li>`).join('');
+        $('remoteOpenCamera').disabled = $('remoteSend').disabled = busy || !!next;
+    }
     function ensureFaceReady() {
         if ($('remoteKind').value !== 'VISIT' && faceStatus !== 'ACTIVE')
             throw new Error('Cần đăng ký mẫu khuôn mặt và được HR duyệt trước khi chấm vào/ra. Mở “Khuôn mặt chấm công” để đăng ký.');
@@ -173,8 +200,10 @@
         const previous=$('remotePlan').value;
         $('remotePlan').innerHTML='<option value="">Chọn lịch của bạn</option>'+plans.filter(x=>x.Plan.UserId===userId && ['APPROVED','PENDING'].includes(x.Plan.StatusCode)).map(({Plan:p})=>`<option value="${p.Id}">${esc(p.PlaceName)} · ${day(p.FromDate)} · ${esc(labels[p.StatusCode])}</option>`).join('');
         if([...$('remotePlan').options].some(o=>o.value===previous)) $('remotePlan').value=previous;
+        loaded = true;
         planHint();
         faceTrialState();
+        showSteps();
         }
         if ($('planTrip')) {
         const oldTrip=$('planTrip').value;
@@ -190,10 +219,10 @@
 
     if (!plansOnly) {
     $('remoteOpenCamera').onclick=async()=>{
-        stopCamera(); $('remoteOpenCamera').disabled=true;
+        stopCamera(); busy=true; showSteps();
         try { ensureFaceReady(); stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:$('remoteKind').value==='VISIT'?'environment':'user',width:{ideal:960},height:{ideal:720}}}); $('remoteVideo').srcObject=stream; $('remoteVideo').hidden=false; await $('remoteVideo').play(); $('remoteCapture').disabled=false; }
         catch (error) { message(faceStatus !== 'ACTIVE' && $('remoteKind').value !== 'VISIT' ? error.message : 'Không mở được camera. Hãy cấp quyền camera và dùng kết nối HTTPS.',true); }
-        finally { $('remoteOpenCamera').disabled=false; }
+        finally { busy=false; showSteps(); }
     };
     $('remoteCapture').onclick=async()=>{
         $('remoteCapture').disabled=true;
@@ -206,15 +235,16 @@
             capture={Photo:canvas.toDataURL('image/jpeg',0.78),CapturedAt:new Date().toISOString()};
             faceTrialState();
             $('remotePhoto').src=capture.Photo; $('remotePhoto').hidden=false; stopCamera();
-            $('remoteGps').textContent='Đang lấy GPS…'; $('remoteSend').disabled=true;
+            $('remoteGps').textContent='Đang lấy GPS…'; busy=true; showSteps();
             try { const gps=await locate(); Object.assign(capture,{Latitude:gps.latitude,Longitude:gps.longitude,AccuracyMeters:gps.accuracy}); $('remoteGps').textContent=`Đã lấy vị trí; sai số ±${Math.round(gps.accuracy)} m.`; }
             catch(error) { $('remoteGps').textContent=error.message; }
         } catch(error) { message(error.message,true); }
-        finally { $('remoteSend').disabled=false; }
+        finally { busy=false; showSteps(); }
     };
-    $('remoteKind').onchange=resetPhoto; $('remotePlan').onchange=()=>{ resetPhoto(); planHint(); };
+    $('remoteKind').onchange=()=>{ resetPhoto(); showSteps(); }; $('remotePlan').onchange=()=>{ resetPhoto(); planHint(); showSteps(); };
+    $('remoteStepAction').onclick=event=>{ if($('remoteStepAction').getAttribute('href')!=='#remotePlan') return; event.preventDefault(); $('remotePlan').focus(); $('remotePlan').scrollIntoView({block:'center'}); };
     $('remotePunchForm').onsubmit=async event=>{
-        event.preventDefault(); $('remoteSend').disabled=true;
+        event.preventDefault(); busy=true; showSteps();
         try {
             ensureFaceReady();
             if(!capture) throw new Error('Chụp ảnh trước khi ghi nhận.');
@@ -225,7 +255,7 @@
             await saveQueued(item); resetPhoto(); $('remoteNote').value='';
             message('Đã lưu lượt chấm trên thiết bị. Đang chờ đồng bộ.'); await showQueue(); await sync();
         } catch(error) { message(error.message,true); }
-        finally { $('remoteSend').disabled=false; }
+        finally { busy=false; showSteps(); }
     };
     }
     function planMode() { const home=$('planMode').value==='HOME'; $('remoteLocation').open=home; $('planTrip').disabled=home; if(home) $('planTrip').value=''; renderPlanLocations(); }

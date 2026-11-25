@@ -382,7 +382,36 @@ namespace NHIGIA.Modern.Infrastructure
                 WHERE (@CanSeeAll=1 OR r.UserId=@ActorId OR (@IsManager=1 AND u.DepartmentId=@DepartmentId))
                 ORDER BY r.CreatedAt DESC";
             var canSeeAll = actor.RoleCode == HrmRoles.Admin || actor.RoleCode == HrmRoles.Hr || actor.RoleCode == HrmRoles.Director;
-            using (var connection = OpenConnection()) return connection.Query<LeaveRequestModel>(sql, new { CanSeeAll = canSeeAll, IsManager = actor.RoleCode == HrmRoles.Manager, ActorId = actor.Id, DepartmentId = actor.DepartmentId }).ToList();
+            var scope = new { CanSeeAll = canSeeAll, IsManager = actor.RoleCode == HrmRoles.Manager, ActorId = actor.Id, DepartmentId = actor.DepartmentId };
+            using var connection = OpenConnection();
+            var requests = connection.Query<LeaveRequestModel>(sql, scope).ToList();
+            var schedules = connection.Query<ScheduleModel>(@"SELECT s.* FROM dbo.HrmEmployeeSchedule s
+                INNER JOIN dbo.HrmUserAccount u ON u.Id=s.UserId
+                WHERE s.StatusCode='ACTIVE' AND (@CanSeeAll=1 OR s.UserId=@ActorId OR (@IsManager=1 AND u.DepartmentId=@DepartmentId))",
+                scope).ToLookup(x => x.UserId);
+            foreach (var request in requests)
+                request.RequestedDays = LeaveRequestPolicy.RequestedDays(request, schedules[request.UserId]);
+            return requests;
+        }
+
+        /// <summary>What CreateLeave would do with this request: counted workdays and first approver.</summary>
+        public LeavePreviewModel PreviewLeave(CreateLeaveRequest request, HrmUserAccountModel actor)
+        {
+            var target = FindUser(request.EmployeeId ?? actor.Id);
+            if (!LeaveRequestPolicy.CanCreateFor(actor, target))
+                throw new InvalidOperationException("Nhân viên không còn hoạt động hoặc không thuộc phạm vi của bạn.");
+            if (request.EndDate.Date < request.StartDate.Date || (request.EndDate.Date - request.StartDate.Date).TotalDays > 366)
+                throw new InvalidOperationException("Khoảng thời gian yêu cầu không hợp lệ hoặc vượt quá 366 ngày.");
+            using var connection = OpenConnection();
+            var schedules = connection.Query<ScheduleModel>(@"SELECT * FROM dbo.HrmEmployeeSchedule
+                WHERE UserId=@UserId AND StatusCode='ACTIVE'", new { UserId = target.Id }).ToList();
+            var status = LeaveRequestPolicy.InitialStatus(request, schedules, target.Id, target.RoleCode);
+            return new LeavePreviewModel
+            {
+                RequestedDays = LeaveRequestPolicy.RequestedDays(request, schedules, target.Id),
+                StatusCode = status,
+                ApproverLabel = LeaveRequestPolicy.ApproverLabel(status)
+            };
         }
 
         public LeaveStatsModel GetLeaveStats(HrmUserAccountModel actor)
@@ -1018,19 +1047,23 @@ namespace NHIGIA.Modern.Infrastructure
         {
             var range = AttendancePeriodRange.Parse(period);
             using var connection=OpenConnection();
-            return connection.QuerySingle<AttendancePeriodModel>(@"SELECT @Period Period,@FromDate FromDate,@ToDate ToDate,COALESCE(p.StatusCode,'OPEN') StatusCode,
+            var state=connection.QuerySingle<AttendancePeriodModel>(@"SELECT @Period Period,@FromDate FromDate,@ToDate ToDate,COALESCE(p.StatusCode,'OPEN') StatusCode,
                     CONVERT(bit,CASE WHEN c.UserId IS NULL THEN 0 ELSE 1 END) IsConfirmed,c.SubmittedAt,p.LockedAt,u.DisplayName LockedByName,p.UnlockReason,
                     (SELECT COUNT(1) FROM dbo.HrmUserAccount x WHERE x.IsActive=1 AND x.RoleCode<>'ADMIN') EmployeeCount,
-                    (SELECT COUNT(1) FROM dbo.HrmAttendancePeriodConfirmation x INNER JOIN dbo.HrmUserAccount a ON a.Id=x.UserId WHERE x.Period=@Period AND x.StatusCode='SUBMITTED' AND a.IsActive=1 AND a.RoleCode<>'ADMIN') ConfirmedCount,
+                    (SELECT COUNT(1) FROM dbo.HrmAttendancePeriodConfirmation x INNER JOIN dbo.HrmUserAccount a ON a.Id=x.UserId WHERE x.Period=@Period AND x.StatusCode='SUBMITTED' AND x.SubmittedAt>=@ToDate AND a.IsActive=1 AND a.RoleCode<>'ADMIN') ConfirmedCount,
                     (SELECT COUNT(1) FROM dbo.HrmAttendanceAdjustment x WHERE x.WorkDate BETWEEN @FromDate AND @ToDate AND x.StatusCode='PENDING') PendingAdjustmentCount,
                     (SELECT COUNT(1) FROM dbo.HrmRemotePunch x WHERE x.CheckTime>=@FromDate AND x.CheckTime<DATEADD(day,1,@ToDate) AND x.StatusCode='PENDING' AND x.Kind IN ('IN','OUT')) PendingRemoteCount
                 FROM (SELECT 1 n) seed LEFT JOIN dbo.HrmAttendancePeriod p ON p.Period=@Period
-                LEFT JOIN dbo.HrmAttendancePeriodConfirmation c ON c.Period=@Period AND c.UserId=@UserId
+                LEFT JOIN dbo.HrmAttendancePeriodConfirmation c ON c.Period=@Period AND c.UserId=@UserId AND c.SubmittedAt>=@ToDate
                 LEFT JOIN dbo.HrmUserAccount u ON u.Id=p.LockedByUserId",new {range.Period,range.FromDate,range.ToDate,UserId=actor.Id});
+            state.ClosableFrom=range.ClosableFrom;
+            state.HasEnded=range.HasEnded(CurrentVietnamTime());
+            return state;
         }
 
         public bool ConfirmAttendancePeriod(string period, HrmUserAccountModel actor, string ip)
         {
+            AttendancePeriodRange.Parse(period).EnsureEnded(CurrentVietnamTime(),"xác nhận");
             var state=GetAttendancePeriod(period,actor);
             if(state.StatusCode=="LOCKED") throw new InvalidOperationException("Kỳ chấm công đã khóa.");
             using var connection=OpenConnection(); using var tx=connection.BeginTransaction();
@@ -1043,6 +1076,8 @@ namespace NHIGIA.Modern.Infrastructure
         public bool SetAttendancePeriodLock(string period, bool locked, string reason, bool force, HrmUserAccountModel actor, string ip)
         {
             var range = AttendancePeriodRange.Parse(period);
+            // Áp dụng cho cả khóa ngoại lệ; mở khóa vẫn được phép để sửa kỳ đã khóa sớm.
+            if(locked) range.EnsureEnded(CurrentVietnamTime(),"khóa kỳ");
             if((!locked || force) && string.IsNullOrWhiteSpace(reason)) throw new InvalidOperationException(force ? "Vui lòng nhập lý do khóa ngoại lệ." : "Vui lòng nhập lý do mở khóa.");
             using var connection=OpenConnection();using var tx=connection.BeginTransaction(IsolationLevel.Serializable);
             if(locked && !force)
@@ -1053,7 +1088,7 @@ namespace NHIGIA.Modern.Infrastructure
                 if(remotePending>0) throw new InvalidOperationException("Còn lượt chấm ngoài công ty chờ xác minh. Mở Chấm công ngoài công ty để xử lý.");
                 var counts=connection.QuerySingle<AttendancePeriodModel>(@"SELECT
                     (SELECT COUNT(1) FROM dbo.HrmUserAccount WITH(HOLDLOCK) WHERE IsActive=1 AND RoleCode<>'ADMIN') EmployeeCount,
-                    (SELECT COUNT(1) FROM dbo.HrmAttendancePeriodConfirmation c WITH(UPDLOCK,HOLDLOCK) INNER JOIN dbo.HrmUserAccount u ON u.Id=c.UserId WHERE c.Period=@Period AND c.StatusCode='SUBMITTED' AND u.IsActive=1 AND u.RoleCode<>'ADMIN') ConfirmedCount",new {Period=range.Period},tx);
+                    (SELECT COUNT(1) FROM dbo.HrmAttendancePeriodConfirmation c WITH(UPDLOCK,HOLDLOCK) INNER JOIN dbo.HrmUserAccount u ON u.Id=c.UserId WHERE c.Period=@Period AND c.StatusCode='SUBMITTED' AND c.SubmittedAt>=@ToDate AND u.IsActive=1 AND u.RoleCode<>'ADMIN') ConfirmedCount",new {Period=range.Period,range.ToDate},tx);
                 if(counts.ConfirmedCount<counts.EmployeeCount) throw new InvalidOperationException($"Chưa đủ xác nhận chấm công ({counts.ConfirmedCount}/{counts.EmployeeCount} nhân viên).");
             }
             connection.Execute(@"MERGE dbo.HrmAttendancePeriod AS t USING(SELECT @Period Period)s ON t.Period=s.Period
@@ -1075,14 +1110,15 @@ namespace NHIGIA.Modern.Infrastructure
                     CONVERT(bit,CASE WHEN c.UserId IS NULL THEN 0 ELSE 1 END) IsConfirmed,c.SubmittedAt
                 FROM dbo.HrmUserAccount u LEFT JOIN dbo.HrmEmployeeProfile p ON p.UserId=u.Id
                 LEFT JOIN dbo.HrmDepartment d ON d.Id=u.DepartmentId
-                LEFT JOIN dbo.HrmAttendancePeriodConfirmation c ON c.Period=@Period AND c.UserId=u.Id AND c.StatusCode='SUBMITTED'
+                LEFT JOIN dbo.HrmAttendancePeriodConfirmation c ON c.Period=@Period AND c.UserId=u.Id AND c.StatusCode='SUBMITTED' AND c.SubmittedAt>=@ToDate
                 WHERE u.IsActive=1 AND u.RoleCode<>'ADMIN' AND (@All=1 OR (@Manager=1 AND u.DepartmentId=@DepartmentId))
                 ORDER BY CASE WHEN c.UserId IS NULL THEN 0 ELSE 1 END,u.DisplayName",
-                new {Period=range.Period,All=all,Manager=actor.RoleCode==HrmRoles.Manager,actor.DepartmentId}).ToList();
+                new {Period=range.Period,range.ToDate,All=all,Manager=actor.RoleCode==HrmRoles.Manager,actor.DepartmentId}).ToList();
         }
 
         public int RemindAttendanceConfirmations(string period,HrmUserAccountModel actor,string ip)
         {
+            AttendancePeriodRange.Parse(period).EnsureEnded(CurrentVietnamTime(),"nhắc xác nhận");
             var rows=GetAttendanceConfirmations(period,actor).Where(x=>!x.IsConfirmed).ToList();
             using var connection=OpenConnection();using var tx=connection.BeginTransaction();
             var inserted=0;

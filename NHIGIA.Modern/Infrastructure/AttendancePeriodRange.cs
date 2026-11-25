@@ -27,5 +27,17 @@ public readonly record struct AttendancePeriodRange(string Period, DateTime From
         return Parse(endingMonth.ToString("yyyy-MM", CultureInfo.InvariantCulture));
     }
 
+    /// <summary>First day on which the period may be confirmed or locked.</summary>
+    public DateTime ClosableFrom => ToDate.Date.AddDays(1);
+
+    public bool HasEnded(DateTime now) => now.Date >= ClosableFrom;
+
+    public void EnsureEnded(DateTime now, string action)
+    {
+        if (!HasEnded(now))
+            throw new InvalidOperationException(
+                $"Kỳ công {FromDate:dd/MM/yyyy}–{ToDate:dd/MM/yyyy} chưa kết thúc. Có thể {action} từ ngày {ClosableFrom:dd/MM/yyyy}.");
+    }
+
     public static AttendancePeriodRange Current() => ForDate(HrmDataStore.CurrentVietnamTime());
 }

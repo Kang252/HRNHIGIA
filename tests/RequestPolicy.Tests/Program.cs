@@ -85,6 +85,17 @@ Check("Payroll due date skips weekend", PayrollPolicy.AddBusinessDays(new DateTi
 Check("KPI month resolves exact range", KpiPeriodPolicy.TryResolve("MONTH","Tháng 02-2026",out var monthPeriod) && monthPeriod.Start==new DateTime(2026,2,1) && monthPeriod.End==new DateTime(2026,2,28));
 Check("KPI quarter resolves exact range", KpiPeriodPolicy.TryResolve("QUARTER","Quý 4-2026",out var quarterPeriod) && quarterPeriod.Start==new DateTime(2026,10,1) && quarterPeriod.End==new DateTime(2026,12,31));
 Check("KPI year resolves exact range", KpiPeriodPolicy.TryResolve("YEAR","2026",out var yearPeriod) && yearPeriod.Start==new DateTime(2026,1,1) && yearPeriod.End==new DateTime(2026,12,31));
+var monthKpi = new WorkItem { Kind="kpi", KpiType="ASSIGNED", KpiPeriodType="MONTH", Quarter="Tháng 11-2026", PeriodStart=new(2026,11,1), PeriodEnd=new(2026,11,30) };
+var defaultFilter = new KpiFilterState { PeriodType="QUARTER", FromQuarter="Quý 4-2026", ToQuarter="Quý 4-2026", KpiType="ASSIGNED" }.Showing(monthKpi);
+Check("Saved month KPI switches the filter to its month", defaultFilter.PeriodType=="MONTH" && defaultFilter.FromQuarter=="Tháng 11-2026" && defaultFilter.ToQuarter=="Tháng 11-2026");
+var rangeFilter = new KpiFilterState { PeriodType="MONTH", FromQuarter="Tháng 09-2026", ToQuarter="Tháng 12-2026", KpiType="PLAN", Query="cũ" }.Showing(monthKpi);
+Check("Filter already showing the KPI keeps its range", rangeFilter.FromQuarter=="Tháng 09-2026" && rangeFilter.ToQuarter=="Tháng 12-2026" && rangeFilter.KpiType=="ASSIGNED" && rangeFilter.Query==null);
+var outsideFilter = new KpiFilterState { PeriodType="MONTH", FromQuarter="Tháng 01-2026", ToQuarter="Tháng 02-2026" }.Showing(monthKpi);
+Check("Filter outside the KPI period moves to it", outsideFilter.FromQuarter=="Tháng 11-2026" && outsideFilter.ToQuarter=="Tháng 11-2026");
+var yearFilter = new KpiFilterState().Showing(new WorkItem { Kind="kpi", KpiType="PLAN", KpiPeriodType="YEAR", Quarter="2026", PeriodStart=new(2026,1,1), PeriodEnd=new(2026,12,31) });
+Check("Saved year plan KPI opens the year and plan tab", yearFilter.PeriodType=="YEAR" && yearFilter.FromQuarter=="2026" && yearFilter.KpiType=="PLAN");
+Check("Half-day request is shown as half a workday", LeaveRequestPolicy.RequestedDays(Leave(session:"Buổi sáng"),[])==.5m);
+Check("Non-leave session keeps calendar days", LeaveRequestPolicy.RequestedDays(Leave("Tạm ứng lương","Chuyển khoản"),[])==null);
 Check("Incomplete insurance total stays unknown", new PayrollInsuranceItem { BhxhComp=100, BhytComp=20 }.TotalComp == null);
 var stagingMissingGuard = false;
 try { DatabaseConfiguration.Resolve(new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string> { ["ASPNETCORE_ENVIRONMENT"]="Staging", ["ConnectionStrings:MainConnectionString"]="Server=localhost;Database=NHIGIA_STAGING;User Id=test;Password=test;TrustServerCertificate=True" }).Build()); }

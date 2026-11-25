@@ -215,7 +215,7 @@ public sealed class WorkController : Controller
     }
 
     [HttpPost, ValidateAntiForgeryToken]
-    public IActionResult Create([Bind("Kind,Title,Description,Category,Reference,WorkLocation,JobLevel,ExperienceRequired,EducationRequired,GenderRequirement,AgeRange,SalaryRange,SkillRequirements,Benefits,RecruitmentProcess,RecruitmentReason,StartDate,ContractType,ProbationPeriod,RecruitmentChannel,ContactName,ContactEmail,ContactPhone,ContactAddress,Keywords,EmployeeId,DepartmentId,DueDate,StartAt,EndAt,Location,Destination,Target,Actual,Weight,Priority,KpiType,KpiPeriodType,Quarter,PeriodStart,PeriodEnd,ProofNote,ParticipantIds")] WorkItem draft)
+    public IActionResult Create([Bind("Kind,Title,Description,Category,Reference,WorkLocation,JobLevel,ExperienceRequired,EducationRequired,GenderRequirement,AgeRange,SalaryRange,SkillRequirements,Benefits,RecruitmentProcess,RecruitmentReason,StartDate,ContractType,ProbationPeriod,RecruitmentChannel,ContactName,ContactEmail,ContactPhone,ContactAddress,Keywords,EmployeeId,DepartmentId,DueDate,StartAt,EndAt,Location,Destination,Target,Actual,Weight,Priority,KpiType,KpiPeriodType,Quarter,PeriodStart,PeriodEnd,ProofNote,ParticipantIds")] WorkItem draft, [Bind(Prefix = "filter")] KpiFilterState filter = null)
     {
         if (draft.Kind == "assets") return SaveAssetItem(draft);
         var page = Page(draft.Kind);
@@ -238,6 +238,7 @@ public sealed class WorkController : Controller
             draft.PeriodStart = period.Start;
             draft.PeriodEnd = period.End;
             draft.DueDate = period.End;
+            ApplyKpiFilter(page, draft, filter);
         }
         else if (draft.Kind == "overtime")
         {
@@ -385,6 +386,7 @@ public sealed class WorkController : Controller
                 ? _store.CreateKpi(draft)
                 : _store.Create(draft, participantIds);
             TempData["WorkSuccess"] = $"Đã lưu #{id:D5} vào hệ thống.";
+            if (draft.Kind == "kpi") return RedirectToKpi(filter, draft, id);
             return RedirectToAction("Index", new { kind = draft.Kind, otTab = draft.Kind == "overtime" ? "my-calendar" : null, otMonth = draft.DueDate?.ToString("yyyy-MM"), trTab = draft.Kind == "transfer" ? "requests" : null });
         }
         catch (Exception ex)
@@ -611,7 +613,7 @@ public sealed class WorkController : Controller
     }
 
     [HttpPost, ValidateAntiForgeryToken]
-    public IActionResult UpdateKpi([Bind("Id,Kind,Title,Description,Category,Reference,EmployeeId,DepartmentId,DueDate,Target,Actual,Weight,Priority,KpiType,KpiPeriodType,Quarter,PeriodStart,PeriodEnd,ProofNote")] WorkItem draft)
+    public IActionResult UpdateKpi([Bind("Id,Kind,Title,Description,Category,Reference,EmployeeId,DepartmentId,DueDate,Target,Actual,Weight,Priority,KpiType,KpiPeriodType,Quarter,PeriodStart,PeriodEnd,ProofNote")] WorkItem draft, [Bind(Prefix = "filter")] KpiFilterState filter = null)
     {
         if (draft.Kind != "kpi") return NotFound();
         var page = Page("kpi");
@@ -639,6 +641,7 @@ public sealed class WorkController : Controller
         draft.PeriodStart = period.Start;
         draft.PeriodEnd = period.End;
         draft.DueDate = period.End;
+        ApplyKpiFilter(page, draft, filter);
         ValidateKpi(draft, page, draft.Id);
         if (!page.Available || !ModelState.IsValid) return View("Index", page);
         if (!_store.UpdateKpi(draft, _user.Current.Id, ClientIp))
@@ -647,16 +650,16 @@ public sealed class WorkController : Controller
             return View("Index", page);
         }
         TempData["WorkSuccess"] = $"Đã cập nhật KPI #{draft.Id:D5}.";
-        return RedirectToAction("Index", new { kind = "kpi" });
+        return RedirectToKpi(filter, draft, draft.Id);
     }
 
     [HttpPost, ValidateAntiForgeryToken]
-    public IActionResult SubmitKpiProof(int id, decimal actual, string proofNote)
+    public IActionResult SubmitKpiProof(int id, decimal actual, string proofNote, [Bind(Prefix = "filter")] KpiFilterState filter = null)
     {
         if (actual < 0 || string.IsNullOrWhiteSpace(proofNote))
         {
             TempData["WorkError"] = "Vui lòng nhập kết quả không âm và nội dung chứng minh.";
-            return RedirectToAction("Index", new { kind = "kpi" });
+            return RedirectToKpi(filter);
         }
         if (!_store.SubmitKpiProof(id, actual, proofNote, _user.Current.Id, ClientIp))
         {
@@ -666,11 +669,11 @@ public sealed class WorkController : Controller
         {
             TempData["WorkSuccess"] = $"Đã gửi chứng minh kết quả KPI #{id:D5}. Trạng thái chuyển sang Chờ chứng minh.";
         }
-        return RedirectToAction("Index", new { kind = "kpi" });
+        return RedirectToKpi(filter);
     }
 
     [HttpPost, ValidateAntiForgeryToken]
-    public IActionResult EvaluateKpiProof(int id, bool approve, string reviewNote)
+    public IActionResult EvaluateKpiProof(int id, bool approve, string reviewNote, [Bind(Prefix = "filter")] KpiFilterState filter = null)
     {
         var page = Page("kpi");
         if (!page.CanManage) return Forbid();
@@ -685,11 +688,11 @@ public sealed class WorkController : Controller
                 ? $"Đã phê duyệt chứng minh KPI #{id:D5}. Kết quả chuyển sang Đã chứng minh."
                 : $"Đã từ chối chứng minh KPI #{id:D5}. Đã gửi yêu cầu chỉnh sửa cho nhân viên.";
         }
-        return RedirectToAction("Index", new { kind = "kpi" });
+        return RedirectToKpi(filter);
     }
 
     [HttpPost, ValidateAntiForgeryToken]
-    public IActionResult DeleteKpi(int id)
+    public IActionResult DeleteKpi(int id, [Bind(Prefix = "filter")] KpiFilterState filter = null)
     {
         var page = Page("kpi");
         if (!page.CanManage) return Forbid();
@@ -702,7 +705,7 @@ public sealed class WorkController : Controller
         {
             TempData["WorkSuccess"] = $"Đã xóa KPI #{id:D5}.";
         }
-        return RedirectToAction("Index", new { kind = "kpi" });
+        return RedirectToKpi(filter);
     }
 
     [HttpPost, ValidateAntiForgeryToken]
@@ -825,6 +828,33 @@ public sealed class WorkController : Controller
             ModelState.AddModelError("", "Nhân viên được chọn không hợp lệ.");
         if (draft.Target < 0 || draft.Actual < 0)
             ModelState.AddModelError("", "Số tiền lương không được là số âm.");
+    }
+
+    // Sau khi lưu, quay lại đúng bộ lọc đang xem; nếu bản ghi nằm ngoài bộ lọc thì chuyển tới kỳ chứa nó.
+    private IActionResult RedirectToKpi(KpiFilterState filter, WorkItem saved = null, int? highlightId = null)
+    {
+        filter ??= new KpiFilterState();
+        if (saved != null) filter = filter.Showing(saved);
+        if (highlightId.HasValue) TempData["KpiHighlightId"] = highlightId.Value;
+        return RedirectToAction("Index", new
+        {
+            kind = "kpi",
+            periodType = filter.PeriodType,
+            fromQuarter = filter.FromQuarter,
+            toQuarter = filter.ToQuarter,
+            kpiType = filter.KpiType,
+            q = filter.Query
+        });
+    }
+
+    // Biểu mẫu lỗi được hiển thị lại bằng chính loại kỳ đang nhập, không rơi về mặc định Quý.
+    private static void ApplyKpiFilter(WorkPage page, WorkItem draft, KpiFilterState filter)
+    {
+        var view = (filter ?? new KpiFilterState()).Showing(draft);
+        page.PeriodType = view.PeriodType;
+        page.FromQuarter = view.FromQuarter;
+        page.ToQuarter = view.ToQuarter;
+        page.KpiTypeFilter = view.KpiType;
     }
 
     private void ValidateKpi(WorkItem draft, WorkPage page, int? excludeId = null)

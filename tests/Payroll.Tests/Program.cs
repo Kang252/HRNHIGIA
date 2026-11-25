@@ -17,6 +17,16 @@ var tests = new List<(string Name, Action Run)>
     {
         Throws<InvalidOperationException>(() => AttendancePeriodRange.Parse("10-2026"));
     }),
+    ("A period closes the day after its last day", () =>
+    {
+        var range = AttendancePeriodRange.Parse("2026-12");
+        Equal(new DateTime(2026, 12, 25), range.ClosableFrom);
+        True(!range.HasEnded(new DateTime(2026, 11, 25, 8, 0, 0)), "first day of the period");
+        True(!range.HasEnded(new DateTime(2026, 12, 24, 23, 59, 0)), "last day of the period");
+        True(range.HasEnded(new DateTime(2026, 12, 25)), "day after the period");
+        Throws<InvalidOperationException>(() => range.EnsureEnded(new DateTime(2026, 12, 24, 23, 59, 0), "xác nhận"));
+        range.EnsureEnded(new DateTime(2026, 12, 25), "xác nhận");
+    }),
     ("Company lunch 12:00-13:30 is removed once", () =>
     {
         Equal(480, PayrollCalculationPolicy.ScheduledMinutes(TimeSpan.FromHours(8), TimeSpan.FromHours(17.5), 60,
@@ -161,6 +171,8 @@ foreach (var test in tests)
 
 if (failures.Count > 0) Environment.Exit(1);
 Console.WriteLine($"Payroll tests passed: {tests.Count}");
+// Run from the repository root: dotnet run --project tests/Payroll.Tests -- --integration
+if (args.Contains("--integration")) IntegrationTests.Run();
 
 static void Equal<T>(T expected, T actual)
 {

@@ -111,6 +111,9 @@ public sealed class HrmController : BaseController
     public IActionResult LeaveRequests() => Execute(() => Store.GetLeaveRequests(CurrentHrmUser));
 
     [HttpGet]
+    public IActionResult LeavePreview(CreateLeaveRequest request) => Execute(() => Store.PreviewLeave(request, CurrentHrmUser));
+
+    [HttpGet]
     public IActionResult LeaveStats() => Execute(() => Store.GetLeaveStats(CurrentHrmUser));
 
     [HttpPost, ValidateAntiForgeryToken]

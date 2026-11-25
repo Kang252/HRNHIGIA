@@ -237,6 +237,7 @@ export class AttendanceService {
     ipAddress: string | undefined,
   ): Promise<void> {
     validateAttendancePeriod(period);
+    assertAttendancePeriodEnded(period);
     await this.schemaReadiness.assertReady("attendance");
     const pool = await this.sqlServer.getPool();
     const transaction = new sql.Transaction(pool);
@@ -1040,6 +1041,18 @@ export function resolveAttendancePeriod(
   if (period === undefined) return vietnamDatePart(now).slice(0, 7);
   validateAttendancePeriod(period);
   return period;
+}
+
+/** Periods run from the 25th through the 24th of the named month. */
+export function assertAttendancePeriodEnded(
+  period: string,
+  now = new Date(),
+): void {
+  if (vietnamDatePart(now) >= `${period}-25`) return;
+  const [year, month] = period.split("-");
+  throw new ConflictException(
+    `Kỳ công chưa kết thúc. Có thể xác nhận từ ngày 25/${month}/${year}.`,
+  );
 }
 
 function validateAttendancePeriod(

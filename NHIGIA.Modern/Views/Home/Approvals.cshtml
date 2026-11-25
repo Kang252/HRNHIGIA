@@ -2353,17 +2353,6 @@ textarea.tc-form-control {
                         <div class="tc-item-text"><span class="tc-item-title">Ca làm</span></div>
                         <i class="material-icons tc-item-arrow">chevron_right</i>
                     </div>
-                    <div class="tc-create-item" data-type="Thay đổi giờ vào/ra" data-cat="Lượt chấm công">
-                        <span class="tc-item-icon" style="background:#fce7f3;color:#db2777;" title="Thay đổi giờ vào/ra">
-                            <svg class="tc-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <circle cx="12" cy="12" r="10" />
-                                <polyline points="12 6 12 12 16 14" />
-                                <path d="M12 2a10 10 0 0 1 7.07 17.07" />
-                            </svg>
-                        </span>
-                        <div class="tc-item-text"><span class="tc-item-title">Thay đổi giờ vào/ra</span></div>
-                        <i class="material-icons tc-item-arrow">chevron_right</i>
-                    </div>
                     <div class="tc-create-item" data-type="Suất ăn" data-cat="Lượt chấm công">
                         <span class="tc-item-icon" style="background:#ffe4e6;color:#e11d48;" title="Suất ăn">
                             <svg class="tc-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -2710,6 +2699,10 @@ textarea.tc-form-control {
         return v ? moment(v).format('DD/MM/YYYY HH:mm') : '—';
     }
 
+    // Số ngày công do máy chủ tính theo lịch và buổi nghỉ; yêu cầu không phải nghỉ dùng số ngày lịch.
+    function leaveDays(x) {
+        return x.RequestedDays == null ? calcDays(x.StartDate, x.EndDate) : String(x.RequestedDays).replace('.', ',');
+    }
     function calcDays(start, end) {
         if (!start || !end) return 1;
         var s = moment(start).startOf('day');
@@ -2893,7 +2886,7 @@ textarea.tc-form-control {
                 var isChecked = checkedIds.has(x.Id);
                 var canApprove = canUserApprove(x);
                 var av = getAvatarStyle(x.DisplayName);
-                var days = calcDays(x.StartDate, x.EndDate);
+                var days = leaveDays(x);
 
                 return '<tr class="tc-row ' + (isChecked ? 'is-selected' : '') + '" data-id="' + x.Id + '">' +
                     '<td class="td-checkbox">' +
@@ -2994,7 +2987,7 @@ textarea.tc-form-control {
         selectedRecord = x;
 
         var av = getAvatarStyle(x.DisplayName);
-        var days = calcDays(x.StartDate, x.EndDate);
+        var days = leaveDays(x);
         var canApprove = canUserApprove(x);
 
         $('#drawerReqCode').text('#' + x.RequestCode);
@@ -3277,10 +3270,6 @@ textarea.tc-form-control {
     }
 
     function renderFlowPreviewRow(s1, s2, s3) {
-        var approverStep = (roleCode === 'MANAGER') ? 'Giám đốc phê duyệt' : 'Trưởng phòng phê duyệt';
-        if (s2 && s2.indexOf('Giám đốc') !== -1) {
-            approverStep = s2;
-        }
         return '<div class="tc-tanca-row align-top" style="margin-top:14px;">' +
             '<label>Quy trình duyệt</label>' +
             '<div class="tc-flow-preview" style="width:100%;">' +
@@ -3291,7 +3280,7 @@ textarea.tc-form-control {
                 '<i class="material-icons tc-flow-arrow">arrow_forward</i>' +
                 '<div class="tc-flow-step">' +
                     '<i class="material-icons">verified_user</i>' +
-                    '<span>' + esc(approverStep) + '</span>' +
+                    '<span id="dynApproverPreview" aria-live="polite">Đang xác định người duyệt…</span>' +
                 '</div>' +
             '</div>' +
         '</div>';
@@ -3406,7 +3395,7 @@ textarea.tc-form-control {
         html += '<div><input type="date" id="dynStartDate" class="tc-tanca-input" value="' + today + '" required /></div>';
         html += '<div style="display:flex;align-items:center;gap:6px;">';
         html += '<input type="date" id="dynEndDate" class="tc-tanca-input" value="' + today + '" required />';
-        html += '<span id="dynLeaveDaysCalc" class="tc-calc-badge">1 ngày</span>';
+        html += '<span id="dynLeaveDaysCalc" class="tc-calc-badge" aria-live="polite">Đang tính…</span>';
         html += '</div></div></div>';
         html += '<div class="tc-tanca-row">';
         html += '<label>Buổi áp dụng</label>';
@@ -3970,6 +3959,7 @@ textarea.tc-form-control {
 
         // Render dynamic form tailored for this type & category
         renderDynamicCreateForm(type, cat);
+        HrmRequestForm.refreshPreview();
     }
 
     /* Export Modal Handlers */
@@ -4047,7 +4037,7 @@ textarea.tc-form-control {
 
             if (exportRows.length > 0) {
                 exportRows.forEach(function (x, idx) {
-                    var days = calcDays(x.StartDate, x.EndDate);
+                    var days = leaveDays(x);
                     var bg = idx % 2 === 0 ? '#ffffff' : '#f8fafc';
                     xlsContent += '<tr style="background:' + bg + ';height:30px;">';
                     xlsContent += '<td style="padding:6px 10px;border:1px solid #e2e8f0;font-weight:bold;color:#1769e0;">' + esc(x.RequestCode) + '</td>';
@@ -4083,7 +4073,7 @@ textarea.tc-form-control {
             var csvContent = '\uFEFF' + headers.join(',') + '\n';
             if (exportRows.length > 0) {
                 exportRows.forEach(function (x) {
-                    var days = calcDays(x.StartDate, x.EndDate);
+                    var days = leaveDays(x);
                     var rowData = [
                         x.RequestCode,
                         x.DisplayName,
@@ -4198,14 +4188,7 @@ textarea.tc-form-control {
             var f = this.files && this.files[0];
             $('#dynAttachmentName').html(f ? ('<i class="material-icons" style="font-size:14px;color:#10b981;vertical-align:middle;">check_circle</i> ' + esc(f.name) + ' (' + (f.size / 1024).toFixed(1) + ' KB)') : 'Chưa có tệp nào');
         });
-        $(document).on('change', '#dynStartDate, #dynEndDate', function () {
-            var s = $('#dynStartDate').val();
-            var e = $('#dynEndDate').val();
-            if (s && e) {
-                var d = calcDays(s, e);
-                $('#dynLeaveDaysCalc').text(d + ' ngày');
-            }
-        });
+        HrmRequestForm.bindPreview('@Url.Action("LeavePreview", "Hrm")');
         $(document).on('input change', '#dynRuleTime, #dynActualTime', function () {
             var r = $('#dynRuleTime').val();
             var a = $('#dynActualTime').val();
@@ -4344,9 +4327,9 @@ textarea.tc-form-control {
                 endDate = eDate;
                 sessionCode = sess;
                 handoverTo = ho;
-                var days = calcDays(sDate, eDate);
+                var daysText = HrmRequestForm.leaveDaysText();
 
-                reason = 'Tiêu đề: ' + title + '\n' + 'Loại: ' + leaveSubtype + (loc ? ' | Địa điểm: ' + loc : '') + ' | Thời gian: ' + days + ' ngày (' + sess + ')\n';
+                reason = 'Tiêu đề: ' + title + '\n' + 'Loại: ' + leaveSubtype + (loc ? ' | Địa điểm: ' + loc : '') + ' | Thời gian: ' + (daysText ? daysText + ' ' : '') + '(' + sess + ')\n';
                 if (isTrip) {
                     var advance = parseFloat($('#dynAdvanceAmount').val()) || 0;
                     reason += 'Đối tác / liên hệ: ' + (($('#dynTripContact').val() || '').trim() || 'Chưa cung cấp') + '\n' +

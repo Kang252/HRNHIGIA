@@ -103,6 +103,8 @@
         text-decoration: none !important;
     }
     .btn-payroll:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+    .btn-payroll-calculate { background: #0f766e; color: #fff; }
+    .btn-payroll-calculate:hover { background: #115e59; color: #fff; }
     .btn-payroll-approve { background: #10b981; color: #fff; }
     .btn-payroll-approve:hover { background: #059669; color: #fff; }
     .btn-payroll-reject { background: #ef4444; color: #fff; }
@@ -653,7 +655,7 @@
                       onsubmit="return confirm('Tính lại bảng lương từ kỳ chấm công đã khóa? Các bản kế toán đã sửa tay và bản đã trình/duyệt sẽ được giữ nguyên.');">
                     @Html.AntiForgeryToken()
                     <input type="hidden" name="period" value="@currentPeriod" />
-                    <button type="submit" class="btn-payroll btn-payroll-approve" title="Dùng chấm công, nghỉ phép và OT đã duyệt trong kỳ 25–24">
+                    <button type="submit" class="btn-payroll btn-payroll-calculate" title="Dùng chấm công, nghỉ phép và OT đã duyệt trong kỳ 25–24">
                         <i class="material-icons" style="font-size:18px;">calculate</i> Tính lương tự động
                     </button>
                 </form>

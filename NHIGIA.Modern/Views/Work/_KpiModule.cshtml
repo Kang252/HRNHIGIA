@@ -16,6 +16,7 @@
         Category = "%",
         Weight = 10
     };
+    var highlightId = TempData["KpiHighlightId"] as int?;
     var createTargetValue = createDraft.Target?.ToString(System.Globalization.CultureInfo.InvariantCulture);
     var createWeightValue = createDraft.Weight?.ToString(System.Globalization.CultureInfo.InvariantCulture);
 }
@@ -269,13 +270,13 @@
                                 var canEvaluate = Model.CanManage;
                                 var rateClass = item.CompletionRate >= 100m ? "rate-green" : item.CompletionRate >= 70m ? "rate-blue" : item.CompletionRate >= 40m ? "rate-amber" : "rate-red";
 
-                                <tr>
+                                <tr id="kpi-row-@item.Id" class="@(item.Id == highlightId ? "kpi-row-saved" : null)">
                                     <!-- Cột Mục tiêu: Dấu chấm trạng thái + Tiêu đề + Thông tin nhân viên / mã -->
                                     <td>
                                         <div class="kpi-target-cell">
                                             <span class="kpi-status-dot @dotClass" title="@dotTitle"></span>
                                             <div class="kpi-target-content">
-                                                <div class="kpi-item-name">@item.Title</div>
+                                                <div class="kpi-item-name">@item.Title @if (item.Id == highlightId) { <span class="kpi-saved-badge">Vừa lưu</span> }</div>
                                                 <div class="kpi-item-meta">
                                                     @if (!string.IsNullOrWhiteSpace(item.EmployeeName))
                                                     {
@@ -433,6 +434,7 @@
                                                         <li>
                                                             <form method="post" asp-controller="Work" asp-action="DeleteKpi" onsubmit="return confirm('Bạn có chắc chắn muốn xóa KPI này không?');">
                                                                 @Html.AntiForgeryToken()
+                                                                <partial name="_KpiFilterState" model="Model" />
                                                                 <input type="hidden" name="id" value="@item.Id" />
                                                                 <button type="submit" class="kpi-delete-link">
                                                                     <i class="material-icons" style="font-size:16px;">delete</i> Xóa KPI
@@ -459,6 +461,7 @@
             <div class="modal-content kpi-modal-content">
                 <form method="post" asp-controller="Work" asp-action="SubmitKpiProof">
                     @Html.AntiForgeryToken()
+                    <partial name="_KpiFilterState" model="Model" />
                     <input type="hidden" name="id" id="proofKpiId" value="" />
                     <div class="modal-header kpi-modal-header">
                         <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
@@ -497,6 +500,7 @@
             <div class="modal-content kpi-modal-content">
                 <form method="post" asp-controller="Work" asp-action="EvaluateKpiProof">
                     @Html.AntiForgeryToken()
+                    <partial name="_KpiFilterState" model="Model" />
                     <input type="hidden" name="id" id="evalKpiId" value="" />
                     <div class="modal-header kpi-modal-header evaluate-header">
                         <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
@@ -545,6 +549,7 @@
             <div class="modal-content kpi-modal-content">
                 <form method="post" asp-controller="Work" asp-action="Create">
                     @Html.AntiForgeryToken()
+                    <partial name="_KpiFilterState" model="Model" />
                     <input type="hidden" name="Kind" value="kpi" />
                     <input type="hidden" name="KpiPeriodType" value="@createDraft.KpiPeriodType" />
                     <div class="modal-header kpi-modal-header">
@@ -698,6 +703,7 @@
             <div class="modal-content kpi-modal-content">
                 <form method="post" asp-controller="Work" asp-action="UpdateKpi">
                     @Html.AntiForgeryToken()
+                    <partial name="_KpiFilterState" model="Model" />
                     <input type="hidden" name="Kind" value="kpi" />
                     <input type="hidden" name="KpiPeriodType" id="editKpiPeriodType" value="@Model.PeriodType" />
                     <input type="hidden" name="Id" id="editKpiId" value="" />
@@ -1172,6 +1178,23 @@
         }
         .kpi-table tbody tr:hover {
             background: #fafcff;
+        }
+        .kpi-table tbody tr.kpi-row-saved > td {
+            background: #ecfdf5;
+        }
+        .kpi-table tbody tr.kpi-row-saved > td:first-child {
+            box-shadow: inset 4px 0 0 #10b981;
+        }
+        .kpi-saved-badge {
+            display: inline-block;
+            margin-left: 6px;
+            padding: 1px 8px;
+            border-radius: 999px;
+            background: #10b981;
+            color: #fff;
+            font-size: 11px;
+            font-weight: 600;
+            vertical-align: middle;
         }
         .kpi-target-cell {
             display: flex;
@@ -1650,6 +1673,9 @@
     }
 
     $(document).ready(function() {
+        var savedRow = document.querySelector('.kpi-row-saved');
+        if (savedRow) savedRow.scrollIntoView({ block: 'center' });
+
         // Nút mở modal tạo KPI
         $(document).on('click', '#btnOpenCreateKpi, .kpi-create-btn', function (e) {
             e.preventDefault();

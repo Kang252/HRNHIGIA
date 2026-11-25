@@ -3,11 +3,15 @@
 <div class="container-fluid remote-page" id="remoteAttendance" data-user-id="@Model.Id">
     <div class="hrm-page-header">
         <div><h1 class="hrm-page-title">Chấm công ngoài công ty</h1><p class="hrm-page-subtitle">Làm tại nhà · Đi thị trường · Ghé khách hàng</p></div>
-        <div class="remote-actions"><a class="hrm-btn hrm-btn-primary" href="/Home/LeaveRequests#remoteRegistration">Đăng ký lịch tại Thủ tục</a><a class="hrm-btn" asp-controller="Home" asp-action="Attendance">Bảng chấm công tháng</a></div>
+        <div class="remote-actions"><a class="hrm-btn" asp-controller="Home" asp-action="Attendance">Bảng chấm công tháng</a></div>
     </div>
     <div id="remoteMessage" class="remote-message" role="status" aria-live="polite" hidden></div>
+    <section class="hrm-card remote-steps" id="remoteSteps" aria-label="Các bước trước khi chấm công" hidden>
+        <div class="remote-steps-head"><div><h2 class="hrm-card-title" id="remoteStepTitle"></h2><p class="hrm-field-note" id="remoteStepHint"></p></div><a class="hrm-btn hrm-btn-primary" id="remoteStepAction" hidden></a></div>
+        <ol id="remoteStepList"></ol>
+    </section>
     <p class="remote-intro">Đăng ký mẫu khuôn mặt và chờ HR duyệt trước khi chấm vào/ra. Thử so khớp ảnh OpenCV chỉ hỗ trợ đối chiếu, chưa kiểm tra người thật (liveness). Lượt vào/ra vẫn cần xác minh thủ công trước khi tính công.</p>
-    <div class="remote-intro"><strong id="remoteFaceState">Đang kiểm tra mẫu khuôn mặt…</strong> <a class="hrm-btn" href="/FaceEnrollment">Khuôn mặt chấm công</a></div>
+    <div class="remote-intro"><strong id="remoteFaceState">Đang kiểm tra mẫu khuôn mặt…</strong> <a class="hrm-btn" href="/FaceEnrollment">Khuôn mặt chấm công</a> <a class="hrm-btn" href="/Home/LeaveRequests#remoteRegistration">Đăng ký lịch tại Thủ tục</a></div>
     <div>
         <section class="hrm-card">
             <div class="hrm-card-header"><h2 class="hrm-card-title">Ghi nhận lượt chấm</h2><span id="remoteConnection" class="hrm-badge">Đang kiểm tra</span></div>
@@ -22,7 +26,7 @@
                 <div class="remote-camera">
                     <video id="remoteVideo" autoplay playsinline muted hidden></video><img id="remotePhoto" alt="Ảnh vừa chụp để đối soát" hidden />
                     <p id="remoteCameraHint">Chụp selfie khi vào/ra; ảnh điểm bán khi ghé khách hàng.</p>
-                    <div class="remote-actions"><button class="hrm-btn" type="button" id="remoteOpenCamera">Mở camera</button><button class="hrm-btn" type="button" id="remoteCapture" disabled>Chụp ảnh và lấy GPS</button></div>
+                    <div class="remote-actions"><button class="hrm-btn" type="button" id="remoteOpenCamera" disabled>Mở camera</button><button class="hrm-btn" type="button" id="remoteCapture" disabled>Chụp ảnh và lấy GPS</button></div>
                 </div>
                 <p id="remoteGps" class="hrm-field-note">GPS sẽ được lấy cùng lúc chụp ảnh.</p>
                 <div class="remote-face-trial" id="remoteFaceTrial" hidden>
@@ -32,7 +36,7 @@
                 </div>
                 <p id="remoteFaceTrialUnavailable" class="hrm-field-note">Đang kiểm tra tính năng thử so khớp…</p>
                 <label for="remoteNote">Nội dung công việc / giải trình</label><textarea id="remoteNote" class="hrm-control" maxlength="2000" rows="3" placeholder="Ghi chú nếu đổi điểm, GPS yếu, làm ngoài giờ hoặc mất mạng"></textarea>
-                <button class="hrm-btn hrm-btn-primary remote-submit" type="submit" id="remoteSend">Ghi nhận lượt chấm</button>
+                <button class="hrm-btn hrm-btn-primary remote-submit" type="submit" id="remoteSend" disabled>Ghi nhận lượt chấm</button>
                 <p class="hrm-field-note">Khi mất mạng: giữ trang đã mở để chấm. Bản ghi được lưu trên thiết bị và gửi lại khi có mạng, sau đó chờ quản lý xác minh.</p>
             </form>
         </section>

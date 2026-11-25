@@ -314,6 +314,8 @@
     document.addEventListener('click', function (e) {
         var btn = e.target && e.target.closest ? e.target.closest('.btn-payroll-publish, .btn-payroll-approve, .btn-payroll-reject, .btn-payroll-finalize, [data-target="#modalBatchPublish"], [data-target="#modalBatchApprove"], [data-target="#modalBatchReject"], [data-target="#modalBatchFinalize"], [data-target="#modalAddAllowance"], [data-target="#modalAddDeduction"], [data-target="#modalAddAdvance"]') : null;
         if (!btn) return;
+        // Nút gửi biểu mẫu (ví dụ Tính lương tự động) phải chạy đúng thao tác của nó, không mở hộp duyệt.
+        if (btn.type === 'submit') return;
 
         e.preventDefault();
         e.stopPropagation();

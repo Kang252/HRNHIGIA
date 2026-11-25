@@ -3,6 +3,7 @@ const test = require("node:test");
 
 const {
   AttendanceService,
+  assertAttendancePeriodEnded,
   attendancePeriodScopeFor,
   attendanceScopeFor,
   projectAttendance,
@@ -112,6 +113,19 @@ test("attendance period defaults in Vietnam only when the query is omitted", asy
     period: "2026-1",
   });
   assert.ok((await validate(malformed)).length > 0);
+});
+
+test("attendance period can be confirmed only after its last day in Vietnam", () => {
+  assert.throws(
+    () => assertAttendancePeriodEnded("2026-12", new Date("2026-11-25T01:00:00Z")),
+    /25\/12\/2026/,
+  );
+  assert.throws(() =>
+    assertAttendancePeriodEnded("2026-12", new Date("2026-12-24T16:59:59Z")),
+  );
+  assert.doesNotThrow(() =>
+    assertAttendancePeriodEnded("2026-12", new Date("2026-12-24T17:00:00Z")),
+  );
 });
 
 test("attendance period query applies the role scope to every aggregate", async () => {

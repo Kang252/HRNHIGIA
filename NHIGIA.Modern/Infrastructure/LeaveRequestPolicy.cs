@@ -50,6 +50,18 @@ public static class LeaveRequestPolicy
         return ownerRole == HrmRoles.Employee && days <= 3m ? "PENDING_MANAGER" : "PENDING_HR";
     }
 
+    public static string ApproverLabel(string statusCode) =>
+        statusCode == "PENDING_MANAGER" ? "Trưởng phòng" : "HR/Giám đốc";
+
+    /// <summary>Workdays of a stored request, or null when its session is not a leave session.</summary>
+    public static decimal? RequestedDays(LeaveRequestModel request, IEnumerable<ScheduleModel> schedules) =>
+        AttendanceLeavePolicy.SessionMask(request.SessionCode) == 0
+            ? null
+            : RequestedDays(new CreateLeaveRequest
+            {
+                StartDate = request.StartDate, EndDate = request.EndDate, SessionCode = request.SessionCode
+            }, schedules, request.UserId);
+
     public static string Validate(CreateLeaveRequest request)
     {
         if (request == null || string.IsNullOrWhiteSpace(request.LeaveType) || request.LeaveType.Length > 80)

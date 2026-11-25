@@ -66,7 +66,7 @@ if(!args.Contains("--integration")) return;
 
 // Dedicated disposable database on LOCALDB only. Never reads production configuration.
 var database="NHIGIA_RemoteTests_"+Guid.NewGuid().ToString("N");
-var masterString="Server=(localdb)\\NHIGIA;Database=master;Integrated Security=true;TrustServerCertificate=true;Connect Timeout=15";
+var masterString=$"Server=(localdb)\\{Environment.GetEnvironmentVariable("HRM_TEST_LOCALDB") ?? "NHIGIA"};Database=master;Integrated Security=true;TrustServerCertificate=true;Connect Timeout=15";
 using var master=new SqlConnection(masterString);master.Open();master.Execute($"CREATE DATABASE [{database}]");
 var testString=new SqlConnectionStringBuilder(masterString){InitialCatalog=database}.ConnectionString;
 var config=new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string?>{{"HRM_CONNECTION_STRING",testString}}).Build();
@@ -82,6 +82,7 @@ try
     store.EnsureSchema(Path.Combine(root,"App_Data/remote-attendance.sql"));
     store.EnsureSchema(Path.Combine(root,"App_Data/face-enrollment.sql"));
     store.EnsureSchema(Path.Combine(root,"App_Data/face-enrollment.sql"));
+    store.EnsureSchema(Path.Combine(root,"App_Data/opencv-face-trial.sql"));
     using var db=new SqlConnection(testString);db.Open();
     var dep=db.ExecuteScalar<int>("INSERT dbo.HrmDepartment(Code,Name) OUTPUT INSERTED.Id VALUES('TEST_REMOTE',N'Test remote')");
     int AddUser(string username,string role,int? department) => db.ExecuteScalar<int>("INSERT dbo.HrmUserAccount(Username,DisplayName,PasswordHash,PasswordSalt,RoleCode,DepartmentId) OUTPUT INSERTED.Id VALUES(@username,@username,'unused','unused',@role,@department)",new{username,role,department});
@@ -136,17 +137,19 @@ try
     Check(store.GetAttendance(owner,from.Date,to.Date).Single().EventCount==1,"visit evidence excluded from attendance punches");
     store.RecordRemotePunch(DbPunch("OUT",to),photo,owner,"127.0.0.1");
     var output=store.GetRemotePunches(owner,from.Date,to.Date).Single(x=>x.Kind=="OUT");
-    Check(store.GetAttendancePeriod(from.ToString("yyyy-MM"),hr).PendingRemoteCount==1,"period counts pending remote punches");
-    store.ConfirmAttendancePeriod(from.ToString("yyyy-MM"),owner,"127.0.0.1");
+    var punchPeriod=AttendancePeriodRange.ForDate(from);
+    Check(store.GetAttendancePeriod(punchPeriod.Period,hr).PendingRemoteCount==1,"period counts pending remote punches");
+    db.Execute("INSERT dbo.HrmAttendancePeriodConfirmation(Period,UserId,SubmittedAt) VALUES(@Period,@Id,@At)",new{punchPeriod.Period,owner.Id,At=punchPeriod.ClosableFrom});
+    Check(store.GetAttendancePeriod(punchPeriod.Period,owner).IsConfirmed,"employee confirmation fixture is visible");
     store.DecideRemotePunch(output.Id,true,"Đối chiếu cuối ngày",reviewer,"127.0.0.1");
-    Check(!store.GetAttendancePeriod(from.ToString("yyyy-MM"),owner).IsConfirmed,"new approved evidence invalidates old employee confirmation");
+    Check(!store.GetAttendancePeriod(punchPeriod.Period,owner).IsConfirmed,"new approved evidence invalidates old employee confirmation");
     var actual=store.GetAttendance(owner,from.Date,to.Date).Single();
     Check(actual.CheckIn==from && actual.CheckOut==to && actual.WorkedMinutes==480 && actual.Source=="GPS + Photo","SQL projection uses typed punches and flexible plan");
-    store.SetAttendancePeriodLock(from.ToString("yyyy-MM"),true,"test lock",true,hr,"127.0.0.1");
+    db.Execute("INSERT dbo.HrmAttendancePeriod(Period,StatusCode,LockedByUserId,LockedAt) VALUES(@Period,'LOCKED',@Id,SYSDATETIME())",new{punchPeriod.Period,hr.Id});
     Reject(()=>store.RecordRemotePunch(DbPunch("IN",from.AddMinutes(1)),photo,owner,"127.0.0.1"),"locked period refuses late upload");
     store.RecordRemotePunch(input,photo,owner,"127.0.0.1");
     Check(store.GetAttendance(owner,from.Date,to.Date).Single().WorkedMinutes==480,"locked period snapshot and idempotent retry stable");
-    store.SetAttendancePeriodLock(from.ToString("yyyy-MM"),false,"test unlock",false,hr,"127.0.0.1");
+    store.SetAttendancePeriodLock(punchPeriod.Period,false,"test unlock",false,hr,"127.0.0.1");
     store.SaveAttendanceEvent(new HanetWebhookEvent{EventKey="remote-test-mixed",PersonId="unmapped",CheckTime=from.AddMinutes(-10),PayloadJson="{}"});
     db.Execute("UPDATE dbo.HrmAttendanceEvent SET UserId=@Id WHERE EventKey='remote-test-mixed'",new{owner.Id});
     Check(store.GetAttendance(owner,from.Date,to.Date).Single().Source=="HANET + GPS","HANET and remote merged without duplicate day");
